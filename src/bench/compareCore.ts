@@ -52,6 +52,25 @@ function buildCompatibilityIssues(baseline: BenchmarkSummaryFile, candidate: Ben
   const baseContext = baseline.runContext;
   const candContext = candidate.runContext;
 
+  const baselineProfiles = new Set(baseline.summaries.map((s) => s.profile.name));
+  const candidateProfiles = new Set(candidate.summaries.map((s) => s.profile.name));
+  const missingInCandidate = [...baselineProfiles].filter((name) => !candidateProfiles.has(name));
+  const extraInCandidate = [...candidateProfiles].filter((name) => !baselineProfiles.has(name));
+
+  if (missingInCandidate.length > 0 || extraInCandidate.length > 0) {
+    issues.push(
+      `profile set mismatch: missing_in_candidate=[${missingInCandidate.join(",") || "none"}], extra_in_candidate=[${extraInCandidate.join(",") || "none"}]`
+    );
+  }
+
+  if (!baseContext?.promptsDigestSha256 || !candContext?.promptsDigestSha256) {
+    issues.push("missing prompt digest in runContext");
+  }
+
+  if (!baseContext?.profilesDigestSha256 || !candContext?.profilesDigestSha256) {
+    issues.push("missing profile digest in runContext");
+  }
+
   if (baseContext?.promptsDigestSha256 && candContext?.promptsDigestSha256) {
     if (baseContext.promptsDigestSha256 !== candContext.promptsDigestSha256) {
       issues.push("prompt set digest mismatch");
@@ -65,6 +84,10 @@ function buildCompatibilityIssues(baseline: BenchmarkSummaryFile, candidate: Ben
   }
 
   if (baseline.mode === "simulate") {
+    if (!baseContext?.simulationSeed || !candContext?.simulationSeed) {
+      issues.push("missing simulation seed in runContext for simulate mode");
+    }
+
     if (baseContext?.simulationSeed && candContext?.simulationSeed) {
       if (baseContext.simulationSeed !== candContext.simulationSeed) {
         issues.push(
@@ -155,6 +178,10 @@ export function compareBenchmarkFiles(
   const deltas = computeDeltas(baseline, candidate);
   const baseReport = evaluateDeltas(deltas, thresholds);
   const compatibilityIssues = buildCompatibilityIssues(baseline, candidate);
+
+  if (deltas.length === 0) {
+    compatibilityIssues.push("no overlapping profile names to compare");
+  }
 
   return {
     ...baseReport,

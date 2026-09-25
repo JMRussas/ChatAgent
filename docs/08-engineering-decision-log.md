@@ -11,6 +11,42 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Strict Benchmark Parity and Context Completeness Checks
+
+Status: Closed
+
+Issue:
+
+- Compare logic could compute deltas on profile intersection only, which allowed partial comparisons to pass.
+- Compatibility checks validated context only when fields existed, allowing missing metadata to bypass strict verification.
+
+Decision:
+
+- Enforce full profile-set parity for baseline and candidate benchmark summaries.
+- Require run-context digest fields for compare eligibility.
+- Fail compare when simulate mode lacks simulation seed metadata.
+
+Changes made:
+
+1. Added profile-set mismatch compatibility issue with explicit missing/extra lists.
+2. Added required-field checks for prompt and profile digests.
+3. Added simulate-mode requirement for `simulationSeed`.
+4. Added defensive fail when zero overlapping profiles exist.
+5. Added unit tests for profile mismatch and missing context-field failures.
+
+Files changed:
+
+- `src/bench/compareCore.ts`
+- `tests/unit/compareCore.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Compare unit tests pass for new parity and completeness gates.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Benchmark Reproducibility Context and Compatibility Gates
 
 Status: Closed

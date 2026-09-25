@@ -70,6 +70,11 @@
 - Persist prompt/profile digests and run context in benchmark artifacts
 - Fail compare when baseline/candidate contexts are incompatible
 
+16. Strict benchmark parity checks
+- Require full profile-set parity between baseline and candidate runs
+- Require run-context digests to exist for compare eligibility
+- Fail compare early when no overlapping profiles are available
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

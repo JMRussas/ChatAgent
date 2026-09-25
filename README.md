@@ -184,6 +184,7 @@ npm run bench:compare
 ```
 
 Compare also enforces benchmark context compatibility (mode, prompt digest, profile digest, and simulation seed when available).
+It also requires full profile-set parity (no missing/extra profile names between baseline and candidate).
 
 Optional compare thresholds/env:
 

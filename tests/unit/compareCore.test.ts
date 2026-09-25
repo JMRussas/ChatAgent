@@ -109,4 +109,49 @@ describe("benchmark compare core", () => {
     expect(report.passed).toBe(false);
     expect(report.compatibilityIssues.some((issue) => issue.includes("simulation seed mismatch"))).toBe(true);
   });
+
+  it("fails compare when profile sets do not match", () => {
+    const candidate = {
+      ...baseline,
+      summaries: [
+        {
+          ...baseline.summaries[0],
+          profile: {
+            ...baseline.summaries[0].profile,
+            name: "azure-alt"
+          }
+        }
+      ]
+    };
+
+    const report = compareBenchmarkFiles(baseline, candidate, {
+      maxFirstResponseP95RegressionMs: 100,
+      maxFinalLatencyP95RegressionMs: 200,
+      maxDeadLetterRateRegression: 0.05,
+      minQualityDelta: -0.05
+    });
+
+    expect(report.passed).toBe(false);
+    expect(report.compatibilityIssues.some((issue) => issue.includes("profile set mismatch"))).toBe(true);
+  });
+
+  it("fails compare when required runContext fields are missing", () => {
+    const candidate = {
+      ...baseline,
+      runContext: {
+        promptsDigestSha256: baseline.runContext.promptsDigestSha256,
+        profilesDigestSha256: baseline.runContext.profilesDigestSha256
+      }
+    };
+
+    const report = compareBenchmarkFiles(baseline, candidate, {
+      maxFirstResponseP95RegressionMs: 100,
+      maxFinalLatencyP95RegressionMs: 200,
+      maxDeadLetterRateRegression: 0.05,
+      minQualityDelta: -0.05
+    });
+
+    expect(report.passed).toBe(false);
+    expect(report.compatibilityIssues.some((issue) => issue.includes("missing simulation seed"))).toBe(true);
+  });
 });
