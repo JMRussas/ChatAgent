@@ -16,6 +16,12 @@ request awareness separately from accepted answers. Implement in two stages: 01A
 bounded snapshots/task state, then 01B compression/source-backed memory. These are
 planned changes; no context implementation is claimed by this documentation update.
 
+Runtime ownership across ChatAgent, Hekate, and Iris is now decided in
+[ADR 0001](adr/0001-chat-runtime-ownership.md): ChatRuntime keeps owning chat
+request-handling logic, reusing Hekate's context-store as a durable persistence
+backend. This is a design decision, not an implemented migration; see the ADR's
+"Next vertical slice" for the first concrete cross-repo integration step.
+
 Later UI decisions are now specified in [02 activity sub-bubbles](implementation/02-activity-ui.md):
 attached per-turn progress, expandable step history, observable model/activity labels,
 elapsed time and preserved substantive answers with separate updates. These do not

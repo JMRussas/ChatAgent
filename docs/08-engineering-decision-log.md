@@ -1197,3 +1197,65 @@ implementation/NEXT-HANDOFF.md, before overlapping memory/provider migration.
 01B and monetary/quota/compute enforcement remain unimplemented. Provider context
 overflow still needs typed terminal handling during the generation integration;
 this checkpoint does not claim all original context-spec requirements are closed.
+
+---
+
+## 2026-09-25 - Chat runtime ownership ADR (cross-repository)
+
+Status: Design deliverable complete; no migration or code change implemented.
+
+Issue:
+
+- Hekate, Iris, and ChatAgent independently do chat/context/provider work with
+  overlapping but inconsistent contracts, per `implementation/07-shared-chat-runtime.md`.
+  The runtime/persistence owner was explicitly undecided pending source inspection.
+
+Decision:
+
+- Traced Hekate's and Iris's actual active chat call paths with two parallel
+  read-only investigation agents (no assumptions carried over from the earlier
+  planning note). Two findings changed the plan materially: Hekate's
+  `/api/chat/stream` and `/api/brain/*` endpoints have no auth/project-isolation
+  boundary at all, and Iris's `ChatSessionManager` sends `session.ProjectId` as
+  Hekate's `conversation_id` — a real, reproducible collision across concurrent
+  task sessions in one project, plus a discarded SSE `conversation_id` field.
+- Recorded `docs/adr/0001-chat-runtime-ownership.md`: ChatRuntime (this repo)
+  keeps owning chat request-handling/context logic; Hekate's context-store
+  (Postgres + AGE + pgvector, already deployed) is reused as a durable
+  persistence backend via a new adapter, instead of porting context logic into
+  Hekate's Python codebase or building new storage. Standalone mode, a declared
+  (not yet enforced) `accountId`/`projectId` auth boundary, credentials
+  ownership, versioning/rollback, and service-failure fallback are specified.
+- Proposed protocol v1 request/event schemas, an example fixture for one Iris
+  fast/deep turn, and a field-mapping table from today's Hekate/Iris/ChatAgent
+  identities onto the new protocol.
+- Defined one next vertical slice (route one Iris project-tab session through
+  ChatRuntime behind a feature flag) with named offline acceptance tests, and
+  reconciled it against 01B/02–06: 01B's `SourceStore` needs either a new
+  context-store "list turns" endpoint or a ChatRuntime-side cache, since
+  `/api/brain/assemble` returns only a digest, not raw ordered turns.
+
+Changes made:
+
+1. Added `docs/adr/0001-chat-runtime-ownership.md`.
+2. Updated `docs/implementation/07-shared-chat-runtime.md` (step 2/3 marked
+   done, linking the ADR) and `docs/implementation/NEXT-HANDOFF.md` (defines
+   the next choice: 01B vs. the vertical slice).
+3. Updated Hekate's and Iris's root `CHAT-CONSOLIDATION.md` with a pointer to
+   the ADR and its key findings (only that file touched in each sibling repo;
+   unrelated in-progress work in both repos was left untouched).
+
+Files changed:
+
+- `docs/adr/0001-chat-runtime-ownership.md` (new)
+- `docs/implementation/07-shared-chat-runtime.md`
+- `docs/implementation/NEXT-HANDOFF.md`
+- (sibling repos, separate commits) `Hekate/CHAT-CONSOLIDATION.md`, `Iris/CHAT-CONSOLIDATION.md`
+
+Validation evidence:
+
+1. Two independent read-only investigation agents produced file:line-cited
+   findings for every claim in the ADR; no file in Hekate or Iris was modified
+   during investigation.
+2. No ChatRuntime source changed; existing 152-test suite, type checking and
+   `verify:release` status are unaffected and were not re-run for this entry.

@@ -3,6 +3,17 @@
 Recorded 2026-09-25. Status: consolidation proposal and implementation checkpoint;
 no cross-repository migration or live integration validation has occurred.
 
+**Step 2 of the execution sequence below is done:** see
+[ADR 0001 — chat runtime ownership](../adr/0001-chat-runtime-ownership.md) for
+the cited trace of Hekate's/Iris's actual active chat paths, the runtime/
+persistence ownership decision (ChatRuntime hosts request handling; Hekate's
+context-store is reused as a durable persistence backend via a new adapter),
+protocol v1 schemas/fixtures, and the next vertical slice with named acceptance
+tests. Two confirmed findings sharpen this note's earlier assumptions: Hekate's
+`/api/chat/stream` and `/api/brain/*` have no auth/project-isolation boundary at
+all today, and Iris's `conversation_id` handling has a real, reproducible
+collision bug (not a hypothetical one) — both detailed in the ADR.
+
 ## Intent and boundary
 
 Converge on one reusable conversation runtime and a versioned HTTP/event protocol.
@@ -57,14 +68,12 @@ owner. Repository naming does not decide deployment topology or language.
 1. Preserve completed/current 01A work. Review 01B and later specs against this
    reuse checkpoint before implementing overlapping memory/provider/CLI systems.
    This note does not silently replace their acceptance criteria.
-2. Trace active Hekate gateway/executor routes and Iris chat call sites. Record an
-   ADR naming the runtime owner, persistence owner, supported standalone mode,
-   auth/project isolation boundary, and fallback behavior on service failure.
-3. Define protocol v1 with request/event JSON schemas and shared fixture tests.
-   Include conversationId, messageId, taskId where applicable, attemptId,
-   ordered event identity, answer revision, model identity, deltas, activity,
-   usage, and explicit complete/failed/cancelled outcomes. Specify reconnect,
-   idempotency, cancellation and compatibility semantics before coding adapters.
+2. **Done** — see ADR 0001 above for the cited trace and the runtime owner,
+   persistence owner, standalone mode, auth/project isolation boundary, and
+   service-failure decisions.
+3. **Schemas proposed in ADR 0001** (request/event shapes, example fixture,
+   field mapping table); shared fixture *tests* are not written yet — that is
+   part of building the vertical slice, not this design step.
 4. Build one vertical slice: Iris sends a turn through an adapter to the chosen
    runtime, receives a fast answer and optional deep update attached to that turn.
    Keep an explicit rollback switch and existing clients working during migration.
