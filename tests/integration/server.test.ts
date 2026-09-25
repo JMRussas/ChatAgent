@@ -184,11 +184,13 @@ describe("chat server", () => {
       policy: { maxFastP95Ms: number };
       estimates: Array<{ p95: number }>;
       queueDepth?: number;
+      runtimeMode?: { mode: string };
     };
 
     expect(telemetryPayload.policy.maxFastP95Ms).toBe(1000);
     expect(telemetryPayload.estimates.length).toBeGreaterThan(0);
     expect(typeof telemetryPayload.queueDepth).toBe("number");
+    expect(telemetryPayload.runtimeMode?.mode).toBe("unknown");
 
     const tuneResponse = await fetch(`${baseUrl}/routing/policy/tune`, {
       method: "POST",

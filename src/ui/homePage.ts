@@ -1,4 +1,14 @@
-export function renderHomePageHtml(): string {
+interface RuntimeModeInfo {
+  mode: "mock" | "live" | "unknown";
+  fastProvider?: string;
+  fastModel?: string;
+  deepProvider?: string;
+  deepModel?: string;
+}
+
+export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unknown" }): string {
+  const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -392,6 +402,9 @@ export function renderHomePageHtml(): string {
 
       <section class="block">
         <div class="kv">
+          <span>Runtime mode</span><strong id="runtimeMode">-</strong>
+          <span>Fast provider/model</span><strong id="fastProvider">-</strong>
+          <span>Deep provider/model</span><strong id="deepProvider">-</strong>
           <span>Last route decision</span><strong id="routeDecision">-</strong>
           <span>Last confidence</span><strong id="routeConfidence">-</strong>
           <span>Policy max fast p95</span><strong id="policyP95">-</strong>
@@ -421,6 +434,8 @@ export function renderHomePageHtml(): string {
   </main>
 
   <script>
+    const runtimeInfo = ${runtimeModeJson};
+
     const state = {
       conversationId: "conv-ui-demo",
       userId: "user-demo",
@@ -428,7 +443,8 @@ export function renderHomePageHtml(): string {
       confidence: null,
       reasons: [],
       events: [],
-      previousAssistantStatuses: []
+      previousAssistantStatuses: [],
+      runtimeInfo
     };
 
     const $ = (id) => document.getElementById(id);
@@ -580,6 +596,23 @@ export function renderHomePageHtml(): string {
     }
 
     function renderTelemetry(payload) {
+      if (payload && payload.runtimeMode) {
+        state.runtimeInfo = payload.runtimeMode;
+      }
+
+      const mode = String(state.runtimeInfo?.mode ?? "unknown");
+      $("runtimeMode").textContent = mode === "live" ? "LIVE" : mode === "mock" ? "MOCK" : "UNKNOWN";
+
+      const fastLabel = state.runtimeInfo?.fastProvider && state.runtimeInfo?.fastModel
+        ? state.runtimeInfo.fastProvider + "/" + state.runtimeInfo.fastModel
+        : "-";
+      const deepLabel = state.runtimeInfo?.deepProvider && state.runtimeInfo?.deepModel
+        ? state.runtimeInfo.deepProvider + "/" + state.runtimeInfo.deepModel
+        : "-";
+
+      $("fastProvider").textContent = fastLabel;
+      $("deepProvider").textContent = deepLabel;
+
       $("policyP95").textContent = payload.policy?.maxFastP95Ms != null ? String(Math.round(payload.policy.maxFastP95Ms)) + " ms" : "-";
       $("queueDepth").textContent = payload.queueDepth != null ? String(payload.queueDepth) : "-";
 

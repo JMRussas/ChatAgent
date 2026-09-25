@@ -5,7 +5,7 @@ import { ChatOrchestrator, DeepWorker } from "./app/orchestrator";
 import { InMemoryConversationTimelineStore } from "./app/timelineStore";
 import { ChatService } from "./app/chatService";
 import { parseBooleanEnv, parseBoundedNumberEnv, parsePositiveIntEnv } from "./config/runtimeEnv";
-import { describeProviderConfig, loadRuntimeProviderConfigFromEnv } from "./config/providerConfig";
+import { describeProviderConfig, loadRuntimeProviderConfigFromEnv, type RuntimeProviderConfig } from "./config/providerConfig";
 import type { UserMessage } from "./domain/types";
 import { InMemoryTaskQueue } from "./providers/interfaces";
 import { buildProviderPair } from "./providers/providerFactory";
@@ -77,6 +77,30 @@ function json(res: ServerResponse, statusCode: number, payload: unknown): void {
   res.end(body);
 }
 
+interface RuntimeModeInfo {
+  mode: "mock" | "live" | "unknown";
+  fastProvider?: string;
+  fastModel?: string;
+  deepProvider?: string;
+  deepModel?: string;
+}
+
+interface ServerOptions {
+  runtimeMode?: RuntimeModeInfo;
+}
+
+function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo {
+  const mode = config.fast.provider === "mock" && config.deep.provider === "mock" ? "mock" : "live";
+
+  return {
+    mode,
+    fastProvider: config.fast.provider,
+    fastModel: config.fast.model,
+    deepProvider: config.deep.provider,
+    deepModel: config.deep.model
+  };
+}
+
 class HttpRequestError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -133,7 +157,7 @@ async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-export function createChatServer(service: ChatService) {
+export function createChatServer(service: ChatService, options: ServerOptions = {}) {
   return createServer(async (req, res) => {
     try {
       const method = req.method ?? "GET";
@@ -142,7 +166,7 @@ export function createChatServer(service: ChatService) {
       if (method === "GET" && url.pathname === "/") {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.end(renderHomePageHtml());
+        res.end(renderHomePageHtml(options.runtimeMode));
         return;
       }
 
@@ -187,7 +211,10 @@ export function createChatServer(service: ChatService) {
 
       if (method === "GET" && url.pathname === "/telemetry/latency") {
         const telemetry = service.getRoutingTelemetry();
-        return json(res, 200, telemetry);
+        return json(res, 200, {
+          ...telemetry,
+          runtimeMode: options.runtimeMode ?? { mode: "unknown" }
+        });
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/tune") {
@@ -288,7 +315,8 @@ export async function startServer(port: number): Promise<void> {
       }, autoRunConfig.intervalMs)
     : undefined;
 
-  const server = createChatServer(service);
+  const runtimeMode = resolveRuntimeModeInfo(config);
+  const server = createChatServer(service, { runtimeMode });
   server.listen(port);
 
   server.on("close", () => {
