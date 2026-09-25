@@ -445,6 +445,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       events: [],
       previousAssistantStatuses: [],
       pendingUserText: "",
+      pendingUserSentAtMs: 0,
+      lastThreadRenderKey: "",
       runtimeInfo
     };
 
@@ -538,6 +540,19 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     function renderThread() {
       const turns = deriveTurns(state.events);
+      const pendingMirroredInEvents = state.pendingUserText
+        && state.events.some((event) => {
+          if (event.type !== "user") return false;
+
+          const eventCreatedAtMs = Date.parse(event.createdAtIso);
+          return event.text === state.pendingUserText && Number.isFinite(eventCreatedAtMs) && eventCreatedAtMs >= state.pendingUserSentAtMs - 2000;
+        });
+
+      if (pendingMirroredInEvents) {
+        state.pendingUserText = "";
+        state.pendingUserSentAtMs = 0;
+      }
+
       if (state.pendingUserText) {
         turns.push({
           userText: state.pendingUserText,
@@ -549,6 +564,11 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
 
       const nextStatuses = turns.map((turn) => turn.status ?? "none");
+      const renderKey = JSON.stringify({ turns, routeDecision: state.routeDecision });
+      if (renderKey === state.lastThreadRenderKey) {
+        return;
+      }
+
       thread.innerHTML = "";
 
       turns.forEach((turn, idx) => {
@@ -604,6 +624,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
 
       state.previousAssistantStatuses = nextStatuses;
+      state.lastThreadRenderKey = renderKey;
     }
 
     function renderTelemetry(payload) {
@@ -664,6 +685,12 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       if (!res.ok) return;
       const payload = await res.json();
       state.events = Array.isArray(payload.events) ? payload.events : [];
+
+      if (state.pendingUserText && state.events.some((event) => event.type === "user" && event.text === state.pendingUserText)) {
+        state.pendingUserText = "";
+        state.pendingUserSentAtMs = 0;
+      }
+
       renderThread();
     }
 
@@ -696,6 +723,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.conversationId = conversationId;
       state.userId = userId;
       state.pendingUserText = text;
+      state.pendingUserSentAtMs = Date.now();
       renderThread();
 
       sendButton.disabled = true;
@@ -730,10 +758,12 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         renderDecision();
         await refreshLoop();
         state.pendingUserText = "";
+        state.pendingUserSentAtMs = 0;
         renderThread();
         setStatus("Message accepted. Awaiting refined update if route is deep.");
       } catch (error) {
         state.pendingUserText = "";
+        state.pendingUserSentAtMs = 0;
         await refreshLoop();
         renderThread();
         setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
@@ -746,6 +776,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.conversationId = String(conversationIdInput.value || "").trim();
       state.events = [];
       state.previousAssistantStatuses = [];
+      state.pendingUserText = "";
+      state.pendingUserSentAtMs = 0;
+      state.lastThreadRenderKey = "";
       renderThread();
       void refreshLoop();
     });
