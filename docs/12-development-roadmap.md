@@ -103,6 +103,11 @@ quality depends on the answer itself; each live report records the providers act
 
 ### 3. Latency and routing decisions backed by measurements
 
+The [model catalog](13-model-catalog.md) now provides validated task/capability
+metadata and eligibility filtering. Health discovery, per-task model dispatch,
+and measured ranking remain follow-up work; the running router still uses its
+configured fast/deep pair.
+
 - Separate provisional-generation and deep-generation metric buckets when both use
   the same provider/model; they currently share the `deep` route key in that case.
 - Measure queue wait, time to first answer, time to final answer, failure rate, and

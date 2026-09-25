@@ -11,6 +11,7 @@ import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProv
 import { AdaptiveRoutingCoordinator } from "../../src/routing/adaptiveRouting";
 import { createChatServer } from "../../src/server";
 import { InMemoryLatencyEstimator } from "../../src/telemetry/latencyEstimator";
+import { describeModelCatalog, loadModelCatalog } from "../../src/config/modelCatalog";
 
 const servers: Array<{ close: () => void }> = [];
 
@@ -22,6 +23,22 @@ afterEach(() => {
 });
 
 describe("chat server", () => {
+  it("serves the model inventory with fixed routing and unchecked availability", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
+      new DeepWorker(queue, new MockDeepProvider(), timeline), timeline);
+    const modelCatalog = describeModelCatalog(await loadModelCatalog(), {
+      fast: { provider: "mock", model: "mock-v1", temperature: 0.2 },
+      deep: { provider: "mock", model: "mock-v1", temperature: 0.2 }
+    });
+    const server = createChatServer(service, { modelCatalog });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+    const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/models`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(modelCatalog);
+  });
   it("streams conversation timeline over SSE", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();

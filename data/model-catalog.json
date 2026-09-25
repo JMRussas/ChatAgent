@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "mock-default",
+      "provider": "mock",
+      "model": "mock-v1",
+      "enabled": true,
+      "roles": ["fast", "deep"],
+      "tasks": ["conversation", "coding", "reasoning", "summarization", "extraction"],
+      "capabilities": { "thinking": "unsupported", "tools": "unsupported", "vision": "unsupported", "structuredOutput": "unsupported" },
+      "limits": {},
+      "deployment": "local",
+      "notes": "Test fixture only; responses are not evidence of model quality."
+    },
+    {
+      "id": "ollama-qwen3-8b",
+      "provider": "ollama",
+      "model": "qwen3:8b",
+      "enabled": true,
+      "roles": ["fast", "deep"],
+      "tasks": ["conversation", "reasoning", "summarization"],
+      "capabilities": { "thinking": "unknown", "tools": "unknown", "vision": "unknown", "structuredOutput": "unknown" },
+      "limits": {},
+      "deployment": "unknown",
+      "notes": "Current fast-model choice. Task tags are initial preferences; verify capabilities and effective limits against the configured Ollama instance."
+    },
+    {
+      "id": "ollama-qwen25-coder-14b",
+      "provider": "ollama",
+      "model": "qwen2.5-coder:14b",
+      "enabled": true,
+      "roles": ["deep"],
+      "tasks": ["coding"],
+      "capabilities": { "thinking": "unknown", "tools": "unknown", "vision": "unknown", "structuredOutput": "unknown" },
+      "limits": {},
+      "deployment": "unknown",
+      "notes": "Coding candidate; current deep-model choice. Verify runtime support and benchmark task quality before automatic selection."
+    }
+  ]
+}

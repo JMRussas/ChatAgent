@@ -14,6 +14,7 @@ import { InMemoryLatencyEstimator } from "./telemetry/latencyEstimator";
 import { FileLatencyTelemetryStore } from "./telemetry/latencyTelemetryStore";
 import { renderHomePageHtml } from "./ui/homePage";
 import { z } from "zod";
+import { describeModelCatalog, loadModelCatalog } from "./config/modelCatalog";
 
 function seedPriorsForProfile(
   estimator: InMemoryLatencyEstimator,
@@ -86,6 +87,7 @@ interface RuntimeModeInfo {
 }
 
 interface ServerOptions {
+  modelCatalog?: ReturnType<typeof describeModelCatalog>;
   runtimeMode?: RuntimeModeInfo;
 }
 
@@ -223,6 +225,10 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
       }
 
+      if (method === "GET" && url.pathname === "/models") {
+        return json(res, 200, options.modelCatalog ?? { version: 1, routingMode: "fixed-fast-deep", models: [], unlistedSelections: [] });
+      }
+
       if (method === "POST" && url.pathname === "/routing/policy/tune") {
         const body = QueueDepthBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
         const policy = service.tuneRoutingPolicy(body.queueDepth ?? 0);
@@ -315,6 +321,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
 export async function startServer(port: number): Promise<void> {
   const config = loadRuntimeProviderConfigFromEnv();
+  const modelCatalog = describeModelCatalog(await loadModelCatalog(process.env.MODEL_CATALOG_PATH), config);
   const providers = buildProviderPair(config);
   const estimator = new InMemoryLatencyEstimator();
 
@@ -372,7 +379,7 @@ export async function startServer(port: number): Promise<void> {
   };
 
   const runtimeMode = resolveRuntimeModeInfo(config);
-  const server = createChatServer(service, { runtimeMode });
+  const server = createChatServer(service, { runtimeMode, modelCatalog });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
