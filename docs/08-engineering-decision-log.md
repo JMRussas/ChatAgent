@@ -11,6 +11,38 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - HTTP Malformed JSON Handling
+
+Status: Closed
+
+Issue:
+
+- JSON parse errors on request bodies were surfaced as generic 500 server errors.
+
+Decision:
+
+- Treat malformed request JSON as client input errors and return HTTP 400 with a stable message.
+
+Changes made:
+
+1. Added request-scoped HTTP error type for explicit status mapping.
+2. Wrapped JSON parse in try/catch and raised `Invalid JSON body` on parse failure.
+3. Mapped request errors to 400 in server handler catch block.
+4. Added integration tests for malformed payloads on `POST /messages` and `POST /routing/policy/set`.
+
+Files changed:
+
+- `src/server.ts`
+- `tests/integration/server.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Integration tests verify malformed JSON returns 400.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Runtime Environment Parsing Safeguards
 
 Status: Closed

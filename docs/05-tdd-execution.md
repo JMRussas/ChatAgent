@@ -100,6 +100,11 @@
 - Clamp routing policy threshold and telemetry save interval to safe ranges
 - Add unit tests for env parsing edge cases
 
+22. HTTP malformed-body handling
+- Return deterministic 400 responses for malformed JSON payloads
+- Keep request-validation failures distinct from server failures
+- Add integration coverage across representative POST endpoints
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

@@ -40,6 +40,8 @@ Server starts on `PORT` (default `3000`).
 
 ## HTTP API
 
+Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
+
 1. Submit message
 
 ```bash

@@ -75,6 +75,15 @@ function json(res: ServerResponse, statusCode: number, payload: unknown): void {
   res.end(body);
 }
 
+class HttpRequestError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
 async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Uint8Array[] = [];
 
@@ -84,7 +93,12 @@ async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
 
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw) return {};
-  return JSON.parse(raw);
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new HttpRequestError(400, "Invalid JSON body");
+  }
 }
 
 export function createChatServer(service: ChatService) {
@@ -164,6 +178,10 @@ export function createChatServer(service: ChatService) {
 
       return json(res, 404, { error: "Not found" });
     } catch (error) {
+      if (error instanceof HttpRequestError) {
+        return json(res, error.statusCode, { error: error.message });
+      }
+
       return json(res, 500, { error: (error as Error).message });
     }
   });

@@ -194,4 +194,41 @@ describe("chat server", () => {
 
     expect(setPayload.policy.maxFastP95Ms).toBe(1400);
   });
+
+  it("returns 400 for malformed JSON payloads", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
+    const service = new ChatService(orchestrator, worker, timeline);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const messageResponse = await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{"
+    });
+
+    expect(messageResponse.status).toBe(400);
+
+    const messagePayload = (await messageResponse.json()) as { error: string };
+    expect(messagePayload.error).toBe("Invalid JSON body");
+
+    const policyResponse = await fetch(`${baseUrl}/routing/policy/set`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{"
+    });
+
+    expect(policyResponse.status).toBe(400);
+
+    const policyPayload = (await policyResponse.json()) as { error: string };
+    expect(policyPayload.error).toBe("Invalid JSON body");
+  });
 });
