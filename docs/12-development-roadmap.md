@@ -16,6 +16,12 @@ request awareness separately from accepted answers. Implement in two stages: 01A
 bounded snapshots/task state, then 01B compression/source-backed memory. These are
 planned changes; no context implementation is claimed by this documentation update.
 
+Later UI decisions are now specified in [02 activity sub-bubbles](implementation/02-activity-ui.md):
+attached per-turn progress, expandable step history, observable model/activity labels,
+elapsed time and preserved substantive answers with separate updates. These do not
+change Claude's in-progress context scope. Persistence, natural-language task
+supersession and aggregate budget enforcement are explicitly separate follow-ups.
+
 ## Current status and next implementation order
 
 Reconciled through implementation commit `8afce48` on 2026-09-25. The latest

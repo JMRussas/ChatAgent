@@ -13,10 +13,15 @@ safe continuation instructions. No source implementation was changed by this rev
 
 ## Execution order
 
+UI follow-up: [02 activity sub-bubbles](02-activity-ui.md) specifies attached progress,
+observable labels and preserved answer versions. Context revision 2 is unchanged;
+an agent already implementing 01 should finish that scope, then read this extension
+when starting 02. Do not add UI/persistence work to the current context task.
+
 | Spec | Dependency | Deliverable |
 |---|---|---|
 | [01 Context](01-context.md) + [memory extension](01-context-memory.md) | Existing baseline | 01A snapshots/pending state; 01B internal summaries/source records |
-| [02 Generation](02-generation.md) | 01A; preserve v2 context fields | Thinking controls, streamed answers, cancellation |
+| [02 Generation](02-generation.md) + [activity UI](02-activity-ui.md) | 01A; preserve v2 context fields | Streaming, cancellation, activity sub-bubbles and answer updates |
 | [03 Inventory](03-inventory.md) | Existing catalog; integrate after 02 | Connections and fresh provider observations |
 | [04 Dispatch](04-dispatch.md) | 01–03 | Deterministic task-based model selection |
 | [05 CLI](05-cli.md) | 02–04; product/account selection for live adapter | Subscription execution via a registered adapter |

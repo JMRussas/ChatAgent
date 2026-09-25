@@ -3,6 +3,9 @@
 Status: planned. Depends on 01A (context revision 2). Preserve the memory/task fields
 even if 01B is outstanding. Offline completion uses fake HTTP/event streams.
 
+Read [the activity UI extension](02-activity-ui.md) for per-turn sub-bubble layout,
+answer versioning and acceptance cases. It changes later UI work, not context spec 01.
+
 ## Outcome and boundaries
 
 Show answer text as it arrives inside its own bubble, with truthful activity states.
@@ -38,7 +41,8 @@ Reuse the stable eventId/sequence already introduced by context revision 2; do n
 introduce a second event ordering system. Deltas are not eligible memory sources.
 Terminal events carry phase, attemptId and finishReason. Existing provisional and
 refined events remain authoritative full texts. The UI derives separate fast/deep
-drafts; once deep text starts, display it in preference to fast text. Late fast
+drafts; replace app-owned acknowledgments with deep text, but retain substantive
+fast answers and display deep text as an attached Update per the UI extension. Late fast
 deltas must never replace a deep draft/final answer. A length finish displays
 “Incomplete — output limit reached”; it is not complete history for spec 01.
 
@@ -57,8 +61,8 @@ reasoning field. Incremental SSE transport is a separate optimization.
   request location. Do not assume a coding model has a thinking toggle.
 - Reuse spec 01 output limits; do not increase them automatically on error.
   Other providers keep default thinking behavior until their adapters explicitly
-  implement and verify controls. The UI label “Thinking” means deep activity,
-  not confirmation of a provider reasoning mode.
+  implement and verify controls. Label deep activity “Working on a deeper answer”;
+  show “Reasoning enabled” only when the setting is verified by the adapter.
 - Streaming implementations: Ollama chat NDJSON, Azure streaming response frames,
   Bedrock supported streaming operation. Decode split UTF-8/codepoints and partial
   frames; reject malformed/oversized streams with a terminal failure.
@@ -81,7 +85,8 @@ Update provider adapters/interfaces, domain types, orchestrator, queue control,
 timelineStore, server and homePage. Add streaming parser and generation lifecycle tests.
 
 1. Split NDJSON/SSE/UTF-8 chunks reconstruct the exact answer once after reconnect.
-2. Partial answer appears before terminal event; deep draft wins over later fast text.
+2. Partial answer appears before terminal event; late fast text cannot overwrite
+   the deep update, and substantive earlier answers remain visible.
 3. Both empty and nonempty length finishes are incomplete, with no normal success tag.
 4. Cancel queued/running/completed turns; no retry, no late UI resurrection.
 5. Timeout after headers aborts body; malformed stream stops spinner and reports failure.
