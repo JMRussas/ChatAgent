@@ -1,5 +1,5 @@
 {
-  "name": "chatagent-prototype",
+  "name": "chatruntime",
   "version": "0.1.0",
   "private": true,
   "description": "Dual-path async chatbot prototype (fast brain + deep brain) with provider abstraction.",

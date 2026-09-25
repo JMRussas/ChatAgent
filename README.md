@@ -1,6 +1,7 @@
-# ChatAgent Prototype: Fast Brain + Deep Brain
+# ChatRuntime: Shared Conversation Runtime
 
-This repository is a test-driven starter for a dual-path chatbot:
+ChatRuntime is a prototype for a shared conversation runtime for web chat, Iris,
+and Hekate. Its current implementation is a dual-path chatbot:
 
 - Fast path: immediate, low-latency user response
 - Deep path: asynchronous analysis with refined follow-up response
@@ -8,6 +9,9 @@ This repository is a test-driven starter for a dual-path chatbot:
 The goal is a strong portfolio prototype that demonstrates architecture, measurement, and cross-provider portability (Azure + Bedrock + other model providers).
 
 ## Current status
+
+The shared-runtime direction and reuse checkpoint for Hekate and Iris are in
+[the consolidation handoff](docs/implementation/07-shared-chat-runtime.md).
 
 This is a local prototype. The current priorities and acceptance criteria are in
 [the development roadmap](docs/12-development-roadmap.md). Use that document for

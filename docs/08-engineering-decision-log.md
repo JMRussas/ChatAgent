@@ -1121,3 +1121,34 @@ Validation evidence:
 
 1. Unit tests pass for live benchmark flow.
 2. Full suite and lint pass after integration.
+
+## 2026-09-25 - Shared chat runtime consolidation checkpoint
+
+Status: Planned; repository identity updated to ChatRuntime.
+
+Source inspection found overlapping chat, context, provider and CLI capabilities
+in Hekate and Iris, including an existing Iris-to-Hekate streaming integration.
+Use a versioned service protocol with application-specific UIs. Hekate is an
+integration candidate; runtime ownership requires an ADR after tracing active
+gateway/gods paths because some orchestration code is marked legacy.
+
+The detailed handoff is [07 Shared chat runtime](implementation/07-shared-chat-runtime.md).
+Root CHAT-CONSOLIDATION.md notes and CLAUDE.md links were added in Hekate and Iris.
+Preserve completed context milestone 01A (f889b9a); reconcile 01B and overlapping
+provider/CLI plans before implementation. No cross-repository runtime migration,
+service deployment, or live verification is claimed.
+
+Earlier design decisions remain linked from the implementation handoff: internal
+summaries with retained source provenance (fbaf5e0), and per-turn activity
+sub-bubbles with preserved answer versions (40ad2a5). These are planned behavior,
+not evidence that summaries or the full activity extension are implemented.
+
+Rename the repository/package to ChatRuntime to describe its intended reusable
+role. Keep the local folder and historical documentation names for continuity.
+Create a private GitHub remote under the authenticated JMRussas account and push
+the committed checkpoint; record the actual push outcome separately.
+
+Validation: type checking and build passed. The default parallel test run failed
+with an unexpected Vitest worker exit; `npm test -- --maxWorkers=1` passed all
+140 tests across 31 files. No runtime code changed in this documentation/name
+checkpoint. The worker failure has not been diagnosed.

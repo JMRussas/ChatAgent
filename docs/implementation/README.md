@@ -13,6 +13,12 @@ safe continuation instructions. No source implementation was changed by this rev
 
 ## Execution order
 
+**Cross-repository reuse checkpoint (2026-09-25):** read
+[07 Shared chat runtime](07-shared-chat-runtime.md) before starting overlapping
+01B/provider/CLI work. 01A is committed at `f889b9a`; preserve it. Audit existing
+Hekate and Iris assets and record runtime ownership before migration. This
+checkpoint adds a design prerequisite; it does not claim integration is complete.
+
 UI follow-up: [02 activity sub-bubbles](02-activity-ui.md) specifies attached progress,
 observable labels and preserved answer versions. Context revision 2 is unchanged;
 an agent already implementing 01 should finish that scope, then read this extension
