@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Local telemetry/report artifacts
+data/latency-telemetry.json
