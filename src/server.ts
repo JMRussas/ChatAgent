@@ -278,7 +278,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         }
 
         const pollTimer = setInterval(() => {
-          void pushTimeline(false);
+          void pushTimeline(false).catch(() => res.end());
         }, 350);
 
         const heartbeatTimer = setInterval(() => {
@@ -342,6 +342,9 @@ export async function startServer(port: number): Promise<void> {
   if (existingSnapshot) {
     adaptiveRouting.hydrateState(existingSnapshot);
   }
+  if (process.env.ROUTING_MAX_FAST_P95_MS !== undefined) {
+    adaptiveRouting.setMaxFastP95Ms(parseBoundedNumberEnv(process.env.ROUTING_MAX_FAST_P95_MS, 1000, 400, 5000));
+  }
 
   const queue = new InMemoryTaskQueue();
   const timeline = new InMemoryConversationTimelineStore();
@@ -351,7 +354,11 @@ export async function startServer(port: number): Promise<void> {
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 
   const saveTelemetry = async () => {
-    await telemetryStore.save(adaptiveRouting.snapshotState());
+    try {
+      await telemetryStore.save(adaptiveRouting.snapshotState());
+    } catch (error) {
+      console.warn(`Telemetry save failed: ${(error as Error).message}`);
+    }
   };
 
   const autoRunConfig = resolveDeepWorkerAutoRunConfig(process.env);

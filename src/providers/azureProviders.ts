@@ -38,8 +38,8 @@ async function callAzureChat(args: {
   const base = args.endpoint.replace(/\/$/, "");
   const url = `${base}/openai/deployments/${args.deployment}/chat/completions?api-version=${encodeURIComponent(args.apiVersion)}`;
 
-  const response = await withTimeout(args.timeoutMs, (signal) =>
-    fetch(url, {
+  return withTimeout(args.timeoutMs, async (signal) => {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -50,15 +50,17 @@ async function callAzureChat(args: {
         temperature: args.temperature
       }),
       signal
-    })
-  );
+    });
 
-  if (!response.ok) {
-    throw new Error(`Azure OpenAI request failed (${response.status} ${response.statusText})`);
-  }
+    if (!response.ok) {
+      throw new Error(`Azure OpenAI request failed (${response.status} ${response.statusText})`);
+    }
 
-  const payload = (await response.json()) as AzureChatResponse;
-  return payload.choices?.[0]?.message?.content?.trim() ?? "";
+    const payload = (await response.json()) as AzureChatResponse;
+    const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
+    if (!text) throw new Error("Azure OpenAI returned an empty response");
+    return text;
+  });
 }
 
 export class AzureFastProvider implements FastModelProvider {

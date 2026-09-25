@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 import type { LatencyEstimatorSnapshot } from "./latencyEstimator";
@@ -56,6 +57,7 @@ export function validateRoutingTelemetrySnapshot(input: unknown): RoutingTelemet
 }
 
 export class FileLatencyTelemetryStore implements LatencyTelemetryStore {
+  private pendingSave: Promise<void> = Promise.resolve();
   constructor(private readonly filePath: string) {}
 
   async load(): Promise<RoutingTelemetrySnapshot | undefined> {
@@ -79,10 +81,19 @@ export class FileLatencyTelemetryStore implements LatencyTelemetryStore {
   }
 
   async save(snapshot: RoutingTelemetrySnapshot): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    const validSnapshot = validateRoutingTelemetrySnapshot(snapshot);
-    const tempPath = `${this.filePath}.tmp`;
-    await writeFile(tempPath, JSON.stringify(validSnapshot, null, 2), "utf8");
-    await rename(tempPath, this.filePath);
+    const serialized = JSON.stringify(validateRoutingTelemetrySnapshot(snapshot), null, 2);
+    const operation = this.pendingSave.then(async () => {
+      await mkdir(dirname(this.filePath), { recursive: true });
+      const tempPath = `${this.filePath}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(tempPath, serialized, "utf8");
+        await rename(tempPath, this.filePath);
+      } finally {
+        await rm(tempPath, { force: true });
+      }
+    });
+    // A failed write must not poison subsequent saves.
+    this.pendingSave = operation.catch(() => undefined);
+    return operation;
   }
 }

@@ -16,6 +16,28 @@ afterEach(async () => {
 });
 
 describe("latency telemetry store", () => {
+  it("serializes overlapping saves and persists the latest snapshot", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "latency-store-"));
+    dirs.push(dir);
+    const store = new FileLatencyTelemetryStore(join(dir, "snapshot.json"));
+    await Promise.all(Array.from({ length: 20 }, (_, index) => store.save({
+      estimator: { priors: [], samples: [] }, policy: { maxFastP95Ms: 1000 + index }
+    })));
+    expect((await store.load())?.policy.maxFastP95Ms).toBe(1019);
+  });
+
+  it("recovers after a failed filesystem save", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "latency-store-"));
+    dirs.push(dir);
+    const parent = join(dir, "blocked");
+    await writeFile(parent, "not a directory");
+    const store = new FileLatencyTelemetryStore(join(parent, "snapshot.json"));
+    const snapshot = { estimator: { priors: [], samples: [] }, policy: { maxFastP95Ms: 900 } };
+    await expect(store.save(snapshot)).rejects.toThrow();
+    await rm(parent);
+    await store.save(snapshot);
+    expect(await store.load()).toEqual(snapshot);
+  });
   it("returns undefined when file does not exist", async () => {
     const dir = await mkdtemp(join(tmpdir(), "latency-store-"));
     dirs.push(dir);

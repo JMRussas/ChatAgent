@@ -32,8 +32,8 @@ async function callOllama(
   timeoutMs: number,
   numPredict: number
 ): Promise<string> {
-  const response = await withTimeout(timeoutMs, (signal) =>
-    fetch(`${baseUrl}/api/generate`, {
+  return withTimeout(timeoutMs, async (signal) => {
+    const response = await fetch(`${baseUrl}/api/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -48,28 +48,28 @@ async function callOllama(
         }
       }),
       signal
-    })
-  );
+    });
 
-  if (!response.ok) {
-    throw new Error(`Ollama request failed (${response.status} ${response.statusText})`);
-  }
+    if (!response.ok) {
+      throw new Error(`Ollama request failed (${response.status} ${response.statusText})`);
+    }
 
-  const payload = (await response.json()) as OllamaGenerateResponse;
-  const text = payload.response?.trim() ?? "";
-  if (text.length > 0) {
-    return text;
-  }
+    const payload = (await response.json()) as OllamaGenerateResponse;
+    const text = payload.response?.trim() ?? "";
+    if (text.length > 0) {
+      return text;
+    }
 
-  // Some local models emit only "thinking" when token budget is exhausted,
-  // resulting in an empty answer unless callers raise num_predict.
-  if ((payload.thinking?.trim().length ?? 0) > 0 && payload.done_reason === "length") {
-    throw new Error(
-      `Ollama returned no final response text for model ${model} before token limit. Increase num_predict or use a faster model.`
-    );
-  }
+    // Some local models emit only "thinking" when token budget is exhausted,
+    // resulting in an empty answer unless callers raise num_predict.
+    if ((payload.thinking?.trim().length ?? 0) > 0 && payload.done_reason === "length") {
+      throw new Error(
+        `Ollama returned no final response text for model ${model} before token limit. Increase num_predict or use a faster model.`
+      );
+    }
 
-  throw new Error(`Ollama returned an empty response for model ${model}`);
+    throw new Error(`Ollama returned an empty response for model ${model}`);
+  });
 }
 
 export class OllamaFastProvider implements FastModelProvider {

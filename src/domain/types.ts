@@ -24,6 +24,7 @@ export interface FastResponse {
 
 export interface DeepTask {
   taskId: string;
+  messageId?: string;
   conversationId: string;
   normalizedPrompt: string;
   createdAtIso: string;
@@ -40,12 +41,16 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  messageId?: string;
+  routeDecision?: RouteDecision;
+  processingStatus?: "provisional" | "complete";
   type: "user" | "provisional" | "refined";
   text: string;
   createdAtIso: string;
 }
 
 export interface OrchestratorResponse {
+  messageId?: string;
   fastResponse: FastResponse;
   deepTask?: DeepTask;
 }

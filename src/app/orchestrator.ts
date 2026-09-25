@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { analyzeFast } from "../domain/router";
 import type { DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
 import type { DeepModelProvider, FastModelProvider, TaskQueue } from "../providers/interfaces";
@@ -9,10 +10,6 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function taskId(conversationId: string): string {
-  return `task_${conversationId}_${Date.now()}`;
-}
-
 export class ChatOrchestrator {
   constructor(
     private readonly fastProvider: FastModelProvider,
@@ -22,7 +19,9 @@ export class ChatOrchestrator {
   ) {}
 
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
+    const messageId = randomUUID();
     await this.timelineStore.appendEvent(message.conversationId, {
+      messageId,
       type: "user",
       text: message.text,
       createdAtIso: message.timestampIso
@@ -40,34 +39,43 @@ export class ChatOrchestrator {
       reasons: adaptiveDecision?.reasons ?? analysis.reasons
     };
 
+    const deepTask = routeDecision === "deep" ? {
+      taskId: randomUUID(),
+      messageId,
+      conversationId: message.conversationId,
+      normalizedPrompt: adaptedAnalysis.correctedText,
+      createdAtIso: nowIso(),
+      sizeBand
+    } : undefined;
+
+    // Start deep work independently of the provisional model call.
+    if (deepTask) await this.queue.enqueue(deepTask);
+
     const fastStart = Date.now();
 
     const provisionalReply = await this.fastProvider.createProvisionalReply({
       message,
       correctedText: adaptedAnalysis.correctedText,
       routeDecision: adaptedAnalysis.routeDecision
+    }).catch((error: unknown) => {
+      if (!deepTask) throw error;
+      return "Your request is queued for deeper analysis.";
     });
 
     this.adaptiveRouting?.recordFastLatency(adaptedAnalysis.routeDecision, sizeBand, Date.now() - fastStart);
 
     await this.timelineStore.appendEvent(message.conversationId, {
+      messageId,
+      routeDecision,
+      processingStatus: deepTask ? "provisional" : "complete",
       type: "provisional",
       text: provisionalReply,
       createdAtIso: nowIso()
     });
 
-    if (adaptedAnalysis.routeDecision === "deep") {
-      const deepTask = {
-        taskId: taskId(message.conversationId),
-        conversationId: message.conversationId,
-        normalizedPrompt: adaptedAnalysis.correctedText,
-        createdAtIso: nowIso(),
-        sizeBand
-      };
-
-      await this.queue.enqueue(deepTask);
-
+    if (deepTask) {
       return {
+        messageId,
         fastResponse: {
           provisionalReply,
           analysis: adaptedAnalysis,
@@ -78,6 +86,7 @@ export class ChatOrchestrator {
     }
 
     return {
+      messageId,
       fastResponse: {
         provisionalReply,
         analysis: adaptedAnalysis,
@@ -88,6 +97,7 @@ export class ChatOrchestrator {
 }
 
 export class DeepWorker {
+  private running = false;
   private readonly attemptsByTaskId = new Map<string, number>();
   private readonly timelineStore: ConversationTimelineStore;
   private readonly maxRetries: number;
@@ -109,6 +119,17 @@ export class DeepWorker {
   }
 
   async runSingle(): Promise<DeepResult | undefined> {
+    // Both the timer and the manual endpoint share this concurrency limit.
+    if (this.running) return undefined;
+    this.running = true;
+    try {
+      return await this.processNext();
+    } finally {
+      this.running = false;
+    }
+  }
+
+  private async processNext(): Promise<DeepResult | undefined> {
     const task = await this.queue.dequeue();
     if (!task) return undefined;
 
@@ -118,6 +139,9 @@ export class DeepWorker {
       this.attemptsByTaskId.delete(task.taskId);
 
       await this.timelineStore.appendEvent(task.conversationId, {
+        messageId: task.messageId,
+        routeDecision: "deep",
+        processingStatus: "complete",
         type: "refined",
         text: result.finalReply,
         createdAtIso: nowIso()

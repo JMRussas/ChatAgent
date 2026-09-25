@@ -491,6 +491,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       for (const event of events) {
         if (event.type === "user") {
           turns.push({
+            messageId: event.messageId,
             userText: event.text,
             assistantText: "",
             status: null,
@@ -501,10 +502,14 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         }
 
         if (event.type === "provisional") {
-          const target = [...turns].reverse().find((turn) => !turn.assistantText);
+          const target = event.messageId
+            ? turns.find((turn) => turn.messageId === event.messageId)
+            : [...turns].reverse().find((turn) => !turn.assistantText);
           if (target) {
+            if (target.status === "refined") continue;
             target.assistantText = event.text;
-            target.status = "provisional";
+            target.status = event.processingStatus === "complete" ? "complete" : "provisional";
+            target.routeDecision = event.routeDecision ?? target.routeDecision;
           } else {
             turns.push({
               userText: "",
@@ -518,12 +523,14 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         }
 
         if (event.type === "refined") {
-          const target = [...turns].reverse().find((turn) => turn.status === "provisional")
-            ?? [...turns].reverse().find((turn) => !!turn.assistantText);
+          const target = event.messageId
+            ? turns.find((turn) => turn.messageId === event.messageId)
+            : [...turns].reverse().find((turn) => turn.status === "provisional");
 
           if (target) {
             target.assistantText = event.text;
             target.status = "refined";
+            target.routeDecision = event.routeDecision ?? "deep";
           } else {
             turns.push({
               userText: "",
@@ -585,7 +592,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
         if (turn.assistantText) {
           const assistantBubble = document.createElement("div");
-          const routeDecision = state.routeDecision ?? "direct";
+          const routeDecision = turn.routeDecision ?? "direct";
           const routeClass = routeDecision === "deep" ? "deep" : routeDecision === "clarify" ? "clarify" : "direct";
           const justRefined = state.previousAssistantStatuses[idx] === "provisional" && turn.status === "refined";
           assistantBubble.className = [
@@ -601,12 +608,12 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
           const statusTag = document.createElement("span");
           statusTag.className = "tag " + (turn.status === "refined" ? "refined" : "provisional");
-          statusTag.textContent = turn.status === "refined" ? "Refined" : "Provisional";
+          statusTag.textContent = turn.status === "refined" ? "Refined" : turn.status === "complete" ? "Complete" : "Provisional";
           tags.appendChild(statusTag);
 
           const routeTag = document.createElement("span");
           routeTag.className = "tag route-" + routeClass;
-          routeTag.textContent = (state.routeDecision ?? "direct").toUpperCase();
+          routeTag.textContent = routeDecision.toUpperCase();
           tags.appendChild(routeTag);
 
           const content = document.createElement("div");
