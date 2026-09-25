@@ -198,6 +198,8 @@ BENCH_MAX_DEAD_LETTER_REGRESSION=0.05
 BENCH_MIN_QUALITY_DELTA=-0.05
 ```
 
+Threshold values are validated at runtime; invalid values fail compare with explicit configuration errors.
+
 ## Release Verification
 
 Run the full release gate in one command:

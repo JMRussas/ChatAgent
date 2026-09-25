@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { compareBenchmarkFiles, computeDeltas, evaluateDeltas, renderCompareMarkdown } from "../../src/bench/compareCore";
+import {
+  compareBenchmarkFiles,
+  computeDeltas,
+  evaluateDeltas,
+  normalizeThresholds,
+  renderCompareMarkdown
+} from "../../src/bench/compareCore";
 
 const baseline = {
   generatedAtIso: "2026-09-25T00:00:00.000Z",
@@ -153,5 +159,37 @@ describe("benchmark compare core", () => {
 
     expect(report.passed).toBe(false);
     expect(report.compatibilityIssues.some((issue) => issue.includes("missing simulation seed"))).toBe(true);
+  });
+
+  it("normalizes valid thresholds", () => {
+    const thresholds = normalizeThresholds({
+      maxFirstResponseP95RegressionMs: 150,
+      maxFinalLatencyP95RegressionMs: 300,
+      maxDeadLetterRateRegression: 0.05,
+      minQualityDelta: -0.05
+    });
+
+    expect(thresholds.maxFirstResponseP95RegressionMs).toBe(150);
+    expect(thresholds.maxDeadLetterRateRegression).toBe(0.05);
+  });
+
+  it("throws when thresholds are invalid", () => {
+    expect(() =>
+      normalizeThresholds({
+        maxFirstResponseP95RegressionMs: Number.NaN,
+        maxFinalLatencyP95RegressionMs: 300,
+        maxDeadLetterRateRegression: 0.05,
+        minQualityDelta: -0.05
+      })
+    ).toThrow(/Invalid threshold maxFirstResponseP95RegressionMs/);
+
+    expect(() =>
+      normalizeThresholds({
+        maxFirstResponseP95RegressionMs: 150,
+        maxFinalLatencyP95RegressionMs: 300,
+        maxDeadLetterRateRegression: 2,
+        minQualityDelta: -0.05
+      })
+    ).toThrow(/maxDeadLetterRateRegression/);
   });
 });

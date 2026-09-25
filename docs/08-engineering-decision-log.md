@@ -11,6 +11,41 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Compare Threshold Validation and Normalization
+
+Status: Closed
+
+Issue:
+
+- Compare thresholds were parsed directly from environment variables and could become `NaN` or out-of-range values, weakening gate behavior.
+
+Decision:
+
+- Add explicit threshold normalization and validation before compare evaluation.
+- Fail fast with actionable errors when threshold configuration is invalid.
+
+Changes made:
+
+1. Added `normalizeThresholds` in compare core.
+2. Enforced finite-number checks for all thresholds.
+3. Enforced valid ranges for dead-letter and quality thresholds.
+4. Applied normalization in compare CLI before evaluation.
+5. Added unit tests for valid and invalid threshold scenarios.
+
+Files changed:
+
+- `src/bench/compareCore.ts`
+- `src/bench/compareBenchmarks.ts`
+- `tests/unit/compareCore.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Compare unit tests pass with new threshold validation coverage.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Strict Benchmark Parity and Context Completeness Checks
 
 Status: Closed

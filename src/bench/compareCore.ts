@@ -42,6 +42,44 @@ export interface CompareReport {
   passed: boolean;
 }
 
+function requireFinite(name: string, value: number): number {
+  if (!Number.isFinite(value)) {
+    throw new Error(`Invalid threshold ${name}: expected finite number`);
+  }
+
+  return value;
+}
+
+export function normalizeThresholds(input: CompareThresholds): CompareThresholds {
+  const normalized = {
+    maxFirstResponseP95RegressionMs: requireFinite(
+      "maxFirstResponseP95RegressionMs",
+      input.maxFirstResponseP95RegressionMs
+    ),
+    maxFinalLatencyP95RegressionMs: requireFinite("maxFinalLatencyP95RegressionMs", input.maxFinalLatencyP95RegressionMs),
+    maxDeadLetterRateRegression: requireFinite("maxDeadLetterRateRegression", input.maxDeadLetterRateRegression),
+    minQualityDelta: requireFinite("minQualityDelta", input.minQualityDelta)
+  };
+
+  if (normalized.maxFirstResponseP95RegressionMs < 0) {
+    throw new Error("Invalid threshold maxFirstResponseP95RegressionMs: must be >= 0");
+  }
+
+  if (normalized.maxFinalLatencyP95RegressionMs < 0) {
+    throw new Error("Invalid threshold maxFinalLatencyP95RegressionMs: must be >= 0");
+  }
+
+  if (normalized.maxDeadLetterRateRegression < 0 || normalized.maxDeadLetterRateRegression > 1) {
+    throw new Error("Invalid threshold maxDeadLetterRateRegression: must be between 0 and 1");
+  }
+
+  if (normalized.minQualityDelta < -4 || normalized.minQualityDelta > 4) {
+    throw new Error("Invalid threshold minQualityDelta: must be between -4 and 4");
+  }
+
+  return normalized;
+}
+
 function buildCompatibilityIssues(baseline: BenchmarkSummaryFile, candidate: BenchmarkSummaryFile): string[] {
   const issues: string[] = [];
 

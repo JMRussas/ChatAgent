@@ -75,6 +75,11 @@
 - Require run-context digests to exist for compare eligibility
 - Fail compare early when no overlapping profiles are available
 
+17. Compare-threshold validation hardening
+- Normalize and validate compare thresholds before gate evaluation
+- Reject non-finite or out-of-range threshold values with explicit errors
+- Add unit tests for threshold validation behavior
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

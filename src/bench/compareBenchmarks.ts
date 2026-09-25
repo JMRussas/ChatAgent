@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { compareBenchmarkFiles, renderCompareMarkdown, type BenchmarkSummaryFile } from "./compareCore";
+import { compareBenchmarkFiles, normalizeThresholds, renderCompareMarkdown, type BenchmarkSummaryFile } from "./compareCore";
 
 async function readSummary(path: string): Promise<BenchmarkSummaryFile> {
   const raw = await readFile(path, "utf8");
@@ -22,7 +22,7 @@ async function main() {
 
   const [baseline, candidate] = await Promise.all([readSummary(baselinePath), readSummary(candidatePath)]);
 
-  const report = compareBenchmarkFiles(baseline, candidate, readThresholds());
+  const report = compareBenchmarkFiles(baseline, candidate, normalizeThresholds(readThresholds()));
   const markdown = renderCompareMarkdown(report);
 
   await mkdir("reports", { recursive: true });
