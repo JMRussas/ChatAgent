@@ -42,6 +42,10 @@ describe("chat server", () => {
 
     const body = await response.text();
     expect(body).toContain("ChatAgent Fast + Deep Thread");
+    expect(body).toContain('id="runtimeMode"');
+    expect(body).toContain('id="fastProvider"');
+    expect(body).toContain('id="deepProvider"');
+    expect(body).toContain("const runtimeInfo =");
   });
 
   it("supports provisional then refined flow through HTTP endpoints", async () => {
