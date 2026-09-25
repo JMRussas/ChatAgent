@@ -1,3 +1,4 @@
+import "../config/loadEnv";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";

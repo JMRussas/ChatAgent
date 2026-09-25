@@ -778,13 +778,21 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           ? payload.fastResponse.analysis.reasons.map((item) => String(item))
           : [];
 
+        const routeDecision = payload?.fastResponse?.analysis?.routeDecision;
+        const processingStatus = payload?.fastResponse?.processingStatus;
+
         promptInput.value = "";
         renderDecision();
         await fetchTelemetry();
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;
         renderThread();
-        setStatus("Message accepted. Awaiting refined update if route is deep.");
+
+        if (routeDecision === "deep" || processingStatus === "provisional") {
+          setStatus("Message accepted. Awaiting refined update from deep analysis.");
+        } else {
+          setStatus("Message answered on fast path.");
+        }
       } catch (error) {
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;

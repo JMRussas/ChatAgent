@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatAgent Class Map</title>
+<style>
+  :root{
+    --bg:#F5F6F4; --surface:#FFFFFF; --ink:#1B1E23; --muted:#63696F;
+    --line:#C7CBC5; --port:#1F5C86; --adapter:#3F6F52; --risk:#A34A2A;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,'SF Mono',monospace;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171A; --surface:#1C2024; --ink:#E7E9EA; --muted:#9AA0A6;
+      --line:#33383D; --port:#6FB3E0; --adapter:#7FBF9B; --risk:#E08A63;
+      color-scheme:dark;
+    }
+  }
+  body{ background:var(--bg); color:var(--ink); font-family:var(--sans); margin:0; padding-inline:16px; }
+  .wrap{ max-width:1760px; margin:0 auto; padding-block:40px 64px; }
+  h1{ font-size:26px; font-weight:600; letter-spacing:-0.01em; margin:0 0 6px; }
+  .kicker{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--port); margin:0 0 14px; }
+  .lede{ font-size:15px; line-height:1.6; color:var(--muted); max-width:66ch; margin:0 0 8px; }
+  .lede strong{ color:var(--ink); font-weight:600; }
+  .figwrap{ margin-top:28px; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+  .scrollbox{ overflow-x:auto; }
+  svg{ display:block; width:1680px; max-width:none; height:auto; font-family:var(--sans); }
+  figcaption{ padding:14px 20px 18px; font-size:12.5px; line-height:1.6; color:var(--muted); border-top:1px solid var(--line); }
+  figcaption b{ color:var(--ink); font-weight:600; }
+  .rect{ fill:var(--surface); stroke:var(--line); }
+  .rect-port{ fill:var(--surface); stroke:var(--port); stroke-width:1.4; }
+  .rect-adapter{ fill:var(--surface); stroke:var(--adapter); stroke-width:1.4; }
+  .rect-root{ fill:var(--surface); stroke:var(--ink); stroke-width:1.3; }
+  .div{ stroke:var(--line); stroke-width:1; }
+  .band-label{ font:600 12px var(--mono); letter-spacing:.06em; text-transform:uppercase; fill:var(--muted); }
+  .name{ font:600 13.5px var(--sans); fill:var(--ink); }
+  .name-port{ font:600 13.5px var(--sans); fill:var(--port); }
+  .stereo{ font:500 10px var(--mono); fill:var(--port); letter-spacing:.02em; }
+  .stereo-mod{ font:500 10px var(--mono); fill:var(--muted); letter-spacing:.02em; }
+  .sub{ font:400 10.5px var(--mono); fill:var(--muted); }
+  .mem{ font:400 11px var(--mono); fill:var(--ink); }
+  .mem-muted{ font:400 11px var(--mono); fill:var(--muted); }
+  .hdr-note{ font:500 10.5px var(--mono); fill:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .lbl{ font:400 10.5px var(--mono); fill:var(--muted); paint-order:stroke; stroke:var(--surface); stroke-width:5px; stroke-linejoin:round; }
+  .lbl-risk{ font:500 10.5px var(--mono); fill:var(--risk); paint-order:stroke; stroke:var(--surface); stroke-width:5px; stroke-linejoin:round; }
+  .flow{ fill:none; stroke:var(--ink); stroke-width:1.3; }
+  .flow-risk{ fill:none; stroke:var(--risk); stroke-width:1.5; }
+  .flow-real{ fill:none; stroke:var(--ink); stroke-width:1.2; stroke-dasharray:4 3; }
+  .legend-line{ stroke:var(--ink); stroke-width:1.3; }
+  .legend-risk{ stroke:var(--risk); stroke-width:1.5; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+</head>
+<body>
+
+<div class="wrap">
+  <p class="kicker">Architecture reference · chatagent-prototype</p>
+  <h1>ChatAgent Class Map</h1>
+  <p class="lede">
+    The diagram below is one claim: <strong>every class in the application layer depends on an interface,
+    never on a vendor.</strong> The left column of the ports/adapters band is what <code style="font-family:var(--mono)">ChatOrchestrator</code>
+    and <code style="font-family:var(--mono)">DeepWorker</code> actually hold references to; the right column is what
+    <code style="font-family:var(--mono)">server.ts</code> plugs in at startup. Swapping Azure for Bedrock never touches
+    the orchestration code &mdash; it only changes which adapter the composition root constructs.
+  </p>
+
+  <figure class="figwrap">
+    <div class="scrollbox">
+<svg viewBox="0 0 1680 2510" role="img" aria-label="Class map of the ChatAgent prototype: a composition root wires an application layer that depends on six port interfaces, each realized by one or more concrete adapters, with the domain DTOs that flow between them shown at the bottom.">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+    </marker>
+    <marker id="arrow-risk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--risk)"/>
+    </marker>
+    <marker id="arrow-hollow" viewBox="0 0 12 10" refX="10" refY="5" markerWidth="11" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L12,5 L0,10 z" fill="var(--surface)" stroke="var(--ink)" stroke-width="1"/>
+    </marker>
+    <marker id="diamond" viewBox="0 0 12 8" refX="1" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,4 L6,0 L12,4 L6,8 z" fill="var(--ink)"/>
+    </marker>
+  </defs>
+
+  <!-- ===== legend ===== -->
+  <g transform="translate(1180,12)">
+    <rect class="rect" x="0" y="0" width="440" height="78" rx="4"/>
+    <text x="16" y="17" class="hdr-note">Reading the lines</text>
+    <line x1="16" y1="33" x2="56" y2="33" class="legend-line" marker-end="url(#arrow)"/>
+    <text x="66" y="37" class="mem-muted">calls / uses — dashed+hollow = implements</text>
+    <line x1="16" y1="47" x2="56" y2="47" class="legend-line" marker-start="url(#diamond)"/>
+    <text x="66" y="51" class="mem-muted">owns (1:1 composition)</text>
+    <line x1="16" y1="61" x2="56" y2="61" class="legend-risk" marker-end="url(#arrow-risk)"/>
+    <text x="66" y="65" class="mem-muted">failure / retry path</text>
+  </g>
+
+  <!-- ===== BAND 1: composition root ===== -->
+  <text x="60" y="70" class="band-label">Composition root — src/server.ts</text>
+  <g>
+    <rect class="rect-root" x="60" y="100" width="1560" height="270" rx="5"/>
+    <text x="90" y="126" class="name">server.ts</text>
+    <text x="90" y="142" class="sub">composition root · startServer(port) constructs and wires every object below</text>
+    <line x1="60" y1="150" x2="1620" y2="150" class="div"/>
+    <g class="mem">
+      <text x="90" y="174">1  loadRuntimeProviderConfigFromEnv() → RuntimeProviderConfig</text>
+      <text x="90" y="196">2  buildProviderPair(config) → {fastProvider, deepProvider}</text>
+      <text x="90" y="218">3  new InMemoryLatencyEstimator() + seedPriorsForProfile() ×4</text>
+      <text x="90" y="240">4  new AdaptiveRoutingCoordinator(estimator, fastProfile, deepProfile, policy)</text>
+      <text x="90" y="262">5  new FileLatencyTelemetryStore(path).load() → adaptiveRouting.hydrateState()</text>
+      <text x="890" y="174">6  new InMemoryTaskQueue() / ConversationTimelineStore() / DeadLetterStore()</text>
+      <text x="890" y="196">7  new ChatOrchestrator(fastProvider, queue, timeline, routing)</text>
+      <text x="890" y="218">8  new DeepWorker(queue, deepProvider, timeline, maxRetries=2, deadLetters, routing)</text>
+      <text x="890" y="240">9  new ChatService(orchestrator, worker, timeline, queue, deadLetters, routing)</text>
+      <text x="890" y="262">10  createChatServer(service) → http.Server · server.listen(port)</text>
+    </g>
+  </g>
+
+  <!-- band1 -> ChatService -->
+  <path class="flow" d="M840,370 L840,440" marker-end="url(#arrow)"/>
+  <text x="852" y="410" class="lbl">constructs</text>
+
+  <!-- ===== BAND 2: application layer ===== -->
+  <text x="60" y="405" class="band-label">Application layer</text>
+
+  <g>
+    <rect class="rect" x="580" y="440" width="520" height="170" rx="5"/>
+    <text x="600" y="463" class="name">ChatService <tspan class="stereo-mod">«facade»</tspan></text>
+    <line x1="580" y1="474" x2="1100" y2="474" class="div"/>
+    <g class="mem">
+      <text x="600" y="492">+submitMessage(msg): OrchestratorResponse</text>
+      <text x="600" y="510">+runDeepWorkerOnce(): DeepResult | undefined</text>
+      <text x="600" y="528">+getTimeline(id) / listDeadLetters() / replayDeadLetter(id)</text>
+      <text x="600" y="546">+getRoutingTelemetry() → {policy, estimates}</text>
+      <text x="600" y="564">+tuneRoutingPolicy(queueDepth) / setRoutingPolicy(input)</text>
+      <text x="600" y="582" class="mem-muted">no logic of its own — delegates every call below</text>
+    </g>
+  </g>
+
+  <path class="flow" d="M710,610 L710,630 L460,630 L460,650" marker-end="url(#arrow)"/>
+  <text x="472" y="644" class="lbl">submitMessage() →</text>
+  <path class="flow" d="M970,610 L970,630 L1140,630 L1140,650" marker-end="url(#arrow)"/>
+  <text x="982" y="644" class="lbl">runDeepWorkerOnce() →</text>
+
+  <g>
+    <rect class="rect" x="200" y="650" width="520" height="230" rx="5"/>
+    <text x="220" y="673" class="name">ChatOrchestrator</text>
+    <line x1="200" y1="684" x2="720" y2="684" class="div"/>
+    <text x="220" y="702" class="mem">+handleUserMessage(msg: UserMessage): OrchestratorResponse</text>
+    <text x="220" y="722" class="hdr-note">calls</text>
+    <g class="mem-muted">
+      <text x="220" y="740">analyzeFast(text)  [domain/router.ts]</text>
+      <text x="220" y="758">adaptiveRouting.decide(msg, analysis)</text>
+      <text x="220" y="776">fastProvider.createProvisionalReply(...)</text>
+      <text x="220" y="794">queue.enqueue(deepTask)  — when route = deep</text>
+      <text x="220" y="812">timelineStore.appendEvent(user, then provisional)</text>
+    </g>
+    <text x="220" y="832" class="sub">returns OrchestratorResponse { fastResponse, deepTask? }</text>
+  </g>
+
+  <g>
+    <rect class="rect" x="880" y="650" width="520" height="230" rx="5"/>
+    <text x="900" y="673" class="name">DeepWorker</text>
+    <line x1="880" y1="684" x2="1400" y2="684" class="div"/>
+    <text x="900" y="702" class="mem">+runSingle(): DeepResult | undefined</text>
+    <text x="900" y="722" class="hdr-note">calls</text>
+    <g class="mem-muted">
+      <text x="900" y="740">queue.dequeue()</text>
+      <text x="900" y="758">deepProvider.resolveDeepTask(task)</text>
+      <text x="900" y="776">on success: timelineStore.appendEvent(refined) + recordDeepLatency()</text>
+      <text x="900" y="794">on failure, attempts ≤ maxRetries: queue.enqueue(task) — retry</text>
+      <text x="900" y="812">on failure, attempts &gt; maxRetries: deadLetterStore.add(record)</text>
+    </g>
+    <text x="900" y="832" class="sub">returns DeepResult | undefined (undefined = queue empty or retried)</text>
+  </g>
+
+  <path class="flow" d="M460,880 L460,905 L480,905 L480,930" marker-end="url(#arrow)"/>
+  <text x="486" y="900" class="lbl">decide()</text>
+  <path class="flow" d="M1140,880 L1140,914 L620,914 L620,930" marker-end="url(#arrow)"/>
+  <text x="960" y="909" class="lbl">recordDeepLatency()</text>
+
+  <g>
+    <rect class="rect" x="200" y="930" width="560" height="230" rx="5"/>
+    <text x="220" y="953" class="name">AdaptiveRoutingCoordinator</text>
+    <line x1="200" y1="964" x2="760" y2="964" class="div"/>
+    <g class="mem">
+      <text x="220" y="982">+decide(msg, baseAnalysis): AdaptiveDecision</text>
+      <text x="220" y="1000">+recordFastLatency(route, size, ms)</text>
+      <text x="220" y="1018">+recordDeepLatency(size, ms)</text>
+      <text x="220" y="1036">+snapshotState() / hydrateState(snapshot)</text>
+    </g>
+    <text x="220" y="1056" class="hdr-note">depends on</text>
+    <g class="mem-muted">
+      <text x="220" y="1074">classifyPrompt(text)  [routing/classifier.ts]</text>
+      <text x="220" y="1092">InMemoryLatencyEstimator — owned 1:1, injected via constructor</text>
+    </g>
+  </g>
+
+  <g>
+    <rect class="rect" x="900" y="930" width="520" height="230" rx="5"/>
+    <text x="920" y="953" class="name">InMemoryLatencyEstimator</text>
+    <line x1="900" y1="964" x2="1420" y2="964" class="div"/>
+    <g class="mem">
+      <text x="920" y="982">+seedPrior(bucket, prior)</text>
+      <text x="920" y="1000">+recordLatency(bucket, ms)</text>
+      <text x="920" y="1018">+estimate(bucket): LatencyEstimate</text>
+      <text x="920" y="1036">+snapshot() / hydrate(snapshot)</text>
+    </g>
+    <text x="920" y="1056" class="hdr-note">behavior</text>
+    <g class="mem-muted">
+      <text x="920" y="1074">blends seeded prior with live p50/p90/p95/p99, weight = min(1, n/300)</text>
+      <text x="920" y="1092">confidence: low &lt;100 samples · medium &lt;300 · high ≥300</text>
+    </g>
+  </g>
+
+  <path class="flow" d="M760,1045 L900,1045" marker-start="url(#diamond)"/>
+  <text x="770" y="1038" class="lbl">owns (1:1)</text>
+
+  <!-- ===== BAND 3: ports vs adapters ===== -->
+  <text x="60" y="1195" class="band-label">Ports vs. adapters — the hexagonal boundary</text>
+  <text x="270" y="1222" text-anchor="middle" class="hdr-note">«interface» — what the app layer holds</text>
+  <text x="1090" y="1222" text-anchor="middle" class="hdr-note">concrete adapters — what server.ts constructs</text>
+
+  <!-- row 1: Fast -->
+  <g>
+    <rect class="rect-port" x="60" y="1240" width="420" height="150" rx="4"/>
+    <text x="80" y="1262" class="stereo">«interface»</text>
+    <text x="80" y="1278" class="name-port">FastModelProvider</text>
+    <line x1="60" y1="1286" x2="480" y2="1286" class="div"/>
+    <text x="80" y="1304" class="mem">+createProvisionalReply(input):</text>
+    <text x="94" y="1320" class="mem">Promise&lt;string&gt;</text>
+    <text x="80" y="1342" class="sub">one implementation is live per deployment,</text>
+    <text x="80" y="1356" class="sub">chosen by CHAT_FAST_PROVIDER</text>
+
+    <rect class="rect-adapter" x="560" y="1240" width="1060" height="150" rx="4"/>
+    <text x="580" y="1258" class="hdr-note">realize FastModelProvider</text>
+    <line x1="560" y1="1266" x2="1620" y2="1266" class="div"/>
+    <g class="mem">
+      <text x="580" y="1284">MockFastProvider — canned reply per route, no network</text>
+      <text x="580" y="1302">AzureFastProvider — Azure OpenAI chat/completions (fetch, 15s timeout)</text>
+      <text x="580" y="1320">BedrockFastProvider — AWS Bedrock Converse API (@aws-sdk/client-bedrock-runtime)</text>
+      <text x="580" y="1338">OllamaFastProvider — local Ollama /api/generate (fetch, 15s timeout)</text>
+    </g>
+  </g>
+  <path class="flow-real" d="M560,1315 L480,1315" marker-end="url(#arrow-hollow)"/>
+
+  <!-- row 2: Deep -->
+  <g>
+    <rect class="rect-port" x="60" y="1420" width="420" height="150" rx="4"/>
+    <text x="80" y="1442" class="stereo">«interface»</text>
+    <text x="80" y="1458" class="name-port">DeepModelProvider</text>
+    <line x1="60" y1="1466" x2="480" y2="1466" class="div"/>
+    <text x="80" y="1484" class="mem">+resolveDeepTask(task):</text>
+    <text x="94" y="1500" class="mem">Promise&lt;DeepResult&gt;</text>
+    <text x="80" y="1522" class="sub">chosen by CHAT_DEEP_PROVIDER,</text>
+    <text x="80" y="1536" class="sub">independently of the fast provider</text>
+
+    <rect class="rect-adapter" x="560" y="1420" width="1060" height="150" rx="4"/>
+    <text x="580" y="1438" class="hdr-note">realize DeepModelProvider</text>
+    <line x1="560" y1="1446" x2="1620" y2="1446" class="div"/>
+    <g class="mem">
+      <text x="580" y="1464">MockDeepProvider — canned refined reply + 1 citation</text>
+      <text x="580" y="1482">AzureDeepProvider — Azure OpenAI chat/completions</text>
+      <text x="580" y="1500">BedrockDeepProvider — AWS Bedrock Converse API</text>
+      <text x="580" y="1518">OllamaDeepProvider — local Ollama /api/generate</text>
+    </g>
+    <text x="580" y="1540" class="lbl-risk">⚠ only Mock returns citations — the three real adapters always report citations: []</text>
+  </g>
+  <path class="flow-real" d="M560,1495 L480,1495" marker-end="url(#arrow-hollow)"/>
+
+  <!-- row 3: TaskQueue -->
+  <g>
+    <rect class="rect-port" x="60" y="1600" width="420" height="130" rx="4"/>
+    <text x="80" y="1622" class="stereo">«interface»</text>
+    <text x="80" y="1638" class="name-port">TaskQueue</text>
+    <line x1="60" y1="1646" x2="480" y2="1646" class="div"/>
+    <text x="80" y="1664" class="mem">+enqueue(task: DeepTask): Promise&lt;void&gt;</text>
+    <text x="80" y="1682" class="mem">+dequeue(): Promise&lt;DeepTask | undefined&gt;</text>
+
+    <rect class="rect-adapter" x="560" y="1600" width="1060" height="130" rx="4"/>
+    <text x="580" y="1618" class="hdr-note">realizes TaskQueue</text>
+    <line x1="560" y1="1626" x2="1620" y2="1626" class="div"/>
+    <text x="580" y="1644" class="mem">InMemoryTaskQueue — array-backed FIFO (push / shift); +size()</text>
+    <text x="580" y="1662" class="mem-muted">one instance, shared by the orchestrator and the worker — the only hand-off between them</text>
+  </g>
+  <path class="flow-real" d="M560,1665 L480,1665" marker-end="url(#arrow-hollow)"/>
+
+  <!-- row 4: ConversationTimelineStore -->
+  <g>
+    <rect class="rect-port" x="60" y="1760" width="420" height="130" rx="4"/>
+    <text x="80" y="1782" class="stereo">«interface»</text>
+    <text x="80" y="1798" class="name-port">ConversationTimelineStore</text>
+    <line x1="60" y1="1806" x2="480" y2="1806" class="div"/>
+    <text x="80" y="1824" class="mem">+appendEvent(id, event): Promise&lt;void&gt;</text>
+    <text x="80" y="1842" class="mem">+getEvents(id): Promise&lt;ChatTimelineEvent[]&gt;</text>
+
+    <rect class="rect-adapter" x="560" y="1760" width="1060" height="130" rx="4"/>
+    <text x="580" y="1778" class="hdr-note">realize ConversationTimelineStore</text>
+    <line x1="560" y1="1786" x2="1620" y2="1786" class="div"/>
+    <text x="580" y="1804" class="mem">NoopConversationTimelineStore — discards events (default if none injected)</text>
+    <text x="580" y="1822" class="mem">InMemoryConversationTimelineStore — Map&lt;conversationId, event[]&gt;</text>
+  </g>
+  <path class="flow-real" d="M560,1825 L480,1825" marker-end="url(#arrow-hollow)"/>
+
+  <!-- row 5: DeadLetterStore -->
+  <g>
+    <rect class="rect-port" x="60" y="1920" width="420" height="130" rx="4"/>
+    <text x="80" y="1942" class="stereo">«interface»</text>
+    <text x="80" y="1958" class="name-port">DeadLetterStore</text>
+    <line x1="60" y1="1966" x2="480" y2="1966" class="div"/>
+    <text x="80" y="1984" class="mem">+add(record) / +list()</text>
+    <text x="80" y="2002" class="mem">+remove(taskId): DeadLetterRecord | undefined</text>
+
+    <rect class="rect-adapter" x="560" y="1920" width="1060" height="130" rx="4"/>
+    <text x="580" y="1938" class="hdr-note">realize DeadLetterStore</text>
+    <line x1="560" y1="1946" x2="1620" y2="1946" class="div"/>
+    <text x="580" y="1964" class="mem">NoopDeadLetterStore — discards (default if none injected)</text>
+    <text x="580" y="1982" class="mem">InMemoryDeadLetterStore — array, removed by taskId on replay</text>
+  </g>
+  <path class="flow-real" d="M560,1985 L480,1985" marker-end="url(#arrow-hollow)"/>
+
+  <!-- row 6: LatencyTelemetryStore -->
+  <g>
+    <rect class="rect-port" x="60" y="2080" width="420" height="130" rx="4"/>
+    <text x="80" y="2102" class="stereo">«interface»</text>
+    <text x="80" y="2118" class="name-port">LatencyTelemetryStore</text>
+    <line x1="60" y1="2126" x2="480" y2="2126" class="div"/>
+    <text x="80" y="2144" class="mem">+load(): Promise&lt;Snapshot | undefined&gt;</text>
+    <text x="80" y="2162" class="mem">+save(snapshot): Promise&lt;void&gt;</text>
+
+    <rect class="rect-adapter" x="560" y="2080" width="1060" height="130" rx="4"/>
+    <text x="580" y="2098" class="hdr-note">realizes LatencyTelemetryStore</text>
+    <line x1="560" y1="2106" x2="1620" y2="2106" class="div"/>
+    <text x="580" y="2124" class="mem">FileLatencyTelemetryStore — JSON file on disk</text>
+    <text x="580" y="2142" class="mem-muted">zod-validated on load and save; write is temp-file-then-rename (atomic)</text>
+  </g>
+  <path class="flow-real" d="M560,2145 L480,2145" marker-end="url(#arrow-hollow)"/>
+
+  <!-- band2 -> band3 dependency arrows, routed down the clear left margin
+       (x ≤ 54, always left of every box — port boxes start at x=60) so no
+       line crosses through a box's text. Each gets its own lane and its own
+       jog height so seven parallel runs stay distinguishable. -->
+  <path class="flow" d="M260,880 L260,886 L18,886 L18,1232 L100,1232 L100,1240" marker-end="url(#arrow)"/>
+  <path class="flow" d="M340,880 L340,892 L24,892 L24,1585 L90,1585 L90,1600" marker-end="url(#arrow)"/>
+  <path class="flow" d="M420,880 L420,898 L30,898 L30,1745 L90,1745 L90,1760" marker-end="url(#arrow)"/>
+  <path class="flow" d="M1000,880 L1000,904 L36,904 L36,1592 L140,1592 L140,1600" marker-end="url(#arrow)"/>
+  <path class="flow" d="M1080,880 L1080,910 L42,910 L42,1405 L100,1405 L100,1420" marker-end="url(#arrow)"/>
+  <path class="flow" d="M1160,880 L1160,916 L48,916 L48,1752 L140,1752 L140,1760" marker-end="url(#arrow)"/>
+  <path class="flow-risk" d="M1220,880 L1220,922 L54,922 L54,1905 L100,1905 L100,1920" marker-end="url(#arrow-risk)"/>
+
+  <!-- key for the seven lanes above, set in the full-width clear band
+       between band 2 (ends y=1160) and band 3 (starts y=1240) — no box
+       occupies this strip at any x, so labels of any length are safe here -->
+  <g class="lbl">
+    <text x="70" y="1166">→ FastModelProvider: createProvisionalReply()</text>
+    <text x="70" y="1176">→ TaskQueue: enqueue(DeepTask) — route = deep</text>
+    <text x="70" y="1186">→ ConversationTimelineStore: appendEvent(user / provisional)</text>
+    <text x="70" y="1196">→ TaskQueue: dequeue() / retry-enqueue()</text>
+    <text x="70" y="1206">→ DeepModelProvider: resolveDeepTask() → DeepResult</text>
+    <text x="70" y="1216">→ ConversationTimelineStore: appendEvent(refined)</text>
+  </g>
+  <text x="70" y="1226" class="lbl-risk">→ DeadLetterStore: add() — after maxRetries exceeded</text>
+
+  <!-- server.ts owns the one adapter it talks to on an ongoing basis, not
+       just at construction: periodic telemetry persistence -->
+  <path class="flow" d="M1620,250 L1655,250 L1655,2060 L1090,2060 L1090,2080" marker-end="url(#arrow)"/>
+  <text x="900" y="2054" class="lbl">FileLatencyTelemetryStore: load() at startup · save() every TELEMETRY_SAVE_INTERVAL_MS</text>
+
+  <!-- ===== BAND 4: domain DTOs ===== -->
+  <text x="60" y="2245" class="band-label">Domain data — src/domain/types.ts (attributes only, no behavior)</text>
+
+  <g>
+    <rect class="rect" x="66" y="2275" width="240" height="180" rx="4"/>
+    <text x="82" y="2296" class="name">UserMessage</text>
+    <line x1="66" y1="2304" x2="306" y2="2304" class="div"/>
+    <g class="mem">
+      <text x="82" y="2322">conversationId</text>
+      <text x="82" y="2338">userId</text>
+      <text x="82" y="2354">text</text>
+      <text x="82" y="2370">timestampIso</text>
+    </g>
+  </g>
+
+  <g>
+    <rect class="rect" x="328" y="2275" width="240" height="180" rx="4"/>
+    <text x="344" y="2296" class="name">FastAnalysis</text>
+    <line x1="328" y1="2304" x2="568" y2="2304" class="div"/>
+    <g class="mem">
+      <text x="344" y="2322">correctedText</text>
+      <text x="344" y="2338">needsExternalData</text>
+      <text x="344" y="2354">needsClarification</text>
+      <text x="344" y="2370">routeDecision</text>
+      <text x="344" y="2386">confidence</text>
+      <text x="344" y="2402">reasons[]</text>
+    </g>
+  </g>
+
+  <g>
+    <rect class="rect" x="590" y="2275" width="240" height="180" rx="4"/>
+    <text x="606" y="2296" class="name">DeepTask</text>
+    <line x1="590" y1="2304" x2="830" y2="2304" class="div"/>
+    <g class="mem">
+      <text x="606" y="2322">taskId</text>
+      <text x="606" y="2338">conversationId</text>
+      <text x="606" y="2354">normalizedPrompt</text>
+      <text x="606" y="2370">createdAtIso</text>
+      <text x="606" y="2386">sizeBand?</text>
+      <text x="606" y="2402">providerHint?</text>
+    </g>
+  </g>
+
+  <g>
+    <rect class="rect" x="852" y="2275" width="240" height="180" rx="4"/>
+    <text x="868" y="2296" class="name">DeepResult</text>
+    <line x1="852" y1="2304" x2="1092" y2="2304" class="div"/>
+    <g class="mem">
+      <text x="868" y="2322">taskId</text>
+      <text x="868" y="2338">finalReply</text>
+      <text x="868" y="2354">confidence</text>
+      <text x="868" y="2370">citations[]</text>
+      <text x="868" y="2386">totalLatencyMs</text>
+    </g>
+  </g>
+
+  <g>
+    <rect class="rect" x="1114" y="2275" width="240" height="180" rx="4"/>
+    <text x="1130" y="2296" class="name">ChatTimelineEvent</text>
+    <line x1="1114" y1="2304" x2="1354" y2="2304" class="div"/>
+    <g class="mem">
+      <text x="1130" y="2322">type: user | provisional</text>
+      <text x="1130" y="2338">      | refined</text>
+      <text x="1130" y="2354">text</text>
+      <text x="1130" y="2370">createdAtIso</text>
+    </g>
+  </g>
+
+  <g>
+    <rect class="rect" x="1376" y="2275" width="240" height="180" rx="4"/>
+    <text x="1392" y="2296" class="name">OrchestratorResponse</text>
+    <line x1="1376" y1="2304" x2="1616" y2="2304" class="div"/>
+    <g class="mem">
+      <text x="1392" y="2322">fastResponse:</text>
+      <text x="1392" y="2338">  FastResponse</text>
+      <text x="1392" y="2358">deepTask?: DeepTask</text>
+    </g>
+  </g>
+
+</svg>
+    </div>
+    <figcaption>
+      <b>What this shows.</b> The composition root (top) is the only place that knows about concrete vendors — it reads
+      environment configuration, builds one adapter per port, and wires them into three orchestration classes. Everything
+      in the application layer (<b>ChatService</b>, <b>ChatOrchestrator</b>, <b>DeepWorker</b>, <b>AdaptiveRoutingCoordinator</b>)
+      holds only interface types, shown as the left column of the ports/adapters band; the right column is what actually
+      runs, chosen entirely by <code style="font-family:var(--mono)">CHAT_FAST_PROVIDER</code> /
+      <code style="font-family:var(--mono)">CHAT_DEEP_PROVIDER</code>. The one failure path worth tracing is the
+      dead-letter arrow: a deep task that exhausts its retries never reaches the timeline — it's diverted to
+      <b>DeadLetterStore</b> instead, and only a manual replay puts it back on the queue.
+    </figcaption>
+  </figure>
+</div>
+
+</body>
+</html>

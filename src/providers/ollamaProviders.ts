@@ -90,11 +90,14 @@ export class OllamaFastProvider implements FastModelProvider {
       "You are the fast-response layer for a dual-path assistant.",
       "Return concise, practical text.",
       `Route: ${input.routeDecision}`,
+      `TimestampUTC: ${input.message.timestampIso}`,
       `Original: ${input.message.text}`,
       `Normalized: ${input.correctedText}`,
       "If route is deep, provide a short provisional response that says deeper analysis is in progress.",
       "If route is clarify, ask one concise clarifying question.",
-      "If route is direct, provide a direct short answer."
+      "If route is direct, provide a direct short answer.",
+      "For temporal questions (day/date/time), assume the user means now at TimestampUTC unless they specify a timezone.",
+      "Answer first, then optionally ask one concise timezone clarifier if needed."
     ].join("\n");
 
     return callOllama(this.baseUrl, this.model, prompt, this.temperature, this.timeoutMs, this.numPredict);

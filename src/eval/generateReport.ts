@@ -1,3 +1,4 @@
+import "../config/loadEnv";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { buildEvalReport, renderEvalReportMarkdown } from "./report";
 import type { EvalRecord } from "./metrics";

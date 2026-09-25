@@ -1,0 +1,74 @@
+{
+  "generatedAtIso": "2026-09-25T20:45:59.492Z",
+  "baseUrl": "http://localhost:3100",
+  "total": 5,
+  "passed": 3,
+  "failed": 2,
+  "passRate": 0.6,
+  "results": [
+    {
+      "id": "direct-basic-math",
+      "prompt": "What is 2+2?",
+      "expectedRoute": "direct",
+      "actualRoute": "direct",
+      "expectedPhase": "fast-only",
+      "fastReply": "4",
+      "fastLatencyMs": 431,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "clarify-underspecified",
+      "prompt": "Do it",
+      "expectedRoute": "clarify",
+      "actualRoute": "clarify",
+      "expectedPhase": "fast-only",
+      "fastReply": "Okay, I will.",
+      "fastLatencyMs": 313,
+      "passed": false,
+      "failures": [
+        "Fast reply missing expected content tokens.",
+        "Clarify reply should ask a question."
+      ]
+    },
+    {
+      "id": "clarify-day-question-no-echo",
+      "prompt": "WHAT DAY IS IT?",
+      "expectedRoute": "clarify",
+      "actualRoute": "clarify",
+      "expectedPhase": "fast-only",
+      "fastReply": "What day is it today?",
+      "fastLatencyMs": 209,
+      "passed": false,
+      "failures": [
+        "Fast reply contains denied content token."
+      ]
+    },
+    {
+      "id": "deep-latest-sourced",
+      "prompt": "Find the latest US inflation data and cite sources.",
+      "expectedRoute": "deep",
+      "actualRoute": "deep",
+      "expectedPhase": "deep-required",
+      "fastReply": "Deeper analysis is in progress.",
+      "refinedReply": "As of my last update in October 2023, the latest US inflation data is not available. However, I can provide you with the most recent data available up to that point. According to the Bureau of Labor Statistics (BLS), the Consumer Price Index (CPI) for All Urban Consumers (CPI-U) increased by 0.1% in September 2023 compared to August 2023. The annual inflation rate, based on the 12-month change, was 3.7% in September 2023.\n\nFor the most current data, I recommend checking the following sources:\n\n1. **Bureau of Labor Statistics (BLS)** - The official government agency responsible for collecting and analyzing economic data, including inflation rates. You can find the latest CPI data and inflation reports on their website: [BLS Inflation Data](https://www.bls.gov/cpi/).\n\n2. **Federal Reserve Bank of St. Louis (FRED)** - FRED provides a comprehensive database of economic data, including inflation rates. You can access the latest inflation data and historical trends on their website: [FRED Inflation Data](https://fred.stlouisfed.org/series/CPIAUCSL).\n\n3. **Economic Indicators from the U.S. Department of Commerce** - This site offers a range of economic indicators, including inflation rates. You can find the latest information on their website: [U.S. Department of Commerce Economic Indicators](https://www.commerce.gov/economic-indicators).\n\nThese sources provide reliable and up-to-date information on US inflation data. For the most current figures, please visit the respective websites directly.",
+      "fastLatencyMs": 236,
+      "endToEndLatencyMs": 6379,
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "deep-complex-compare",
+      "prompt": "Compare Azure OpenAI and AWS Bedrock tradeoffs for latency and cost in a production chatbot.",
+      "expectedRoute": "deep",
+      "actualRoute": "deep",
+      "expectedPhase": "deep-required",
+      "fastReply": "Deeper analysis is in progress.",
+      "refinedReply": "When comparing Azure OpenAI and AWS Bedrock for latency and cost in a production chatbot, several factors need to be considered:\n\n### Latency\n1. **Azure OpenAI**:\n   - **Global Infrastructure**: Azure has a vast global network, which can reduce latency for users in different regions.\n   - **Proximity to Data Centers**: Azure's proximity to data centers can lead to lower latency for users in specific regions.\n   - **Edge Computing**: Azure offers edge computing capabilities, which can further reduce latency for real-time applications.\n\n2. **AWS Bedrock**:\n   - **Global Reach**: AWS also has a broad global network, which can help in reducing latency for users worldwide.\n   - **Optimized for AWS Ecosystem**: AWS Bedrock is tightly integrated with AWS services, which can optimize performance and reduce latency within the AWS ecosystem.\n   - **Regional Availability**: AWS Bedrock's availability in specific regions can impact latency, depending on the user's location.\n\n### Cost\n1. **Azure OpenAI**:\n   - **Pricing Model**: Azure uses a pay-as-you-go model, which can be cost-effective for variable workloads.\n   - **Reserved Instances**: Azure offers reserved instances for predictable workloads, which can reduce costs.\n   - **Cost Management Tools**: Azure provides robust cost management tools to optimize spending.\n\n2. **AWS Bedrock**:\n   - **Pricing Model**: AWS also follows a pay-as-you-go model, with additional options like reserved instances and savings plans.\n   - **Cost Optimization**: AWS offers various cost optimization tools and services, such as AWS Cost Explorer and AWS Budgets.\n   - **Integration with AWS Services**: The integration with other AWS services can sometimes lead to cost savings through consolidated billing and shared resources.\n\n### Tradeoffs\n- **Latency**: Both platforms offer low latency options, but the choice might depend on the specific regions and edge computing needs of the chatbot.\n- **Cost**: Both platforms are cost-effective, but the cost optimization strategies and tools available can influence the final cost. Azure's proximity to data centers and edge computing capabilities might offer slight advantages in certain scenarios.\n\n### Conclusion\nFor a production chatbot, the choice between Azure OpenAI and AWS Bedrock should be based on the specific requirements for latency and cost optimization. Azure might offer slight advantages in latency due to its global network and edge computing capabilities, while AWS might provide better cost optimization through its integration with other AWS services and robust cost management tools. Ultimately, the decision should be guided by the specific needs of the chatbot, including user location, workload patterns, and existing infrastructure.",
+      "fastLatencyMs": 244,
+      "endToEndLatencyMs": 9860,
+      "passed": true,
+      "failures": []
+    }
+  ]
+}

@@ -44,11 +44,20 @@ function readProviderConfigFromPrefix(prefix: "CHAT_FAST" | "CHAT_DEEP"): Provid
   const providerRaw = process.env[`${prefix}_PROVIDER`] ?? "mock";
   const provider = providerKindSchema.parse(providerRaw);
 
-  const modelDefault = provider === "mock" ? "mock-v1" : "unset-model";
+  const modelRaw = process.env[`${prefix}_MODEL`];
+
+  // Fail fast on a missing model rather than silently sending a placeholder
+  // model name to a real provider. "mock" is exempt because it never makes
+  // an external call.
+  if (provider !== "mock" && !modelRaw) {
+    throw new Error(
+      `${prefix}_MODEL is required when ${prefix}_PROVIDER=${provider}. Set it in your environment or .env file.`
+    );
+  }
 
   return providerConfigSchema.parse({
     provider,
-    model: process.env[`${prefix}_MODEL`] ?? modelDefault,
+    model: modelRaw ?? "mock-v1",
     temperature: toNumber(process.env[`${prefix}_TEMPERATURE`], 0.2)
   });
 }
@@ -86,4 +95,32 @@ export function loadRuntimeProviderConfigFromEnv(): RuntimeProviderConfig {
     bedrock,
     ollama
   };
+}
+
+/**
+ * A safe, secret-free one-line summary of the active provider configuration,
+ * suitable for startup logs. Deliberately excludes AZURE_OPENAI_API_KEY (and
+ * anything else that could be a credential) so this can always be logged
+ * without redaction risk. Endpoints/base URLs and region names are included
+ * since they are not secrets.
+ */
+export function describeProviderConfig(config: RuntimeProviderConfig): string {
+  const parts = [
+    `fast=${config.fast.provider}/${config.fast.model}`,
+    `deep=${config.deep.provider}/${config.deep.model}`
+  ];
+
+  if (config.azure) {
+    parts.push(`azure_endpoint=${config.azure.endpoint}`);
+  }
+
+  if (config.bedrock) {
+    parts.push(`bedrock_region=${config.bedrock.region}`);
+  }
+
+  if (config.ollama) {
+    parts.push(`ollama_base_url=${config.ollama.baseUrl}`);
+  }
+
+  return parts.join(" ");
 }

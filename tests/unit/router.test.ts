@@ -14,6 +14,10 @@ describe("router", () => {
     expect(detectNeedsClarification("do it")).toBe(true);
   });
 
+  it("does not treat normal wh-questions as underspecified", () => {
+    expect(detectNeedsClarification("WHAT DAY IS IT?")).toBe(false);
+  });
+
   it("routes deep when external data is requested", () => {
     const analysis = analyzeFast({
       conversationId: "c1",
@@ -23,5 +27,15 @@ describe("router", () => {
     });
 
     expect(analysis.routeDecision).toBe("deep");
+  });
+
+  it("routes direct for standalone day question", () => {
+    const result = analyzeFast({
+      conversationId: "c",
+      userId: "u",
+      text: "WHAT DAY IS IT?",
+      timestampIso: new Date().toISOString()
+    });
+    expect(result.routeDecision).toBe("direct");
   });
 });

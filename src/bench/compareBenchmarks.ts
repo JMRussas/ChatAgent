@@ -1,3 +1,4 @@
+import "../config/loadEnv";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { compareBenchmarkFiles, normalizeThresholds, renderCompareMarkdown, type BenchmarkSummaryFile } from "./compareCore";
 

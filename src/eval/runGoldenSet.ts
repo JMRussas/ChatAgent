@@ -65,6 +65,10 @@ function includesAny(text: string, denied: string[] | undefined): boolean {
   return denied.some((token) => lower.includes(token.toLowerCase()));
 }
 
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 async function evaluateCase(
   baseUrl: string,
   goldenCase: GoldenCase,
@@ -118,6 +122,25 @@ async function evaluateCase(
     failures.push("Fast reply contains denied content token.");
   }
 
+  const normalizedPrompt = normalizeText(goldenCase.prompt);
+  const normalizedFastReply = normalizeText(fastReply);
+
+  if (actualRoute === "clarify") {
+    if (!fastReply.includes("?")) {
+      failures.push("Clarify reply should ask a question.");
+    }
+
+    if (normalizedFastReply === normalizedPrompt) {
+      failures.push("Clarify reply echoed prompt instead of asking a clarifying question.");
+    }
+  }
+
+  if (actualRoute === "direct") {
+    if (fastReply.includes("?")) {
+      failures.push("Direct reply should not be a clarifying question.");
+    }
+  }
+
   if (typeof goldenCase.maxFastLatencyMs === "number" && fastLatencyMs > goldenCase.maxFastLatencyMs) {
     failures.push(`Fast latency ${fastLatencyMs}ms exceeded maxFastLatencyMs ${goldenCase.maxFastLatencyMs}ms.`);
   }
@@ -125,6 +148,12 @@ async function evaluateCase(
   if (goldenCase.expectedPhase === "fast-only" && messageResponse.fastResponse.processingStatus !== "complete") {
     failures.push(
       `Expected fast-only complete status but got ${messageResponse.fastResponse.processingStatus}.`
+    );
+  }
+
+  if (goldenCase.expectedPhase === "deep-required" && messageResponse.fastResponse.processingStatus !== "provisional") {
+    failures.push(
+      `Expected deep-required provisional status but got ${messageResponse.fastResponse.processingStatus}.`
     );
   }
 

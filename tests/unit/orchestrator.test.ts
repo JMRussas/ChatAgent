@@ -36,6 +36,42 @@ describe("orchestrator", () => {
     expect(queue.size()).toBe(1);
   });
 
+  it("routes clarify through fast provider without deep enqueue", async () => {
+    const queue = new InMemoryTaskQueue();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue);
+
+    const result = await orchestrator.handleUserMessage({
+      conversationId: "conv-clarify",
+      userId: "user-clarify",
+      text: "Do it",
+      timestampIso: new Date().toISOString()
+    });
+
+    expect(result.fastResponse.analysis.routeDecision).toBe("clarify");
+    expect(result.fastResponse.processingStatus).toBe("complete");
+    expect(result.fastResponse.provisionalReply).toContain("I can help. Can you add one more detail");
+    expect(result.deepTask).toBeUndefined();
+    expect(queue.size()).toBe(0);
+  });
+
+  it("routes current-day question as direct without deep enqueue", async () => {
+    const queue = new InMemoryTaskQueue();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue);
+
+    const result = await orchestrator.handleUserMessage({
+      conversationId: "conv-day",
+      userId: "user-day",
+      text: "WHAT DAY IS IT?",
+      timestampIso: "2026-09-25T12:00:00.000Z"
+    });
+
+    expect(result.fastResponse.analysis.routeDecision).toBe("direct");
+    expect(result.fastResponse.processingStatus).toBe("complete");
+    expect(result.fastResponse.provisionalReply).toContain("Quick answer:");
+    expect(result.deepTask).toBeUndefined();
+    expect(queue.size()).toBe(0);
+  });
+
   it("worker resolves one deep task", async () => {
     const queue = new InMemoryTaskQueue();
     const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue);

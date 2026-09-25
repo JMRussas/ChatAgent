@@ -10,8 +10,8 @@ export interface PromptClassification {
 }
 
 const COMPLEXITY_CUES = ["compare", "tradeoff", "design", "architecture", "multi-step", "evaluate", "benchmark"];
-const EXTERNAL_DATA_CUES = ["latest", "current", "search", "look up", "cite", "source", "news", "today"];
-const AMBIGUOUS_CUES = ["it", "do it", "same as before", "this one", "that one"];
+const EXTERNAL_DATA_CUES = ["latest", "current", "search", "look up", "cite", "source", "news"];
+const AMBIGUOUS_CUES = ["do it", "same as before", "this one", "that one"];
 
 function detectExternalDataNeeded(text: string): boolean {
   const lower = text.toLowerCase();
@@ -21,6 +21,13 @@ function detectExternalDataNeeded(text: string): boolean {
 function detectAmbiguity(text: string): AmbiguityLevel {
   const trimmed = text.trim().toLowerCase();
   if (trimmed.length < 8) return "high";
+
+  // Common standalone questions (who/what/when/where/why/how) are usually specific enough
+  // even when they contain pronouns like "it" (for example: "what day is it?").
+  if (/^(who|what|when|where|why|how)\b/.test(trimmed) && trimmed.length >= 10) {
+    return "low";
+  }
+
   if (AMBIGUOUS_CUES.some((cue) => trimmed === cue)) return "high";
   if (trimmed.length < 24 && AMBIGUOUS_CUES.some((cue) => trimmed.includes(cue))) return "high";
   return "low";

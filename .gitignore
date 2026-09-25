@@ -5,3 +5,8 @@ coverage/
 
 # Local telemetry/report artifacts
 data/latency-telemetry.json
+
+# Local secrets. Never commit these. Copy .env.example to .env instead.
+.env
+.env.local
+.env.*.local

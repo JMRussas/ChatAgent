@@ -1,3 +1,4 @@
+import "./config/loadEnv";
 import { startServer } from "./server";
 import { parsePositiveIntEnv } from "./config/runtimeEnv";
 
