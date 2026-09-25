@@ -371,6 +371,22 @@ export async function startServer(port: number): Promise<void> {
     }
   };
 
+  const runtimeMode = resolveRuntimeModeInfo(config);
+  const server = createChatServer(service, { runtimeMode });
+  // Do not report success or start background work until the port is bound.
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: NodeJS.ErrnoException) => {
+      reject(error.code === "EADDRINUSE"
+        ? new Error(`Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`)
+        : error);
+    };
+    server.once("error", onError);
+    server.listen(port, () => {
+      server.removeListener("error", onError);
+      resolve();
+    });
+  });
+
   const telemetrySaveIntervalMs = parsePositiveIntEnv(process.env.TELEMETRY_SAVE_INTERVAL_MS, 5000, 250, 60_000);
   const timer = setInterval(() => {
     void saveTelemetry();
@@ -381,10 +397,6 @@ export async function startServer(port: number): Promise<void> {
         void runDeepWorkerTick();
       }, autoRunConfig.intervalMs)
     : undefined;
-
-  const runtimeMode = resolveRuntimeModeInfo(config);
-  const server = createChatServer(service, { runtimeMode });
-  server.listen(port);
 
   server.on("close", () => {
     clearInterval(timer);

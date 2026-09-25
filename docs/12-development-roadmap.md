@@ -30,6 +30,15 @@ The stabilization pass includes:
 
 ## Verification and evidence
 
+Follow-up startup diagnosis: the server on port 3100 was still the process started
+at 16:51, before stabilization. A second `npm run dev` printed a premature success
+message and then failed with EADDRINUSE. Startup now waits for a successful bind
+before logging success or starting timers, and reports an explicit occupied-port
+error. After restarting the verified old process, live HTTP probes confirmed the
+new HTML and message IDs plus `processingStatus: complete` on direct timeline events.
+The startup regression brings coverage to 109 tests across 28 files; tests and
+type checking pass. This fixes startup observability, not model hallucinations.
+
 Stabilization verification on Windows / Node 24.15.0: 108 tests across 27 files,
 type checking, fixture evaluation, benchmark comparison, and compilation passed.
 A clean isolated copy also passed `npm ci` and the full release/build checks with
