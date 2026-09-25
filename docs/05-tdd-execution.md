@@ -40,6 +40,11 @@
 - Add provider benchmark runner with reproducible JSON/markdown reports
 - Validate report generation in CI-style command flow
 
+10. Live benchmark mode
+- Add real-run benchmark mode that exercises running API endpoints
+- Keep deterministic simulation mode for CI/reproducibility
+- Compare live vs simulated metrics in generated artifacts
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

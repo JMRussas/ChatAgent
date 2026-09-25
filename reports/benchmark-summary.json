@@ -1,5 +1,6 @@
 {
-  "generatedAtIso": "2026-09-25T16:48:33.652Z",
+  "generatedAtIso": "2026-09-25T16:51:04.517Z",
+  "mode": "simulate",
   "summaries": [
     {
       "profile": {
@@ -51,6 +52,203 @@
       "deepRouteRate": 0.5,
       "avgRetriesDeep": 0,
       "deadLetterRateDeep": 0
+    }
+  ],
+  "recordsByProfile": [
+    {
+      "profile": {
+        "name": "azure-balanced",
+        "fastProvider": "azure",
+        "fastModel": "gpt-4o-mini",
+        "deepProvider": "azure",
+        "deepModel": "gpt-4.1"
+      },
+      "records": [
+        {
+          "promptId": "p1",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 628,
+          "finalLatencyMs": 628,
+          "qualityScore": 4.04548,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p2",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 591,
+          "finalLatencyMs": 2612,
+          "qualityScore": 4.57704,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p3",
+          "routeDecision": "clarify",
+          "firstResponseLatencyMs": 689,
+          "finalLatencyMs": 689,
+          "qualityScore": 3.887,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p4",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 746,
+          "finalLatencyMs": 3317,
+          "qualityScore": 4.31632,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p5",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 622,
+          "finalLatencyMs": 622,
+          "qualityScore": 4.3448400000000005,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p6",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 585,
+          "finalLatencyMs": 2585,
+          "qualityScore": 4.57128,
+          "retryCount": 0,
+          "deadLettered": false
+        }
+      ]
+    },
+    {
+      "profile": {
+        "name": "bedrock-balanced",
+        "fastProvider": "bedrock",
+        "fastModel": "anthropic.claude-3-5-haiku",
+        "deepProvider": "bedrock",
+        "deepModel": "anthropic.claude-3-5-sonnet"
+      },
+      "records": [
+        {
+          "promptId": "p1",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 682,
+          "finalLatencyMs": 682,
+          "qualityScore": 4.29236,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p2",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 642,
+          "finalLatencyMs": 2880,
+          "qualityScore": 4.36296,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p3",
+          "routeDecision": "clarify",
+          "firstResponseLatencyMs": 748,
+          "finalLatencyMs": 748,
+          "qualityScore": 3.85796,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p4",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 827,
+          "finalLatencyMs": 3734,
+          "qualityScore": 4.49632,
+          "retryCount": 1,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p5",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 688,
+          "finalLatencyMs": 688,
+          "qualityScore": 4.0384400000000005,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p6",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 648,
+          "finalLatencyMs": 2909,
+          "qualityScore": 4.52904,
+          "retryCount": 0,
+          "deadLettered": false
+        }
+      ]
+    },
+    {
+      "profile": {
+        "name": "ollama-local",
+        "fastProvider": "ollama",
+        "fastModel": "llama3.1:8b",
+        "deepProvider": "ollama",
+        "deepModel": "qwen2.5:14b"
+      },
+      "records": [
+        {
+          "promptId": "p1",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 805,
+          "finalLatencyMs": 805,
+          "qualityScore": 4.08708,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p2",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 845,
+          "finalLatencyMs": 3666,
+          "qualityScore": 4.6264,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p3",
+          "routeDecision": "clarify",
+          "firstResponseLatencyMs": 885,
+          "finalLatencyMs": 885,
+          "qualityScore": 3.84612,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p4",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 890,
+          "finalLatencyMs": 3878,
+          "qualityScore": 4.3868,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p5",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 813,
+          "finalLatencyMs": 813,
+          "qualityScore": 4.30548,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p6",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 853,
+          "finalLatencyMs": 3701,
+          "qualityScore": 4.43136,
+          "retryCount": 0,
+          "deadLettered": false
+        }
+      ]
     }
   ]
 }

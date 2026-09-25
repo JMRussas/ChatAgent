@@ -162,6 +162,14 @@ Run profile benchmark report generation:
 npm run bench:run
 ```
 
+Run benchmark in live mode against a running local server:
+
+```bash
+BENCH_MODE=live
+BENCH_BASE_URL=http://localhost:3000
+npm run bench:run
+```
+
 Artifacts:
 
 1. `reports/benchmark-summary.json`

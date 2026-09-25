@@ -287,3 +287,37 @@ Validation evidence:
 2. Benchmark unit tests pass.
 3. Lint/type-check passes.
 4. Benchmark command generates report artifacts.
+
+---
+
+## 2026-09-25 - Added Live Benchmark Mode
+
+Status: Closed
+
+Issue:
+
+- Deterministic benchmark mode is reproducible but does not capture end-to-end runtime behavior.
+
+Decision:
+
+- Add benchmark `live` mode that hits running API endpoints for real route and latency measurement.
+- Keep simulation mode as default for CI stability.
+
+Changes made:
+
+1. Added `runLiveBenchmark` module using `/messages`, `/workers/deep/run-once`, and timeline/dead-letter reads.
+2. Extended benchmark runner to support `BENCH_MODE=live` and `BENCH_BASE_URL`.
+3. Added unit tests for live runner via mocked fetch.
+
+Files changed:
+
+- `src/bench/liveBenchmark.ts`
+- `src/bench/runBenchmark.ts`
+- `tests/unit/liveBenchmark.test.ts`
+- `docs/05-tdd-execution.md`
+- `README.md`
+
+Validation evidence:
+
+1. Unit tests pass for live benchmark flow.
+2. Full suite and lint pass after integration.
