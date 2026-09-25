@@ -1174,3 +1174,26 @@ without usage evidence does not prove no charge. These are future requirements,
 not implemented spending controls or guarantees about existing fixed routing.
 
 Validation: documentation diff checks only; no runtime code or tests changed.
+
+
+## 2026-09-25 - Context review corrections implemented
+
+Status: CTX-01–04 corrected; broader context/resource milestones remain open.
+
+Resolved effective output caps in contextConfig before provider construction;
+removed adapter-only override parsing. Extracted shared domain context rendering
+so the budget counts complete system/task blocks. Captured selected-route
+instructions before budgeting, preserving shared history. Replay now appends queued
+activity, latest activity determines pending state, and latest refined answer wins.
+
+Named regression evidence is in implementation/01a-review-followup.md and
+tests/unit/contextReview.test.ts. Validation passed: 152 tests / 32 files (default
+parallel run), type checking, build, fixture evaluation and seeded simulated
+benchmark comparison via verify:release. Generated benchmark timestamp-only churn
+was not retained. No live model call, deployment or service restart occurred.
+
+The next task is the runtime ownership ADR and protocol proposal documented in
+implementation/NEXT-HANDOFF.md, before overlapping memory/provider migration.
+01B and monetary/quota/compute enforcement remain unimplemented. Provider context
+overflow still needs typed terminal handling during the generation integration;
+this checkpoint does not claim all original context-spec requirements are closed.

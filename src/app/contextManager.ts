@@ -1,12 +1,13 @@
 import { buildContext, ContextBudgetError, type ContextBudget, type ConversationContext } from "./contextBuilder";
 import type { ConversationTimelineStore } from "./timelineStore";
-import { buildSystemInstruction, ROLE_INSTRUCTIONS, type TrustedRuntimeFacts } from "./systemInstructions";
+import { buildSystemInstruction, roleInstructionsForRoute, type TrustedRuntimeFacts } from "./systemInstructions";
 
 export interface PrepareContextInput {
   conversationId: string;
   currentMessageId: string;
   currentUserText: string;
   trustedFacts: TrustedRuntimeFacts;
+  routeDecision?: "direct" | "clarify" | "deep";
 }
 
 /**
@@ -31,7 +32,7 @@ export class ContextManager {
       currentUserText: input.currentUserText,
       capturedAtIso: new Date().toISOString(),
       systemInstruction: buildSystemInstruction(input.trustedFacts),
-      roleInstructions: ROLE_INSTRUCTIONS,
+      roleInstructions: roleInstructionsForRoute(input.routeDecision ?? "direct"),
       budget: this.budget,
       memory: null
     });

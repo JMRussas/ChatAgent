@@ -1,4 +1,5 @@
-import { renderActiveTasksBlock, type ConversationContext } from "../app/contextBuilder";
+import type { ConversationContext } from "../domain/context";
+import { renderContextSystem } from "../domain/contextRendering";
 
 export interface RoleMessage {
   role: "user" | "assistant";
@@ -18,13 +19,8 @@ export interface SystemAndMessages {
  * field for Bedrock).
  */
 export function buildSystemAndMessages(context: ConversationContext, role: "fast" | "deep"): SystemAndMessages {
-  const systemParts = [context.systemInstruction, context.roleInstructions[role]];
-
-  const tasksBlock = renderActiveTasksBlock(context.activeTasks);
-  if (tasksBlock) systemParts.push(tasksBlock);
-
   return {
-    system: systemParts.join("\n\n"),
+    system: renderContextSystem(context.systemInstruction, context.roleInstructions[role], context.activeTasks),
     messages: context.messages.map((m) => ({ role: m.role, content: m.content }))
   };
 }

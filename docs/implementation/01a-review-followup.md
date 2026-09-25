@@ -1,8 +1,8 @@
 # 01A review follow-up: boundary invariants
 
-2026-09-25. Required corrective work against f889b9a, not implemented by this
-document. Preserve 01A's existing behavior and tests. Complete these corrections
-before claiming 01A acceptance; do not expand them into the consolidation project.
+2026-09-25. CTX-01–04 implemented and verified in the review-correction checkpoint.
+The cases below remain regression requirements. 01B, streaming and resource-policy
+enforcement are separate work and are not claimed complete.
 
 ## Invariants and required regressions
 
@@ -32,6 +32,16 @@ CTX-03 produced identical requests for all routes; CTX-04 yielded failed after a
 later thinking event. Existing 140 tests passed with one worker and missed these
 cases. These are offline observations, not live provider quality results.
 
-The correction PR/commit must map every ID above to a test file and test name,
-record its execution result, and list anything outstanding. Run focused regressions
-and the common checks. A green suite without this traceability is not acceptance.
+All four IDs map to `tests/unit/contextReview.test.ts`:
+
+| ID | Test names / evidence |
+|---|---|
+| CTX-01 | `rejects %s Ollama override consuming the window`; `reserves the same effective caps sent through %s`; `uses defaults without overrides and rejects malformed applicable overrides` |
+| CTX-02 | `counts rendered wrappers, UTF-8 and both roles (tasks=%s)` |
+| CTX-03 | `preserves selected route in %s requests and shared history` |
+| CTX-04 | `follows failed, replay queued, running, retrying and complete without mutating snapshots` (also asserts latest refined answer wins) |
+
+All passed. Full default parallel suite: 152 tests across 32 files. Type checking,
+build and verify:release passed with BENCH_MODE=simulate, BENCH_SIM_SEED=default-v1.
+No live provider quality check was run. An earlier intermittent worker crash did
+not recur in this run; no claim that its root cause was fixed.

@@ -62,6 +62,10 @@ export class ChatService {
     const removed = await this.deadLetterStore.remove(taskId);
     if (!removed) return false;
 
+    await this.timelineStore.appendEvent(removed.task.conversationId, {
+      type: "activity", messageId: removed.task.messageId, routeDecision: "deep",
+      activity: "queued", text: "Deep analysis replay queued", createdAtIso: new Date().toISOString()
+    });
     await this.queue.enqueue(removed.task);
     return true;
   }

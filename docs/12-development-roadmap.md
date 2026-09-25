@@ -25,7 +25,7 @@ supersession and aggregate budget enforcement are explicitly separate follow-ups
 ## Current status and next implementation order
 
 Reconciled through implementation commit `8afce48` on 2026-09-25, plus 01A below.
-The latest implementation check passed **140 tests across 31 files and TypeScript
+The latest implementation check passed **152 tests across 32 files and TypeScript
 checking**, and a full `npm run verify:release` (tests, lint, fixture evaluation,
 simulated benchmark, baseline comparison) passed with `BENCH_MODE=simulate` /
 `BENCH_SIM_SEED=default-v1`. The full clean-install/release/build verification
@@ -261,12 +261,12 @@ switching unless a demonstrated need justifies the extra state management.
 
 ## 2026-09-25 review and resource-policy checkpoint
 
-01A is committed, but review corrections CTX-01–04 remain open; see
+01A review corrections CTX-01–04 now pass their named regressions; see
 [boundary invariants](implementation/01a-review-followup.md). Acceptance now
 requires named regression-test evidence, not just a green suite.
 
 Specs 03–06 also require [resource policy](implementation/08-resource-policy.md):
 execution location, billing mode, quota and compute capacity are independent of
 transport. RES-01–08 are future acceptance requirements, not implemented controls.
-Complete the bounded context corrections, then honor the cross-repository reuse
+Context corrections are complete; now honor the cross-repository reuse
 checkpoint before adding overlapping provider or memory implementations.

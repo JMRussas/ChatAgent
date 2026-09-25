@@ -1,4 +1,4 @@
-import type { ContextBudgetConfig } from "../config/contextConfig";
+import { loadContextBudgetConfigFromEnv, type ContextBudgetConfig } from "../config/contextConfig";
 import type { RuntimeProviderConfig } from "../config/providerConfig";
 import { parsePositiveIntEnv } from "../config/runtimeEnv";
 import type { DeepModelProvider, FastModelProvider } from "./interfaces";
@@ -20,22 +20,6 @@ function resolveOllamaDeepTimeoutMs(): number {
   return parsePositiveIntEnv(process.env.OLLAMA_DEEP_TIMEOUT_MS, 10_000, 500, 240_000);
 }
 
-// OLLAMA_*_NUM_PREDICT stays authoritative when explicitly set (backward
-// compatibility, spec 01 budget policy); otherwise the shared output budget applies.
-function resolveOllamaFastNumPredict(contextBudget: ContextBudgetConfig): number {
-  if (process.env.OLLAMA_FAST_NUM_PREDICT !== undefined) {
-    return parsePositiveIntEnv(process.env.OLLAMA_FAST_NUM_PREDICT, 384, 32, 4096);
-  }
-  return contextBudget.fastOutputTokens;
-}
-
-function resolveOllamaDeepNumPredict(contextBudget: ContextBudgetConfig): number {
-  if (process.env.OLLAMA_DEEP_NUM_PREDICT !== undefined) {
-    return parsePositiveIntEnv(process.env.OLLAMA_DEEP_NUM_PREDICT, 768, 64, 8192);
-  }
-  return contextBudget.deepOutputTokens;
-}
-
 function buildFastProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig): FastModelProvider {
   const fast = config.fast;
 
@@ -47,7 +31,7 @@ function buildFastProvider(config: RuntimeProviderConfig, contextBudget: Context
       fast.model,
       fast.temperature,
       resolveOllamaFastTimeoutMs(),
-      resolveOllamaFastNumPredict(contextBudget)
+      contextBudget.fastOutputTokens
     );
   }
 
@@ -85,7 +69,7 @@ function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: Context
       deep.model,
       deep.temperature,
       resolveOllamaDeepTimeoutMs(),
-      resolveOllamaDeepNumPredict(contextBudget)
+      contextBudget.deepOutputTokens
     );
   }
 
@@ -112,17 +96,9 @@ function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: Context
   return new BedrockDeepProvider(config.bedrock.region, deep.model, deep.temperature, contextBudget.deepOutputTokens);
 }
 
-// Matches the documented defaults in contextConfig.ts / .env.example so callers
-// that predate spec 01 (and existing tests) keep working without passing one.
-const DEFAULT_CONTEXT_BUDGET: ContextBudgetConfig = {
-  windowTokens: 8192,
-  maxHistoryTurns: 12,
-  safetyTokens: 256,
-  fastOutputTokens: 512,
-  deepOutputTokens: 2048
-};
-
-export function buildProviderPair(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig = DEFAULT_CONTEXT_BUDGET): ProviderPair {
+export function buildProviderPair(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv({
+  ...process.env, CHAT_FAST_PROVIDER: config.fast.provider, CHAT_DEEP_PROVIDER: config.deep.provider
+})): ProviderPair {
   return {
     fastProvider: buildFastProvider(config, contextBudget),
     deepProvider: buildDeepProvider(config, contextBudget)

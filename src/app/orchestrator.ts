@@ -52,6 +52,17 @@ export class ChatOrchestrator {
 
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
     const messageId = randomUUID();
+    const analysis = analyzeFast(message);
+    const adaptiveDecision = this.adaptiveRouting?.decide(message, analysis);
+
+    const routeDecision = adaptiveDecision?.routeDecision ?? analysis.routeDecision;
+    const sizeBand = adaptiveDecision?.sizeBand ?? "medium";
+
+    const adaptedAnalysis = {
+      ...analysis,
+      routeDecision,
+      reasons: adaptiveDecision?.reasons ?? analysis.reasons
+    };
 
     // Capture the shared snapshot before appending anything for this turn, so a
     // budget rejection leaves the timeline/queue untouched (spec 01: "before
@@ -60,7 +71,8 @@ export class ChatOrchestrator {
       conversationId: message.conversationId,
       currentMessageId: messageId,
       currentUserText: message.text,
-      trustedFacts: this.trustedFactsProvider()
+      trustedFacts: this.trustedFactsProvider(),
+      routeDecision
     });
 
     if (contextResult instanceof ContextBudgetError) {
@@ -75,18 +87,6 @@ export class ChatOrchestrator {
       text: message.text,
       createdAtIso: message.timestampIso
     });
-
-    const analysis = analyzeFast(message);
-    const adaptiveDecision = this.adaptiveRouting?.decide(message, analysis);
-
-    const routeDecision = adaptiveDecision?.routeDecision ?? analysis.routeDecision;
-    const sizeBand = adaptiveDecision?.sizeBand ?? "medium";
-
-    const adaptedAnalysis = {
-      ...analysis,
-      routeDecision,
-      reasons: adaptiveDecision?.reasons ?? analysis.reasons
-    };
 
     const deepTask = routeDecision === "deep" ? {
       taskId: randomUUID(),

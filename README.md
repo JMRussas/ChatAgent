@@ -10,6 +10,9 @@ The goal is a strong portfolio prototype that demonstrates architecture, measure
 
 ## Current status
 
+The review corrections are complete; see [the next handoff](docs/implementation/NEXT-HANDOFF.md)
+for validation evidence and the bounded runtime-ownership/protocol design task.
+
 The shared-runtime direction and reuse checkpoint for Hekate and Iris are in
 [the consolidation handoff](docs/implementation/07-shared-chat-runtime.md).
 
@@ -412,3 +415,8 @@ CHAT_DEEP_MODEL=qwen2.5:14b
 - Original UI proposal (partly implemented): `docs/11-ui-plan.md`
 - Current roadmap and verification status: `docs/12-development-roadmap.md`
 - Executable handoff and milestone acceptance tests: [docs/implementation/README.md](docs/implementation/README.md)
+
+Effective output limits are resolved once at startup. For an Ollama role, an explicit
+`OLLAMA_*_NUM_PREDICT` is used both in its request and in context reservation.
+Applicable overrides must be positive integers; invalid or input-exhausting values
+fail startup. Azure/Bedrock roles ignore Ollama overrides.
