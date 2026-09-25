@@ -8,7 +8,9 @@ import type { DeepResult, DeepTask } from "../../src/domain/types";
 import type { DeepModelProvider } from "../../src/providers/interfaces";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProviders";
+import { AdaptiveRoutingCoordinator } from "../../src/routing/adaptiveRouting";
 import { createChatServer } from "../../src/server";
+import { InMemoryLatencyEstimator } from "../../src/telemetry/latencyEstimator";
 
 const servers: Array<{ close: () => void }> = [];
 
@@ -118,5 +120,64 @@ describe("chat server", () => {
     };
     expect(afterPayload.records.length).toBe(0);
     expect(queue.size()).toBe(1);
+  });
+
+  it("exposes latency telemetry and supports policy tuning", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+
+    const estimator = new InMemoryLatencyEstimator();
+    estimator.seedPrior(
+      {
+        provider: "mock",
+        model: "mock-v1",
+        route: "direct",
+        sizeBand: "medium"
+      },
+      { p50: 500, p90: 900, p95: 1300, p99: 2000 }
+    );
+
+    const adaptive = new AdaptiveRoutingCoordinator(
+      estimator,
+      { provider: "mock", model: "mock-v1" },
+      { provider: "mock", model: "mock-v1" },
+      { maxFastP95Ms: 1000 }
+    );
+
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline, adaptive);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline, 2, undefined, adaptive);
+    const service = new ChatService(orchestrator, worker, timeline, queue, undefined, adaptive);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const telemetryResponse = await fetch(`${baseUrl}/telemetry/latency`);
+    expect(telemetryResponse.status).toBe(200);
+
+    const telemetryPayload = (await telemetryResponse.json()) as {
+      policy: { maxFastP95Ms: number };
+      estimates: Array<{ p95: number }>;
+    };
+
+    expect(telemetryPayload.policy.maxFastP95Ms).toBe(1000);
+    expect(telemetryPayload.estimates.length).toBeGreaterThan(0);
+
+    const tuneResponse = await fetch(`${baseUrl}/routing/policy/tune`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queueDepth: 10 })
+    });
+
+    expect(tuneResponse.status).toBe(200);
+
+    const tunePayload = (await tuneResponse.json()) as {
+      policy: { maxFastP95Ms: number };
+    };
+
+    expect(tunePayload.policy.maxFastP95Ms).toBeLessThan(1000);
   });
 });

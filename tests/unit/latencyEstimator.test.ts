@@ -63,4 +63,27 @@ describe("latency estimator", () => {
     expect(estimate.confidence).toBe("medium");
     expect(estimate.p95).toBeGreaterThan(500);
   });
+
+  it("supports snapshot and hydrate round trip", () => {
+    const estimator = new InMemoryLatencyEstimator();
+    const bucket = {
+      provider: "ollama",
+      model: "llama3.1:8b",
+      route: "deep" as const,
+      sizeBand: "medium" as const
+    };
+
+    estimator.seedPrior(bucket, { p50: 700, p90: 1100, p95: 1400, p99: 2200 });
+    estimator.recordLatency(bucket, 1600);
+    estimator.recordLatency(bucket, 1800);
+
+    const snapshot = estimator.snapshot();
+
+    const restored = new InMemoryLatencyEstimator();
+    restored.hydrate(snapshot);
+
+    const estimate = restored.estimate(bucket);
+    expect(estimate.sampleCount).toBe(2);
+    expect(estimate.bucket.provider).toBe("ollama");
+  });
 });
