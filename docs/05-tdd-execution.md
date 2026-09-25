@@ -45,6 +45,11 @@
 - Keep deterministic simulation mode for CI/reproducibility
 - Compare live vs simulated metrics in generated artifacts
 
+11. Benchmark regression gates
+- Add benchmark comparison tool for baseline vs candidate artifacts
+- Add threshold-based pass/fail gates for latency, quality, and dead-letter regressions
+- Emit markdown comparison report for release review
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

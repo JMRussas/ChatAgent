@@ -53,6 +53,47 @@ Files changed:
 
 Validation evidence:
 
+1. Unit tests pass for live benchmark flow.
+2. Full suite and lint pass after integration.
+
+---
+
+## 2026-09-25 - Benchmark Regression Comparison and Gates
+
+Status: Closed
+
+Issue:
+
+- Benchmark artifacts existed, but there was no automated way to detect regressions between baseline and candidate runs.
+
+Decision:
+
+- Add a compare command that computes deltas per profile and enforces configurable regression thresholds.
+- Emit markdown report and non-zero exit code on gate failure for CI/release workflows.
+
+Changes made:
+
+1. Added compare core for delta computation and gate evaluation.
+2. Added compare CLI command with configurable thresholds via env vars.
+3. Added baseline artifact and compare report output.
+4. Added tests for compare core.
+
+Files changed:
+
+- `src/bench/compareCore.ts`
+- `src/bench/compareBenchmarks.ts`
+- `tests/unit/compareCore.test.ts`
+- `reports/benchmark-summary-baseline.json`
+- `package.json`
+- `README.md`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Compare core tests pass.
+2. `npm run bench:compare` generates `reports/benchmark-compare.md`.
+3. Full test suite and lint pass.
+
 1. `npm test` passed (all tests green).
 2. `npm run lint` passed.
 3. `npm run eval:report` result changed to PASS on sample set.

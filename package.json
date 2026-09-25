@@ -12,7 +12,8 @@
     "test:tdd": "vitest --watch --reporter=verbose",
     "lint": "tsc -p tsconfig.json --noEmit",
     "eval:report": "tsx src/eval/generateReport.ts",
-    "bench:run": "tsx src/bench/runBenchmark.ts"
+    "bench:run": "tsx src/bench/runBenchmark.ts",
+    "bench:compare": "tsx src/bench/compareBenchmarks.ts"
   },
   "engines": {
     "node": ">=20"

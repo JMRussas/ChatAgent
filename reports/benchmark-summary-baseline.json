@@ -1,0 +1,57 @@
+{
+  "generatedAtIso": "2026-09-25T12:00:00.000Z",
+  "mode": "simulate",
+  "summaries": [
+    {
+      "profile": {
+        "name": "azure-balanced",
+        "fastProvider": "azure",
+        "fastModel": "gpt-4o-mini",
+        "deepProvider": "azure",
+        "deepModel": "gpt-4.1"
+      },
+      "recordCount": 6,
+      "firstResponseP50": 617,
+      "firstResponseP95": 921,
+      "finalLatencyP95": 3166,
+      "avgQuality": 4.324953333333334,
+      "deepRouteRate": 0.5,
+      "avgRetriesDeep": 0,
+      "deadLetterRateDeep": 0
+    },
+    {
+      "profile": {
+        "name": "bedrock-balanced",
+        "fastProvider": "bedrock",
+        "fastModel": "anthropic.claude-3-5-haiku",
+        "deepProvider": "bedrock",
+        "deepModel": "anthropic.claude-3-5-sonnet"
+      },
+      "recordCount": 6,
+      "firstResponseP50": 747,
+      "firstResponseP95": 830,
+      "finalLatencyP95": 3694,
+      "avgQuality": 4.286913333333334,
+      "deepRouteRate": 0.5,
+      "avgRetriesDeep": 0,
+      "deadLetterRateDeep": 0
+    },
+    {
+      "profile": {
+        "name": "ollama-local",
+        "fastProvider": "ollama",
+        "fastModel": "llama3.1:8b",
+        "deepProvider": "ollama",
+        "deepModel": "qwen2.5:14b"
+      },
+      "recordCount": 6,
+      "firstResponseP50": 937,
+      "firstResponseP95": 1027,
+      "finalLatencyP95": 4376,
+      "avgQuality": 4.261486666666667,
+      "deepRouteRate": 0.5,
+      "avgRetriesDeep": 0,
+      "deadLetterRateDeep": 0
+    }
+  ]
+}

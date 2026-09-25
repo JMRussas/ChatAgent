@@ -170,10 +170,29 @@ BENCH_BASE_URL=http://localhost:3000
 npm run bench:run
 ```
 
+Compare candidate benchmark run to baseline with gates:
+
+```bash
+npm run bench:compare
+```
+
+Optional compare thresholds/env:
+
+```bash
+BENCH_BASELINE_PATH=reports/benchmark-summary-baseline.json
+BENCH_CANDIDATE_PATH=reports/benchmark-summary.json
+BENCH_COMPARE_OUT=reports/benchmark-compare.md
+BENCH_MAX_FIRST_P95_REGRESSION_MS=150
+BENCH_MAX_FINAL_P95_REGRESSION_MS=300
+BENCH_MAX_DEAD_LETTER_REGRESSION=0.05
+BENCH_MIN_QUALITY_DELTA=-0.05
+```
+
 Artifacts:
 
 1. `reports/benchmark-summary.json`
 2. `reports/benchmark-summary.md`
+3. `reports/benchmark-compare.md`
 
 Examples:
 
