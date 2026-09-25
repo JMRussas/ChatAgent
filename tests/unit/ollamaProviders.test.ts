@@ -89,4 +89,45 @@ describe("ollama providers", () => {
       })
     ).rejects.toThrow("Ollama request failed (500 Internal Server Error)");
   });
+
+  it("times out hung Ollama requests", async () => {
+    vi.useFakeTimers();
+
+    const fetchMock = vi.fn(((_url: string, options?: RequestInit) => {
+      const signal = options?.signal as AbortSignal | undefined;
+
+      return new Promise((_resolve, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => {
+            reject(new Error("aborted"));
+          },
+          { once: true }
+        );
+      });
+    }) as typeof fetch);
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new OllamaFastProvider("http://localhost:11434", "llama3.1:8b", 0.2, 5);
+
+    const promise = provider.createProvisionalReply({
+      message: {
+        conversationId: "c3",
+        userId: "u3",
+        text: "hello",
+        timestampIso: new Date().toISOString()
+      },
+      correctedText: "hello",
+      routeDecision: "direct"
+    });
+
+    const assertion = expect(promise).rejects.toThrow("Ollama request timed out after 5ms");
+
+    await vi.advanceTimersByTimeAsync(10);
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
 });

@@ -107,4 +107,52 @@ describe("azure providers", () => {
       })
     ).rejects.toThrow("Azure OpenAI request failed (401 Unauthorized)");
   });
+
+  it("times out hung Azure requests", async () => {
+    vi.useFakeTimers();
+
+    const fetchMock = vi.fn(((_url: string, options?: RequestInit) => {
+      const signal = options?.signal as AbortSignal | undefined;
+
+      return new Promise((_resolve, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => {
+            reject(new Error("aborted"));
+          },
+          { once: true }
+        );
+      });
+    }) as typeof fetch);
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new AzureFastProvider(
+      "https://example.openai.azure.com/",
+      "test-key",
+      "2024-10-21",
+      "gpt-fast",
+      0.3,
+      5
+    );
+
+    const promise = provider.createProvisionalReply({
+      message: {
+        conversationId: "c3",
+        userId: "u3",
+        text: "hello",
+        timestampIso: new Date().toISOString()
+      },
+      correctedText: "hello",
+      routeDecision: "direct"
+    });
+
+    const assertion = expect(promise).rejects.toThrow("Azure OpenAI request timed out after 5ms");
+
+    await vi.advanceTimersByTimeAsync(10);
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
 });

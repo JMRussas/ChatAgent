@@ -135,6 +135,8 @@ BEDROCK_REGION=us-east-1
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
+Azure and Ollama HTTP calls use bounded request timeouts so a hung upstream cannot block the fast path indefinitely.
+
 Evaluation reliability thresholds (optional env vars):
 
 ```bash

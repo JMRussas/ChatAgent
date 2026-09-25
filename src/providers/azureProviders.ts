@@ -9,28 +9,49 @@ interface AzureChatResponse {
   }>;
 }
 
+function withTimeout<T>(timeoutMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return operation(controller.signal)
+    .catch((error) => {
+      if (controller.signal.aborted) {
+        throw new Error(`Azure OpenAI request timed out after ${timeoutMs}ms`);
+      }
+
+      throw error;
+    })
+    .finally(() => {
+      clearTimeout(timer);
+    });
+}
+
 async function callAzureChat(args: {
   endpoint: string;
   apiKey: string;
   apiVersion: string;
   deployment: string;
   temperature: number;
+  timeoutMs: number;
   prompt: string;
 }): Promise<string> {
   const base = args.endpoint.replace(/\/$/, "");
   const url = `${base}/openai/deployments/${args.deployment}/chat/completions?api-version=${encodeURIComponent(args.apiVersion)}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": args.apiKey
-    },
-    body: JSON.stringify({
-      messages: [{ role: "user", content: args.prompt }],
-      temperature: args.temperature
+  const response = await withTimeout(args.timeoutMs, (signal) =>
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": args.apiKey
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: args.prompt }],
+        temperature: args.temperature
+      }),
+      signal
     })
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`Azure OpenAI request failed (${response.status} ${response.statusText})`);
@@ -46,7 +67,8 @@ export class AzureFastProvider implements FastModelProvider {
     private readonly apiKey: string,
     private readonly apiVersion: string,
     private readonly deployment: string,
-    private readonly temperature: number
+    private readonly temperature: number,
+    private readonly timeoutMs: number = 10_000
   ) {}
 
   async createProvisionalReply(input: {
@@ -68,7 +90,8 @@ export class AzureFastProvider implements FastModelProvider {
       apiVersion: this.apiVersion,
       deployment: this.deployment,
       temperature: this.temperature,
-      prompt
+      prompt,
+      timeoutMs: this.timeoutMs
     });
   }
 }
@@ -79,7 +102,8 @@ export class AzureDeepProvider implements DeepModelProvider {
     private readonly apiKey: string,
     private readonly apiVersion: string,
     private readonly deployment: string,
-    private readonly temperature: number
+    private readonly temperature: number,
+    private readonly timeoutMs: number = 10_000
   ) {}
 
   async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
@@ -96,7 +120,8 @@ export class AzureDeepProvider implements DeepModelProvider {
       apiVersion: this.apiVersion,
       deployment: this.deployment,
       temperature: this.temperature,
-      prompt
+      prompt,
+      timeoutMs: this.timeoutMs
     });
 
     return {

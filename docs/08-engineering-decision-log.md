@@ -38,6 +38,40 @@ Validation evidence:
 
 ---
 
+## 2026-09-25 - Provider Request Timeout Handling
+
+Status: Closed
+
+Issue:
+
+- Azure and Ollama provider adapters issued fetch requests with no timeout, so a hung upstream could block fast-path responses indefinitely.
+
+Decision:
+
+- Add bounded request timeouts to provider adapters using `AbortController`.
+- Surface deterministic timeout errors so the caller can fail fast instead of waiting forever.
+
+Changes made:
+
+1. Added a shared timeout helper for provider HTTP calls.
+2. Applied timeout handling to Azure OpenAI and Ollama adapters.
+3. Added unit tests to verify abort-signal wiring and timeout error behavior.
+
+Files changed:
+
+- `src/providers/azureProviders.ts`
+- `src/providers/ollamaProviders.ts`
+- `tests/unit/azureProviders.test.ts`
+- `tests/unit/ollamaProviders.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Unit tests verify timeout wiring and failure behavior.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - HTTP Request Payload Schema Validation
 
 Status: Closed

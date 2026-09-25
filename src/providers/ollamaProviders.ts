@@ -5,21 +5,47 @@ interface OllamaGenerateResponse {
   response: string;
 }
 
-async function callOllama(baseUrl: string, model: string, prompt: string, temperature: number): Promise<string> {
-  const response = await fetch(`${baseUrl}/api/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      prompt,
-      stream: false,
-      options: {
-        temperature
+function withTimeout<T>(timeoutMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return operation(controller.signal)
+    .catch((error) => {
+      if (controller.signal.aborted) {
+        throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
       }
+
+      throw error;
     })
-  });
+    .finally(() => {
+      clearTimeout(timer);
+    });
+}
+
+async function callOllama(
+  baseUrl: string,
+  model: string,
+  prompt: string,
+  temperature: number,
+  timeoutMs: number
+): Promise<string> {
+  const response = await withTimeout(timeoutMs, (signal) =>
+    fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: {
+          temperature
+        }
+      }),
+      signal
+    })
+  );
 
   if (!response.ok) {
     throw new Error(`Ollama request failed (${response.status} ${response.statusText})`);
@@ -33,7 +59,8 @@ export class OllamaFastProvider implements FastModelProvider {
   constructor(
     private readonly baseUrl: string,
     private readonly model: string,
-    private readonly temperature: number
+    private readonly temperature: number,
+    private readonly timeoutMs: number = 10_000
   ) {}
 
   async createProvisionalReply(input: {
@@ -52,7 +79,7 @@ export class OllamaFastProvider implements FastModelProvider {
       "If route is direct, provide a direct short answer."
     ].join("\n");
 
-    return callOllama(this.baseUrl, this.model, prompt, this.temperature);
+    return callOllama(this.baseUrl, this.model, prompt, this.temperature, this.timeoutMs);
   }
 }
 
@@ -60,7 +87,8 @@ export class OllamaDeepProvider implements DeepModelProvider {
   constructor(
     private readonly baseUrl: string,
     private readonly model: string,
-    private readonly temperature: number
+    private readonly temperature: number,
+    private readonly timeoutMs: number = 10_000
   ) {}
 
   async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
@@ -71,7 +99,7 @@ export class OllamaDeepProvider implements DeepModelProvider {
       `Prompt: ${input.normalizedPrompt}`
     ].join("\n");
 
-    const finalReply = await callOllama(this.baseUrl, this.model, prompt, this.temperature);
+    const finalReply = await callOllama(this.baseUrl, this.model, prompt, this.temperature, this.timeoutMs);
 
     return {
       taskId: input.taskId,

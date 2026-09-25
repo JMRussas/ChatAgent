@@ -110,6 +110,11 @@
 - Validate endpoint-specific payload shapes before service calls
 - Add integration coverage for null-body and invalid-shape cases
 
+24. Provider request timeout handling
+- Abort Azure and Ollama HTTP requests after a bounded timeout
+- Surface clear timeout errors instead of hanging the fast path indefinitely
+- Add unit tests that prove the abort signal is wired through
+
 ## Execution burndown snapshot
 
 As of 2026-09-25
@@ -117,7 +122,7 @@ As of 2026-09-25
 1. Planned phases: 23
 2. Completed phases: 23
 3. Remaining phases in current plan: 0
-4. Completion ratio: 23/23 (100%)
+4. Completion ratio: 24/24 (100%)
 
 Phase buckets (estimated):
 
@@ -131,6 +136,9 @@ Phase buckets (estimated):
 - Status: complete (9/9)
 
 4. Request validation hardening (23)
+- Status: complete (1/1)
+
+5. Provider timeout hardening (24)
 - Status: complete (1/1)
 
 Schedule signal:
