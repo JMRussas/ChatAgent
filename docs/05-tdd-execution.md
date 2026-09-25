@@ -55,6 +55,11 @@
 - Add explicit policy set endpoint for reproducible experiments
 - Add integration coverage for policy mutation and retrieval
 
+13. Release gate automation
+- Add one-command release verification pipeline
+- Include test, lint, eval report, benchmark run, and benchmark compare
+- Use the command for every checkpoint validation before commit
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

@@ -188,6 +188,22 @@ BENCH_MAX_DEAD_LETTER_REGRESSION=0.05
 BENCH_MIN_QUALITY_DELTA=-0.05
 ```
 
+## Release Verification
+
+Run the full release gate in one command:
+
+```bash
+npm run verify:release
+```
+
+This runs:
+
+1. tests
+2. type-check
+3. evaluation report generation
+4. benchmark run
+5. benchmark compare gates
+
 Artifacts:
 
 1. `reports/benchmark-summary.json`

@@ -135,6 +135,41 @@ Validation evidence:
 2. Type-check passes.
 3. Integration verifies policy tuning plus explicit set endpoint behavior.
 
+---
+
+## 2026-09-25 - Release Gate Automation Command
+
+Status: Closed
+
+Issue:
+
+- Validation required multiple manual commands each checkpoint, increasing the chance of missed steps.
+
+Decision:
+
+- Add a single release verification command that executes all required checks in order.
+
+Changes made:
+
+1. Added `npm run verify:release` script:
+- tests
+- lint/type-check
+- eval report generation
+- benchmark run
+- benchmark compare gates
+2. Documented release verification flow in README.
+3. Added a plan phase to standardize usage.
+
+Files changed:
+
+- `package.json`
+- `README.md`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. `npm run verify:release` completes successfully.
+
 1. `npm test` passed (all tests green).
 2. `npm run lint` passed.
 3. `npm run eval:report` result changed to PASS on sample set.

@@ -13,7 +13,8 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "eval:report": "tsx src/eval/generateReport.ts",
     "bench:run": "tsx src/bench/runBenchmark.ts",
-    "bench:compare": "tsx src/bench/compareBenchmarks.ts"
+    "bench:compare": "tsx src/bench/compareBenchmarks.ts",
+    "verify:release": "npm test && npm run lint && npm run eval:report && npm run bench:run && npm run bench:compare"
   },
   "engines": {
     "node": ">=20"
