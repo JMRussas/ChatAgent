@@ -1,0 +1,110 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AzureDeepProvider, AzureFastProvider } from "../../src/providers/azureProviders";
+
+describe("azure providers", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("maps fast provider request to Azure chat completions", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: " quick answer " } }]
+      })
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new AzureFastProvider(
+      "https://example.openai.azure.com/",
+      "test-key",
+      "2024-10-21",
+      "gpt-fast",
+      0.3
+    );
+
+    const result = await provider.createProvisionalReply({
+      message: {
+        conversationId: "c1",
+        userId: "u1",
+        text: "hello",
+        timestampIso: new Date().toISOString()
+      },
+      correctedText: "hello",
+      routeDecision: "direct"
+    });
+
+    expect(result).toBe("quick answer");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/openai/deployments/gpt-fast/chat/completions");
+    expect(url).toContain("api-version=2024-10-21");
+    expect(options.method).toBe("POST");
+  });
+
+  it("maps deep provider response to DeepResult", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "deep answer" } }]
+      })
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new AzureDeepProvider(
+      "https://example.openai.azure.com",
+      "test-key",
+      "2024-10-21",
+      "gpt-deep",
+      0.2
+    );
+
+    const result = await provider.resolveDeepTask({
+      taskId: "t1",
+      conversationId: "c1",
+      normalizedPrompt: "explain event loops",
+      createdAtIso: new Date().toISOString()
+    });
+
+    expect(result.taskId).toBe("t1");
+    expect(result.finalReply).toBe("deep answer");
+    expect(result.totalLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("throws clear error when Azure call fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized"
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new AzureFastProvider(
+      "https://example.openai.azure.com",
+      "bad-key",
+      "2024-10-21",
+      "gpt-fast",
+      0.2
+    );
+
+    await expect(
+      provider.createProvisionalReply({
+        message: {
+          conversationId: "c2",
+          userId: "u2",
+          text: "hello",
+          timestampIso: new Date().toISOString()
+        },
+        correctedText: "hello",
+        routeDecision: "direct"
+      })
+    ).rejects.toThrow("Azure OpenAI request failed (401 Unauthorized)");
+  });
+});

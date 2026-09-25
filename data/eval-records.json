@@ -1,0 +1,38 @@
+[
+  {
+    "promptId": "direct-001",
+    "routeDecision": "direct",
+    "responseLatencyMs": 620,
+    "usedCitation": false,
+    "evaluatorScore": 4,
+    "retryCount": 0,
+    "deadLettered": false
+  },
+  {
+    "promptId": "deep-001",
+    "routeDecision": "deep",
+    "responseLatencyMs": 910,
+    "usedCitation": true,
+    "evaluatorScore": 5,
+    "retryCount": 1,
+    "deadLettered": false
+  },
+  {
+    "promptId": "clarify-001",
+    "routeDecision": "clarify",
+    "responseLatencyMs": 540,
+    "usedCitation": false,
+    "evaluatorScore": 4,
+    "retryCount": 0,
+    "deadLettered": false
+  },
+  {
+    "promptId": "deep-002",
+    "routeDecision": "deep",
+    "responseLatencyMs": 980,
+    "usedCitation": true,
+    "evaluatorScore": 4,
+    "retryCount": 0,
+    "deadLettered": false
+  }
+]

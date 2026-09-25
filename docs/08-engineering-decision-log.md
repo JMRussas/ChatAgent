@@ -1,0 +1,239 @@
+# Engineering Decision Log
+
+Purpose: keep a durable record of issues, design flaws, test flaws, and approach changes.
+
+How to use this log:
+
+1. Add one entry per issue or decision.
+2. Capture root cause and chosen change.
+3. Record objective validation evidence (tests, metrics, reports).
+4. Link files touched so future reviews can trace reasoning.
+
+---
+
+## 2026-09-25 - Evaluation Gate Was Route-Mismatched
+
+Status: Closed
+
+Issue:
+
+- Evaluation failed because citation threshold was applied globally across all routes.
+
+Observed behavior:
+
+- `eval:report` returned FAIL even when deep-route answers were cited.
+
+Root cause:
+
+- Citation gate used an all-record citation rate instead of a deep-route-only citation rate.
+
+Decision:
+
+- Keep latency and score as global metrics.
+- Apply citation gate only to deep-route records.
+- Publish both all-route and deep-route citation metrics for transparency.
+
+Changes made:
+
+1. Added route-aware metrics fields:
+- `citationRateAll`
+- `deepCitationRate`
+
+2. Updated report gate:
+- Replaced `citation_rate` gate with `deep_citation_rate`.
+
+3. Updated tests and success criteria wording.
+
+Files changed:
+
+- `src/eval/metrics.ts`
+- `src/eval/report.ts`
+- `tests/eval/evaluationHarness.test.ts`
+- `docs/03-success-criteria.md`
+
+Validation evidence:
+
+1. `npm test` passed (all tests green).
+2. `npm run lint` passed.
+3. `npm run eval:report` result changed to PASS on sample set.
+
+---
+
+## 2026-09-25 - Provider Abstraction Requirement Expanded (Azure + Bedrock + Ollama)
+
+Status: Closed
+
+Issue:
+
+- Needed runtime mix-and-match across providers for fast and deep paths without changing orchestration code.
+
+Root cause:
+
+- Initial prototype used mock providers directly and lacked runtime provider selection/factory indirection.
+
+Decision:
+
+- Introduce provider factory and environment-driven configuration.
+- Keep app layer dependent on provider interfaces only.
+
+Changes made:
+
+1. Added provider config loader and schema.
+2. Added factory for fast/deep provider composition.
+3. Added Azure, Bedrock, and Ollama adapters.
+4. Added provider contract tests.
+
+Files changed:
+
+- `src/config/providerConfig.ts`
+- `src/providers/providerFactory.ts`
+- `src/providers/azureProviders.ts`
+- `src/providers/bedrockProviders.ts`
+- `src/providers/ollamaProviders.ts`
+- `tests/unit/providerFactory.test.ts`
+- `tests/unit/azureProviders.test.ts`
+- `tests/unit/bedrockProviders.test.ts`
+- `tests/unit/ollamaProviders.test.ts`
+
+Validation evidence:
+
+1. Provider tests pass.
+2. Integration tests pass with mock path.
+3. Runtime configuration documented in README.
+
+---
+
+## 2026-09-25 - Deep Worker Reliability Gaps (Retry + Dead Letter)
+
+Status: Closed
+
+Issue:
+
+- A transient deep-provider failure dropped immediate progress with no retry.
+- Repeated failures had no durable failed-task capture path.
+
+Root cause:
+
+- Worker previously executed one attempt only and returned/failed directly.
+
+Decision:
+
+- Add bounded retry behavior for deep tasks.
+- Move exhausted tasks to dead-letter storage for investigation/replay.
+
+Changes made:
+
+1. Added `DeadLetterStore` abstraction and in-memory implementation.
+2. Added retry tracking per task id in deep worker.
+3. Re-enqueue task for retry until max retry threshold.
+4. Persist exhausted failures to dead-letter store.
+
+Files changed:
+
+- `src/app/deadLetterStore.ts`
+- `src/app/orchestrator.ts`
+- `tests/unit/deepWorkerReliability.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Added tests for retry-then-success path.
+2. Added tests for dead-letter path after max retries.
+3. Full suite passes (`npm test`).
+4. Type check passes (`npm run lint`).
+
+---
+
+## 2026-09-25 - Operational Visibility for Dead Letters and Replay
+
+Status: Closed
+
+Issue:
+
+- Reliability controls existed, but operators could not inspect or replay failed deep tasks through API.
+
+Decision:
+
+- Add dead-letter listing endpoint and task replay endpoint.
+- Extend eval outputs with reliability metrics to measure retry/dead-letter outcomes.
+
+Changes made:
+
+1. Added dead-letter store remove capability for replay workflows.
+2. Added API endpoints:
+- `GET /workers/deep/dead-letters`
+- `POST /workers/deep/dead-letters/:taskId/replay`
+3. Added integration test for list + replay behavior.
+4. Added reliability metrics and gates in eval report:
+- `avgRetriesDeep`
+- `deadLetterRateDeep`
+
+Files changed:
+
+- `src/app/deadLetterStore.ts`
+- `src/app/chatService.ts`
+- `src/server.ts`
+- `tests/integration/server.test.ts`
+- `src/eval/metrics.ts`
+- `src/eval/report.ts`
+- `src/eval/generateReport.ts`
+- `tests/eval/evaluationHarness.test.ts`
+- `tests/eval/report.test.ts`
+- `README.md`
+
+Validation evidence:
+
+1. Integration test covers dead-letter API list and replay path.
+2. Eval tests validate reliability summary and report gating.
+3. Full test suite and lint pass.
+
+---
+
+## 2026-09-25 - Adaptive Routing with Seeded Percentile Priors
+
+Status: Closed
+
+Issue:
+
+- Static routing logic did not account for model/provider-specific tail latency behavior.
+- Needed a responsive classification phase and route policy informed by predicted p95.
+
+Decision:
+
+- Add a lightweight classifier for complexity, ambiguity, external-data need, and size band.
+- Seed latency priors by provider/model/route/size and blend with live telemetry over time.
+- Apply p95 guardrail policy to escalate moderate prompts when fast-path predicted tail latency exceeds target.
+
+Changes made:
+
+1. Added classification module.
+2. Added in-memory percentile estimator with confidence tiers.
+3. Added adaptive routing coordinator with p95-aware policy.
+4. Wired adaptive routing and latency recording into orchestrator and deep worker.
+5. Seeded runtime priors in server bootstrap from provider/model profile.
+
+Files changed:
+
+- `src/routing/classifier.ts`
+- `src/telemetry/latencyEstimator.ts`
+- `src/routing/adaptiveRouting.ts`
+- `src/app/orchestrator.ts`
+- `src/server.ts`
+- `src/domain/types.ts`
+- `tests/unit/classifier.test.ts`
+- `tests/unit/latencyEstimator.test.ts`
+- `tests/unit/adaptiveRouting.test.ts`
+- `docs/05-tdd-execution.md`
+- `README.md`
+
+Validation evidence:
+
+1. New unit tests cover classifier behavior, estimator blending/confidence, and adaptive route decisions.
+2. Existing test suite remains green.
+3. Lint/type-check remains green.
+
+Follow-up adjustment:
+
+- Found false-positive clarify routing for normal sentences containing "this".
+- Tightened ambiguity heuristic to prioritize short/underspecified prompts and exact ambiguity phrases.
+- Regression validated by adaptive routing tests and full suite pass.
