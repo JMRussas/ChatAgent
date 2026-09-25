@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { computeDeltas, evaluateDeltas, renderCompareMarkdown } from "../../src/bench/compareCore";
+import { compareBenchmarkFiles, computeDeltas, evaluateDeltas, renderCompareMarkdown } from "../../src/bench/compareCore";
 
 const baseline = {
   generatedAtIso: "2026-09-25T00:00:00.000Z",
   mode: "simulate",
+  runContext: {
+    simulationSeed: "seed-a",
+    promptsDigestSha256: "p1",
+    profilesDigestSha256: "prof1"
+  },
   summaries: [
     {
       profile: {
@@ -83,5 +88,25 @@ describe("benchmark compare core", () => {
     const markdown = renderCompareMarkdown(report);
     expect(markdown).toContain("# Benchmark Comparison Report");
     expect(markdown).toContain("Overall: PASS");
+  });
+
+  it("fails compare when benchmark contexts are incompatible", () => {
+    const candidate = {
+      ...baseline,
+      runContext: {
+        ...baseline.runContext,
+        simulationSeed: "seed-b"
+      }
+    };
+
+    const report = compareBenchmarkFiles(baseline, candidate, {
+      maxFirstResponseP95RegressionMs: 100,
+      maxFinalLatencyP95RegressionMs: 200,
+      maxDeadLetterRateRegression: 0.05,
+      minQualityDelta: -0.05
+    });
+
+    expect(report.passed).toBe(false);
+    expect(report.compatibilityIssues.some((issue) => issue.includes("simulation seed mismatch"))).toBe(true);
   });
 });

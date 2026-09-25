@@ -11,6 +11,48 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Benchmark Reproducibility Context and Compatibility Gates
+
+Status: Closed
+
+Issue:
+
+- Benchmark compare used only summary deltas and could silently compare incompatible runs (different mode, prompt set, profile set, or simulation seed).
+- Simulated benchmark runs were deterministic but had no explicit externally controlled seed documented in artifacts.
+
+Decision:
+
+- Add explicit simulation seed control and persist run-context metadata in benchmark output.
+- Require benchmark compare to fail when baseline and candidate contexts are incompatible.
+
+Changes made:
+
+1. Added `BENCH_SIM_SEED` support to benchmark simulation path.
+2. Persisted run context in benchmark JSON:
+- simulation seed (simulate mode)
+- prompt set digest
+- profile set digest
+3. Added compare compatibility checks and report section.
+4. Added tests for seed determinism/variability and compatibility failures.
+
+Files changed:
+
+- `src/bench/benchmarkCore.ts`
+- `src/bench/runBenchmark.ts`
+- `src/bench/compareCore.ts`
+- `src/bench/compareBenchmarks.ts`
+- `tests/unit/benchmarkCore.test.ts`
+- `tests/unit/compareCore.test.ts`
+- `README.md`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Unit tests pass for seed repeatability and compatibility gate behavior.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Latency Estimator Guardrails (Bounded Window + Invalid Sample Filtering)
 
 Status: Closed

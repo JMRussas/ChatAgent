@@ -162,6 +162,13 @@ Run profile benchmark report generation:
 npm run bench:run
 ```
 
+Set an explicit simulation seed for reproducible benchmark candidates:
+
+```bash
+BENCH_SIM_SEED=default-v1
+npm run bench:run
+```
+
 Run benchmark in live mode against a running local server:
 
 ```bash
@@ -175,6 +182,8 @@ Compare candidate benchmark run to baseline with gates:
 ```bash
 npm run bench:compare
 ```
+
+Compare also enforces benchmark context compatibility (mode, prompt digest, profile digest, and simulation seed when available).
 
 Optional compare thresholds/env:
 

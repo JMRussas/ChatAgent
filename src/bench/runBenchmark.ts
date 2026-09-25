@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import {
   renderBenchmarkMarkdown,
   runProfileBenchmark,
@@ -39,12 +40,17 @@ function defaultProfiles(): BenchmarkProfile[] {
   ];
 }
 
+function digestJson(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
 async function main() {
   const promptsPath = process.env.BENCH_PROMPTS_PATH ?? "data/benchmark-prompts.json";
   const jsonOutPath = process.env.BENCH_JSON_OUT ?? "reports/benchmark-summary.json";
   const mdOutPath = process.env.BENCH_MD_OUT ?? "reports/benchmark-summary.md";
   const mode = (process.env.BENCH_MODE ?? "simulate").toLowerCase();
   const baseUrl = process.env.BENCH_BASE_URL ?? "http://localhost:3000";
+  const simulationSeed = process.env.BENCH_SIM_SEED ?? "default-v1";
 
   const prompts = await readPrompts(promptsPath);
   const profiles = defaultProfiles();
@@ -61,7 +67,7 @@ async function main() {
         ? await runLiveBenchmark(profile, prompts, {
             baseUrl
           })
-        : runProfileBenchmark(profile, prompts);
+        : runProfileBenchmark(profile, prompts, { simulationSeed });
 
     summaryWithRecords.push({
       profile,
@@ -81,6 +87,11 @@ async function main() {
       {
         generatedAtIso: new Date().toISOString(),
         mode,
+        runContext: {
+          simulationSeed: mode === "simulate" ? simulationSeed : undefined,
+          promptsDigestSha256: digestJson(prompts),
+          profilesDigestSha256: digestJson(profiles)
+        },
         summaries,
         recordsByProfile: summaryWithRecords.map((x) => ({
           profile: x.profile,

@@ -35,6 +35,10 @@ export interface BenchmarkSummary {
   deadLetterRateDeep: number;
 }
 
+export interface BenchmarkSimulationOptions {
+  simulationSeed: string;
+}
+
 function q(values: number[], quantile: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -78,14 +82,19 @@ function routePrompt(text: string): "direct" | "deep" | "clarify" {
   return "direct";
 }
 
-export function runProfileBenchmark(profile: BenchmarkProfile, prompts: BenchmarkPrompt[]): BenchmarkRunRecord[] {
+export function runProfileBenchmark(
+  profile: BenchmarkProfile,
+  prompts: BenchmarkPrompt[],
+  options: BenchmarkSimulationOptions = { simulationSeed: "default-v1" }
+): BenchmarkRunRecord[] {
   const records: BenchmarkRunRecord[] = [];
+  const seed = options.simulationSeed;
 
   for (const prompt of prompts) {
     const routeDecision = routePrompt(prompt.text);
     const c = classifyPrompt(prompt.text);
     const routeFactor = c.sizeBand === "small" ? 0.85 : c.sizeBand === "large" ? 1.25 : 1;
-    const jitter = 0.9 + hash01(`${profile.name}:${prompt.id}`) * 0.2;
+    const jitter = 0.9 + hash01(`${seed}:${profile.name}:${prompt.id}`) * 0.2;
 
     const fastP95 = providerBaseFastP95(profile.fastProvider) * routeFactor;
     const deepP95 = providerBaseDeepP95(profile.deepProvider) * routeFactor;
@@ -95,10 +104,14 @@ export function runProfileBenchmark(profile: BenchmarkProfile, prompts: Benchmar
     const finalLatencyMs = routeDecision === "deep" ? firstResponseLatencyMs + deepLatencyMs : firstResponseLatencyMs;
 
     const qualityBase = routeDecision === "deep" ? 4.5 : routeDecision === "clarify" ? 4.0 : 4.2;
-    const qualityScore = Math.min(5, Math.max(1, qualityBase + (hash01(`${prompt.id}:${profile.fastModel}`) - 0.5) * 0.4));
+    const qualityScore = Math.min(
+      5,
+      Math.max(1, qualityBase + (hash01(`${seed}:${prompt.id}:${profile.fastModel}`) - 0.5) * 0.4)
+    );
 
-    const retryCount = routeDecision === "deep" ? (hash01(`${prompt.id}:${profile.deepModel}:retry`) > 0.82 ? 1 : 0) : 0;
-    const deadLettered = routeDecision === "deep" ? hash01(`${prompt.id}:${profile.deepProvider}:dlq`) > 0.97 : false;
+    const retryCount =
+      routeDecision === "deep" ? (hash01(`${seed}:${prompt.id}:${profile.deepModel}:retry`) > 0.82 ? 1 : 0) : 0;
+    const deadLettered = routeDecision === "deep" ? hash01(`${seed}:${prompt.id}:${profile.deepProvider}:dlq`) > 0.97 : false;
 
     records.push({
       promptId: prompt.id,

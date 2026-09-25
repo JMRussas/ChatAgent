@@ -65,6 +65,11 @@
 - Ignore invalid latencies (non-finite or non-positive) during ingest and hydration
 - Add unit coverage for trimming and filtering behavior
 
+15. Benchmark reproducibility and compare compatibility
+- Add explicit simulation seed control for benchmark generation
+- Persist prompt/profile digests and run context in benchmark artifacts
+- Fail compare when baseline/candidate contexts are incompatible
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

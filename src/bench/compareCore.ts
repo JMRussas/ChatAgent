@@ -3,6 +3,11 @@ import type { BenchmarkSummary } from "./benchmarkCore";
 export interface BenchmarkSummaryFile {
   generatedAtIso: string;
   mode: string;
+  runContext?: {
+    simulationSeed?: string;
+    promptsDigestSha256?: string;
+    profilesDigestSha256?: string;
+  };
   summaries: BenchmarkSummary[];
 }
 
@@ -33,7 +38,43 @@ export interface GateResult {
 export interface CompareReport {
   deltas: BenchmarkDelta[];
   gates: GateResult[];
+  compatibilityIssues: string[];
   passed: boolean;
+}
+
+function buildCompatibilityIssues(baseline: BenchmarkSummaryFile, candidate: BenchmarkSummaryFile): string[] {
+  const issues: string[] = [];
+
+  if (baseline.mode !== candidate.mode) {
+    issues.push(`mode mismatch: baseline=${baseline.mode}, candidate=${candidate.mode}`);
+  }
+
+  const baseContext = baseline.runContext;
+  const candContext = candidate.runContext;
+
+  if (baseContext?.promptsDigestSha256 && candContext?.promptsDigestSha256) {
+    if (baseContext.promptsDigestSha256 !== candContext.promptsDigestSha256) {
+      issues.push("prompt set digest mismatch");
+    }
+  }
+
+  if (baseContext?.profilesDigestSha256 && candContext?.profilesDigestSha256) {
+    if (baseContext.profilesDigestSha256 !== candContext.profilesDigestSha256) {
+      issues.push("profile set digest mismatch");
+    }
+  }
+
+  if (baseline.mode === "simulate") {
+    if (baseContext?.simulationSeed && candContext?.simulationSeed) {
+      if (baseContext.simulationSeed !== candContext.simulationSeed) {
+        issues.push(
+          `simulation seed mismatch: baseline=${baseContext.simulationSeed}, candidate=${candContext.simulationSeed}`
+        );
+      }
+    }
+  }
+
+  return issues;
 }
 
 function toMap(summaries: BenchmarkSummary[]): Map<string, BenchmarkSummary> {
@@ -101,7 +142,24 @@ export function evaluateDeltas(deltas: BenchmarkDelta[], thresholds: CompareThre
   return {
     deltas,
     gates,
+    compatibilityIssues: [],
     passed: gates.every((g) => g.passed)
+  };
+}
+
+export function compareBenchmarkFiles(
+  baseline: BenchmarkSummaryFile,
+  candidate: BenchmarkSummaryFile,
+  thresholds: CompareThresholds
+): CompareReport {
+  const deltas = computeDeltas(baseline, candidate);
+  const baseReport = evaluateDeltas(deltas, thresholds);
+  const compatibilityIssues = buildCompatibilityIssues(baseline, candidate);
+
+  return {
+    ...baseReport,
+    compatibilityIssues,
+    passed: baseReport.passed && compatibilityIssues.length === 0
   };
 }
 
@@ -118,6 +176,9 @@ export function renderCompareMarkdown(report: CompareReport): string {
     "# Benchmark Comparison Report",
     "",
     `Overall: ${report.passed ? "PASS" : "FAIL"}`,
+    ...(report.compatibilityIssues.length > 0
+      ? ["", "## Compatibility", ...report.compatibilityIssues.map((issue) => `- FAIL: ${issue}`)]
+      : []),
     "",
     "## Deltas (candidate - baseline)",
     "| Profile | First p95 delta (ms) | Final p95 delta (ms) | Quality delta | Avg retries delta | Dead-letter delta |",

@@ -1,6 +1,11 @@
 {
-  "generatedAtIso": "2026-09-25T16:57:13.625Z",
+  "generatedAtIso": "2026-09-25T16:59:45.464Z",
   "mode": "simulate",
+  "runContext": {
+    "simulationSeed": "default-v1",
+    "promptsDigestSha256": "f90b1a14f5598ff36f7cc6d177bc4b484cc16e5766150eb69864db0bbd1ca2bf",
+    "profilesDigestSha256": "f910e9bc65bfc84a9a7658d0b089b31911a568b746bf90d05e4fd1a8bf70c547"
+  },
   "summaries": [
     {
       "profile": {
@@ -11,10 +16,10 @@
         "deepModel": "gpt-4.1"
       },
       "recordCount": 6,
-      "firstResponseP50": 622,
-      "firstResponseP95": 746,
-      "finalLatencyP95": 3317,
-      "avgQuality": 4.290326666666668,
+      "firstResponseP50": 630,
+      "firstResponseP95": 791,
+      "finalLatencyP95": 3516,
+      "avgQuality": 4.31786,
       "deepRouteRate": 0.5,
       "avgRetriesDeep": 0,
       "deadLetterRateDeep": 0
@@ -28,12 +33,12 @@
         "deepModel": "anthropic.claude-3-5-sonnet"
       },
       "recordCount": 6,
-      "firstResponseP50": 682,
-      "firstResponseP95": 827,
-      "finalLatencyP95": 3734,
-      "avgQuality": 4.262846666666667,
+      "firstResponseP50": 673,
+      "firstResponseP95": 810,
+      "finalLatencyP95": 3656,
+      "avgQuality": 4.307793333333334,
       "deepRouteRate": 0.5,
-      "avgRetriesDeep": 0.3333333333333333,
+      "avgRetriesDeep": 0,
       "deadLetterRateDeep": 0
     },
     {
@@ -45,10 +50,10 @@
         "deepModel": "qwen2.5:14b"
       },
       "recordCount": 6,
-      "firstResponseP50": 845,
-      "firstResponseP95": 890,
-      "finalLatencyP95": 3878,
-      "avgQuality": 4.280539999999999,
+      "firstResponseP50": 814,
+      "firstResponseP95": 983,
+      "finalLatencyP95": 4283,
+      "avgQuality": 4.32494,
       "deepRouteRate": 0.5,
       "avgRetriesDeep": 0,
       "deadLetterRateDeep": 0
@@ -67,54 +72,54 @@
         {
           "promptId": "p1",
           "routeDecision": "direct",
-          "firstResponseLatencyMs": 628,
-          "finalLatencyMs": 628,
-          "qualityScore": 4.04548,
+          "firstResponseLatencyMs": 600,
+          "finalLatencyMs": 600,
+          "qualityScore": 4.24144,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p2",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 591,
-          "finalLatencyMs": 2612,
-          "qualityScore": 4.57704,
+          "firstResponseLatencyMs": 637,
+          "finalLatencyMs": 2813,
+          "qualityScore": 4.53364,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p3",
           "routeDecision": "clarify",
-          "firstResponseLatencyMs": 689,
-          "finalLatencyMs": 689,
-          "qualityScore": 3.887,
+          "firstResponseLatencyMs": 667,
+          "finalLatencyMs": 667,
+          "qualityScore": 4.04376,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p4",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 746,
-          "finalLatencyMs": 3317,
-          "qualityScore": 4.31632,
+          "firstResponseLatencyMs": 791,
+          "finalLatencyMs": 3516,
+          "qualityScore": 4.30076,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p5",
           "routeDecision": "direct",
-          "firstResponseLatencyMs": 622,
-          "finalLatencyMs": 622,
-          "qualityScore": 4.3448400000000005,
+          "firstResponseLatencyMs": 594,
+          "finalLatencyMs": 594,
+          "qualityScore": 4.1296,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p6",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 585,
-          "finalLatencyMs": 2585,
-          "qualityScore": 4.57128,
+          "firstResponseLatencyMs": 630,
+          "finalLatencyMs": 2785,
+          "qualityScore": 4.65796,
           "retryCount": 0,
           "deadLettered": false
         }
@@ -132,54 +137,54 @@
         {
           "promptId": "p1",
           "routeDecision": "direct",
-          "firstResponseLatencyMs": 682,
-          "finalLatencyMs": 682,
-          "qualityScore": 4.29236,
+          "firstResponseLatencyMs": 680,
+          "finalLatencyMs": 680,
+          "qualityScore": 4.24672,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p2",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 642,
-          "finalLatencyMs": 2880,
-          "qualityScore": 4.36296,
+          "firstResponseLatencyMs": 640,
+          "finalLatencyMs": 2872,
+          "qualityScore": 4.51156,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p3",
           "routeDecision": "clarify",
-          "firstResponseLatencyMs": 748,
-          "finalLatencyMs": 748,
-          "qualityScore": 3.85796,
+          "firstResponseLatencyMs": 747,
+          "finalLatencyMs": 747,
+          "qualityScore": 3.9762399999999998,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p4",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 827,
-          "finalLatencyMs": 3734,
-          "qualityScore": 4.49632,
-          "retryCount": 1,
+          "firstResponseLatencyMs": 810,
+          "finalLatencyMs": 3656,
+          "qualityScore": 4.62444,
+          "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p5",
           "routeDecision": "direct",
-          "firstResponseLatencyMs": 688,
-          "finalLatencyMs": 688,
-          "qualityScore": 4.0384400000000005,
+          "firstResponseLatencyMs": 673,
+          "finalLatencyMs": 673,
+          "qualityScore": 4.07536,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p6",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 648,
-          "finalLatencyMs": 2909,
-          "qualityScore": 4.52904,
+          "firstResponseLatencyMs": 633,
+          "finalLatencyMs": 2841,
+          "qualityScore": 4.41244,
           "retryCount": 0,
           "deadLettered": false
         }
@@ -197,54 +202,54 @@
         {
           "promptId": "p1",
           "routeDecision": "direct",
-          "firstResponseLatencyMs": 805,
-          "finalLatencyMs": 805,
-          "qualityScore": 4.08708,
+          "firstResponseLatencyMs": 902,
+          "finalLatencyMs": 902,
+          "qualityScore": 4.18952,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p2",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 845,
-          "finalLatencyMs": 3666,
-          "qualityScore": 4.6264,
+          "firstResponseLatencyMs": 774,
+          "finalLatencyMs": 3359,
+          "qualityScore": 4.36844,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p3",
           "routeDecision": "clarify",
-          "firstResponseLatencyMs": 885,
-          "finalLatencyMs": 885,
-          "qualityScore": 3.84612,
+          "firstResponseLatencyMs": 814,
+          "finalLatencyMs": 814,
+          "qualityScore": 3.9824,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p4",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 890,
-          "finalLatencyMs": 3878,
-          "qualityScore": 4.3868,
+          "firstResponseLatencyMs": 983,
+          "finalLatencyMs": 4283,
+          "qualityScore": 4.51972,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p5",
           "routeDecision": "direct",
-          "firstResponseLatencyMs": 813,
-          "finalLatencyMs": 813,
-          "qualityScore": 4.30548,
+          "firstResponseLatencyMs": 894,
+          "finalLatencyMs": 894,
+          "qualityScore": 4.350960000000001,
           "retryCount": 0,
           "deadLettered": false
         },
         {
           "promptId": "p6",
           "routeDecision": "deep",
-          "firstResponseLatencyMs": 853,
-          "finalLatencyMs": 3701,
-          "qualityScore": 4.43136,
+          "firstResponseLatencyMs": 766,
+          "finalLatencyMs": 3324,
+          "qualityScore": 4.5386,
           "retryCount": 0,
           "deadLettered": false
         }
