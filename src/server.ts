@@ -4,8 +4,8 @@ import { InMemoryDeadLetterStore } from "./app/deadLetterStore";
 import { ChatOrchestrator, DeepWorker } from "./app/orchestrator";
 import { InMemoryConversationTimelineStore } from "./app/timelineStore";
 import { ChatService } from "./app/chatService";
-import { parseBoundedNumberEnv, parsePositiveIntEnv } from "./config/runtimeEnv";
-import { loadRuntimeProviderConfigFromEnv } from "./config/providerConfig";
+import { parseBooleanEnv, parseBoundedNumberEnv, parsePositiveIntEnv } from "./config/runtimeEnv";
+import { describeProviderConfig, loadRuntimeProviderConfigFromEnv } from "./config/providerConfig";
 import type { UserMessage } from "./domain/types";
 import { InMemoryTaskQueue } from "./providers/interfaces";
 import { buildProviderPair } from "./providers/providerFactory";
@@ -99,6 +99,13 @@ const QueueDepthBodySchema = z.object({
 const RoutingPolicyBodySchema = z.object({
   maxFastP95Ms: z.number().finite().positive().optional()
 });
+
+function resolveDeepWorkerAutoRunConfig(env: NodeJS.ProcessEnv) {
+  return {
+    enabled: parseBooleanEnv(env.DEEP_WORKER_AUTO_RUN, true),
+    intervalMs: parsePositiveIntEnv(env.DEEP_WORKER_INTERVAL_MS, 500, 100, 60_000)
+  };
+}
 
 function requireObjectBody(body: unknown): Record<string, unknown> {
   if (body === null || Array.isArray(body) || typeof body !== "object") {
@@ -252,18 +259,41 @@ export async function startServer(port: number): Promise<void> {
     await telemetryStore.save(adaptiveRouting.snapshotState());
   };
 
+  const autoRunConfig = resolveDeepWorkerAutoRunConfig(process.env);
+
+  const runDeepWorkerTick = async () => {
+    try {
+      await service.runDeepWorkerOnce();
+    } catch (error) {
+      console.warn(`Deep worker auto-run failed: ${(error as Error).message}`);
+    }
+  };
+
   const telemetrySaveIntervalMs = parsePositiveIntEnv(process.env.TELEMETRY_SAVE_INTERVAL_MS, 5000, 250, 60_000);
   const timer = setInterval(() => {
     void saveTelemetry();
   }, telemetrySaveIntervalMs);
+
+  const deepWorkerTimer = autoRunConfig.enabled
+    ? setInterval(() => {
+        void runDeepWorkerTick();
+      }, autoRunConfig.intervalMs)
+    : undefined;
 
   const server = createChatServer(service);
   server.listen(port);
 
   server.on("close", () => {
     clearInterval(timer);
+    if (deepWorkerTimer) {
+      clearInterval(deepWorkerTimer);
+    }
     void saveTelemetry();
   });
 
-  console.log(`Chat server listening on port ${port}`);
+  // Safe to log: describeProviderConfig() never includes secret values
+  // (e.g. AZURE_OPENAI_API_KEY), only provider/model names, endpoints, and
+  // region — see its docstring in ./config/providerConfig.
+  const autoRunLabel = autoRunConfig.enabled ? `on/${autoRunConfig.intervalMs}ms` : "off";
+  console.log(`Chat server listening on port ${port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`);
 }

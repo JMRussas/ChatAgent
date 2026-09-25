@@ -98,6 +98,29 @@ Use this loop for each feature:
 3. Implement minimal code in `src/`
 4. Refactor while tests stay green
 
+## Configuration and secrets
+
+All configuration is read from environment variables. Nothing is hardcoded, and nothing sensitive is committed to the repository.
+
+Local setup:
+
+```bash
+cp .env.example .env
+# then edit .env with real values
+```
+
+`.env` is listed in `.gitignore` and is never committed. `.env.example` is the checked-in template: it lists every variable this app reads, with safe placeholder or empty values, and comments marking which ones are secrets.
+
+Security rules this project follows:
+
+1. **No secret ever lives in a committed file.** `AZURE_OPENAI_API_KEY` is the only credential this app reads directly, and it is only ever read from `process.env` at request time, never written to disk, logged, or echoed back in an HTTP response.
+2. **AWS credentials are never handled by this app's own config.** For `CHAT_*_PROVIDER=bedrock`, only `BEDROCK_REGION` (not a secret) is read. Actual AWS credentials come from the standard AWS SDK credential chain (`aws configure`, an IAM role, or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` set as real environment variables) — not from `.env`.
+3. **A real environment variable always wins over `.env`.** `.env` is for local convenience only; in CI, a container, or a platform with a secret manager, set real environment variables and the `.env` file (if present at all) is ignored for any variable that's already set.
+4. **Fail fast, not silently.** If a non-mock provider is selected but its required variables are missing, the server refuses to start and prints a clear error naming the missing variable — it never falls back to a placeholder value that would only fail later, mid-request.
+5. **Startup logging is redacted by design.** The server logs which providers/models are active on startup (see `describeProviderConfig` in `src/config/providerConfig.ts`), but that summary is built to exclude anything that could be a credential, so it's always safe to leave in place and to ship to a log aggregator.
+6. **This server has no built-in authentication.** It's a local prototype. Don't expose it to the public internet without adding an auth layer in front of it (reverse proxy, API gateway, etc).
+7. **For a real deployment**, prefer your platform's secret manager (AWS Secrets Manager, Azure Key Vault, or your host's injected environment variables) over shipping a `.env` file at all.
+
 ## Provider configuration
 
 Fast and deep layers are independently configurable. This allows mix-and-match across Azure, Bedrock, and Ollama.
@@ -150,10 +173,13 @@ Adaptive routing threshold (optional env var):
 ROUTING_MAX_FAST_P95_MS=1000
 TELEMETRY_STORE_PATH=data/latency-telemetry.json
 TELEMETRY_SAVE_INTERVAL_MS=5000
+DEEP_WORKER_AUTO_RUN=true
+DEEP_WORKER_INTERVAL_MS=500
 ```
 
 Telemetry snapshots are schema-validated on load/save. Invalid or malformed snapshot files are ignored with warnings, and snapshot writes use atomic file replacement.
 `ROUTING_MAX_FAST_P95_MS` and `TELEMETRY_SAVE_INTERVAL_MS` are normalized and clamped to safe ranges during startup.
+When `DEEP_WORKER_AUTO_RUN=true`, the server drains one deep task per interval tick so provisional replies can refine automatically without manual `/workers/deep/run-once` calls.
 
 Adaptive routing behavior:
 
@@ -265,3 +291,5 @@ CHAT_DEEP_MODEL=qwen2.5:14b
 - Demo script: `docs/07-demo-script.md`
 - Engineering decision log: `docs/08-engineering-decision-log.md`
 - Code review (2026-09-25): `docs/09-code-review-2026-09-25.md`
+- Class map (open in a browser): `docs/10-class-map.html`
+- UI plan (proposed, not yet built): `docs/11-ui-plan.md`

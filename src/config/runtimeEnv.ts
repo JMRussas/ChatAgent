@@ -31,3 +31,21 @@ export function parsePositiveIntEnv(raw: string | undefined, fallback: number, m
 
   return Math.max(min, Math.min(max, rounded));
 }
+
+export function parseBooleanEnv(raw: string | undefined, fallback: boolean): boolean {
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}

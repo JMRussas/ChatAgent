@@ -115,14 +115,19 @@
 - Surface clear timeout errors instead of hanging the fast path indefinitely
 - Add unit tests that prove the abort signal is wired through
 
+25. Background deep-worker auto-run
+- Add optional interval-based deep worker draining in server startup
+- Make auto-run behavior env-controlled for deterministic test/benchmark modes
+- Document and test env parsing for auto-run controls
+
 ## Execution burndown snapshot
 
 As of 2026-09-25
 
-1. Planned phases: 23
-2. Completed phases: 23
+1. Planned phases: 25
+2. Completed phases: 25
 3. Remaining phases in current plan: 0
-4. Completion ratio: 24/24 (100%)
+4. Completion ratio: 25/25 (100%)
 
 Phase buckets (estimated):
 
@@ -139,6 +144,9 @@ Phase buckets (estimated):
 - Status: complete (1/1)
 
 5. Provider timeout hardening (24)
+- Status: complete (1/1)
+
+6. Deep-worker runtime hardening (25)
 - Status: complete (1/1)
 
 Schedule signal:

@@ -11,6 +11,178 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Background Deep-Worker Auto-Run
+
+Status: Closed
+
+Issue:
+
+- The deep path depended on manual `/workers/deep/run-once` calls, which blocked UI viability for automatic provisional-to-refined transitions.
+
+Decision:
+
+- Add an interval-based deep-worker loop in server startup with environment controls to keep deterministic behavior available for tests and benchmark runs.
+
+Changes made:
+
+1. Added deep-worker auto-run config resolution from environment.
+2. Added optional interval loop that executes one deep worker tick per interval and logs non-fatal loop errors.
+3. Added env template and README documentation for auto-run controls.
+4. Added unit coverage for boolean env parsing used by auto-run toggles.
+
+Files changed:
+
+- `src/server.ts`
+- `src/config/runtimeEnv.ts`
+- `tests/unit/runtimeEnv.test.ts`
+- `.env.example`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Full release verification command passes.
+2. Runtime env unit tests cover auto-run boolean parsing behavior.
+
+---
+
+## 2026-09-25 - UI Plan Documented
+
+Status: Open (proposed, not yet built)
+
+Issue:
+
+- No UI exists; the prototype is API-only. A discussion of what a UI should look like happened in conversation only and was not recorded anywhere in the project.
+
+Decision:
+
+- Record the recommendation as a standalone plan doc so it survives past the conversation: two-panel layout (chat thread + live routing readout), per-route visual treatment, the open provider-comparison design question, the hard dependency on a background deep-worker loop, and a recommended build order.
+
+Changes made:
+
+1. Added `docs/11-ui-plan.md`.
+2. Linked it from the README project-docs list.
+
+Files changed:
+
+- `docs/11-ui-plan.md` (new)
+- `README.md`
+
+Validation evidence:
+
+1. None — this is a proposal, not a code change. Building against it is future work.
+
+---
+
+## 2026-09-25 - Class Map Saved to Repo
+
+Status: Closed
+
+Issue:
+
+- A UML-style class map was built and published as a Claude Artifact (a page hosted on claude.ai), which is not part of the git working tree. Publishing an Artifact never writes to disk in the project, so it was not actually saved as project history.
+
+Decision:
+
+- Save the diagram as a standalone, self-contained HTML file inside `docs/` so it is versioned with everything else and opens directly in a browser with no server or build step.
+
+Changes made:
+
+1. Added `docs/10-class-map.html` — inline SVG class diagram covering the composition root (`server.ts`), the application layer, the six port interfaces and their adapters, and the domain DTOs.
+2. Linked it from the README project-docs list.
+
+Files changed:
+
+- `docs/10-class-map.html` (new)
+- `README.md`
+
+Validation evidence:
+
+1. File opens correctly as a standalone HTML document (full doctype/head/body, no Artifact-runtime dependencies).
+
+---
+
+## 2026-09-25 - Deferred: vitest/vite Dev-Dependency Vulnerabilities
+
+Status: Open (deferred, not actioned)
+
+Issue:
+
+- `npm audit` reports 5 vulnerabilities (3 moderate, 1 high, 1 critical) in the `vitest` -> `vite` -> `esbuild`/`vite-node` dev-dependency chain:
+  1. `@vitest/mocker` (moderate) - path traversal / arbitrary file read via redirect mock.
+  2. `esbuild` (moderate) - dev server allows any website to send requests and read the response.
+  3. `vite` (high) - path traversal in optimized deps `.map` handling; `launch-editor` NTLMv2 hash disclosure via UNC path handling on Windows; `server.fs.deny` bypass on Windows alternate paths.
+  4. `vite-node` (moderate) - depends on vulnerable `vite`.
+  5. `vitest` (critical) - depends on vulnerable `@vitest/mocker`/`vite`/`vite-node`; arbitrary file read/execute when the Vitest UI server is listening.
+- Confirmed pre-existing: not introduced by the `dotenv` addition in the same session (verified via `npm audit --json` before/after).
+- All affected packages are devDependencies (`vitest` and its transitive `vite` chain). They ship in `node_modules` for local dev/test only and are not part of the running server (`src/index.ts` has no dependency on them).
+- `npm audit fix --force` resolves this by installing `vitest@5.0.2`, which is a breaking major-version change to the test runner and would need its own verification pass (config compatibility, `vitest.config.ts`, `vitest/globals` types in `tsconfig.json`) before landing.
+
+Decision:
+
+- Defer the upgrade rather than force it in unreviewed. Revisit as its own change: upgrade `vitest`/`vite`, re-run the full suite and lint, and confirm `vitest.config.ts` and the `vitest/globals` type reference in `tsconfig.json` still work under the new major version.
+
+Files likely touched when this is picked up:
+
+- `package.json`, `package-lock.json`
+- `vitest.config.ts`
+- `tsconfig.json` (`types: ["node", "vitest/globals"]`)
+
+Validation evidence:
+
+1. `npm audit` output captured above at time of deferral.
+2. No code changes made for this entry; tracking only.
+
+---
+
+## 2026-09-25 - Secure Environment Variable Configuration
+
+Status: Closed
+
+Issue:
+
+- No `.env` support existed; environment variables (including the AZURE_OPENAI_API_KEY secret) had to be exported manually with no documented, gitignored local-config path.
+- A non-mock provider with a missing model name silently fell back to a placeholder (`unset-model`) instead of failing at startup.
+- Azure/Bedrock "settings are missing" errors did not name which variable was absent.
+
+Decision:
+
+- Add dotenv-based local config loading, with `.env` gitignored and a secret-free `.env.example` template checked in.
+- Keep the rule that a real environment variable always wins over `.env`, so CI/production secret injection is authoritative.
+- Fail fast with a specific, secret-free error when a required provider variable is missing, instead of silently proceeding.
+- Add a redacted startup log line (`describeProviderConfig`) that names active providers/models without ever including credentials.
+- Document the security model (secret handling, AWS credential chain for Bedrock, no built-in auth) in the README.
+
+Changes made:
+
+1. Added `src/config/loadEnv.ts`, a dotenv bootstrap imported first by every CLI entrypoint (`src/index.ts`, `src/bench/runBenchmark.ts`, `src/bench/compareBenchmarks.ts`, `src/eval/generateReport.ts`).
+2. Added `.env.example` (checked in, placeholders only) and gitignored `.env`, `.env.local`, `.env.*.local`.
+3. `loadRuntimeProviderConfigFromEnv` now throws a clear, variable-named error instead of defaulting to `unset-model` when a non-mock provider has no model configured.
+4. `buildFastProvider`/`buildDeepProvider` error messages now name the exact missing environment variables for Azure and Bedrock.
+5. Added `describeProviderConfig`, a secret-free provider/model summary, and logged it on server startup.
+6. Added `## Configuration and secrets` section to README covering local setup, the AWS credential-chain rule for Bedrock, fail-fast behavior, and the lack of built-in auth.
+7. Added `tests/unit/providerConfig.test.ts` covering the fail-fast path and asserting the redacted summary never contains a supplied API key value.
+
+Files changed:
+
+- `src/config/loadEnv.ts` (new)
+- `.env.example` (new)
+- `.gitignore`
+- `src/index.ts`, `src/bench/runBenchmark.ts`, `src/bench/compareBenchmarks.ts`, `src/eval/generateReport.ts`
+- `src/config/providerConfig.ts`
+- `src/providers/providerFactory.ts`
+- `src/server.ts`
+- `README.md`
+- `tests/unit/providerConfig.test.ts` (new)
+
+Validation evidence:
+
+1. Full suite (79 tests across 22 files) and type check pass.
+2. Manually confirmed `CHAT_FAST_PROVIDER=azure` with no `CHAT_FAST_MODEL` fails startup with a variable-named error and no stack-trace leakage of any secret.
+3. Manually confirmed default (mock) config still starts and logs a redacted summary containing no credential.
+4. New unit test asserts a supplied `AZURE_OPENAI_API_KEY` value never appears in `describeProviderConfig` output.
+
+---
+
 ## 2026-09-25 - Full Codebase Review
 
 Status: Open
