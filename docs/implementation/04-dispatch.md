@@ -12,6 +12,10 @@ automatic provisioning, retrieval, repo file access, or tool execution in this t
 
 ## Contracts and decisions
 
+[Resource policy](08-resource-policy.md) defines mandatory admission invariants,
+pool reservations and RES-01–07 selection/failure cases. Apply these hard constraints
+before ranking; local-only and zero incremental spend are different policies.
+
 Add `src/routing/taskClassifier.ts` and `modelSelector.ts`, and a provider registry
 keyed by bindingId in `src/providers/providerRegistry.ts`.
 

@@ -5,6 +5,11 @@ subscription activation, billed health probe, or local model download in this ta
 
 ## Data model
 
+Apply [resource policy](08-resource-policy.md): transport, execution scope, billing
+components, quota and compute pools are independent per-binding metadata. Preserve
+evidence/freshness and unknowns. V1 migration must not infer local/free from Ollama
+or subscription entitlement from CLI. Implement RES-01/03/04/08 metadata fixtures.
+
 Keep curated catalog preferences separate from runtime observations. Add
 `src/models/connections.ts`, `inventory.ts` and `discovery/` adapters.
 

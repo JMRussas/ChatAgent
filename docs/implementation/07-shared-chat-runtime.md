@@ -76,6 +76,10 @@ owner. Repository naming does not decide deployment topology or language.
 
 ## Acceptance and handoff
 
+Carry [CTX-01–04 review regressions](01a-review-followup.md) and
+[RES-01–08 resource fixtures](08-resource-policy.md) into the shared contract suite.
+Execution locality and billing must not be inferred from Ollama/CLI transports.
+
 Shared fixtures must cover two-turn continuity, concurrent conversations, repeated
 requests, reconnect without duplicate text, cancellation, failure after partial
 output, late deep updates, complete tool exchanges, budget overflow, and source

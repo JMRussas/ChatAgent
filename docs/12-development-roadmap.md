@@ -258,3 +258,15 @@ switching unless a demonstrated need justifies the extra state management.
   not a provider performance claim.
 - The repository currently has no remote. Commits are local until a destination is
   configured; the included CI workflow will run when hosted on GitHub.
+
+## 2026-09-25 review and resource-policy checkpoint
+
+01A is committed, but review corrections CTX-01–04 remain open; see
+[boundary invariants](implementation/01a-review-followup.md). Acceptance now
+requires named regression-test evidence, not just a green suite.
+
+Specs 03–06 also require [resource policy](implementation/08-resource-policy.md):
+execution location, billing mode, quota and compute capacity are independent of
+transport. RES-01–08 are future acceptance requirements, not implemented controls.
+Complete the bounded context corrections, then honor the cross-repository reuse
+checkpoint before adding overlapping provider or memory implementations.

@@ -47,6 +47,11 @@ authorization. A coding request alone does not permit arbitrary terminal actions
 
 ## Process and quota behavior
 
+Apply [resource policy](08-resource-policy.md), especially RES-02/05/06/07.
+CLI is a transport, not proof of subscription billing or local inference. Inspect
+the configured profile's actual billing/entitlement mode; included subscription
+usage still consumes quota. Unknown usage after cancellation remains unsettled.
+
 - Config: `CLI_TIMEOUT_MS=120000`, `CLI_MAX_OUTPUT_BYTES=1048576`,
   `CLI_MAX_CONCURRENCY=1`, validated positive integers. Limit per quotaPoolId, not
   per model; fall back to accountProfile + adapterId when no pool is given.

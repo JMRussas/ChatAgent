@@ -21,6 +21,10 @@ durable and must not be described as surviving a restart.
 
 ## Measurement changes
 
+[Resource policy](08-resource-policy.md) governs execution/billing/compute metadata
+and cost measurement. Implement RES-08 reporting and verify RES-05/06 accounting;
+estimated, reserved, reported, fixed/amortized and unknown costs remain distinct.
+
 Change `src/bench/liveBenchmark.ts` to use deadlines and message-correlated terminal
 events, not four tight polls or manual-worker call counts. Poll every 100 ms (or
 subscribe to SSE) until a terminal event or configurable 120-second deadline.

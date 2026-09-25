@@ -13,6 +13,12 @@ safe continuation instructions. No source implementation was changed by this rev
 
 ## Execution order
 
+**Review corrections:** [01A boundary invariants](01a-review-followup.md) records
+four open regressions against f889b9a. Fix and map them to named tests before
+claiming 01A acceptance. [Execution and resource policy](08-resource-policy.md)
+extends 03–06: transport, execution location, billing, quota and compute are
+independent. Ollama and CLI bindings carry no implicit locality or price.
+
 **Cross-repository reuse checkpoint (2026-09-25):** read
 [07 Shared chat runtime](07-shared-chat-runtime.md) before starting overlapping
 01B/provider/CLI work. 01A is committed at `f889b9a`; preserve it. Audit existing
@@ -61,6 +67,11 @@ parallel agents. Production deployment and retrieval are separate future scopes.
   adapter notes. Do not guess CLI switches, regional availability or model limits.
 
 ## Verification and commits
+
+Every milestone handoff must map acceptance IDs/requirements to test file and test
+name, with executed result or explicit outstanding status. Include cross-component
+boundary/transition cases, not only isolated request-shape checks. A passing suite
+does not by itself establish acceptance coverage.
 
 For each code milestone: run its focused tests, then `npm test`, `npm run lint`,
 `npm run build`. Before declaring the integrated handoff complete, run

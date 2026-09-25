@@ -126,6 +126,10 @@ retrieval or tools that were not used. Model behavior remains probabilistic.
 
 ## Acceptance tests
 
+The [01A review follow-up](01a-review-followup.md) adds mandatory CTX-01–04
+cross-component regressions and clarifies effective caps, exact rendered budgets,
+route instructions and replay state. These corrections are open against f889b9a.
+
 Add `tests/unit/contextBuilder.test.ts`, provider request-shape cases and HTTP cases:
 
 | Case | Required result |

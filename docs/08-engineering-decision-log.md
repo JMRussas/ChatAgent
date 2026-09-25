@@ -1152,3 +1152,25 @@ Validation: type checking and build passed. The default parallel test run failed
 with an unexpected Vitest worker exit; `npm test -- --maxWorkers=1` passed all
 140 tests across 31 files. No runtime code changed in this documentation/name
 checkpoint. The worker failure has not been diagnosed.
+
+## 2026-09-25 - Review invariants and independent resource budgets
+
+Status: Specified; implementation and regression tests remain open.
+
+Review of f889b9a reproduced four boundary gaps despite 140 passing tests:
+effective Ollama output overrides were not reserved, rendered pending-task
+wrappers were not counted, shared prompts lost route instructions, and historical
+failure overrode replay state. See implementation/01a-review-followup.md for
+CTX-01–04 and mandatory requirement-to-test traceability.
+
+The user's observation that Ollama can use cloud inference prompted an explicit
+separation of transport, execution location, billing, quota and compute. Official
+Ollama cloud documentation confirms localhost can proxy cloud inference. Resource
+policy implementation/08-resource-policy.md adds RES-01–08 across inventory,
+dispatch, CLI and verification. Unknown costs are not zero; subscriptions consume
+allowance; local compute consumes capacity; fixed costs are separate from marginal
+charges. Shared reservations include fast/deep/retry/summary work. Cancellation
+without usage evidence does not prove no charge. These are future requirements,
+not implemented spending controls or guarantees about existing fixed routing.
+
+Validation: documentation diff checks only; no runtime code or tests changed.
