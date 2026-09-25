@@ -444,6 +444,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       reasons: [],
       events: [],
       previousAssistantStatuses: [],
+      pendingUserText: "",
       runtimeInfo
     };
 
@@ -537,6 +538,16 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     function renderThread() {
       const turns = deriveTurns(state.events);
+      if (state.pendingUserText) {
+        turns.push({
+          userText: state.pendingUserText,
+          assistantText: "",
+          status: null,
+          createdAtIso: new Date().toISOString(),
+          routeDecision: state.routeDecision
+        });
+      }
+
       const nextStatuses = turns.map((turn) => turn.status ?? "none");
       thread.innerHTML = "";
 
@@ -684,6 +695,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
       state.conversationId = conversationId;
       state.userId = userId;
+      state.pendingUserText = text;
+      renderThread();
 
       sendButton.disabled = true;
       setStatus("Sending message...");
@@ -716,8 +729,13 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         promptInput.value = "";
         renderDecision();
         await refreshLoop();
+        state.pendingUserText = "";
+        renderThread();
         setStatus("Message accepted. Awaiting refined update if route is deep.");
       } catch (error) {
+        state.pendingUserText = "";
+        await refreshLoop();
+        renderThread();
         setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
       } finally {
         sendButton.disabled = false;

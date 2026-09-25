@@ -11,7 +11,11 @@ const keysToReset = [
   "CHAT_DEEP_PROVIDER",
   "CHAT_DEEP_MODEL",
   "CHAT_DEEP_TEMPERATURE",
-  "OLLAMA_BASE_URL"
+  "OLLAMA_BASE_URL",
+  "OLLAMA_FAST_TIMEOUT_MS",
+  "OLLAMA_DEEP_TIMEOUT_MS",
+  "OLLAMA_FAST_NUM_PREDICT",
+  "OLLAMA_DEEP_NUM_PREDICT"
 ];
 
 afterEach(() => {
@@ -50,6 +54,23 @@ describe("provider factory", () => {
     const providers = buildProviderPair(config);
 
     expect(providers.fastProvider).toBeInstanceOf(MockFastProvider);
+    expect(providers.deepProvider).toBeInstanceOf(OllamaDeepProvider);
+  });
+
+  it("accepts custom Ollama timeout and token env values", () => {
+    process.env.CHAT_FAST_PROVIDER = "ollama";
+    process.env.CHAT_FAST_MODEL = "qwen3:8b";
+    process.env.CHAT_DEEP_PROVIDER = "ollama";
+    process.env.CHAT_DEEP_MODEL = "qwen3.5:latest";
+    process.env.OLLAMA_FAST_TIMEOUT_MS = "20000";
+    process.env.OLLAMA_DEEP_TIMEOUT_MS = "60000";
+    process.env.OLLAMA_FAST_NUM_PREDICT = "256";
+    process.env.OLLAMA_DEEP_NUM_PREDICT = "512";
+
+    const config = loadRuntimeProviderConfigFromEnv();
+    const providers = buildProviderPair(config);
+
+    expect(providers.fastProvider).toBeInstanceOf(OllamaFastProvider);
     expect(providers.deepProvider).toBeInstanceOf(OllamaDeepProvider);
   });
 });

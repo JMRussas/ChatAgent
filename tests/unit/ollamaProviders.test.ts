@@ -17,7 +17,7 @@ describe("ollama providers", () => {
 
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const provider = new OllamaFastProvider("http://localhost:11434", "llama3.1:8b", 0.2);
+    const provider = new OllamaFastProvider("http://localhost:11434", "llama3.1:8b", 0.2, 10_000, 300);
 
     const result = await provider.createProvisionalReply({
       message: {
@@ -41,6 +41,7 @@ describe("ollama providers", () => {
     expect(body.model).toBe("llama3.1:8b");
     expect(body.stream).toBe(false);
     expect(body.options.temperature).toBe(0.2);
+    expect(body.options.num_predict).toBe(300);
   });
 
   it("maps deep response into DeepResult", async () => {
@@ -88,6 +89,34 @@ describe("ollama providers", () => {
         routeDecision: "direct"
       })
     ).rejects.toThrow("Ollama request failed (500 Internal Server Error)");
+  });
+
+  it("throws clear error when Ollama returns only thinking and no final response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        response: "",
+        thinking: "internal reasoning",
+        done_reason: "length"
+      })
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new OllamaFastProvider("http://localhost:11434", "qwen3:8b", 0.2, 10_000, 64);
+
+    await expect(
+      provider.createProvisionalReply({
+        message: {
+          conversationId: "c2b",
+          userId: "u2b",
+          text: "hello",
+          timestampIso: new Date().toISOString()
+        },
+        correctedText: "hello",
+        routeDecision: "direct"
+      })
+    ).rejects.toThrow("Increase num_predict or use a faster model");
   });
 
   it("times out hung Ollama requests", async () => {

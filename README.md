@@ -160,9 +160,15 @@ BEDROCK_REGION=us-east-1
 
 # Ollama
 OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_FAST_TIMEOUT_MS=20000
+OLLAMA_DEEP_TIMEOUT_MS=60000
+OLLAMA_FAST_NUM_PREDICT=256
+OLLAMA_DEEP_NUM_PREDICT=512
 ```
 
 Azure and Ollama HTTP calls use bounded request timeouts so a hung upstream cannot block the fast path indefinitely.
+If local Ollama models are large or cold-start slowly on your hardware, increase `OLLAMA_FAST_TIMEOUT_MS` and `OLLAMA_DEEP_TIMEOUT_MS`.
+If a model emits long reasoning traces and returns empty final text at low token budgets, increase `OLLAMA_FAST_NUM_PREDICT` and `OLLAMA_DEEP_NUM_PREDICT`.
 
 Evaluation reliability thresholds (optional env vars):
 
