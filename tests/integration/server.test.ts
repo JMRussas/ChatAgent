@@ -22,6 +22,49 @@ afterEach(() => {
 });
 
 describe("chat server", () => {
+  it("streams conversation timeline over SSE", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
+    const service = new ChatService(orchestrator, worker, timeline);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationId: "conv-stream",
+        userId: "user-http",
+        text: "hello from stream test"
+      })
+    });
+
+    const controller = new AbortController();
+    const response = await fetch(`${baseUrl}/conversations/conv-stream/events/stream`, {
+      signal: controller.signal
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+
+    const reader = response.body?.getReader();
+    expect(reader).toBeDefined();
+
+    const chunk = await reader!.read();
+    controller.abort();
+
+    const text = new TextDecoder().decode(chunk.value ?? new Uint8Array());
+    expect(text).toContain("event: timeline");
+    expect(text).toContain("hello from stream test");
+  });
+
   it("serves the UI shell on GET /", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
@@ -46,6 +89,7 @@ describe("chat server", () => {
     expect(body).toContain('id="fastProvider"');
     expect(body).toContain('id="deepProvider"');
     expect(body).toContain("const runtimeInfo =");
+    expect(body).toContain("/events/stream");
   });
 
   it("supports provisional then refined flow through HTTP endpoints", async () => {

@@ -459,6 +459,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     const sendButton = $("sendButton");
     const thread = $("thread");
     const status = $("status");
+    let timelineStream = null;
 
     function escapeHtml(input) {
       return input
@@ -680,18 +681,40 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     }
 
     async function fetchEvents() {
-      if (!state.conversationId) return;
-      const res = await fetch("/conversations/" + encodeURIComponent(state.conversationId) + "/events");
-      if (!res.ok) return;
-      const payload = await res.json();
-      state.events = Array.isArray(payload.events) ? payload.events : [];
+      return;
+    }
 
-      if (state.pendingUserText && state.events.some((event) => event.type === "user" && event.text === state.pendingUserText)) {
-        state.pendingUserText = "";
-        state.pendingUserSentAtMs = 0;
+    function openTimelineStream() {
+      if (timelineStream) {
+        timelineStream.close();
+        timelineStream = null;
       }
 
-      renderThread();
+      if (!state.conversationId) return;
+
+      const streamUrl = "/conversations/" + encodeURIComponent(state.conversationId) + "/events/stream";
+      const source = new EventSource(streamUrl);
+      timelineStream = source;
+
+      source.addEventListener("timeline", (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          state.events = Array.isArray(payload.events) ? payload.events : [];
+
+          if (state.pendingUserText && state.events.some((item) => item.type === "user" && item.text === state.pendingUserText)) {
+            state.pendingUserText = "";
+            state.pendingUserSentAtMs = 0;
+          }
+
+          renderThread();
+        } catch {
+          // Ignore malformed stream events and wait for next update.
+        }
+      });
+
+      source.onerror = () => {
+        // EventSource auto-reconnects; keep status stable.
+      };
     }
 
     async function fetchTelemetry() {
@@ -703,7 +726,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     async function refreshLoop() {
       try {
-        await Promise.all([fetchEvents(), fetchTelemetry()]);
+        await fetchTelemetry();
       } catch {
         // Keep polling even when transient errors happen.
       }
@@ -722,6 +745,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
       state.conversationId = conversationId;
       state.userId = userId;
+      openTimelineStream();
       state.pendingUserText = text;
       state.pendingUserSentAtMs = Date.now();
       renderThread();
@@ -756,7 +780,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
         promptInput.value = "";
         renderDecision();
-        await refreshLoop();
+        await fetchTelemetry();
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;
         renderThread();
@@ -764,7 +788,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       } catch (error) {
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;
-        await refreshLoop();
+        await fetchTelemetry();
         renderThread();
         setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
       } finally {
@@ -779,8 +803,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.pendingUserText = "";
       state.pendingUserSentAtMs = 0;
       state.lastThreadRenderKey = "";
+      openTimelineStream();
       renderThread();
-      void refreshLoop();
+      void fetchTelemetry();
     });
 
     userIdInput.addEventListener("change", () => {
@@ -789,8 +814,15 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     renderDecision();
     renderThread();
-    void refreshLoop();
+    openTimelineStream();
+    void fetchTelemetry();
     setInterval(refreshLoop, 1000);
+
+    window.addEventListener("beforeunload", () => {
+      if (timelineStream) {
+        timelineStream.close();
+      }
+    });
   </script>
 </body>
 </html>`;

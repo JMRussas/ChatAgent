@@ -194,7 +194,7 @@ When `DEEP_WORKER_AUTO_RUN=true`, the server drains one deep task per interval t
 UI behavior:
 
 1. `GET /` serves a static control-room page (vanilla HTML/CSS/JS) for desktop and mobile.
-2. The page posts to `/messages` and polls `/conversations/:id/events` plus `/telemetry/latency` once per second.
+2. The page posts to `/messages`, streams timeline updates from `/conversations/:id/events/stream` (SSE), and polls `/telemetry/latency` once per second.
 3. Deep-route turns render provisional replies first and then swap in-place to refined replies when background processing completes.
 
 Adaptive routing behavior:

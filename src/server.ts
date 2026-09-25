@@ -157,6 +157,12 @@ async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
+function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown): void {
+  const data = JSON.stringify(payload);
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${data}\n\n`);
+}
+
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
   return createServer(async (req, res) => {
     try {
@@ -236,6 +242,60 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const conversationId = parts[2];
         const events = await service.getTimeline(conversationId);
         return json(res, 200, { events });
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/conversations/") && url.pathname.endsWith("/events/stream")) {
+        const parts = url.pathname.split("/");
+        const conversationId = parts[2];
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+        res.setHeader("Cache-Control", "no-cache, no-transform");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
+
+        let lastSerializedEvents = "";
+
+        const pushTimeline = async (force = false) => {
+          if (res.writableEnded) return;
+
+          const events = await service.getTimeline(conversationId);
+          const serialized = JSON.stringify(events);
+
+          if (!force && serialized === lastSerializedEvents) {
+            return;
+          }
+
+          lastSerializedEvents = serialized;
+          writeSseEvent(res, "timeline", { events });
+        };
+
+        try {
+          await pushTimeline(true);
+        } catch {
+          res.end();
+          return;
+        }
+
+        const pollTimer = setInterval(() => {
+          void pushTimeline(false);
+        }, 350);
+
+        const heartbeatTimer = setInterval(() => {
+          if (!res.writableEnded) {
+            res.write(": ping\n\n");
+          }
+        }, 15_000);
+
+        req.on("close", () => {
+          clearInterval(pollTimer);
+          clearInterval(heartbeatTimer);
+          if (!res.writableEnded) {
+            res.end();
+          }
+        });
+
+        return;
       }
 
       return json(res, 404, { error: "Not found" });
