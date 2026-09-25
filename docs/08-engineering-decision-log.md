@@ -11,6 +11,34 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Execution Burndown Tracking in TDD Plan
+
+Status: Closed
+
+Issue:
+
+- Plan progress status was visible through commit history but not summarized directly in the execution plan document.
+
+Decision:
+
+- Add an explicit execution burndown snapshot section to the TDD plan with phase counts, completion ratio, bucket status, and rolling forecast.
+
+Changes made:
+
+1. Added completion metrics (planned/completed/remaining) to plan doc.
+2. Added phase-bucket breakdown for scope visibility.
+3. Added qualitative schedule signal and rolling forecast notes.
+
+Files changed:
+
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Plan now contains explicit progress snapshot for schedule reporting.
+
+---
+
 ## 2026-09-25 - HTTP Malformed JSON Handling
 
 Status: Closed
