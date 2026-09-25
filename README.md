@@ -143,6 +143,8 @@ Security rules this project follows:
 The validated inventory lives in [data/model-catalog.json](data/model-catalog.json).
 Inspect it and the active selections at `GET /models`. See [model catalog design](docs/13-model-catalog.md)
 for metadata and the task-routing plan. Automatic selection is not enabled yet.
+The schema also accounts for CLI subscription access and shared quota pools;
+CLI execution adapters are not implemented yet.
 
 Fast and deep layers are independently configurable. This allows mix-and-match across Azure, Bedrock, and Ollama.
 

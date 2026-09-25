@@ -3,6 +3,48 @@ import data from "../../data/model-catalog.json";
 import { describeModelCatalog, findModelCandidates, loadModelCatalog, modelCatalogSchema } from "../../src/config/modelCatalog";
 
 describe("model catalog", () => {
+  const cliEntry = {
+    ...data.models[0], id: "subscription-example", provider: "cli", model: "configured-model",
+    cli: {
+      adapterId: "example-cli", accountProfile: "personal", authentication: "subscription-login",
+      nonInteractive: "unknown", streaming: "unknown", outputFormat: "unknown",
+      executionMode: "unknown", automationSupport: "unknown"
+    },
+    billing: {
+      kind: "subscription", quotaPoolId: "personal-subscription",
+      exhaustionPolicy: "fail", usageBillingFallbackAllowed: false
+    }
+  };
+
+  it("catalogs subscription access without treating an unimplemented CLI as routable", () => {
+    const catalog = modelCatalogSchema.parse({ version: 1, models: [cliEntry] });
+    expect(catalog.models[0].billing?.kind).toBe("subscription");
+    expect(findModelCandidates(catalog, { task: "coding", role: "deep" })).toEqual([]);
+    const config = {
+      fast: { provider: "mock" as const, model: "mock-v1", temperature: 0.2 },
+      deep: { provider: "mock" as const, model: "mock-v1", temperature: 0.2 }
+    };
+    expect(describeModelCatalog(catalog, config).models[0]).toMatchObject({ adapterStatus: "not-implemented", selectedRoles: [] });
+  });
+
+  it("requires explicit subscription metadata and rejects executable commands and stored credentials", () => {
+    for (const entry of [
+      { ...cliEntry, cli: undefined },
+      { ...cliEntry, billing: undefined },
+      { ...cliEntry, cli: { ...cliEntry.cli, command: "some-command" } },
+      { ...cliEntry, cli: { ...cliEntry.cli, token: "secret" } }
+    ]) {
+      expect(() => modelCatalogSchema.parse({ version: 1, models: [entry] })).toThrow();
+    }
+  });
+
+  it("distinguishes CLI adapters and account profiles for the same model", () => {
+    expect(modelCatalogSchema.parse({ version: 1, models: [
+      cliEntry,
+      { ...cliEntry, id: "work-subscription", cli: { ...cliEntry.cli, accountProfile: "work" } }
+    ] }).models).toHaveLength(2);
+    expect(() => modelCatalogSchema.parse({ version: 1, models: [cliEntry, { ...cliEntry, id: "duplicate" }] })).toThrow();
+  });
   it("loads the checked-in catalog and finds the configured coding candidate", async () => {
     const catalog = await loadModelCatalog();
     expect(findModelCandidates(catalog, { task: "coding", role: "deep" }).map((entry) => entry.id))

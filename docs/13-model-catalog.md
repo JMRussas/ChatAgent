@@ -49,3 +49,58 @@ Next implementation steps:
 
 Start with deterministic policies and a golden routing set. Introduce a learned
 router only after collecting evidence that it improves the decisions.
+
+## CLI access through subscriptions
+
+The catalog also accepts `provider: "cli"`. This describes an access path to a
+model, not a claim that a particular subscription supports automation. CLI entries
+require a `cli` object; subscription login also requires explicit subscription
+billing metadata. Example fields to add to an otherwise complete model entry:
+
+```json
+{
+  "provider": "cli",
+  "cli": {
+    "adapterId": "example-cli",
+    "accountProfile": "personal",
+    "authentication": "subscription-login",
+    "nonInteractive": "unknown",
+    "streaming": "unknown",
+    "outputFormat": "unknown",
+    "executionMode": "unknown",
+    "automationSupport": "unknown"
+  },
+  "billing": {
+    "kind": "subscription",
+    "planLabel": "My existing subscription",
+    "quotaPoolId": "personal-subscription",
+    "exhaustionPolicy": "wait",
+    "usageBillingFallbackAllowed": false
+  }
+}
+```
+
+No actual CLI adapter is implemented yet. `/models` reports CLI adapters as
+`not-implemented`, and candidate filtering excludes them even if enabled.
+CLI adapter and account profile are part of binding identity, so the same model
+can be represented through different subscriptions. No subscribed models are
+seeded because the user's actual CLI products and entitlements have not been verified.
+
+The adapter ID refers to code we implement, not a shell command supplied by the
+model or catalog. An adapter must handle structured invocation/output, login
+expiry, cancellation of the process tree, deadlines, bounded output, and quota
+errors. Keep sessions and credentials in the CLI's supported authentication store;
+the catalog contains only a profile reference. Subprocess launch location does
+not imply local inference: a local CLI can send prompts to a remote service.
+
+Before enabling each adapter, verify its supported noninteractive interface and
+the subscription's supported automation use. Distinguish text generation from an
+agent that can edit files or run tools. Agent execution needs an explicit workspace
+and tool permissions; it must not silently inherit authority from a chat request.
+
+Subscription capacity is not an unlimited zero-cost token pool. Keep remaining
+allowance, reset time, login state, CLI version, and health as dated runtime
+observations. `quotaPoolId` identifies models sharing one allowance. On exhaustion,
+apply the configured wait/fail/approved-fallback policy. Do not silently change to
+separately billed API access. Billing settings describe policy; enforcement comes
+with the future dispatcher and CLI adapter.

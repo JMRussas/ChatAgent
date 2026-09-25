@@ -108,6 +108,11 @@ metadata and eligibility filtering. Health discovery, per-task model dispatch,
 and measured ranking remain follow-up work; the running router still uses its
 configured fast/deep pair.
 
+CLI subscription access is represented in the catalog as a separate access path
+with authentication, billing/quota-pool policy, and adapter requirements. CLI
+execution remains unimplemented and excluded from candidates until each adapter
+and subscription's automation support are verified.
+
 - Separate provisional-generation and deep-generation metric buckets when both use
   the same provider/model; they currently share the `deep` route key in that case.
 - Measure queue wait, time to first answer, time to final answer, failure rate, and
