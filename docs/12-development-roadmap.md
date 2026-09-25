@@ -3,6 +3,57 @@
 Updated: 2026-09-25. This is the current plan; earlier review and design documents
 remain as historical context.
 
+## Current status and next implementation order
+
+Reconciled through implementation commit `8afce48` on 2026-09-25. The latest
+implementation check passed **119 tests across 29 files and TypeScript checking**.
+The full clean-install/release/build verification below belongs to the earlier
+stabilization baseline; it has not been rerun for every subsequent feature.
+
+| Area | Implemented | Still needed |
+|---|---|---|
+| Runtime reliability | Message correlation, worker concurrency guard, body timeouts, serialized telemetry writes, truthful startup errors | Graceful shutdown, backpressure, Bedrock deadlines |
+| Chat progress | Per-bubble queued/thinking/retrying/failure states, model label, terminal spinner removal | Actual model-token streaming, browser smoke coverage |
+| Model inventory | Validated catalog, `/models`, capability/task eligibility filtering | Provider discovery, fresh account access/health observations |
+| CLI subscriptions | Catalog schema for profiles, authentication, billing and shared quotas | Actual CLI adapters and verified subscription automation support |
+| Conversation context | Timeline stored for display | Bounded history supplied to both providers; grounded runtime facts |
+| Model selection | Fixed environment-configured fast/deep pair | Task-based dispatch, measured ranking, explicit fallback |
+| Evaluation | Automated regression tests and labeled fixture/simulation reports | Fresh live golden run and measured answer-quality evaluation |
+
+Implementation order following the latest discussion:
+
+1. **Context and grounding.** Use standard role-based messages, a shared per-turn
+   snapshot, and bounded recent history. Prefer refined answers over provisional
+   ones, exclude activity events, and preserve the snapshot when deep work is queued.
+   Supply verified runtime facts and explicitly acknowledge unknowns. Test follow-ups,
+   overlapping turns, and input/output budget limits. Add summarization only when needed.
+2. **Generation controls and streaming.** Verify model thinking controls; explicitly
+   configure them for the fast path. Tune output budgets from measurements, handle
+   all length-truncated answers, and add token streaming/cancellation while retaining
+   per-bubble activity and terminal states. These controls are not implemented yet.
+3. **Discovery and account inventory.** Separate the provider's catalog from our
+   reachable, authorized deployments/models. Discover Ollama and cloud candidates;
+   add connection IDs, API compatibility, revision and observation freshness.
+   Keep Foundry provisioning separate from live chat dispatch.
+4. **Task-based dispatch.** Select coding/conversation/reasoning candidates using
+   explicit capability and context requirements, health, budget and evidence. Store
+   the selected binding and reason per turn so the UI names the actual model used.
+5. **Subscription CLI execution.** Implement one chosen CLI adapter with verified
+   noninteractive support, session authentication, process cancellation and quota
+   handling. Enforce explicit workspace permissions and paid-fallback policy.
+6. **End-to-end validation.** Complete shutdown and browser/automatic-worker tests,
+   rerun live golden cases, and compare against one model with streaming. Measure
+   time to first useful answer, final correctness, cost and failures.
+
+The milestones below retain detailed acceptance criteria. Cloud provisioning,
+automatic model dispatch, CLI execution, context management and model-token
+streaming are planned work—not capabilities delivered by the catalog commits.
+
+All changes are committed locally on `main`; no Git remote is configured. Running
+servers do not hot-reload (`npm run dev` uses `tsx`, not watch mode). The last server
+started by this session predates the bubble/catalog changes; restart it to load
+them unless it has already been restarted separately.
+
 ## Baseline and scope
 
 The target is a convincing local demonstration of fast replies followed by useful
