@@ -11,6 +11,40 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Latency Estimator Guardrails (Bounded Window + Invalid Sample Filtering)
+
+Status: Closed
+
+Issue:
+
+- Latency samples were retained indefinitely per bucket, causing unbounded memory growth over long-running sessions.
+- Snapshot hydration accepted invalid latency values, allowing bad telemetry to pollute percentile estimates.
+
+Decision:
+
+- Enforce a bounded rolling history per bucket in the in-memory estimator.
+- Reject invalid latency samples (non-finite or non-positive) both at ingest time and hydrate time.
+
+Changes made:
+
+1. Added estimator options with `maxSamplesPerBucket` (default: 1000).
+2. Implemented rolling window retention by trimming oldest values on append.
+3. Filtered invalid values in `recordLatency` and `hydrate`.
+4. Added unit tests for window trimming, invalid ingest filtering, and hydrate sanitization.
+
+Files changed:
+
+- `src/telemetry/latencyEstimator.ts`
+- `tests/unit/latencyEstimator.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Latency estimator unit tests cover bounded retention and invalid sample filtering.
+2. Full release verification command passes after changes.
+
+---
+
 ## 2026-09-25 - Evaluation Gate Was Route-Mismatched
 
 Status: Closed

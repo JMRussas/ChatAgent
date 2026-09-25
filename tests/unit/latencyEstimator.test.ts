@@ -86,4 +86,70 @@ describe("latency estimator", () => {
     expect(estimate.sampleCount).toBe(2);
     expect(estimate.bucket.provider).toBe("ollama");
   });
+
+  it("keeps only recent samples per bucket when window limit is reached", () => {
+    const estimator = new InMemoryLatencyEstimator({ maxSamplesPerBucket: 3 });
+    const bucket = {
+      provider: "azure",
+      model: "gpt-fast",
+      route: "direct" as const,
+      sizeBand: "small" as const
+    };
+
+    estimator.recordLatency(bucket, 100);
+    estimator.recordLatency(bucket, 200);
+    estimator.recordLatency(bucket, 300);
+    estimator.recordLatency(bucket, 400);
+
+    const snapshot = estimator.snapshot();
+    expect(snapshot.samples[0]?.values).toEqual([200, 300, 400]);
+
+    const estimate = estimator.estimate(bucket);
+    expect(estimate.sampleCount).toBe(3);
+    expect(estimate.p95).toBeGreaterThan(0);
+  });
+
+  it("ignores non-finite and non-positive latency values", () => {
+    const estimator = new InMemoryLatencyEstimator();
+    const bucket = {
+      provider: "bedrock",
+      model: "claude-sonnet",
+      route: "clarify" as const,
+      sizeBand: "medium" as const
+    };
+
+    estimator.recordLatency(bucket, NaN);
+    estimator.recordLatency(bucket, Number.POSITIVE_INFINITY);
+    estimator.recordLatency(bucket, 0);
+    estimator.recordLatency(bucket, -5);
+
+    const estimate = estimator.estimate(bucket);
+    expect(estimate.sampleCount).toBe(0);
+  });
+
+  it("trims hydrated samples to window and drops invalid values", () => {
+    const estimator = new InMemoryLatencyEstimator({ maxSamplesPerBucket: 2 });
+    const bucket = {
+      provider: "ollama",
+      model: "llama3.1:8b",
+      route: "deep" as const,
+      sizeBand: "large" as const
+    };
+
+    estimator.hydrate({
+      priors: [],
+      samples: [
+        {
+          bucket,
+          values: [100, 200, NaN, 300]
+        }
+      ]
+    });
+
+    const snapshot = estimator.snapshot();
+    expect(snapshot.samples[0]?.values).toEqual([200, 300]);
+
+    const estimate = estimator.estimate(bucket);
+    expect(estimate.sampleCount).toBe(2);
+  });
 });

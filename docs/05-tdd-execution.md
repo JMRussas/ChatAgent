@@ -60,6 +60,11 @@
 - Include test, lint, eval report, benchmark run, and benchmark compare
 - Use the command for every checkpoint validation before commit
 
+14. Latency estimator memory and data-quality guardrails
+- Bound per-bucket sample history with rolling window retention
+- Ignore invalid latencies (non-finite or non-positive) during ingest and hydration
+- Add unit coverage for trimming and filtering behavior
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

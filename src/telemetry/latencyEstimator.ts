@@ -27,6 +27,10 @@ export interface LatencyEstimatorSnapshot {
   samples: Array<{ bucket: LatencyBucket; values: number[] }>;
 }
 
+export interface LatencyEstimatorOptions {
+  maxSamplesPerBucket: number;
+}
+
 function keyOf(bucket: LatencyBucket): string {
   return `${bucket.provider}|${bucket.model}|${bucket.route}|${bucket.sizeBand}`;
 }
@@ -51,14 +55,26 @@ export class InMemoryLatencyEstimator {
   private readonly priors = new Map<string, LatencyPercentiles>();
   private readonly samples = new Map<string, number[]>();
 
+  constructor(private readonly options: LatencyEstimatorOptions = { maxSamplesPerBucket: 1000 }) {}
+
   seedPrior(bucket: LatencyBucket, prior: LatencyPercentiles): void {
     this.priors.set(keyOf(bucket), prior);
   }
 
   recordLatency(bucket: LatencyBucket, latencyMs: number): void {
+    if (!Number.isFinite(latencyMs) || latencyMs <= 0) {
+      return;
+    }
+
     const key = keyOf(bucket);
     const list = this.samples.get(key) ?? [];
     list.push(latencyMs);
+
+    if (list.length > this.options.maxSamplesPerBucket) {
+      const overflow = list.length - this.options.maxSamplesPerBucket;
+      list.splice(0, overflow);
+    }
+
     this.samples.set(key, list);
   }
 
@@ -133,7 +149,13 @@ export class InMemoryLatencyEstimator {
     }
 
     for (const item of snapshot.samples) {
-      this.samples.set(keyOf(item.bucket), [...item.values]);
+      const values = item.values.filter((value) => Number.isFinite(value) && value > 0);
+      if (values.length > this.options.maxSamplesPerBucket) {
+        const overflow = values.length - this.options.maxSamplesPerBucket;
+        values.splice(0, overflow);
+      }
+
+      this.samples.set(keyOf(item.bucket), values);
     }
   }
 
