@@ -3,6 +3,12 @@
 Updated: 2026-09-25. This is the current plan; earlier review and design documents
 remain as historical context.
 
+Executable handoff: [implementation specs and execution order](implementation/README.md).
+Those specs define the proposed interfaces, behavior and acceptance tests for the
+six next milestones. They take precedence over this overview for implementation
+details; their presence does not mean the features are implemented. Start with
+[01 — Conversation context](implementation/01-context.md).
+
 ## Current status and next implementation order
 
 Reconciled through implementation commit `8afce48` on 2026-09-25. The latest

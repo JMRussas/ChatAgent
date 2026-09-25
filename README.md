@@ -360,3 +360,4 @@ CHAT_DEEP_MODEL=qwen2.5:14b
 - Class map (open in a browser): `docs/10-class-map.html`
 - Original UI proposal (partly implemented): `docs/11-ui-plan.md`
 - Current roadmap and verification status: `docs/12-development-roadmap.md`
+- Executable handoff and milestone acceptance tests: [docs/implementation/README.md](docs/implementation/README.md)
