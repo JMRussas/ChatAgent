@@ -93,7 +93,7 @@ async function main() {
   const jsonOutPath = process.env.BENCH_JSON_OUT ?? "reports/benchmark-summary.json";
   const mdOutPath = process.env.BENCH_MD_OUT ?? "reports/benchmark-summary.md";
   const mode = normalizeBenchmarkMode(process.env.BENCH_MODE);
-  const baseUrl = process.env.BENCH_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = process.env.BENCH_BASE_URL ?? "http://localhost:3100";
   const simulationSeed = process.env.BENCH_SIM_SEED ?? "default-v1";
 
   const prompts = await readPrompts(promptsPath);
@@ -122,7 +122,7 @@ async function main() {
 
   const summaries = summaryWithRecords.map((x) => x.summary);
 
-  const markdown = renderBenchmarkMarkdown(summaries);
+  const markdown = renderBenchmarkMarkdown(summaries) + `\nMode: ${mode}\n`;
 
   await mkdir("reports", { recursive: true });
   await writeFile(

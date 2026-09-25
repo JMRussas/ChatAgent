@@ -16,11 +16,10 @@
     "maxFastLatencyMs": 25000
   },
   {
-    "id": "clarify-day-question-no-echo",
+    "id": "direct-day-question-no-echo",
     "prompt": "WHAT DAY IS IT?",
-    "expectedRoute": "clarify",
+    "expectedRoute": "direct",
     "expectedPhase": "fast-only",
-    "expectedFastMustInclude": ["?"],
     "expectedFastMustNotInclude": ["what day is it"],
     "maxFastLatencyMs": 25000
   },

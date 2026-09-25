@@ -1,6 +1,10 @@
 # UI Plan
 
-Status: partially implemented (Phase 26 complete).
+Status: historical proposal, partially implemented. The current plan is
+[the development roadmap](12-development-roadmap.md). The UI, SSE timeline updates,
+automatic deep worker, provider readout, and message-correlated replies are now
+implemented. Statements below about missing SSE or automatic workers describe
+the original proposal, not the current application.
 
 Built now:
 

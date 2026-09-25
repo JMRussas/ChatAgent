@@ -7,6 +7,17 @@ This repository is a test-driven starter for a dual-path chatbot:
 
 The goal is a strong portfolio prototype that demonstrates architecture, measurement, and cross-provider portability (Azure + Bedrock + other model providers).
 
+## Current status
+
+This is a local prototype. The current priorities and acceptance criteria are in
+[the development roadmap](docs/12-development-roadmap.md). Use that document for
+current planning; the earlier review and UI proposal are historical snapshots.
+
+The automated release gate checks code, fixture evaluation, and simulated benchmark
+regressions. It does **not** certify live model quality. Benchmark quality scores
+are currently synthetic, even in live mode. Deep providers do not yet retrieve web
+sources or receive conversation history. Queues and conversation timelines are in memory.
+
 ## Why this exists
 
 Most chatbot demos are single-path. This prototype demonstrates:
@@ -18,10 +29,12 @@ Most chatbot demos are single-path. This prototype demonstrates:
 
 ## Quickstart
 
+Use Node 20.19+, 22.12+, or 24+ (CI uses Node 22).
+
 1. Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 2. Run tests:
@@ -223,7 +236,7 @@ Run benchmark in live mode against a running local server:
 
 ```bash
 BENCH_MODE=live
-BENCH_BASE_URL=http://localhost:3000
+BENCH_BASE_URL=http://localhost:3100
 npm run bench:run
 ```
 
@@ -337,4 +350,5 @@ CHAT_DEEP_MODEL=qwen2.5:14b
 - Engineering decision log: `docs/08-engineering-decision-log.md`
 - Code review (2026-09-25): `docs/09-code-review-2026-09-25.md`
 - Class map (open in a browser): `docs/10-class-map.html`
-- UI plan (proposed, not yet built): `docs/11-ui-plan.md`
+- Original UI proposal (partly implemented): `docs/11-ui-plan.md`
+- Current roadmap and verification status: `docs/12-development-roadmap.md`

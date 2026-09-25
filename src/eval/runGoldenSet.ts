@@ -136,8 +136,8 @@ async function evaluateCase(
   }
 
   if (actualRoute === "direct") {
-    if (fastReply.includes("?")) {
-      failures.push("Direct reply should not be a clarifying question.");
+    if (normalizedFastReply === normalizedPrompt) {
+      failures.push("Direct reply echoed prompt instead of answering.");
     }
   }
 

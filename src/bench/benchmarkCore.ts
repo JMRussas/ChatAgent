@@ -160,6 +160,8 @@ export function renderBenchmarkMarkdown(summaries: BenchmarkSummary[]): string {
   return [
     "# Provider Benchmark Summary",
     "",
+    "Quality scores are synthetic route-based placeholders, including in live mode; they do not measure answer correctness. Simulation timings are generated, not provider measurements.",
+    "",
     "| Profile | First p50 (ms) | First p95 (ms) | Final p95 (ms) | Avg Quality | Deep Route Rate | Avg Retries (deep) | Dead Letter Rate (deep) |",
     "|---|---:|---:|---:|---:|---:|---:|---:|",
     ...lines,

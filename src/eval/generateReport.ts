@@ -25,6 +25,7 @@ async function main() {
 
   console.log(`Evaluation report written to ${outputPath}`);
   console.log(`Overall result: ${report.passed ? "PASS" : "FAIL"}`);
+  if (!report.passed) process.exitCode = 1;
 }
 
 main().catch((error) => {

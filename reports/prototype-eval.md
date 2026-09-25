@@ -1,5 +1,7 @@
 # Prototype Evaluation Report
 
+This report summarizes input records. The default data/eval-records.json is a fixture, not a live provider evaluation.
+
 Overall: PASS
 
 ## Summary
