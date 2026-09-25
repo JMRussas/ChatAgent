@@ -177,6 +177,10 @@ BENCH_BASE_URL=http://localhost:3000
 npm run bench:run
 ```
 
+`BENCH_MODE` must be either `simulate` or `live`; invalid values fail fast.
+Benchmark prompt files are validated for non-empty `{ id, text }` records with unique ids.
+The benchmark runner executes only when called as a CLI entrypoint, so importing it in tests does not trigger benchmark runs.
+
 Compare candidate benchmark run to baseline with gates:
 
 ```bash

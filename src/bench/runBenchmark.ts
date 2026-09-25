@@ -1,5 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
+import { z } from "zod";
 import {
   renderBenchmarkMarkdown,
   runProfileBenchmark,
@@ -9,9 +11,50 @@ import {
 } from "./benchmarkCore";
 import { runLiveBenchmark } from "./liveBenchmark";
 
+const BenchmarkPromptSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1)
+});
+
+const BenchmarkPromptListSchema = z.array(BenchmarkPromptSchema).min(1);
+
+export type BenchmarkMode = "simulate" | "live";
+
+export function normalizeBenchmarkMode(rawMode: string | undefined): BenchmarkMode {
+  const mode = (rawMode ?? "simulate").toLowerCase();
+  if (mode === "simulate" || mode === "live") {
+    return mode;
+  }
+
+  throw new Error(`Invalid BENCH_MODE value: ${rawMode}. Expected 'simulate' or 'live'.`);
+}
+
+export function validateBenchmarkPrompts(value: unknown): BenchmarkPrompt[] {
+  const prompts = BenchmarkPromptListSchema.parse(value);
+  const seen = new Set<string>();
+
+  for (const prompt of prompts) {
+    if (seen.has(prompt.id)) {
+      throw new Error(`Invalid benchmark prompts: duplicate prompt id '${prompt.id}'`);
+    }
+
+    seen.add(prompt.id);
+  }
+
+  return prompts;
+}
+
+export function shouldRunBenchmarkCli(entryFilePath: string | undefined, moduleUrl: string): boolean {
+  if (!entryFilePath) {
+    return false;
+  }
+
+  return pathToFileURL(entryFilePath).href === moduleUrl;
+}
+
 async function readPrompts(path: string): Promise<BenchmarkPrompt[]> {
   const raw = await readFile(path, "utf8");
-  return JSON.parse(raw) as BenchmarkPrompt[];
+  return validateBenchmarkPrompts(JSON.parse(raw));
 }
 
 function defaultProfiles(): BenchmarkProfile[] {
@@ -48,7 +91,7 @@ async function main() {
   const promptsPath = process.env.BENCH_PROMPTS_PATH ?? "data/benchmark-prompts.json";
   const jsonOutPath = process.env.BENCH_JSON_OUT ?? "reports/benchmark-summary.json";
   const mdOutPath = process.env.BENCH_MD_OUT ?? "reports/benchmark-summary.md";
-  const mode = (process.env.BENCH_MODE ?? "simulate").toLowerCase();
+  const mode = normalizeBenchmarkMode(process.env.BENCH_MODE);
   const baseUrl = process.env.BENCH_BASE_URL ?? "http://localhost:3000";
   const simulationSeed = process.env.BENCH_SIM_SEED ?? "default-v1";
 
@@ -109,7 +152,9 @@ async function main() {
   console.log(`Benchmark markdown report written to ${mdOutPath}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (shouldRunBenchmarkCli(process.argv[1], import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

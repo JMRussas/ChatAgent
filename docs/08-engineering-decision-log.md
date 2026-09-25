@@ -11,6 +11,71 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Benchmark Runner Import Side-Effect Fix
+
+Status: Closed
+
+Issue:
+
+- Importing the benchmark runner module in unit tests executed the CLI flow due unconditional `main()` call.
+
+Decision:
+
+- Gate benchmark runner execution behind explicit CLI-entrypoint detection.
+
+Changes made:
+
+1. Added `shouldRunBenchmarkCli` helper using module URL equality with process entrypoint path.
+2. Wrapped `main()` invocation in entrypoint guard.
+3. Added unit tests to verify guard behavior.
+
+Files changed:
+
+- `src/bench/runBenchmark.ts`
+- `tests/unit/runBenchmark.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Unit tests pass with no benchmark run side-effects from imports.
+2. Full release verification command passes.
+
+---
+
+## 2026-09-25 - Benchmark Input Validation (Mode + Prompt Schema)
+
+Status: Closed
+
+Issue:
+
+- Benchmark execution accepted arbitrary `BENCH_MODE` values and could silently run simulate mode on typos.
+- Prompt-file parsing had no structural validation and allowed malformed or duplicate prompt ids.
+
+Decision:
+
+- Add strict benchmark mode normalization with fail-fast errors.
+- Validate prompt payload structure and enforce unique prompt ids.
+
+Changes made:
+
+1. Added `normalizeBenchmarkMode` and `validateBenchmarkPrompts` helpers.
+2. Added `zod`-backed prompt schema validation (`id`/`text`, non-empty list).
+3. Added duplicate-id detection for benchmark prompts.
+4. Added unit tests for valid/invalid mode and prompt payload cases.
+
+Files changed:
+
+- `src/bench/runBenchmark.ts`
+- `tests/unit/runBenchmark.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. New unit tests pass for mode and prompt validation.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Compare Threshold Validation and Normalization
 
 Status: Closed

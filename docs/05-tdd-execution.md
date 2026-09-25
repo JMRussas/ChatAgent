@@ -80,6 +80,16 @@
 - Reject non-finite or out-of-range threshold values with explicit errors
 - Add unit tests for threshold validation behavior
 
+18. Benchmark input validation hardening
+- Validate BENCH_MODE against supported values (simulate/live)
+- Validate benchmark prompt file shape and non-empty content
+- Reject duplicate prompt ids to preserve deterministic run integrity
+
+19. Benchmark CLI import-safety hardening
+- Ensure benchmark runner executes only when invoked as CLI entrypoint
+- Prevent side effects during unit-test imports
+- Add unit tests for entrypoint guard behavior
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test
