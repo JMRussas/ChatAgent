@@ -589,7 +589,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           tags.appendChild(routeTag);
 
           const content = document.createElement("div");
-          content.innerHTML = escapeHtml(turn.assistantText).replaceAll("\n", "<br>");
+          content.innerHTML = escapeHtml(turn.assistantText).replaceAll("\\n", "<br>");
 
           assistantBubble.appendChild(tags);
           assistantBubble.appendChild(content);
