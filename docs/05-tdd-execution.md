@@ -95,6 +95,11 @@
 - Gracefully ignore malformed or invalid telemetry files
 - Use atomic file replacement for snapshot writes
 
+21. Runtime env parsing safeguards
+- Normalize and bound server startup numeric env values
+- Clamp routing policy threshold and telemetry save interval to safe ranges
+- Add unit tests for env parsing edge cases
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

@@ -148,6 +148,7 @@ TELEMETRY_SAVE_INTERVAL_MS=5000
 ```
 
 Telemetry snapshots are schema-validated on load/save. Invalid or malformed snapshot files are ignored with warnings, and snapshot writes use atomic file replacement.
+`ROUTING_MAX_FAST_P95_MS` and `TELEMETRY_SAVE_INTERVAL_MS` are normalized and clamped to safe ranges during startup.
 
 Adaptive routing behavior:
 

@@ -4,6 +4,7 @@ import { InMemoryDeadLetterStore } from "./app/deadLetterStore";
 import { ChatOrchestrator, DeepWorker } from "./app/orchestrator";
 import { InMemoryConversationTimelineStore } from "./app/timelineStore";
 import { ChatService } from "./app/chatService";
+import { parseBoundedNumberEnv, parsePositiveIntEnv } from "./config/runtimeEnv";
 import { loadRuntimeProviderConfigFromEnv } from "./config/providerConfig";
 import type { UserMessage } from "./domain/types";
 import { InMemoryTaskQueue } from "./providers/interfaces";
@@ -189,7 +190,7 @@ export async function startServer(port: number): Promise<void> {
   seedPriorsForProfile(estimator, deepProfile, "deep", baseP95ByProvider(deepProfile.provider, "deep"));
 
   const adaptiveRouting = new AdaptiveRoutingCoordinator(estimator, fastProfile, deepProfile, {
-    maxFastP95Ms: Number(process.env.ROUTING_MAX_FAST_P95_MS ?? "1000")
+    maxFastP95Ms: parseBoundedNumberEnv(process.env.ROUTING_MAX_FAST_P95_MS, 1000, 400, 5000)
   });
 
   const telemetryStore = new FileLatencyTelemetryStore(process.env.TELEMETRY_STORE_PATH ?? "data/latency-telemetry.json");
@@ -209,7 +210,7 @@ export async function startServer(port: number): Promise<void> {
     await telemetryStore.save(adaptiveRouting.snapshotState());
   };
 
-  const telemetrySaveIntervalMs = Number(process.env.TELEMETRY_SAVE_INTERVAL_MS ?? "5000");
+  const telemetrySaveIntervalMs = parsePositiveIntEnv(process.env.TELEMETRY_SAVE_INTERVAL_MS, 5000, 250, 60_000);
   const timer = setInterval(() => {
     void saveTelemetry();
   }, telemetrySaveIntervalMs);

@@ -11,6 +11,39 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Runtime Environment Parsing Safeguards
+
+Status: Closed
+
+Issue:
+
+- Server startup parsed numeric env values using raw `Number(...)`, allowing `NaN` or unsafe bounds to leak into routing and timer behavior.
+
+Decision:
+
+- Centralize numeric env parsing in a dedicated utility with fallback, clamping, and integer normalization.
+
+Changes made:
+
+1. Added `runtimeEnv` parsing helpers for finite, bounded, and positive-int values.
+2. Applied bounded parsing for `ROUTING_MAX_FAST_P95_MS` in server startup.
+3. Applied bounded positive-int parsing for `TELEMETRY_SAVE_INTERVAL_MS`.
+4. Added unit tests for invalid, boundary, and rounding scenarios.
+
+Files changed:
+
+- `src/config/runtimeEnv.ts`
+- `src/server.ts`
+- `tests/unit/runtimeEnv.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Runtime env parsing unit tests pass.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Telemetry Store Resilience (Validation + Atomic Writes)
 
 Status: Closed
