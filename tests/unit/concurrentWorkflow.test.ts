@@ -30,7 +30,7 @@ describe("concurrent workflow", () => {
     finishFast("Still working");
     const response = await pending;
     const events = await timeline.getEvents(message.conversationId);
-    expect(events.map((event) => event.type)).toEqual(["user", "refined", "provisional"]);
+    expect(events.map((event) => event.type)).toEqual(["user", "activity", "activity", "refined", "provisional"]);
     expect(new Set(events.map((event) => event.messageId))).toEqual(new Set([response.messageId]));
     expect(response.deepTask?.messageId).toBe(response.messageId);
   });
@@ -68,9 +68,9 @@ describe("concurrent workflow", () => {
     expect(queue.size()).toBe(1);
     release();
     expect((await first)?.taskId).toBe("first");
+    const secondStarted = new Promise<void>((resolve) => { started = resolve; });
     const second = worker.runSingle();
-    // dequeue resumes on the next microtask.
-    await Promise.resolve();
+    await secondStarted;
     release();
     expect((await second)?.taskId).toBe("second");
   });

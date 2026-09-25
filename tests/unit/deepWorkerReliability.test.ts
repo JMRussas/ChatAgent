@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
 import { InMemoryDeadLetterStore } from "../../src/app/deadLetterStore";
+import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockFastProvider } from "../../src/providers/mockProviders";
 import type { DeepResult, DeepTask } from "../../src/domain/types";
@@ -56,8 +57,9 @@ describe("deep worker reliability", () => {
 
   it("moves task to dead-letter store after max retries", async () => {
     const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
     const deadLetters = new InMemoryDeadLetterStore();
-    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue);
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline);
 
     await orchestrator.handleUserMessage({
       conversationId: "conv-dead-letter",
@@ -66,7 +68,7 @@ describe("deep worker reliability", () => {
       timestampIso: new Date().toISOString()
     });
 
-    const worker = new DeepWorker(queue, new AlwaysFailingProvider(), undefined, 1, deadLetters);
+    const worker = new DeepWorker(queue, new AlwaysFailingProvider(), timeline, 1, deadLetters);
 
     await worker.runSingle();
     expect(queue.size()).toBe(1);
@@ -77,5 +79,9 @@ describe("deep worker reliability", () => {
     const failed = await deadLetters.list();
     expect(failed.length).toBe(1);
     expect(failed[0].errorMessage).toContain("permanent failure");
+    const events = await timeline.getEvents("conv-dead-letter");
+    expect(events.filter((event) => event.type === "activity").map((event) => event.activity))
+      .toEqual(["queued", "thinking", "retrying", "thinking", "failed"]);
+    expect(new Set(events.map((event) => event.messageId)).size).toBe(1);
   });
 });

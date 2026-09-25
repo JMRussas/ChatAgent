@@ -11,6 +11,68 @@ function extractInlineScript(html: string): string {
 }
 
 describe("home page HTML", () => {
+  it("renders activity inside the matching reply bubble and removes it when complete", () => {
+    class Element {
+      children: Element[] = [];
+      className = "";
+      textContent = "";
+      attributes: Record<string, string> = {};
+      set innerHTML(_value: string) { this.children = []; }
+      appendChild(child: Element) { this.children.push(child); }
+      setAttribute(name: string, value: string) { this.attributes[name] = value; }
+      get lastElementChild() { return this.children.at(-1); }
+      scrollIntoView() {}
+    }
+    const script = extractInlineScript(renderHomePageHtml());
+    const render = new Function("state", "thread", "document", "escapeHtml",
+      script.slice(script.indexOf("function deriveTurns(events)"), script.indexOf("function renderTelemetry(payload)")) + "renderThread();");
+    const thread = new Element();
+    const state = {
+      events: [
+        { type: "user", messageId: "a", text: "question" },
+        { type: "activity", messageId: "a", activity: "thinking", routeDecision: "deep" }
+      ],
+      runtimeInfo: { deepModel: "deep-test" }, previousAssistantStatuses: [], lastThreadRenderKey: ""
+    };
+    const draw = () => render(state, thread, { createElement: () => new Element() }, (text: string) => text);
+    draw();
+    const bubble = thread.children[0].children[1];
+    expect(bubble.className).toContain("assistant");
+    expect(bubble.attributes["aria-busy"]).toBe("true");
+    const indicator = bubble.children.find((child) => child.className === "reply-activity")!;
+    expect(indicator.children[0].className).toBe("activity-spinner");
+    expect(indicator.children[1].textContent).toContain("Thinking · deep-test");
+    state.events.push({ type: "refined", messageId: "a", text: "answer" });
+    draw();
+    const complete = thread.children[0].children[1];
+    expect(complete.attributes["aria-busy"]).toBe("false");
+    expect(complete.children.some((child) => child.className === "reply-activity")).toBe(false);
+  });
+  it("keeps deep activity on its own bubble through retries and clears it on completion", () => {
+    const script = extractInlineScript(renderHomePageHtml());
+    const start = script.indexOf("function deriveTurns(events)");
+    const end = script.indexOf("function renderThread()", start);
+    const derive = new Function("events", "state", script.slice(start, end) + "return deriveTurns(events).map(turn => ({...turn, label: activityLabel(turn)}));");
+    const state = { runtimeInfo: { deepModel: "deep-test", fastModel: "fast-test" } };
+    const events = [
+      { type: "user", messageId: "a", text: "deep question" },
+      { type: "activity", messageId: "a", activity: "queued", routeDecision: "deep" },
+      { type: "user", messageId: "b", text: "quick question" },
+      { type: "provisional", messageId: "b", text: "done", processingStatus: "complete" },
+      { type: "activity", messageId: "a", activity: "thinking" }
+    ];
+    expect(derive(events, state)).toMatchObject([
+      { activity: "thinking", label: "Thinking · deep-test (deep provider)…" },
+      { activity: null, label: "" }
+    ]);
+    events.push({ type: "activity", messageId: "a", activity: "retrying" });
+    expect(derive(events, state)[0].label).toContain("Retrying");
+    events.push({ type: "activity", messageId: "a", activity: "failed" });
+    events.push({ type: "provisional", messageId: "a", text: "late acknowledgment" });
+    expect(derive(events, state)[0].activity).toBe("failed");
+    events.push({ type: "refined", messageId: "a", text: "replayed successfully" });
+    expect(derive(events, state)[0]).toMatchObject({ activity: null, label: "", status: "refined" });
+  });
   it("matches overlapping replies by message ID and ignores late provisional replies", () => {
     const script = extractInlineScript(renderHomePageHtml());
     const start = script.indexOf("function deriveTurns(events)");

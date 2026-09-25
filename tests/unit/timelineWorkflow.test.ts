@@ -37,6 +37,7 @@ describe("timeline workflow", () => {
     await worker.runSingle();
 
     const events = await timeline.getEvents("conv-deep");
-    expect(events.map((e) => e.type)).toEqual(["user", "provisional", "refined"]);
+    expect(events.map((e) => e.type)).toEqual(["user", "activity", "provisional", "activity", "refined"]);
+    expect(events.filter((e) => e.type === "activity").map((e) => e.activity)).toEqual(["queued", "thinking"]);
   });
 });

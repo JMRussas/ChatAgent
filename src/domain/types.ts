@@ -41,10 +41,11 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  activity?: "queued" | "thinking" | "retrying" | "failed";
   messageId?: string;
   routeDecision?: RouteDecision;
   processingStatus?: "provisional" | "complete";
-  type: "user" | "provisional" | "refined";
+  type: "user" | "provisional" | "refined" | "activity";
   text: string;
   createdAtIso: string;
 }

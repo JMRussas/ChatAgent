@@ -209,6 +209,8 @@ UI behavior:
 1. `GET /` serves a static control-room page (vanilla HTML/CSS/JS) for desktop and mobile.
 2. The page posts to `/messages`, streams timeline updates from `/conversations/:id/events/stream` (SSE), and polls `/telemetry/latency` once per second.
 3. Deep-route turns render provisional replies first and then swap in-place to refined replies when background processing completes.
+4. Each reply bubble shows activity while work is pending: generating, queued for the deep provider, thinking with the deep model, or retrying. Completion removes the spinner; exhausted retries show a failure inside the same bubble.
+5. SSE currently carries timeline/activity updates and completed replies, not individual model tokens. “Thinking” indicates that a deep-provider request is active; it does not claim access to the model's internal reasoning.
 
 Adaptive routing behavior:
 

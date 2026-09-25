@@ -253,6 +253,11 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       background: rgba(139, 94, 0, 0.1);
     }
 
+    .reply-activity { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.85rem; }
+    .reply-activity.failed { color: #9b2929; }
+    .activity-spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: activity-spin 900ms linear infinite; flex-shrink: 0; }
+    @keyframes activity-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .activity-spinner { animation: none; } }
     .status {
       padding: 0.2rem 0.7rem;
       color: var(--muted);
@@ -495,9 +500,22 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             userText: event.text,
             assistantText: "",
             status: null,
+            activity: "fast",
             createdAtIso: event.createdAtIso,
             routeDecision: state.routeDecision
           });
+          continue;
+        }
+
+        if (event.type === "activity") {
+          const target = event.messageId
+            ? turns.find((turn) => turn.messageId === event.messageId)
+            : [...turns].reverse().find((turn) => turn.status !== "refined" && turn.status !== "complete");
+          if (target && target.status !== "refined") {
+            target.activity = event.activity;
+            target.activityText = event.text;
+            target.routeDecision = event.routeDecision ?? target.routeDecision;
+          }
           continue;
         }
 
@@ -509,6 +527,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             if (target.status === "refined") continue;
             target.assistantText = event.text;
             target.status = event.processingStatus === "complete" ? "complete" : "provisional";
+            if (target.status === "complete") target.activity = null;
             target.routeDecision = event.routeDecision ?? target.routeDecision;
           } else {
             turns.push({
@@ -530,6 +549,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           if (target) {
             target.assistantText = event.text;
             target.status = "refined";
+            target.activity = null;
             target.routeDecision = event.routeDecision ?? "deep";
           } else {
             turns.push({
@@ -544,6 +564,19 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
 
       return turns;
+    }
+
+    function activityLabel(turn) {
+      const info = state.runtimeInfo || {};
+      const deepModel = info.deepModel || "deep provider";
+      const fastModel = info.fastModel || "fast provider";
+      if (turn.activity === "failed") return turn.activityText || "Reply failed. Please try again.";
+      if (turn.activity === "queued") return "Waiting for " + deepModel + " (deep provider)…";
+      if (turn.activity === "thinking") return "Thinking · " + deepModel + " (deep provider)…";
+      if (turn.activity === "retrying") return "Retrying · " + deepModel + " — " + (turn.activityText || "Please wait");
+      if (turn.activity === "sending") return "Sending…";
+      if (turn.activity === "fast") return "Generating reply · " + fastModel + "…";
+      return "";
     }
 
     function renderThread() {
@@ -566,6 +599,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           userText: state.pendingUserText,
           assistantText: "",
           status: null,
+          activity: "sending",
           createdAtIso: new Date().toISOString(),
           routeDecision: state.routeDecision
         });
@@ -590,8 +624,10 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           row.appendChild(userBubble);
         }
 
-        if (turn.assistantText) {
+        const activity = activityLabel(turn);
+        if (turn.assistantText || activity) {
           const assistantBubble = document.createElement("div");
+          assistantBubble.setAttribute("aria-busy", String(Boolean(activity && turn.activity !== "failed")));
           const routeDecision = turn.routeDecision ?? "direct";
           const routeClass = routeDecision === "deep" ? "deep" : routeDecision === "clarify" ? "clarify" : "direct";
           const justRefined = state.previousAssistantStatuses[idx] === "provisional" && turn.status === "refined";
@@ -608,7 +644,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
           const statusTag = document.createElement("span");
           statusTag.className = "tag " + (turn.status === "refined" ? "refined" : "provisional");
-          statusTag.textContent = turn.status === "refined" ? "Refined" : turn.status === "complete" ? "Complete" : "Provisional";
+          statusTag.textContent = turn.activity === "failed" ? "Failed" : turn.status === "refined" ? "Refined" : turn.status === "complete" ? "Complete" : turn.assistantText ? "Provisional" : "In progress";
           tags.appendChild(statusTag);
 
           const routeTag = document.createElement("span");
@@ -621,6 +657,21 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
           assistantBubble.appendChild(tags);
           assistantBubble.appendChild(content);
+          if (activity) {
+            const indicator = document.createElement("div");
+            indicator.className = "reply-activity" + (turn.activity === "failed" ? " failed" : "");
+            indicator.setAttribute("role", "status");
+            if (turn.activity !== "failed") {
+              const spinner = document.createElement("span");
+              spinner.className = "activity-spinner";
+              spinner.setAttribute("aria-hidden", "true");
+              indicator.appendChild(spinner);
+            }
+            const label = document.createElement("span");
+            label.textContent = activity;
+            indicator.appendChild(label);
+            assistantBubble.appendChild(indicator);
+          }
           row.appendChild(assistantBubble);
         }
 
@@ -733,7 +784,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     async function refreshLoop() {
       try {
-        await fetchTelemetry();
+        await fetchTelemetry().catch(() => undefined);
       } catch {
         // Keep polling even when transient errors happen.
       }
@@ -785,25 +836,18 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           ? payload.fastResponse.analysis.reasons.map((item) => String(item))
           : [];
 
-        const routeDecision = payload?.fastResponse?.analysis?.routeDecision;
-        const processingStatus = payload?.fastResponse?.processingStatus;
-
         promptInput.value = "";
         renderDecision();
-        await fetchTelemetry();
+        await fetchTelemetry().catch(() => undefined);
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;
         renderThread();
 
-        if (routeDecision === "deep" || processingStatus === "provisional") {
-          setStatus("Message accepted. Awaiting refined update from deep analysis.");
-        } else {
-          setStatus("Message answered on fast path.");
-        }
+        setStatus("Message accepted. Progress is shown in its reply bubble.");
       } catch (error) {
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;
-        await fetchTelemetry();
+        await fetchTelemetry().catch(() => undefined);
         renderThread();
         setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
       } finally {

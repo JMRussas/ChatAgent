@@ -49,7 +49,13 @@ export class ChatOrchestrator {
     } : undefined;
 
     // Start deep work independently of the provisional model call.
-    if (deepTask) await this.queue.enqueue(deepTask);
+    if (deepTask) {
+      await this.timelineStore.appendEvent(message.conversationId, {
+        type: "activity", messageId, routeDecision, activity: "queued",
+        text: "Waiting for the deep provider", createdAtIso: nowIso()
+      });
+      await this.queue.enqueue(deepTask);
+    }
 
     const fastStart = Date.now();
 
@@ -57,8 +63,14 @@ export class ChatOrchestrator {
       message,
       correctedText: adaptedAnalysis.correctedText,
       routeDecision: adaptedAnalysis.routeDecision
-    }).catch((error: unknown) => {
-      if (!deepTask) throw error;
+    }).catch(async (error: unknown) => {
+      if (!deepTask) {
+        await this.timelineStore.appendEvent(message.conversationId, {
+          type: "activity", messageId, routeDecision, activity: "failed",
+          text: "The fast provider could not complete this reply. Please try again.", createdAtIso: nowIso()
+        });
+        throw error;
+      }
       return "Your request is queued for deeper analysis.";
     });
 
@@ -134,6 +146,10 @@ export class DeepWorker {
     if (!task) return undefined;
 
     try {
+      await this.timelineStore.appendEvent(task.conversationId, {
+        type: "activity", messageId: task.messageId, routeDecision: "deep", activity: "thinking",
+        text: "Thinking with the deep provider", createdAtIso: nowIso()
+      });
       const result = await this.deepProvider.resolveDeepTask(task);
 
       this.attemptsByTaskId.delete(task.taskId);
@@ -155,6 +171,10 @@ export class DeepWorker {
       this.attemptsByTaskId.set(task.taskId, attempts);
 
       if (attempts <= this.maxRetries) {
+        await this.timelineStore.appendEvent(task.conversationId, {
+          type: "activity", messageId: task.messageId, routeDecision: "deep", activity: "retrying",
+          text: `Deep provider retry ${attempts} of ${this.maxRetries} queued`, createdAtIso: nowIso()
+        });
         await this.queue.enqueue(task);
         return undefined;
       }
@@ -165,6 +185,11 @@ export class DeepWorker {
         task,
         errorMessage: error instanceof Error ? error.message : String(error),
         failedAtIso: nowIso()
+      });
+
+      await this.timelineStore.appendEvent(task.conversationId, {
+        type: "activity", messageId: task.messageId, routeDecision: "deep", activity: "failed",
+        text: "Deep analysis failed after retries. Any preliminary reply is not a completed deep answer.", createdAtIso: nowIso()
       });
 
       return undefined;

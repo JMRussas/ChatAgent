@@ -71,7 +71,9 @@ Benchmark quality values and fixture scores are not evidence of answer correctne
 
 ### 1. Reliable live demo
 
-- Add terminal failure events so exhausted retries visibly end the waiting state.
+- Implemented: per-bubble generation/queue/thinking/retry indicators and terminal
+  failure events, correlated by message ID. Deep-provider activity is visible before
+  its answer arrives. Model token streaming remains separate future work.
 - Add graceful shutdown that stops intake, bounds in-flight work, flushes telemetry,
   closes SSE clients, and handles SIGINT/SIGTERM. The current close callback alone
   does not guarantee a flush when a process is terminated.
