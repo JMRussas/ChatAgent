@@ -35,6 +35,11 @@
 - Add seeded-prior plus live percentile estimator tests and implementation
 - Route moderate complexity prompts with p95-based guardrail policy
 
+9. Operational observability and benchmark artifacts
+- Add telemetry persistence and endpoint tests (`/telemetry/latency`, `/routing/policy/tune`)
+- Add provider benchmark runner with reproducible JSON/markdown reports
+- Validate report generation in CI-style command flow
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

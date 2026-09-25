@@ -1,0 +1,26 @@
+[
+  {
+    "id": "p1",
+    "text": "Explain event-driven architecture in plain terms"
+  },
+  {
+    "id": "p2",
+    "text": "Find latest inflation data and cite your sources"
+  },
+  {
+    "id": "p3",
+    "text": "Do it"
+  },
+  {
+    "id": "p4",
+    "text": "Compare tradeoffs between queue-based async processing and synchronous API orchestration"
+  },
+  {
+    "id": "p5",
+    "text": "Summarize how to implement a dead-letter replay mechanism for failed tasks"
+  },
+  {
+    "id": "p6",
+    "text": "Search for today's cloud outages and provide sources"
+  }
+]

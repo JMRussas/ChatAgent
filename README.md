@@ -72,6 +72,20 @@ curl http://localhost:3000/workers/deep/dead-letters
 curl -X POST http://localhost:3000/workers/deep/dead-letters/<taskId>/replay
 ```
 
+6. Read latency telemetry and current routing policy
+
+```bash
+curl http://localhost:3000/telemetry/latency
+```
+
+7. Trigger policy auto-tune based on queue depth
+
+```bash
+curl -X POST http://localhost:3000/routing/policy/tune \
+	-H "Content-Type: application/json" \
+	-d '{"queueDepth":10}'
+```
+
 ## TDD flow
 
 Use this loop for each feature:
@@ -129,6 +143,8 @@ Adaptive routing threshold (optional env var):
 
 ```bash
 ROUTING_MAX_FAST_P95_MS=1000
+TELEMETRY_STORE_PATH=data/latency-telemetry.json
+TELEMETRY_SAVE_INTERVAL_MS=5000
 ```
 
 Adaptive routing behavior:
@@ -137,6 +153,19 @@ Adaptive routing behavior:
 2. Seeds provider/model priors for latency percentiles by route and size.
 3. Blends priors with live observations as traffic increases.
 4. Uses p95 guardrail to escalate moderate requests to deep path when fast-path tail latency is predicted to breach SLO.
+
+## Benchmarking
+
+Run profile benchmark report generation:
+
+```bash
+npm run bench:run
+```
+
+Artifacts:
+
+1. `reports/benchmark-summary.json`
+2. `reports/benchmark-summary.md`
 
 Examples:
 

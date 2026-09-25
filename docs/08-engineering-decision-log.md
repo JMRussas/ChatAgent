@@ -237,3 +237,53 @@ Follow-up adjustment:
 - Found false-positive clarify routing for normal sentences containing "this".
 - Tightened ambiguity heuristic to prioritize short/underspecified prompts and exact ambiguity phrases.
 - Regression validated by adaptive routing tests and full suite pass.
+
+---
+
+## 2026-09-25 - Telemetry Durability and Benchmark Artifacts
+
+Status: Closed
+
+Issue:
+
+- Adaptive routing learned in memory only; insights reset on restart.
+- Needed objective side-by-side provider comparison artifacts for demo/interview use.
+
+Decision:
+
+- Persist estimator snapshots to disk and expose telemetry/policy endpoints.
+- Add deterministic benchmark runner for Azure/Bedrock/Ollama profile comparison.
+
+Changes made:
+
+1. Added telemetry snapshot file store and estimator snapshot/hydration support.
+2. Added endpoints:
+- `GET /telemetry/latency`
+- `POST /routing/policy/tune`
+3. Added tests for telemetry store and endpoint behavior.
+4. Added benchmark runner and reports:
+- `npm run bench:run`
+- `reports/benchmark-summary.json`
+- `reports/benchmark-summary.md`
+
+Files changed:
+
+- `src/telemetry/latencyEstimator.ts`
+- `src/telemetry/latencyTelemetryStore.ts`
+- `src/server.ts`
+- `src/app/chatService.ts`
+- `tests/unit/latencyTelemetryStore.test.ts`
+- `tests/integration/server.test.ts`
+- `src/bench/benchmarkCore.ts`
+- `src/bench/runBenchmark.ts`
+- `tests/unit/benchmarkCore.test.ts`
+- `data/benchmark-prompts.json`
+- `README.md`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Unit and integration tests pass for telemetry and routing-policy endpoints.
+2. Benchmark unit tests pass.
+3. Lint/type-check passes.
+4. Benchmark command generates report artifacts.
