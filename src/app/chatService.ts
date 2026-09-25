@@ -5,7 +5,24 @@ import type { AdaptiveRoutingCoordinator } from "../routing/adaptiveRouting";
 import type { ConversationTimelineStore } from "./timelineStore";
 import type { TaskQueue } from "../providers/interfaces";
 
+/**
+ * Thrown when a conversationId's already-claimed owner (spec 01: "claim conversation
+ * ownership on first submission using userId") differs from the submitting userId.
+ * Not authentication — a prototype-scope guard against accidentally mixing two
+ * users' turns into one conversation's shared context.
+ */
+export class ConversationOwnershipConflictError extends Error {
+  readonly code = "CONVERSATION_OWNER_MISMATCH" as const;
+
+  constructor(readonly conversationId: string) {
+    super(`Conversation "${conversationId}" is already owned by a different user.`);
+    this.name = "ConversationOwnershipConflictError";
+  }
+}
+
 export class ChatService {
+  private readonly ownerUserIdByConversationId = new Map<string, string>();
+
   constructor(
     private readonly orchestrator: ChatOrchestrator,
     private readonly worker: DeepWorker,
@@ -16,6 +33,13 @@ export class ChatService {
   ) {}
 
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
+    const existingOwner = this.ownerUserIdByConversationId.get(message.conversationId);
+    if (existingOwner === undefined) {
+      this.ownerUserIdByConversationId.set(message.conversationId, message.userId);
+    } else if (existingOwner !== message.userId) {
+      throw new ConversationOwnershipConflictError(message.conversationId);
+    }
+
     return this.orchestrator.handleUserMessage(message);
   }
 

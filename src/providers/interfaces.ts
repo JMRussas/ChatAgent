@@ -1,3 +1,4 @@
+import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
 
 export interface FastModelProvider {
@@ -5,6 +6,10 @@ export interface FastModelProvider {
     message: UserMessage;
     correctedText: string;
     routeDecision: "direct" | "deep" | "clarify";
+    // Optional so direct/legacy callers (existing adapter unit tests) keep
+    // using each adapter's current-prompt-only fallback; every orchestrated
+    // call carries one (spec 01).
+    context?: ConversationContext;
   }): Promise<string>;
 }
 

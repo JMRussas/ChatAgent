@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OllamaDeepProvider, OllamaFastProvider } from "../../src/providers/ollamaProviders";
+import { sampleContext } from "../helpers/contextFixtures";
 
 describe("ollama providers", () => {
   const originalFetch = global.fetch;
@@ -9,10 +10,10 @@ describe("ollama providers", () => {
     vi.restoreAllMocks();
   });
 
-  it("posts expected payload to Ollama generate API", async () => {
+  it("posts expected payload to Ollama chat API", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ response: "  provisional reply  " })
+      json: async () => ({ message: { role: "assistant", content: "  provisional reply  " } })
     });
 
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -34,20 +35,52 @@ describe("ollama providers", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:11434/api/generate");
+    expect(url).toBe("http://localhost:11434/api/chat");
     expect(options.method).toBe("POST");
 
     const body = JSON.parse(String(options.body));
     expect(body.model).toBe("llama3.1:8b");
     expect(body.stream).toBe(false);
+    expect(Array.isArray(body.messages)).toBe(true);
+    expect(body.messages[0].role).toBe("user");
     expect(body.options.temperature).toBe(0.2);
     expect(body.options.num_predict).toBe(300);
+  });
+
+  it("sends a leading system message, role-based history, and honors the output cap when a context is supplied", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: { role: "assistant", content: "answer" } })
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new OllamaFastProvider("http://localhost:11434", "llama3.1:8b", 0.2, 10_000, 512);
+
+    await provider.createProvisionalReply({
+      message: { conversationId: "c1", userId: "u1", text: "Why?", timestampIso: new Date().toISOString() },
+      correctedText: "Why?",
+      routeDecision: "direct",
+      context: sampleContext()
+    });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(options.body));
+
+    expect(body.messages[0].role).toBe("system");
+    expect(body.messages[0].content).toContain("BASE INSTRUCTIONS AND VERIFIED FACTS");
+    expect(body.messages[0].content).toContain("FAST ROLE INSTRUCTIONS");
+    expect(body.messages.slice(1)).toEqual([
+      { role: "user", content: "What is event sourcing?" },
+      { role: "assistant", content: "It's a pattern where state changes are stored as events." },
+      { role: "user", content: "Why?" }
+    ]);
+    expect(body.options.num_predict).toBe(512);
   });
 
   it("maps deep response into DeepResult", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ response: "deep local answer" })
+      json: async () => ({ message: { role: "assistant", content: "deep local answer" } })
     });
 
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -95,8 +128,7 @@ describe("ollama providers", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        response: "",
-        thinking: "internal reasoning",
+        message: { role: "assistant", content: "", thinking: "internal reasoning" },
         done_reason: "length"
       })
     });

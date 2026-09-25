@@ -15,8 +15,12 @@ current planning; the earlier review and UI proposal are historical snapshots.
 
 The automated release gate checks code, fixture evaluation, and simulated benchmark
 regressions. It does **not** certify live model quality. Benchmark quality scores
-are currently synthetic, even in live mode. Deep providers do not yet retrieve web
-sources or receive conversation history. Queues and conversation timelines are in memory.
+are currently synthetic, even in live mode. Both the fast and deep layers now
+receive a shared, bounded conversation snapshot (see "Conversation context budget"
+below) with grounded runtime facts, but deep providers still do not retrieve web
+sources — citations are not verified. Internal summarization of older history is
+not implemented yet (older turns are dropped, not summarized). Queues and
+conversation timelines are in memory.
 
 ## Why this exists
 
@@ -57,6 +61,16 @@ Open `http://localhost:3100/` to use the built-in prototype UI.
 
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
 JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and primitive values return `400`.
+
+`POST /messages` also returns:
+- `409` with code `CONVERSATION_OWNER_MISMATCH` if a `userId` other than the one
+  that first submitted to a `conversationId` tries to post to it. This is a
+  local-prototype guard against accidentally mixing two users' turns into one
+  conversation's shared context, not authentication.
+- `413` with code `CONTEXT_TOO_LARGE` if the message plus configured instructions
+  would exceed the conversation context budget (see "Conversation context budget"
+  below) even before any history is added. No events are appended and no deep task
+  is enqueued when this happens.
 
 1. Submit message
 
@@ -188,6 +202,39 @@ OLLAMA_DEEP_NUM_PREDICT=512
 Azure and Ollama HTTP calls use bounded request timeouts so a hung upstream cannot block the fast path indefinitely.
 If local Ollama models are large or cold-start slowly on your hardware, increase `OLLAMA_FAST_TIMEOUT_MS` and `OLLAMA_DEEP_TIMEOUT_MS`.
 If a model emits long reasoning traces and returns empty final text at low token budgets, increase `OLLAMA_FAST_NUM_PREDICT` and `OLLAMA_DEEP_NUM_PREDICT`.
+
+Ollama requests go to `/api/chat` (not `/api/generate`), sending role-based
+`system`/`user`/`assistant` messages so both fast and deep layers see the same
+shared conversation snapshot; Azure and Bedrock also switch to role-based
+messages (Bedrock's system instruction goes in its separate `system` field).
+
+### Conversation context budget
+
+Both the fast and deep layers for a turn receive the same bounded conversation
+snapshot: recent completed user/assistant pairs, the current user message, frozen
+grounding instructions, and a verified-facts block (actual provider/model pair
+and a server timestamp — never a guessed host location). Turns still in progress,
+failed, or retrying appear to later turns as an explicit "unresolved request"
+note, not as an accepted answer.
+
+```bash
+CONTEXT_WINDOW_TOKENS=8192
+CONTEXT_MAX_HISTORY_TURNS=12
+CONTEXT_SAFETY_TOKENS=256
+CHAT_FAST_MAX_OUTPUT_TOKENS=512
+CHAT_DEEP_MAX_OUTPUT_TOKENS=2048
+```
+
+`CONTEXT_WINDOW_TOKENS` is an application working limit for this prototype, not a
+claim about any specific model's real context window; token counts are a
+conservative UTF-8-byte-based estimate, not a provider tokenizer. The server
+fails to start if the output reserve plus safety tokens would leave no room for
+input. `OLLAMA_FAST_NUM_PREDICT` / `OLLAMA_DEEP_NUM_PREDICT` remain authoritative
+when explicitly set; otherwise Ollama uses `CHAT_FAST_MAX_OUTPUT_TOKENS` /
+`CHAT_DEEP_MAX_OUTPUT_TOKENS`. See [01 — Conversation context](docs/implementation/01-context.md)
+and its [memory extension](docs/implementation/01-context-memory.md) for the full
+design; internal summarization and source-linked memory (01B) are not implemented
+yet — history beyond `CONTEXT_MAX_HISTORY_TURNS` is dropped, not summarized.
 
 Evaluation reliability thresholds (optional env vars):
 

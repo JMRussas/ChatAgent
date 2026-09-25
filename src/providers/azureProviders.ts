@@ -1,3 +1,5 @@
+import { buildSystemAndMessages } from "./contextMessages";
+import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
 import type { DeepModelProvider, FastModelProvider } from "./interfaces";
 
@@ -7,6 +9,11 @@ interface AzureChatResponse {
       content?: string;
     };
   }>;
+}
+
+interface AzureChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
 }
 
 function withTimeout<T>(timeoutMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -33,7 +40,8 @@ async function callAzureChat(args: {
   deployment: string;
   temperature: number;
   timeoutMs: number;
-  prompt: string;
+  messages: AzureChatMessage[];
+  maxOutputTokens?: number;
 }): Promise<string> {
   const base = args.endpoint.replace(/\/$/, "");
   const url = `${base}/openai/deployments/${args.deployment}/chat/completions?api-version=${encodeURIComponent(args.apiVersion)}`;
@@ -46,8 +54,9 @@ async function callAzureChat(args: {
         "api-key": args.apiKey
       },
       body: JSON.stringify({
-        messages: [{ role: "user", content: args.prompt }],
-        temperature: args.temperature
+        messages: args.messages,
+        temperature: args.temperature,
+        ...(args.maxOutputTokens !== undefined ? { max_tokens: args.maxOutputTokens } : {})
       }),
       signal
     });
@@ -63,6 +72,39 @@ async function callAzureChat(args: {
   });
 }
 
+/** Legacy current-prompt-only shape, used only when no ConversationContext is supplied. */
+function legacyFastMessages(input: { message: UserMessage; correctedText: string; routeDecision: string }): AzureChatMessage[] {
+  const prompt = [
+    "You are the fast-response layer in a dual-path chatbot.",
+    `Route: ${input.routeDecision}`,
+    `Original: ${input.message.text}`,
+    `Normalized: ${input.correctedText}`,
+    "Respond with one short paragraph."
+  ].join("\n");
+
+  return [{ role: "user", content: prompt }];
+}
+
+function contextFastMessages(context: ConversationContext): AzureChatMessage[] {
+  const { system, messages } = buildSystemAndMessages(context, "fast");
+  return [{ role: "system", content: system }, ...messages];
+}
+
+function legacyDeepMessages(normalizedPrompt: string): AzureChatMessage[] {
+  const prompt = [
+    "You are the deep-analysis layer in a dual-path chatbot.",
+    "Generate a refined answer and include citations when external facts are used.",
+    `Prompt: ${normalizedPrompt}`
+  ].join("\n");
+
+  return [{ role: "user", content: prompt }];
+}
+
+function contextDeepMessages(context: ConversationContext): AzureChatMessage[] {
+  const { system, messages } = buildSystemAndMessages(context, "deep");
+  return [{ role: "system", content: system }, ...messages];
+}
+
 export class AzureFastProvider implements FastModelProvider {
   constructor(
     private readonly endpoint: string,
@@ -70,21 +112,17 @@ export class AzureFastProvider implements FastModelProvider {
     private readonly apiVersion: string,
     private readonly deployment: string,
     private readonly temperature: number,
-    private readonly timeoutMs: number = 10_000
+    private readonly timeoutMs: number = 10_000,
+    private readonly maxOutputTokens?: number
   ) {}
 
   async createProvisionalReply(input: {
     message: UserMessage;
     correctedText: string;
     routeDecision: "direct" | "deep" | "clarify";
+    context?: ConversationContext;
   }): Promise<string> {
-    const prompt = [
-      "You are the fast-response layer in a dual-path chatbot.",
-      `Route: ${input.routeDecision}`,
-      `Original: ${input.message.text}`,
-      `Normalized: ${input.correctedText}`,
-      "Respond with one short paragraph."
-    ].join("\n");
+    const messages = input.context ? contextFastMessages(input.context) : legacyFastMessages(input);
 
     return callAzureChat({
       endpoint: this.endpoint,
@@ -92,8 +130,9 @@ export class AzureFastProvider implements FastModelProvider {
       apiVersion: this.apiVersion,
       deployment: this.deployment,
       temperature: this.temperature,
-      prompt,
-      timeoutMs: this.timeoutMs
+      messages,
+      timeoutMs: this.timeoutMs,
+      maxOutputTokens: this.maxOutputTokens
     });
   }
 }
@@ -105,16 +144,13 @@ export class AzureDeepProvider implements DeepModelProvider {
     private readonly apiVersion: string,
     private readonly deployment: string,
     private readonly temperature: number,
-    private readonly timeoutMs: number = 10_000
+    private readonly timeoutMs: number = 10_000,
+    private readonly maxOutputTokens?: number
   ) {}
 
   async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
     const start = Date.now();
-    const prompt = [
-      "You are the deep-analysis layer in a dual-path chatbot.",
-      "Generate a refined answer and include citations when external facts are used.",
-      `Prompt: ${input.normalizedPrompt}`
-    ].join("\n");
+    const messages = input.context ? contextDeepMessages(input.context) : legacyDeepMessages(input.normalizedPrompt);
 
     const finalReply = await callAzureChat({
       endpoint: this.endpoint,
@@ -122,8 +158,9 @@ export class AzureDeepProvider implements DeepModelProvider {
       apiVersion: this.apiVersion,
       deployment: this.deployment,
       temperature: this.temperature,
-      prompt,
-      timeoutMs: this.timeoutMs
+      messages,
+      timeoutMs: this.timeoutMs,
+      maxOutputTokens: this.maxOutputTokens
     });
 
     return {

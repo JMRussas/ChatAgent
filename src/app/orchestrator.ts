@@ -3,23 +3,72 @@ import { analyzeFast } from "../domain/router";
 import type { DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
 import type { DeepModelProvider, FastModelProvider, TaskQueue } from "../providers/interfaces";
 import type { AdaptiveRoutingCoordinator } from "../routing/adaptiveRouting";
+import { ContextBudgetError, cloneConversationContext } from "./contextBuilder";
+import { ContextManager } from "./contextManager";
 import { NoopDeadLetterStore, type DeadLetterStore } from "./deadLetterStore";
+import type { TrustedRuntimeFacts } from "./systemInstructions";
 import { NoopConversationTimelineStore, type ConversationTimelineStore } from "./timelineStore";
 
 function nowIso(): string {
   return new Date().toISOString();
 }
 
+// Matches contextConfig.ts's documented defaults; used only when no ContextManager
+// is supplied (existing tests/direct construction), so the orchestrator still
+// always attaches a context object as spec 01 requires.
+const DEFAULT_CONTEXT_BUDGET = {
+  windowTokens: 8192,
+  maxHistoryTurns: 12,
+  safetyTokens: 256,
+  fastOutputTokens: 512,
+  deepOutputTokens: 2048
+};
+
+function defaultTrustedFacts(): TrustedRuntimeFacts {
+  return {
+    fastProvider: "mock",
+    fastModel: "mock-v1",
+    deepProvider: "mock",
+    deepModel: "mock-v1",
+    generatedAtIso: nowIso()
+  };
+}
+
 export class ChatOrchestrator {
+  private readonly contextManager: ContextManager;
+  private readonly trustedFactsProvider: () => TrustedRuntimeFacts;
+
   constructor(
     private readonly fastProvider: FastModelProvider,
     private readonly queue: TaskQueue,
     private readonly timelineStore: ConversationTimelineStore = new NoopConversationTimelineStore(),
-    private readonly adaptiveRouting?: AdaptiveRoutingCoordinator
-  ) {}
+    private readonly adaptiveRouting?: AdaptiveRoutingCoordinator,
+    contextManager?: ContextManager,
+    trustedFactsProvider?: () => TrustedRuntimeFacts
+  ) {
+    this.contextManager = contextManager ?? new ContextManager(this.timelineStore, DEFAULT_CONTEXT_BUDGET);
+    this.trustedFactsProvider = trustedFactsProvider ?? defaultTrustedFacts;
+  }
 
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
     const messageId = randomUUID();
+
+    // Capture the shared snapshot before appending anything for this turn, so a
+    // budget rejection leaves the timeline/queue untouched (spec 01: "before
+    // appending events/enqueuing/calling providers").
+    const contextResult = await this.contextManager.prepare({
+      conversationId: message.conversationId,
+      currentMessageId: messageId,
+      currentUserText: message.text,
+      trustedFacts: this.trustedFactsProvider()
+    });
+
+    if (contextResult instanceof ContextBudgetError) {
+      throw contextResult;
+    }
+
+    const context = contextResult;
+
     await this.timelineStore.appendEvent(message.conversationId, {
       messageId,
       type: "user",
@@ -45,7 +94,8 @@ export class ChatOrchestrator {
       conversationId: message.conversationId,
       normalizedPrompt: adaptedAnalysis.correctedText,
       createdAtIso: nowIso(),
-      sizeBand
+      sizeBand,
+      context: cloneConversationContext(context)
     } : undefined;
 
     // Start deep work independently of the provisional model call.
@@ -62,7 +112,8 @@ export class ChatOrchestrator {
     const provisionalReply = await this.fastProvider.createProvisionalReply({
       message,
       correctedText: adaptedAnalysis.correctedText,
-      routeDecision: adaptedAnalysis.routeDecision
+      routeDecision: adaptedAnalysis.routeDecision,
+      context: cloneConversationContext(context)
     }).catch(async (error: unknown) => {
       if (!deepTask) {
         await this.timelineStore.appendEvent(message.conversationId, {

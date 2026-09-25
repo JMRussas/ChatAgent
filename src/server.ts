@@ -1,9 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
-import { InMemoryDeadLetterStore } from "./app/deadLetterStore";
 import { ChatOrchestrator, DeepWorker } from "./app/orchestrator";
+import { ChatService, ConversationOwnershipConflictError } from "./app/chatService";
+import { ContextBudgetError } from "./app/contextBuilder";
+import { ContextManager } from "./app/contextManager";
+import { InMemoryDeadLetterStore } from "./app/deadLetterStore";
 import { InMemoryConversationTimelineStore } from "./app/timelineStore";
-import { ChatService } from "./app/chatService";
+import { loadContextBudgetConfigFromEnv, type ContextBudgetConfig } from "./config/contextConfig";
 import { parseBooleanEnv, parseBoundedNumberEnv, parsePositiveIntEnv } from "./config/runtimeEnv";
 import { describeProviderConfig, loadRuntimeProviderConfigFromEnv, type RuntimeProviderConfig } from "./config/providerConfig";
 import type { UserMessage } from "./domain/types";
@@ -314,6 +317,14 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, 400, { error: "Invalid request body" });
       }
 
+      if (error instanceof ContextBudgetError) {
+        return json(res, 413, { error: error.message, code: error.code });
+      }
+
+      if (error instanceof ConversationOwnershipConflictError) {
+        return json(res, 409, { error: error.message, code: error.code });
+      }
+
       return json(res, 500, { error: (error as Error).message });
     }
   });
@@ -321,8 +332,9 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
 export async function startServer(port: number): Promise<void> {
   const config = loadRuntimeProviderConfigFromEnv();
+  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv();
   const modelCatalog = describeModelCatalog(await loadModelCatalog(process.env.MODEL_CATALOG_PATH), config);
-  const providers = buildProviderPair(config);
+  const providers = buildProviderPair(config, contextBudget);
   const estimator = new InMemoryLatencyEstimator();
 
   const fastProfile = {
@@ -356,7 +368,15 @@ export async function startServer(port: number): Promise<void> {
   const queue = new InMemoryTaskQueue();
   const timeline = new InMemoryConversationTimelineStore();
   const deadLetters = new InMemoryDeadLetterStore();
-  const orchestrator = new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting);
+  const contextManager = new ContextManager(timeline, contextBudget);
+  const trustedFactsProvider = () => ({
+    fastProvider: config.fast.provider,
+    fastModel: config.fast.model,
+    deepProvider: config.deep.provider,
+    deepModel: config.deep.model,
+    generatedAtIso: new Date().toISOString()
+  });
+  const orchestrator = new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider);
   const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting);
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 

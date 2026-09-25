@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AzureDeepProvider, AzureFastProvider } from "../../src/providers/azureProviders";
+import { sampleContext } from "../helpers/contextFixtures";
 
 describe("azure providers", () => {
   const originalFetch = global.fetch;
@@ -75,6 +76,44 @@ describe("azure providers", () => {
     expect(result.taskId).toBe("t1");
     expect(result.finalReply).toBe("deep answer");
     expect(result.totalLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("sends role-based system+history messages and the configured output cap when a context is supplied", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "answer" } }] })
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new AzureFastProvider(
+      "https://example.openai.azure.com/",
+      "test-key",
+      "2024-10-21",
+      "gpt-fast",
+      0.3,
+      10_000,
+      512
+    );
+
+    await provider.createProvisionalReply({
+      message: { conversationId: "c1", userId: "u1", text: "Why?", timestampIso: new Date().toISOString() },
+      correctedText: "Why?",
+      routeDecision: "direct",
+      context: sampleContext()
+    });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(options.body));
+
+    expect(body.messages[0].role).toBe("system");
+    expect(body.messages[0].content).toContain("BASE INSTRUCTIONS AND VERIFIED FACTS");
+    expect(body.messages[0].content).toContain("FAST ROLE INSTRUCTIONS");
+    expect(body.messages.slice(1)).toEqual([
+      { role: "user", content: "What is event sourcing?" },
+      { role: "assistant", content: "It's a pattern where state changes are stored as events." },
+      { role: "user", content: "Why?" }
+    ]);
+    expect(body.max_tokens).toBe(512);
   });
 
   it("throws clear error when Azure call fails", async () => {

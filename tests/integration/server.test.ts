@@ -1,5 +1,6 @@
 import { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
+import { ContextManager } from "../../src/app/contextManager";
 import { InMemoryDeadLetterStore } from "../../src/app/deadLetterStore";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
@@ -321,6 +322,71 @@ describe("chat server", () => {
 
     const policyPayload = (await policyResponse.json()) as { error: string };
     expect(policyPayload.error).toBe("Invalid JSON body");
+  });
+
+  it("returns 409 when a different userId submits to an already-claimed conversation", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
+    const service = new ChatService(orchestrator, worker, timeline);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: "conv-owner", userId: "alice", text: "hello" })
+    });
+
+    const conflictResponse = await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: "conv-owner", userId: "bob", text: "hi" })
+    });
+
+    expect(conflictResponse.status).toBe(409);
+    const payload = (await conflictResponse.json()) as { code?: string };
+    expect(payload.code).toBe("CONVERSATION_OWNER_MISMATCH");
+
+    const events = await (await fetch(`${baseUrl}/conversations/conv-owner/events`)).json() as { events: Array<{ type: string }> };
+    expect(events.events.filter((e) => e.type === "user")).toHaveLength(1);
+  });
+
+  it("returns 413 CONTEXT_TOO_LARGE for an oversized message without appending events", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const tinyBudget = { windowTokens: 10, maxHistoryTurns: 12, safetyTokens: 0, fastOutputTokens: 1, deepOutputTokens: 1 };
+    const contextManager = new ContextManager(timeline, tinyBudget);
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline, undefined, contextManager);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
+    const service = new ChatService(orchestrator, worker, timeline);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: "conv-huge", userId: "user-huge", text: "a".repeat(500) })
+    });
+
+    expect(response.status).toBe(413);
+    const payload = (await response.json()) as { code?: string };
+    expect(payload.code).toBe("CONTEXT_TOO_LARGE");
+
+    const events = await (await fetch(`${baseUrl}/conversations/conv-huge/events`)).json() as { events: unknown[] };
+    expect(events.events).toEqual([]);
+    expect(queue.size()).toBe(0);
   });
 
   it("returns 400 for null and invalid object bodies", async () => {

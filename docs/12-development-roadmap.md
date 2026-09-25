@@ -24,10 +24,40 @@ supersession and aggregate budget enforcement are explicitly separate follow-ups
 
 ## Current status and next implementation order
 
-Reconciled through implementation commit `8afce48` on 2026-09-25. The latest
-implementation check passed **119 tests across 29 files and TypeScript checking**.
-The full clean-install/release/build verification below belongs to the earlier
-stabilization baseline; it has not been rerun for every subsequent feature.
+Reconciled through implementation commit `8afce48` on 2026-09-25, plus 01A below.
+The latest implementation check passed **140 tests across 31 files and TypeScript
+checking**, and a full `npm run verify:release` (tests, lint, fixture evaluation,
+simulated benchmark, baseline comparison) passed with `BENCH_MODE=simulate` /
+`BENCH_SIM_SEED=default-v1`. The full clean-install/release/build verification
+below belongs to the earlier stabilization baseline; it has not been rerun for
+every subsequent feature.
+
+**Spec 01A (bounded conversation snapshots and pending-task awareness) is
+implemented; 01B (internal summarization and source-linked memory, from
+[01's memory extension](implementation/01-context-memory.md)) is explicitly
+outstanding.** Added: `src/domain/context.ts` (shared v2 `ConversationContext`
+types), `src/app/contextBuilder.ts` (pure `buildContext`, budget accounting,
+active-task derivation), `src/app/contextManager.ts` (capture + prepare seam
+for 01B to extend), `src/app/systemInstructions.ts` (frozen grounding text and
+trusted-facts rendering), `src/config/contextConfig.ts` (validated
+`CONTEXT_WINDOW_TOKENS` / `CONTEXT_MAX_HISTORY_TURNS` / `CONTEXT_SAFETY_TOKENS` /
+`CHAT_FAST_MAX_OUTPUT_TOKENS` / `CHAT_DEEP_MAX_OUTPUT_TOKENS`, startup-rejects
+misconfiguration). `ChatService` now claims per-conversation ownership by
+`userId` (409 `CONVERSATION_OWNER_MISMATCH` on mismatch); an oversized turn
+returns 413 `CONTEXT_TOO_LARGE` before anything is appended or enqueued.
+Azure/Bedrock/Ollama adapters send role-based system+history messages and the
+configured output cap when a `ConversationContext` is supplied, and fall back to
+their original single-prompt shape when it is not (legacy/direct adapter callers,
+per spec). Ollama moved from `/api/generate` to `/api/chat` (verified against
+the upstream API docs on 2026-09-25; source note in `ollamaProviders.ts`).
+`ChatTimelineEvent` now carries a stable `eventId`/monotonic `sequence`, assigned
+by `InMemoryConversationTimelineStore`, as the memory extension asks for ahead
+of the full SourceStore. Memory stays `null` and `resolvedSources`/
+`unavailableSources` stay empty until 01B; pending/failed/retrying/incomplete
+turns surface as `activeTasks` (capped at 4 most recent) instead of being
+silently dropped. Not yet done: `SourceStore`, `ContextSummarizer`, extractive/
+model summarization, `resolveSources()`, and their settings
+(`CONTEXT_SUMMARY_*`) — all 01B. Streaming stays off per spec (spec 02).
 
 | Area | Implemented | Still needed |
 |---|---|---|
@@ -35,7 +65,7 @@ stabilization baseline; it has not been rerun for every subsequent feature.
 | Chat progress | Per-bubble queued/thinking/retrying/failure states, model label, terminal spinner removal | Actual model-token streaming, browser smoke coverage |
 | Model inventory | Validated catalog, `/models`, capability/task eligibility filtering | Provider discovery, fresh account access/health observations |
 | CLI subscriptions | Catalog schema for profiles, authentication, billing and shared quotas | Actual CLI adapters and verified subscription automation support |
-| Conversation context | Timeline stored for display | Bounded history supplied to both providers; grounded runtime facts |
+| Conversation context | 01A: bounded shared snapshot, grounded runtime facts, active-task awareness, ownership/budget guards | 01B: internal summarization, source-linked memory, `resolveSources()` |
 | Model selection | Fixed environment-configured fast/deep pair | Task-based dispatch, measured ranking, explicit fallback |
 | Evaluation | Automated regression tests and labeled fixture/simulation reports | Fresh live golden run and measured answer-quality evaluation |
 
@@ -101,6 +131,18 @@ The stabilization pass includes:
   identifies 4.1.11 as a patched release. Node requirements now match the tooling.
 
 ## Verification and evidence
+
+Spec 01A verification on Windows / Node 24.15.0 (2026-09-25): 140 tests across 31
+files, type checking, and `npm run verify:release` (tests, lint, fixture
+evaluation, simulated benchmark comparison) all passed with `BENCH_MODE=simulate`
+`BENCH_SIM_SEED=default-v1`. New coverage: `contextBuilder` history
+selection/budget/active-task cases, ownership-conflict (409) and oversized-turn
+(413) cases at the ChatService/orchestrator/HTTP layers, and adapter
+request-shape cases for the context-aware Azure/Bedrock/Ollama paths. No live
+provider run was performed for this milestone; that follow-up (grounded-fact
+acknowledgment, follow-up-question quality) belongs to spec 01's "optional live
+follow-up exercise," not to this offline pass. 01B (summarization/source store)
+was not attempted and is not claimed; see the status table above.
 
 Follow-up startup diagnosis: the server on port 3100 was still the process started
 at 16:51, before stabilization. A second `npm run dev` printed a premature success

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
+import { ContextBudgetError } from "../../src/app/contextBuilder";
+import { ContextManager } from "../../src/app/contextManager";
+import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
+import type { ConversationContext } from "../../src/domain/context";
+import type { FastModelProvider } from "../../src/providers/interfaces";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProviders";
 
@@ -69,6 +74,57 @@ describe("orchestrator", () => {
     expect(result.fastResponse.processingStatus).toBe("complete");
     expect(result.fastResponse.provisionalReply).toContain("Quick answer:");
     expect(result.deepTask).toBeUndefined();
+    expect(queue.size()).toBe(0);
+  });
+
+  it("passes independent context copies to the fast provider and the queued deep task", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+
+    let capturedFastContext: ConversationContext | undefined;
+    class CapturingFastProvider implements FastModelProvider {
+      async createProvisionalReply(input: { context?: ConversationContext }): Promise<string> {
+        capturedFastContext = input.context;
+        return "provisional";
+      }
+    }
+
+    const orchestrator = new ChatOrchestrator(new CapturingFastProvider(), queue, timeline);
+
+    await orchestrator.handleUserMessage({
+      conversationId: "conv-context",
+      userId: "user-context",
+      text: "Find latest inflation data and cite sources",
+      timestampIso: new Date().toISOString()
+    });
+
+    const task = await queue.dequeue();
+    expect(task?.context).toBeDefined();
+    expect(capturedFastContext).toBeDefined();
+    expect(capturedFastContext).not.toBe(task!.context);
+
+    // Mutating the fast provider's copy must never affect the queued task's snapshot.
+    (capturedFastContext!.messages as unknown as unknown[]).push({ role: "user", content: "injected", messageId: "x" });
+    expect(task!.context!.messages).not.toEqual(capturedFastContext!.messages);
+  });
+
+  it("rejects an oversized turn before appending events or enqueuing work (413 CONTEXT_TOO_LARGE)", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const tinyBudget = { windowTokens: 10, maxHistoryTurns: 12, safetyTokens: 0, fastOutputTokens: 1, deepOutputTokens: 1 };
+    const contextManager = new ContextManager(timeline, tinyBudget);
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline, undefined, contextManager);
+
+    await expect(
+      orchestrator.handleUserMessage({
+        conversationId: "conv-huge",
+        userId: "user-huge",
+        text: "a".repeat(500),
+        timestampIso: new Date().toISOString()
+      })
+    ).rejects.toBeInstanceOf(ContextBudgetError);
+
+    expect(await timeline.getEvents("conv-huge")).toEqual([]);
     expect(queue.size()).toBe(0);
   });
 

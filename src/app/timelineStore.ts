@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ChatTimelineEvent } from "../domain/types";
 
 export interface ConversationTimelineStore {
@@ -17,10 +18,13 @@ export class NoopConversationTimelineStore implements ConversationTimelineStore 
 
 export class InMemoryConversationTimelineStore implements ConversationTimelineStore {
   private readonly eventsByConversation = new Map<string, ChatTimelineEvent[]>();
+  private readonly sequenceByConversation = new Map<string, number>();
 
   async appendEvent(conversationId: string, event: ChatTimelineEvent): Promise<void> {
     const events = this.eventsByConversation.get(conversationId) ?? [];
-    events.push(event);
+    const sequence = (this.sequenceByConversation.get(conversationId) ?? 0) + 1;
+    this.sequenceByConversation.set(conversationId, sequence);
+    events.push({ ...event, eventId: event.eventId ?? randomUUID(), sequence });
     this.eventsByConversation.set(conversationId, events);
   }
 
