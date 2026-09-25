@@ -36,7 +36,7 @@ npm test
 npm run dev
 ```
 
-Server starts on `PORT` (default `3000`).
+Server starts on `PORT` (default `3100`).
 
 ## HTTP API
 
@@ -46,7 +46,7 @@ JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and pri
 1. Submit message
 
 ```bash
-curl -X POST http://localhost:3000/messages \
+curl -X POST http://localhost:3100/messages \
 	-H "Content-Type: application/json" \
 	-d '{"conversationId":"conv1","userId":"u1","text":"Find latest inflation data and cite sources"}'
 ```
@@ -54,37 +54,37 @@ curl -X POST http://localhost:3000/messages \
 2. Run deep worker once
 
 ```bash
-curl -X POST http://localhost:3000/workers/deep/run-once
+curl -X POST http://localhost:3100/workers/deep/run-once
 ```
 
 3. Get conversation timeline
 
 ```bash
-curl http://localhost:3000/conversations/conv1/events
+curl http://localhost:3100/conversations/conv1/events
 ```
 
 4. List deep-worker dead-letter records
 
 ```bash
-curl http://localhost:3000/workers/deep/dead-letters
+curl http://localhost:3100/workers/deep/dead-letters
 ```
 
 5. Replay a dead-letter task
 
 ```bash
-curl -X POST http://localhost:3000/workers/deep/dead-letters/<taskId>/replay
+curl -X POST http://localhost:3100/workers/deep/dead-letters/<taskId>/replay
 ```
 
 6. Read latency telemetry and current routing policy
 
 ```bash
-curl http://localhost:3000/telemetry/latency
+curl http://localhost:3100/telemetry/latency
 ```
 
 7. Trigger policy auto-tune based on queue depth
 
 ```bash
-curl -X POST http://localhost:3000/routing/policy/tune \
+curl -X POST http://localhost:3100/routing/policy/tune \
 	-H "Content-Type: application/json" \
 	-d '{"queueDepth":10}'
 ```

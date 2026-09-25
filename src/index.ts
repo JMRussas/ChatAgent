@@ -1,7 +1,8 @@
 import { startServer } from "./server";
+import { parsePositiveIntEnv } from "./config/runtimeEnv";
 
 async function main() {
-  const port = Number(process.env.PORT ?? "3000");
+  const port = parsePositiveIntEnv(process.env.PORT, 3100, 1024, 65535);
   await startServer(port);
 }
 
