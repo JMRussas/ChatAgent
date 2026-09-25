@@ -120,14 +120,19 @@
 - Make auto-run behavior env-controlled for deterministic test/benchmark modes
 - Document and test env parsing for auto-run controls
 
+26. UI shell and live polling loop
+- Serve a static `GET /` control-room page from the existing HTTP server
+- Submit prompts from the page and poll conversation events + latency telemetry
+- Render provisional-to-refined swaps and live route telemetry in a two-panel layout
+
 ## Execution burndown snapshot
 
 As of 2026-09-25
 
-1. Planned phases: 25
-2. Completed phases: 25
+1. Planned phases: 26
+2. Completed phases: 26
 3. Remaining phases in current plan: 0
-4. Completion ratio: 25/25 (100%)
+4. Completion ratio: 26/26 (100%)
 
 Phase buckets (estimated):
 
@@ -147,6 +152,9 @@ Phase buckets (estimated):
 - Status: complete (1/1)
 
 6. Deep-worker runtime hardening (25)
+- Status: complete (1/1)
+
+7. UI foundation (26)
 - Status: complete (1/1)
 
 Schedule signal:

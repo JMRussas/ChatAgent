@@ -12,6 +12,7 @@ import { buildProviderPair } from "./providers/providerFactory";
 import { AdaptiveRoutingCoordinator } from "./routing/adaptiveRouting";
 import { InMemoryLatencyEstimator } from "./telemetry/latencyEstimator";
 import { FileLatencyTelemetryStore } from "./telemetry/latencyTelemetryStore";
+import { renderHomePageHtml } from "./ui/homePage";
 import { z } from "zod";
 
 function seedPriorsForProfile(
@@ -137,6 +138,13 @@ export function createChatServer(service: ChatService) {
     try {
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
+
+      if (method === "GET" && url.pathname === "/") {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.end(renderHomePageHtml());
+        return;
+      }
 
       if (method === "POST" && url.pathname === "/messages") {
         const body = MessageBodySchema.parse(requireObjectBody(await parseJsonBody(req)));

@@ -22,6 +22,28 @@ afterEach(() => {
 });
 
 describe("chat server", () => {
+  it("serves the UI shell on GET /", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
+    const service = new ChatService(orchestrator, worker, timeline);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const response = await fetch(`${baseUrl}/`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+
+    const body = await response.text();
+    expect(body).toContain("ChatAgent Fast + Deep Thread");
+  });
+
   it("supports provisional then refined flow through HTTP endpoints", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
@@ -161,10 +183,12 @@ describe("chat server", () => {
     const telemetryPayload = (await telemetryResponse.json()) as {
       policy: { maxFastP95Ms: number };
       estimates: Array<{ p95: number }>;
+      queueDepth?: number;
     };
 
     expect(telemetryPayload.policy.maxFastP95Ms).toBe(1000);
     expect(telemetryPayload.estimates.length).toBeGreaterThan(0);
+    expect(typeof telemetryPayload.queueDepth).toBe("number");
 
     const tuneResponse = await fetch(`${baseUrl}/routing/policy/tune`, {
       method: "POST",

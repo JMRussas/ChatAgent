@@ -11,6 +11,42 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - UI Shell and Live Polling
+
+Status: Closed
+
+Issue:
+
+- The prototype lacked any visible UI for demonstrating the fast-to-refined swap; reviewers had to infer behavior from curl output.
+
+Decision:
+
+- Serve a first-cut static control-room page from `GET /` using vanilla HTML/CSS/JS.
+- Keep API contracts unchanged and poll existing endpoints (`/messages`, `/conversations/:id/events`, `/telemetry/latency`) at a lightweight interval.
+
+Changes made:
+
+1. Added static page renderer module and `GET /` route.
+2. Added client-side polling and rendering logic for provisional-to-refined transition.
+3. Exposed `queueDepth` in telemetry payload so the side panel can show queue pressure.
+4. Added integration coverage for `GET /` plus telemetry queue depth presence.
+
+Files changed:
+
+- `src/ui/homePage.ts` (new)
+- `src/server.ts`
+- `src/app/chatService.ts`
+- `tests/integration/server.test.ts`
+- `README.md`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Integration tests include route coverage for `GET /`.
+2. Full release verification command passes after the change.
+
+---
+
 ## 2026-09-25 - Background Deep-Worker Auto-Run
 
 Status: Closed

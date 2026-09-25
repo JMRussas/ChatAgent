@@ -38,6 +38,8 @@ npm run dev
 
 Server starts on `PORT` (default `3100`).
 
+Open `http://localhost:3100/` to use the built-in prototype UI.
+
 ## HTTP API
 
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
@@ -80,6 +82,8 @@ curl -X POST http://localhost:3100/workers/deep/dead-letters/<taskId>/replay
 ```bash
 curl http://localhost:3100/telemetry/latency
 ```
+
+Response now also includes `queueDepth` for the current in-memory deep-task queue.
 
 7. Trigger policy auto-tune based on queue depth
 
@@ -180,6 +184,12 @@ DEEP_WORKER_INTERVAL_MS=500
 Telemetry snapshots are schema-validated on load/save. Invalid or malformed snapshot files are ignored with warnings, and snapshot writes use atomic file replacement.
 `ROUTING_MAX_FAST_P95_MS` and `TELEMETRY_SAVE_INTERVAL_MS` are normalized and clamped to safe ranges during startup.
 When `DEEP_WORKER_AUTO_RUN=true`, the server drains one deep task per interval tick so provisional replies can refine automatically without manual `/workers/deep/run-once` calls.
+
+UI behavior:
+
+1. `GET /` serves a static control-room page (vanilla HTML/CSS/JS) for desktop and mobile.
+2. The page posts to `/messages` and polls `/conversations/:id/events` plus `/telemetry/latency` once per second.
+3. Deep-route turns render provisional replies first and then swap in-place to refined replies when background processing completes.
 
 Adaptive routing behavior:
 

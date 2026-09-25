@@ -43,16 +43,21 @@ export class ChatService {
   }
 
   getRoutingTelemetry() {
+    const queueLike = this.queue as unknown as { size?: () => number } | undefined;
+    const queueDepth = typeof queueLike?.size === "function" ? queueLike.size() : undefined;
+
     if (!this.adaptiveRouting) {
       return {
         policy: { maxFastP95Ms: 1000 },
-        estimates: []
+        estimates: [],
+        queueDepth
       };
     }
 
     return {
       policy: this.adaptiveRouting.getPolicy(),
-      estimates: this.adaptiveRouting.getLatencyEstimates()
+      estimates: this.adaptiveRouting.getLatencyEstimates(),
+      queueDepth
     };
   }
 
