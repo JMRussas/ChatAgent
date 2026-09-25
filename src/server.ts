@@ -12,6 +12,7 @@ import { buildProviderPair } from "./providers/providerFactory";
 import { AdaptiveRoutingCoordinator } from "./routing/adaptiveRouting";
 import { InMemoryLatencyEstimator } from "./telemetry/latencyEstimator";
 import { FileLatencyTelemetryStore } from "./telemetry/latencyTelemetryStore";
+import { z } from "zod";
 
 function seedPriorsForProfile(
   estimator: InMemoryLatencyEstimator,
@@ -84,6 +85,29 @@ class HttpRequestError extends Error {
   }
 }
 
+const MessageBodySchema = z.object({
+  conversationId: z.string().min(1),
+  userId: z.string().min(1),
+  text: z.string().min(1),
+  timestampIso: z.string().min(1).optional()
+});
+
+const QueueDepthBodySchema = z.object({
+  queueDepth: z.number().finite().int().nonnegative().optional()
+});
+
+const RoutingPolicyBodySchema = z.object({
+  maxFastP95Ms: z.number().finite().positive().optional()
+});
+
+function requireObjectBody(body: unknown): Record<string, unknown> {
+  if (body === null || Array.isArray(body) || typeof body !== "object") {
+    throw new HttpRequestError(400, "Request body must be a JSON object");
+  }
+
+  return body as Record<string, unknown>;
+}
+
 async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Uint8Array[] = [];
 
@@ -108,11 +132,7 @@ export function createChatServer(service: ChatService) {
       const url = new URL(req.url ?? "/", "http://localhost");
 
       if (method === "POST" && url.pathname === "/messages") {
-        const body = (await parseJsonBody(req)) as Partial<UserMessage>;
-
-        if (!body.conversationId || !body.userId || !body.text) {
-          return json(res, 400, { error: "conversationId, userId, and text are required" });
-        }
+        const body = MessageBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
 
         const response = await service.submitMessage({
           conversationId: body.conversationId,
@@ -156,13 +176,13 @@ export function createChatServer(service: ChatService) {
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/tune") {
-        const body = (await parseJsonBody(req)) as { queueDepth?: number };
+        const body = QueueDepthBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
         const policy = service.tuneRoutingPolicy(body.queueDepth ?? 0);
         return json(res, 200, { policy });
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/set") {
-        const body = (await parseJsonBody(req)) as { maxFastP95Ms?: number };
+        const body = RoutingPolicyBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
         const policy = service.setRoutingPolicy({
           maxFastP95Ms: body.maxFastP95Ms
         });
@@ -180,6 +200,10 @@ export function createChatServer(service: ChatService) {
     } catch (error) {
       if (error instanceof HttpRequestError) {
         return json(res, error.statusCode, { error: error.message });
+      }
+
+      if (error instanceof z.ZodError) {
+        return json(res, 400, { error: "Invalid request body" });
       }
 
       return json(res, 500, { error: (error as Error).message });

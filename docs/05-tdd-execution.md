@@ -105,14 +105,19 @@
 - Keep request-validation failures distinct from server failures
 - Add integration coverage across representative POST endpoints
 
+23. HTTP request payload schema validation
+- Reject null and non-object JSON bodies with deterministic 400 responses
+- Validate endpoint-specific payload shapes before service calls
+- Add integration coverage for null-body and invalid-shape cases
+
 ## Execution burndown snapshot
 
 As of 2026-09-25
 
-1. Planned phases: 22
-2. Completed phases: 22
+1. Planned phases: 23
+2. Completed phases: 23
 3. Remaining phases in current plan: 0
-4. Completion ratio: 22/22 (100%)
+4. Completion ratio: 23/23 (100%)
 
 Phase buckets (estimated):
 
@@ -124,6 +129,9 @@ Phase buckets (estimated):
 
 3. Reliability and reproducibility hardening (14-22)
 - Status: complete (9/9)
+
+4. Request validation hardening (23)
+- Status: complete (1/1)
 
 Schedule signal:
 

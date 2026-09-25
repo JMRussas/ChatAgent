@@ -11,6 +11,66 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Full Codebase Review
+
+Status: Open
+
+Issue:
+
+- No consolidated review of the codebase existed before the baseline commit.
+
+Decision:
+
+- Record a full read-through review with reproduced bugs, design gaps, and a recommended fix order in a standalone document.
+
+Changes made:
+
+1. Added `docs/09-code-review-2026-09-25.md` with 11 bugs (4 reproduced), 10 design gaps, test observations, and a prioritized work order.
+
+Files changed:
+
+- `docs/09-code-review-2026-09-25.md`
+
+Validation evidence:
+
+1. Test suite (72 tests) and type check were green at time of review.
+2. Findings B1, B2, and B4 were reproduced with runnable snippets recorded in the review document.
+
+---
+
+## 2026-09-25 - HTTP Request Payload Schema Validation
+
+Status: Closed
+
+Issue:
+
+- The server rejected malformed JSON, but valid JSON values like `null` still reached property access and could fail with a 500.
+- Endpoint bodies were not schema-validated before service calls.
+
+Decision:
+
+- Require JSON request bodies for POST endpoints to be non-null objects.
+- Validate endpoint-specific shapes with `zod` before invoking service logic.
+
+Changes made:
+
+1. Added object-body guard to reject `null`, arrays, and primitive JSON values.
+2. Added `zod` schemas for `/messages`, `/routing/policy/tune`, and `/routing/policy/set` payloads.
+3. Added integration coverage for null-body and invalid-shape cases.
+
+Files changed:
+
+- `src/server.ts`
+- `tests/integration/server.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Integration tests cover null and invalid request bodies.
+2. Full release verification command passes after the change.
+
+---
+
 ## 2026-09-25 - Execution Burndown Tracking in TDD Plan
 
 Status: Closed

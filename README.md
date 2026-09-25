@@ -41,6 +41,7 @@ Server starts on `PORT` (default `3000`).
 ## HTTP API
 
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
+JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and primitive values return `400`.
 
 1. Submit message
 
@@ -261,3 +262,4 @@ CHAT_DEEP_MODEL=qwen2.5:14b
 - Model/provider strategy: `docs/06-model-strategy.md`
 - Demo script: `docs/07-demo-script.md`
 - Engineering decision log: `docs/08-engineering-decision-log.md`
+- Code review (2026-09-25): `docs/09-code-review-2026-09-25.md`

@@ -231,4 +231,54 @@ describe("chat server", () => {
     const policyPayload = (await policyResponse.json()) as { error: string };
     expect(policyPayload.error).toBe("Invalid JSON body");
   });
+
+  it("returns 400 for null and invalid object bodies", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline);
+    const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
+    const service = new ChatService(orchestrator, worker, timeline);
+
+    const server = createChatServer(service);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const nullMessageResponse = await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "null"
+    });
+
+    expect(nullMessageResponse.status).toBe(400);
+    expect((await nullMessageResponse.json()) as { error: string }).toEqual({
+      error: "Request body must be a JSON object"
+    });
+
+    const invalidMessageResponse = await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: "", userId: "u1", text: "hello" })
+    });
+
+    expect(invalidMessageResponse.status).toBe(400);
+
+    const nullPolicyResponse = await fetch(`${baseUrl}/routing/policy/set`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "null"
+    });
+
+    expect(nullPolicyResponse.status).toBe(400);
+
+    const invalidTuneResponse = await fetch(`${baseUrl}/routing/policy/tune`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queueDepth: -1 })
+    });
+
+    expect(invalidTuneResponse.status).toBe(400);
+  });
 });
