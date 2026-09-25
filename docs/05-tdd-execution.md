@@ -50,6 +50,11 @@
 - Add threshold-based pass/fail gates for latency, quality, and dead-letter regressions
 - Emit markdown comparison report for release review
 
+12. Routing policy persistence
+- Persist adaptive routing policy alongside latency estimator snapshots
+- Add explicit policy set endpoint for reproducible experiments
+- Add integration coverage for policy mutation and retrieval
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test

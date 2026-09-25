@@ -146,6 +146,14 @@ export function createChatServer(service: ChatService) {
         return json(res, 200, { policy });
       }
 
+      if (method === "POST" && url.pathname === "/routing/policy/set") {
+        const body = (await parseJsonBody(req)) as { maxFastP95Ms?: number };
+        const policy = service.setRoutingPolicy({
+          maxFastP95Ms: body.maxFastP95Ms
+        });
+        return json(res, 200, { policy });
+      }
+
       if (method === "GET" && url.pathname.startsWith("/conversations/") && url.pathname.endsWith("/events")) {
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
@@ -187,7 +195,7 @@ export async function startServer(port: number): Promise<void> {
   const telemetryStore = new FileLatencyTelemetryStore(process.env.TELEMETRY_STORE_PATH ?? "data/latency-telemetry.json");
   const existingSnapshot = await telemetryStore.load();
   if (existingSnapshot) {
-    adaptiveRouting.hydrateEstimator(existingSnapshot);
+    adaptiveRouting.hydrateState(existingSnapshot);
   }
 
   const queue = new InMemoryTaskQueue();
@@ -198,7 +206,7 @@ export async function startServer(port: number): Promise<void> {
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 
   const saveTelemetry = async () => {
-    await telemetryStore.save(adaptiveRouting.snapshotEstimator());
+    await telemetryStore.save(adaptiveRouting.snapshotState());
   };
 
   const telemetrySaveIntervalMs = Number(process.env.TELEMETRY_SAVE_INTERVAL_MS ?? "5000");

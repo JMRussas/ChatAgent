@@ -1,6 +1,7 @@
 import type { FastAnalysis, UserMessage } from "../domain/types";
 import { classifyPrompt, type PromptSizeBand } from "./classifier";
 import { InMemoryLatencyEstimator } from "../telemetry/latencyEstimator";
+import type { RoutingTelemetrySnapshot } from "../telemetry/latencyTelemetryStore";
 
 export interface ProviderProfile {
   provider: string;
@@ -114,5 +115,19 @@ export class AdaptiveRoutingCoordinator {
 
   hydrateEstimator(snapshot: Parameters<InMemoryLatencyEstimator["hydrate"]>[0]): void {
     this.estimator.hydrate(snapshot);
+  }
+
+  snapshotState(): RoutingTelemetrySnapshot {
+    return {
+      estimator: this.estimator.snapshot(),
+      policy: {
+        maxFastP95Ms: this.maxFastP95Ms
+      }
+    };
+  }
+
+  hydrateState(snapshot: RoutingTelemetrySnapshot): void {
+    this.estimator.hydrate(snapshot.estimator);
+    this.setMaxFastP95Ms(snapshot.policy.maxFastP95Ms);
   }
 }

@@ -94,6 +94,47 @@ Validation evidence:
 2. `npm run bench:compare` generates `reports/benchmark-compare.md`.
 3. Full test suite and lint pass.
 
+---
+
+## 2026-09-25 - Persisted Routing Policy and Explicit Policy Endpoint
+
+Status: Closed
+
+Issue:
+
+- Latency telemetry snapshots persisted, but adaptive policy threshold did not.
+- Reproducibility across restarts and benchmark runs required stable policy restoration.
+
+Decision:
+
+- Persist both estimator and routing policy in a unified telemetry snapshot.
+- Add explicit policy mutation endpoint for deterministic experiment setup.
+
+Changes made:
+
+1. Extended telemetry snapshot shape to include policy values.
+2. Added adaptive routing state snapshot/hydration methods.
+3. Updated server bootstrap to load/save full routing state.
+4. Added endpoint:
+- `POST /routing/policy/set`
+5. Added/updated tests for snapshot shape and policy endpoint behavior.
+
+Files changed:
+
+- `src/telemetry/latencyTelemetryStore.ts`
+- `src/routing/adaptiveRouting.ts`
+- `src/app/chatService.ts`
+- `src/server.ts`
+- `tests/unit/latencyTelemetryStore.test.ts`
+- `tests/integration/server.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Full test suite passes.
+2. Type-check passes.
+3. Integration verifies policy tuning plus explicit set endpoint behavior.
+
 1. `npm test` passed (all tests green).
 2. `npm run lint` passed.
 3. `npm run eval:report` result changed to PASS on sample set.

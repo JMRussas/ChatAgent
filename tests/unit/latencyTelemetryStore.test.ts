@@ -33,22 +33,28 @@ describe("latency telemetry store", () => {
     const store = new FileLatencyTelemetryStore(path);
 
     await store.save({
-      priors: [
-        {
-          bucket: { provider: "azure", model: "fast", route: "direct", sizeBand: "small" },
-          prior: { p50: 200, p90: 400, p95: 500, p99: 800 }
-        }
-      ],
-      samples: [
-        {
-          bucket: { provider: "azure", model: "fast", route: "direct", sizeBand: "small" },
-          values: [350, 410]
-        }
-      ]
+      estimator: {
+        priors: [
+          {
+            bucket: { provider: "azure", model: "fast", route: "direct", sizeBand: "small" },
+            prior: { p50: 200, p90: 400, p95: 500, p99: 800 }
+          }
+        ],
+        samples: [
+          {
+            bucket: { provider: "azure", model: "fast", route: "direct", sizeBand: "small" },
+            values: [350, 410]
+          }
+        ]
+      },
+      policy: {
+        maxFastP95Ms: 900
+      }
     });
 
     const loaded = await store.load();
-    expect(loaded?.priors.length).toBe(1);
-    expect(loaded?.samples[0].values).toEqual([350, 410]);
+    expect(loaded?.estimator.priors.length).toBe(1);
+    expect(loaded?.estimator.samples[0].values).toEqual([350, 410]);
+    expect(loaded?.policy.maxFastP95Ms).toBe(900);
   });
 });

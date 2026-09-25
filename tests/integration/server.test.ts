@@ -179,5 +179,19 @@ describe("chat server", () => {
     };
 
     expect(tunePayload.policy.maxFastP95Ms).toBeLessThan(1000);
+
+    const setResponse = await fetch(`${baseUrl}/routing/policy/set`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ maxFastP95Ms: 1400 })
+    });
+
+    expect(setResponse.status).toBe(200);
+
+    const setPayload = (await setResponse.json()) as {
+      policy: { maxFastP95Ms: number };
+    };
+
+    expect(setPayload.policy.maxFastP95Ms).toBe(1400);
   });
 });

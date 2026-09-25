@@ -78,4 +78,16 @@ export class ChatService {
     this.adaptiveRouting.setMaxFastP95Ms(next);
     return this.adaptiveRouting.getPolicy();
   }
+
+  setRoutingPolicy(input: { maxFastP95Ms?: number }): { maxFastP95Ms: number } {
+    if (!this.adaptiveRouting) {
+      return { maxFastP95Ms: 1000 };
+    }
+
+    if (typeof input.maxFastP95Ms === "number" && Number.isFinite(input.maxFastP95Ms)) {
+      this.adaptiveRouting.setMaxFastP95Ms(input.maxFastP95Ms);
+    }
+
+    return this.adaptiveRouting.getPolicy();
+  }
 }
