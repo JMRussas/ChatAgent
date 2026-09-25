@@ -11,6 +11,42 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Telemetry Store Resilience (Validation + Atomic Writes)
+
+Status: Closed
+
+Issue:
+
+- Server startup could fail if telemetry snapshot JSON was malformed or structurally invalid.
+- Snapshot writes were direct-to-target, which increased risk of truncated/corrupted files on interrupted writes.
+
+Decision:
+
+- Validate telemetry snapshots with schema checks at load/save boundaries.
+- Gracefully ignore malformed/invalid snapshot files with warning logs.
+- Persist snapshots through temp-file write then atomic rename.
+
+Changes made:
+
+1. Added `zod` schemas for telemetry snapshot structure.
+2. Added `validateRoutingTelemetrySnapshot` helper.
+3. Updated `load()` to return `undefined` for malformed/invalid files instead of throwing.
+4. Updated `save()` to validate snapshot and use atomic temp-file replacement.
+5. Added unit tests for malformed JSON and invalid schema fallback.
+
+Files changed:
+
+- `src/telemetry/latencyTelemetryStore.ts`
+- `tests/unit/latencyTelemetryStore.test.ts`
+- `docs/05-tdd-execution.md`
+
+Validation evidence:
+
+1. Telemetry store tests pass for malformed/invalid snapshot handling.
+2. Full release verification command passes.
+
+---
+
 ## 2026-09-25 - Benchmark Runner Import Side-Effect Fix
 
 Status: Closed

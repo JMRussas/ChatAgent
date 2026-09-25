@@ -147,6 +147,8 @@ TELEMETRY_STORE_PATH=data/latency-telemetry.json
 TELEMETRY_SAVE_INTERVAL_MS=5000
 ```
 
+Telemetry snapshots are schema-validated on load/save. Invalid or malformed snapshot files are ignored with warnings, and snapshot writes use atomic file replacement.
+
 Adaptive routing behavior:
 
 1. Classifies prompt complexity, ambiguity, external-data need, and size band.

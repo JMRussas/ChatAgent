@@ -90,6 +90,11 @@
 - Prevent side effects during unit-test imports
 - Add unit tests for entrypoint guard behavior
 
+20. Telemetry persistence resilience
+- Validate persisted telemetry snapshot schema on load/save
+- Gracefully ignore malformed or invalid telemetry files
+- Use atomic file replacement for snapshot writes
+
 ## Daily red-green-refactor checklist
 
 1. Start from failing test
