@@ -10,7 +10,8 @@ server, actual bound address and idempotent `shutdown(): Promise<void>`. index.t
 owns SIGINT/SIGTERM registration, calls shutdown once and sets a failure exit code
 if cleanup fails. Tests call the handle directly and do not install global signals.
 
-Shutdown order: reject new messages with 503 SHUTTING_DOWN; stop worker/discovery/
+Shutdown order: reject new messages with 503 SHUTTING_DOWN; cancel/await internal
+summary jobs and prevent further memory publication; stop worker/discovery/
 save timers; allow running work `SHUTDOWN_GRACE_MS=5000`; then cancel remaining
 requests/CLI processes; mark pending tasks cancelled; close SSE responses and idle
 connections; await the serialized final telemetry save; close HTTP server. Overall

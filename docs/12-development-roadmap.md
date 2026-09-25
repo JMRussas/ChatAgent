@@ -9,6 +9,13 @@ six next milestones. They take precedence over this overview for implementation
 details; their presence does not mean the features are implemented. Start with
 [01 — Conversation context](implementation/01-context.md).
 
+Context revision 2: [internal memory extension](implementation/01-context-memory.md)
+adds budget-triggered summarization inside ContextManager, original source records,
+provenance, revision validation and bounded source checking. It also retains pending
+request awareness separately from accepted answers. Implement in two stages: 01A
+bounded snapshots/task state, then 01B compression/source-backed memory. These are
+planned changes; no context implementation is claimed by this documentation update.
+
 ## Current status and next implementation order
 
 Reconciled through implementation commit `8afce48` on 2026-09-25. The latest
@@ -32,7 +39,9 @@ Implementation order following the latest discussion:
    snapshot, and bounded recent history. Prefer refined answers over provisional
    ones, exclude activity events, and preserve the snapshot when deep work is queued.
    Supply verified runtime facts and explicitly acknowledge unknowns. Test follow-ups,
-   overlapping turns, and input/output budget limits. Add summarization only when needed.
+   overlapping turns, and input/output budget limits. Add internal budget-triggered
+   compression per 01B, preserving source records and exact recent turns; do not
+   summarize at the chat/UI layer or erase pending task awareness.
 2. **Generation controls and streaming.** Verify model thinking controls; explicitly
    configure them for the fast path. Tune output budgets from measurements, handle
    all length-truncated answers, and add token streaming/cancellation while retaining

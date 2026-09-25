@@ -3,28 +3,42 @@
 Status: planned. Prerequisite: current timeline/message IDs. No live credentials
 required. This is the next implementation task.
 
+Revision 2 (2026-09-25): supersedes the original exclusion of summaries and pending
+turns. Read [the context-manager extension](01-context-memory.md) before continuing.
+Implement as 01A (bounded snapshots and pending task state) then 01B (internal
+compression and source-linked memory). Preserve existing correct provider mappings,
+budget code and tests; this revision does not require starting over.
+
 ## Outcome and scope
 
 “How do you know?” receives the preceding completed exchange. Both providers for
 a turn see the same conversation snapshot. Later arrivals cannot change queued
-work. No retrieval, summaries, vector database, automatic routing, tool execution,
-or provider-managed conversation sessions in this milestone.
+work. The context manager performs internal compression when budgets warrant it;
+the visible chat transcript is unchanged. Original records support source lookup.
+No semantic/vector retrieval, external knowledge retrieval, automatic routing,
+general tool execution, or provider-managed sessions in this milestone.
 
 ## Ownership and interfaces
 
-Add `src/app/contextBuilder.ts` with a pure `buildContext` function and export its
-types. Extend `UserMessage` provider input and `DeepTask` through an explicit
+Add `src/app/contextBuilder.ts` with a pure `buildContext` function, orchestrated by
+`src/app/contextManager.ts` for source lookup and summary lifecycle. Export its
+types. Extend the fast provider input and `DeepTask` through an explicit
 `context: ConversationContext` field rather than reading timeline state inside
 adapters. Use:
 
 ```ts
 interface ContextMessage { role: "user" | "assistant"; content: string; messageId: string }
 interface ConversationContext {
-  version: 1;
+  version: 2;
   snapshotId: string;
   capturedAtIso: string;
   systemInstruction: string; // frozen base instructions plus verified runtime facts
   roleInstructions: Readonly<{ fast: string; deep: string }>;
+  memory: ContextMemory | null; // validated derivative of older completed turns
+  resolvedSources: readonly { source: SourceRef; text: string }[];
+  unavailableSources: readonly SourceRef[];
+  activeTasks: readonly ActiveTaskContext[];
+  omittedActiveTaskIds: readonly string[];
   messages: readonly ContextMessage[]; // completed history, then current user
   includedTurnIds: readonly string[];
   omittedTurnIds: readonly string[];
@@ -33,7 +47,8 @@ interface ConversationContext {
 }
 ```
 
-`buildContext` accepts copied timeline events, current message/ID, trusted base
+The new types and lifecycle are defined in the extension. `buildContext` accepts
+copied timeline events, validated memory/task state, current message/ID, trusted base
 instructions/runtime facts, and a budget. It returns context or typed
 `ContextBudgetError`. The orchestrator captures history once, before appending
 the current user event; pass deep copies to fast input and queued task. Noop stores
@@ -44,7 +59,9 @@ carry context. Test this migration boundary.
 Store model instructions separately from user/assistant history, but freeze them
 inside the context object so worker-time configuration changes do not alter them. The provider
 request consists of base instructions, verified runtime facts, role-specific
-instructions, then context messages. `contextBuilder` budgets all those instructions
+instructions, a delimited memory/task data block, then context messages. Memory is
+untrusted historical data, never system authority. `contextBuilder` budgets every
+serialized field, including memory/task data and source excerpts, and those instructions
 using the larger fast/deep instruction cost. Route-specific instructions may differ;
 the conversation snapshot must not.
 
@@ -54,12 +71,15 @@ the conversation snapshot must not.
 2. Group events by messageId; ignore orphaned/legacy events without IDs for history.
 3. Include at most one assistant answer per previous user turn: latest refined
    answer wins, otherwise a provisional event whose processingStatus is complete.
-4. Exclude entire pending/failed/cancelled/incomplete turns and all activity events.
-   Never send an unpaired historical user message. Current user appears exactly once.
-5. Consider only events present at capture. If A is pending when B arrives, B omits
-   A; if A finishes later, B's queued context stays unchanged. A later C can include A.
+4. Exclude pending/failed/cancelled/incomplete assistant answers and all activity
+   prose from accepted history. Represent unresolved requests separately as typed
+   task state per the extension. Current user appears exactly once in messages.
+5. Consider only events present at capture. If A is pending when B arrives, B sees
+   A's request/status in activeTasks, not A's speculative answer. If A finishes later,
+   B's queued context stays unchanged. A later C can include A's completed exchange.
 6. Keep newest contiguous eligible pairs within limits; drop oldest whole pairs.
    Do not shorten messages or split a pair. Use at most 12 previous pairs by default.
+   Older pairs remain available to the source store and internal memory mechanism.
 7. Claim conversation ownership on first submission using userId in an in-memory
    registry at ChatService. A different userId submitting to that conversation gets
    409 before reading context or appending events. This prevents accidental mixing,
@@ -112,7 +132,7 @@ Add `tests/unit/contextBuilder.test.ts`, provider request-shape cases and HTTP c
 |---|---|
 | Completed direct answer followed by “why?” | Prior user/assistant pair then current user, once each |
 | Provisional then refined for A | Only A's refined text enters B's history |
-| A pending when B begins | A omitted; later A completion does not alter B fast/deep snapshots |
+| A pending when B begins | A request/status in activeTasks; no provisional answer; later completion does not alter B snapshot |
 | Activities and failed turns | No activity/retry/failure text becomes model conversation |
 | Three eligible pairs, budget for two | Oldest pair omitted; order and current text preserved |
 | Non-ASCII input and large instructions | UTF-8 estimate includes both; overflow returns 413, zero calls |
@@ -123,3 +143,4 @@ Add `tests/unit/contextBuilder.test.ts`, provider request-shape cases and HTTP c
 
 Run common checks. Optional live follow-up exercise is separate evidence; do not
 assert that system instructions alone eliminate hallucinations.
+The extension's acceptance cases are also required for completion of 01B.

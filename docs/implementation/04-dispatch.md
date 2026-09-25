@@ -53,7 +53,9 @@ and configured cost policy. Unknown hard constraints fail closed in catalog mode
 Fixed mode retains legacy behavior and emits its fixed-selection explanation.
 
 Resolve context/selection dependency by building a raw immutable history snapshot
-first, then preview budgeted context for each candidate. Rank candidates retaining
+first, then preview budgeted context for each candidate using the same captured
+memory revision and active-task state. Preview must not trigger summary model calls
+per candidate. Rank candidates retaining
 the greatest number of recent complete pairs first, then matching evaluation
 success rate (minimum 20 samples, at most 30 days old), then first-useful p95,
 then configured integer `routingPriority` (default 100, lower wins), then bindingId

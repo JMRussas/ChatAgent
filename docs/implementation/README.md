@@ -5,18 +5,25 @@ changes, not existing APIs. Read the current source before editing; do not resto
 the baseline over newer work. The last implementation check was 119 passing tests
 across 29 files plus type checking. No live quality pass is claimed.
 
+**Context plan revision 2:** read [01's memory extension](01-context-memory.md)
+before resuming context work. It supersedes the original “no summaries” and
+“drop all pending turns” requirements. Summarization belongs to the context manager,
+not the visible chat. Preserve useful work already implemented; see the extension's
+safe continuation instructions. No source implementation was changed by this revision.
+
 ## Execution order
 
 | Spec | Dependency | Deliverable |
 |---|---|---|
-| [01 Context](01-context.md) | Existing baseline | Shared, bounded per-turn conversation snapshot |
-| [02 Generation](02-generation.md) | 01 | Thinking controls, streamed answers, cancellation |
+| [01 Context](01-context.md) + [memory extension](01-context-memory.md) | Existing baseline | 01A snapshots/pending state; 01B internal summaries/source records |
+| [02 Generation](02-generation.md) | 01A; preserve v2 context fields | Thinking controls, streamed answers, cancellation |
 | [03 Inventory](03-inventory.md) | Existing catalog; integrate after 02 | Connections and fresh provider observations |
 | [04 Dispatch](04-dispatch.md) | 01–03 | Deterministic task-based model selection |
 | [05 CLI](05-cli.md) | 02–04; product/account selection for live adapter | Subscription execution via a registered adapter |
 | [06 Verification](06-verification.md) | 01–04; include 05 when enabled | Shutdown, honest benchmarks, browser and live gates |
 
-Implement one numbered spec at a time, in this order. Do not implement later
+Implement one numbered spec at a time, in this order; 02 may start after 01A if
+01B is explicitly recorded as outstanding. Do not implement later
 milestones as incidental refactoring. Each spec has a scope boundary and named
 acceptance cases; completion requires the cases, not merely new types or metadata.
 03's interfaces can be designed independently, but this handoff does not require
@@ -29,7 +36,8 @@ parallel agents. Production deployment and retrieval are separate future scopes.
   or timestamps. Preserve existing HTTP fields during incremental migration.
 - Keep UI timeline events separate from provider conversation messages. Activities,
   partial deltas and diagnostic metadata are never assistant conversation content.
-- Orchestrator owns context and selection; adapters translate requests and emit
+- ContextManager owns context preparation, summary lifecycle and source lookup;
+  orchestrator captures the prepared context and owns selection. Adapters translate requests and emit
   results; workers execute frozen tasks; the UI displays persisted facts.
 - No provider credentials, login tokens, hidden reasoning text, full environment
   dumps, or arbitrary shell command strings in public events/catalog endpoints.

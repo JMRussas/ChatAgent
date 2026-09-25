@@ -1,6 +1,7 @@
 # 02 — Thinking controls, answer streaming and cancellation
 
-Status: planned. Depends on 01. Offline completion uses fake HTTP/event streams.
+Status: planned. Depends on 01A (context revision 2). Preserve the memory/task fields
+even if 01B is outstanding. Offline completion uses fake HTTP/event streams.
 
 ## Outcome and boundaries
 
@@ -33,6 +34,8 @@ was emitted. Never concatenate two attempts' text as one answer.
 
 Timeline adds `type: "delta"`, messageId, attemptId, phase (`fast`/`deep`) and text;
 every event receives an increasing per-conversation sequence from timelineStore.
+Reuse the stable eventId/sequence already introduced by context revision 2; do not
+introduce a second event ordering system. Deltas are not eligible memory sources.
 Terminal events carry phase, attemptId and finishReason. Existing provisional and
 refined events remain authoritative full texts. The UI derives separate fast/deep
 drafts; once deep text starts, display it in preference to fast text. Late fast
