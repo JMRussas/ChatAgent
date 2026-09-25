@@ -1,0 +1,34 @@
+[
+  {
+    "id": "direct-basic-math",
+    "prompt": "What is 2+2?",
+    "expectedRoute": "direct",
+    "expectedPhase": "fast-only",
+    "expectedFastMustInclude": ["4"],
+    "maxFastLatencyMs": 25000
+  },
+  {
+    "id": "clarify-underspecified",
+    "prompt": "Do it",
+    "expectedRoute": "clarify",
+    "expectedPhase": "fast-only",
+    "expectedFastMustInclude": ["?"],
+    "maxFastLatencyMs": 25000
+  },
+  {
+    "id": "deep-latest-sourced",
+    "prompt": "Find the latest US inflation data and cite sources.",
+    "expectedRoute": "deep",
+    "expectedPhase": "deep-required",
+    "maxFastLatencyMs": 25000,
+    "maxEndToEndLatencyMs": 120000
+  },
+  {
+    "id": "deep-complex-compare",
+    "prompt": "Compare Azure OpenAI and AWS Bedrock tradeoffs for latency and cost in a production chatbot.",
+    "expectedRoute": "deep",
+    "expectedPhase": "deep-required",
+    "maxFastLatencyMs": 25000,
+    "maxEndToEndLatencyMs": 120000
+  }
+]

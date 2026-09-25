@@ -11,6 +11,46 @@ How to use this log:
 
 ---
 
+## 2026-09-25 - Golden Prompt Set for End-to-End Route Verification
+
+Status: Closed
+
+Issue:
+
+- Existing tests validated API routes and rendering contracts, but there was no
+  deterministic end-to-end suite that executed the full system against
+  expected route behaviors for representative prompts.
+
+Decision:
+
+- Add a golden evaluation harness that runs prompt cases through the live
+  server, validates expected route/phase behavior (`fast-only` vs
+  `deep-required`), and produces machine-readable plus markdown reports.
+
+Changes made:
+
+1. Added schema-backed golden case definitions and report rendering.
+2. Added a live runner that submits prompts, polls conversation events, and
+   triggers deep worker ticks for deterministic deep-path completion.
+3. Added initial golden dataset with direct, clarify, and deep-route cases.
+4. Added unit tests for schema/report behavior and npm script wiring.
+
+Files changed:
+
+- `src/eval/golden.ts` (new)
+- `src/eval/runGoldenSet.ts` (new)
+- `data/golden-prompts.json` (new)
+- `tests/eval/golden.test.ts` (new)
+- `package.json`
+- `README.md`
+
+Validation evidence:
+
+1. Unit tests pass for golden schema and report generation.
+2. Full release gate passes after integration.
+
+---
+
 ## 2026-09-25 - UI Shell and Live Polling
 
 Status: Closed

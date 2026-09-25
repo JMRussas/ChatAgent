@@ -276,6 +276,35 @@ Artifacts:
 2. `reports/benchmark-summary.md`
 3. `reports/benchmark-compare.md`
 
+## Golden Route Set (end-to-end)
+
+Use the golden set to fully execute the running system against route expectations
+and response-shape checks.
+
+1. Start the server (`npm run dev`).
+2. Run the golden suite:
+
+```bash
+npm run eval:golden
+```
+
+Default inputs/outputs:
+
+1. Input cases: `data/golden-prompts.json`
+2. JSON report: `reports/golden-eval.json`
+3. Markdown report: `reports/golden-eval.md`
+
+Optional env vars:
+
+```bash
+GOLDEN_SET_PATH=data/golden-prompts.json
+GOLDEN_BASE_URL=http://localhost:3100
+GOLDEN_REPORT_JSON_PATH=reports/golden-eval.json
+GOLDEN_REPORT_MD_PATH=reports/golden-eval.md
+GOLDEN_DEEP_TIMEOUT_MS=120000
+GOLDEN_POLL_INTERVAL_MS=400
+```
+
 Examples:
 
 1. Fast on Ollama, deep on Bedrock
