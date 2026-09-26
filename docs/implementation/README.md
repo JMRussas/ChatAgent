@@ -38,7 +38,8 @@ when starting 02. Do not add UI/persistence work to the current context task.
 | [05 CLI](05-cli.md) | 02–04; product/account selection for live adapter | Subscription execution via a registered adapter |
 | [06 Verification](06-verification.md) | 01–04; include 05 when enabled | Shutdown, honest benchmarks, browser and live gates |
 
-The ownership ADR and spec 02 are implemented; 01B remains outstanding.
+The ownership ADR, 01A/01B and spec 02 are implemented. See [01B evidence](01b-evidence.md).
+Current user direction: work only in ChatAgent; leave Iris/Hekate follow-up for work in those repos.
 Follow NEXT-HANDOFF.md for the next bounded task. Implement one reconciled numbered spec at a time. Do not implement later
 milestones as incidental refactoring. Each spec has a scope boundary and named
 acceptance cases; completion requires the cases, not merely new types or metadata.

@@ -1,7 +1,7 @@
 # 01 — Conversation context and grounding
 
-Status: planned. Prerequisite: current timeline/message IDs. No live credentials
-required. This is the next implementation task.
+Status: 01A and 01B implemented. See [01B evidence](01b-evidence.md).
+No live model-quality certification is claimed.
 
 Revision 2 (2026-09-25): supersedes the original exclusion of summaries and pending
 turns. Read [the context-manager extension](01-context-memory.md) before continuing.
@@ -129,7 +129,7 @@ retrieval or tools that were not used. Model behavior remains probabilistic.
 The [01A review follow-up](01a-review-followup.md) adds mandatory CTX-01–04
 cross-component regressions and clarifies effective caps, exact rendered budgets,
 route instructions and replay state. These corrections now pass the named tests
-in that follow-up; 01B remains outstanding.
+in that follow-up; 01B now has separate [acceptance evidence](01b-evidence.md).
 
 Add `tests/unit/contextBuilder.test.ts`, provider request-shape cases and HTTP cases:
 

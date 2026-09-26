@@ -21,7 +21,7 @@ function resolveOllamaDeepTimeoutMs(): number {
   return parsePositiveIntEnv(process.env.OLLAMA_DEEP_TIMEOUT_MS, 10_000, 500, 240_000);
 }
 
-function buildFastProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): FastModelProvider {
+export function buildFastProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): FastModelProvider {
   const fast = config.fast;
 
   if (fast.provider === "mock") return new MockFastProvider();

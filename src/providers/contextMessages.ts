@@ -20,7 +20,7 @@ export interface SystemAndMessages {
  */
 export function buildSystemAndMessages(context: ConversationContext, role: "fast" | "deep"): SystemAndMessages {
   return {
-    system: renderContextSystem(context.systemInstruction, context.roleInstructions[role], context.activeTasks),
+    system: renderContextSystem(context.systemInstruction, context.roleInstructions[role], context.activeTasks, context.memory, context.resolvedSources, context.unavailableSources),
     messages: context.messages.map((m) => ({ role: m.role, content: m.content }))
   };
 }

@@ -280,8 +280,31 @@ input. `OLLAMA_FAST_NUM_PREDICT` / `OLLAMA_DEEP_NUM_PREDICT` remain authoritativ
 when explicitly set; otherwise Ollama uses `CHAT_FAST_MAX_OUTPUT_TOKENS` /
 `CHAT_DEEP_MAX_OUTPUT_TOKENS`. See [01 — Conversation context](docs/implementation/01-context.md)
 and its [memory extension](docs/implementation/01-context-memory.md) for the full
-design; internal summarization and source-linked memory (01B) are not implemented
-yet — history beyond `CONTEXT_MAX_HISTORY_TURNS` is dropped, not summarized.
+design. Internal source-linked memory (01B) is implemented; the visible transcript
+is never replaced by a summary.
+
+```bash
+CONTEXT_SUMMARY_MODE=extractive  # off / extractive / model
+CONTEXT_SUMMARY_TRIGGER_RATIO=0.8
+CONTEXT_SUMMARY_MAX_TOKENS=1024
+CONTEXT_SUMMARY_TIMEOUT_MS=5000
+# Model mode requires explicit opt-in to extra calls on the existing fast binding:
+# CONTEXT_SUMMARY_MODEL_BINDING=fast
+```
+
+Compression runs in the background over older completed turns; the newest four
+pairs stay eligible as exact history. Extractive mode selects verbatim excerpts
+with user/assistant attribution and makes no model calls. Model mode uses a
+separate bounded internal request and output cap, never the chat queue. Invalid
+or timed-out summaries leave bounded history and any still-valid prior memory.
+
+“How do you know”, “check that”, “verify that”, and “what did I say” trigger bounded
+source-ID checks for included memory. Original records remain immutable; later
+refinements invalidate affected future memory without changing queued snapshots.
+Memory is untrusted data, not verified facts. `/telemetry/context` reports counts,
+budget estimates and latency without text. All stores remain in memory and reset
+on restart. See [01B evidence](docs/implementation/01b-evidence.md) for acceptance
+coverage and the limits of lexical correction/conflict handling and model summaries.
 
 Evaluation reliability thresholds (optional env vars):
 

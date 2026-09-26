@@ -24,11 +24,11 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
     const events = this.eventsByConversation.get(conversationId) ?? [];
     const sequence = (this.sequenceByConversation.get(conversationId) ?? 0) + 1;
     this.sequenceByConversation.set(conversationId, sequence);
-    events.push({ ...event, eventId: event.eventId ?? randomUUID(), sequence });
+    events.push(structuredClone({ ...event, eventId: event.eventId ?? randomUUID(), sequence }));
     this.eventsByConversation.set(conversationId, events);
   }
 
   async getEvents(conversationId: string): Promise<ChatTimelineEvent[]> {
-    return [...(this.eventsByConversation.get(conversationId) ?? [])];
+    return structuredClone(this.eventsByConversation.get(conversationId) ?? []);
   }
 }

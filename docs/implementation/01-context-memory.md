@@ -1,7 +1,7 @@
 # 01 extension — Internal compression and source-linked memory
 
-Revision 2, 2026-09-25. Normative extension to 01-context.md. This is a plan change,
-not an implemented feature. Summarization is a context-management operation;
+Revision 2, 2026-09-25. Normative extension to 01-context.md. Implementation checkpoint: 01B is implemented in ChatAgent; see
+[acceptance evidence](01b-evidence.md). The requirements below remain normative. Summarization is a context-management operation;
 it must never create a user-visible chat reply or replace original transcript text.
 
 ## Safe continuation for an implementation already underway

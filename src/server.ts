@@ -7,6 +7,8 @@ import { URL } from "node:url";
 import { ChatOrchestrator, DeepWorker } from "./app/orchestrator";
 import { ChatService, ConversationOwnershipConflictError } from "./app/chatService";
 import { ContextBudgetError } from "./app/contextBuilder";
+import { loadSummaryConfig } from "./config/summaryConfig";
+import { ModelContextSummarizer } from "./app/contextSummarizer";
 import { ContextManager } from "./app/contextManager";
 import { InMemoryDeadLetterStore } from "./app/deadLetterStore";
 import { InMemoryConversationTimelineStore } from "./app/timelineStore";
@@ -15,7 +17,7 @@ import { parseBooleanEnv, parseBoundedNumberEnv, parsePositiveIntEnv } from "./c
 import { describeProviderConfig, loadRuntimeProviderConfigFromEnv, type RuntimeProviderConfig } from "./config/providerConfig";
 import type { UserMessage } from "./domain/types";
 import { InMemoryTaskQueue } from "./providers/interfaces";
-import { buildProviderPair } from "./providers/providerFactory";
+import { buildFastProvider, buildProviderPair } from "./providers/providerFactory";
 import { AdaptiveRoutingCoordinator } from "./routing/adaptiveRouting";
 import { InMemoryLatencyEstimator } from "./telemetry/latencyEstimator";
 import { FileLatencyTelemetryStore } from "./telemetry/latencyTelemetryStore";
@@ -96,6 +98,8 @@ interface RuntimeModeInfo {
 interface ServerOptions {
   modelCatalog?: ReturnType<typeof describeModelCatalog>;
   runtimeMode?: RuntimeModeInfo;
+  shutdown?: () => Promise<void>;
+  contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
 }
 
 function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo {
@@ -175,7 +179,7 @@ function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown)
 
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
   const protocolV1 = createProtocolV1Handler(service);
-  return createServer(async (req, res) => {
+  const server = createServer(async (req, res) => {
     try {
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -233,6 +237,10 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         }
 
         return json(res, 200, { replayed: true, taskId });
+      }
+
+      if (method === "GET" && url.pathname === "/telemetry/context") {
+        return json(res, 200, options.contextTelemetry?.() ?? {});
       }
 
       if (method === "GET" && url.pathname === "/telemetry/latency") {
@@ -346,10 +354,22 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       return json(res, 500, { error: (error as Error).message });
     }
   });
+  let shutdown: Promise<void> | undefined;
+  const close = server.close.bind(server);
+  // Node's close callback must not announce completion before internal jobs settle.
+  server.close = ((callback?: (error?: Error) => void) => {
+    shutdown ??= options.shutdown?.() ?? Promise.resolve();
+    close(error => { void shutdown!.then(() => callback?.(error), failure => callback?.(failure)); });
+    return server;
+  }) as typeof server.close;
+  return server;
 }
 
 export async function startServer(port: number): Promise<void> {
   const config = loadRuntimeProviderConfigFromEnv();
+  const summaryConfig = loadSummaryConfig();
+  if (summaryConfig.mode === "model" && process.env.CONTEXT_SUMMARY_MODEL_BINDING !== "fast")
+    throw new Error("CONTEXT_SUMMARY_MODE=model requires CONTEXT_SUMMARY_MODEL_BINDING=fast (explicit extra model calls)");
   const catalog = await loadModelCatalog(process.env.MODEL_CATALOG_PATH);
   const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(process.env, { config, catalog });
   const modelCatalog = describeModelCatalog(catalog, config);
@@ -388,7 +408,10 @@ export async function startServer(port: number): Promise<void> {
   const queue = new InMemoryTaskQueue();
   const timeline = new InMemoryConversationTimelineStore();
   const deadLetters = new InMemoryDeadLetterStore();
-  const contextManager = new ContextManager(timeline, contextBudget);
+  const summaryProvider = summaryConfig.mode === "model"
+    ? new ModelContextSummarizer(buildFastProvider(config, { ...contextBudget, fastOutputTokens: summaryConfig.maxTokens }, thinking),
+      contextBudget.windowTokens, summaryConfig.maxTokens, contextBudget.safetyTokens) : undefined;
+  const contextManager = new ContextManager(timeline, contextBudget, { config: summaryConfig, summarizer: summaryProvider });
   const trustedFactsProvider = () => ({
     fastProvider: config.fast.provider,
     fastModel: config.fast.model,
@@ -419,7 +442,7 @@ export async function startServer(port: number): Promise<void> {
   };
 
   const runtimeMode = resolveRuntimeModeInfo(config);
-  const server = createChatServer(service, { runtimeMode, modelCatalog });
+  const server = createChatServer(service, { runtimeMode, modelCatalog, shutdown: () => contextManager.shutdown(), contextTelemetry: () => contextManager.getSummaryTelemetry() });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
@@ -452,6 +475,16 @@ export async function startServer(port: number): Promise<void> {
     }
     void saveTelemetry();
   });
+
+  const stop = () => {
+    clearInterval(timer);
+    if (deepWorkerTimer) clearInterval(deepWorkerTimer);
+    server.close(() => { server.closeAllConnections(); });
+    server.closeAllConnections();
+  };
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+  server.once("close", () => { process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop); });
 
   // Safe to log: describeProviderConfig() never includes secret values
   // (e.g. AZURE_OPENAI_API_KEY), only provider/model names, endpoints, and

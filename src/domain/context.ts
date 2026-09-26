@@ -24,8 +24,7 @@ export interface ActiveTaskContext {
   source: SourceRef;
 }
 
-// Defined now for the v2 shape; always null until 01B implements the
-// context-manager's internal summarization/memory lifecycle.
+// Source-backed derived memory, selected and budgeted by ContextManager (01B).
 export interface MemoryItem {
   id: string;
   kind: "goal" | "decision" | "constraint" | "open-question" | "claim";
