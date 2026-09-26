@@ -1,6 +1,7 @@
 # 02 UI extension — Activity sub-bubbles and answer updates
 
-Status: planned, 2026-09-25. Implement with spec 02 after context 01A lands.
+Status: implemented with spec 02, 2026-09-25; see [acceptance evidence](02-evidence.md).
+Real-browser/mobile verification remains assigned to spec 06.
 This extension does not change spec 01, its v2 interfaces, memory policy or acceptance
 criteria. The current context implementation can continue without rework.
 

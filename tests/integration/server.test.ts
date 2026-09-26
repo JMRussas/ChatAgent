@@ -152,7 +152,7 @@ describe("chat server", () => {
     const eventsPayload = (await eventsResponse.json()) as {
       events: Array<{ type: string }>;
     };
-    expect(eventsPayload.events.map((e) => e.type)).toEqual(["user", "activity", "provisional", "activity", "refined"]);
+    expect(eventsPayload.events.map((e) => e.type)).toEqual(["user", "activity", "activity", "delta", "provisional", "terminal", "activity", "delta", "refined", "terminal"]);
   });
 
   it("exposes dead-letter records and supports replay", async () => {

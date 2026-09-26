@@ -1,3 +1,5 @@
+import { generationLifecycle } from "./generationLifecycle";
+import { GenerationError, normalizeGenerationError, type GenerationResult } from "../domain/generation";
 import { randomUUID } from "node:crypto";
 import { analyzeFast } from "../domain/router";
 import type { DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
@@ -51,7 +53,9 @@ export class ChatOrchestrator {
   }
 
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
-    const messageId = randomUUID();
+    const messageId = message.messageId ?? randomUUID();
+    const lifecycle = generationLifecycle(this.queue);
+    lifecycle.claim(message.conversationId, messageId);
     const analysis = analyzeFast(message);
     const adaptiveDecision = this.adaptiveRouting?.decide(message, analysis);
 
@@ -73,9 +77,10 @@ export class ChatOrchestrator {
       currentUserText: message.text,
       trustedFacts: this.trustedFactsProvider(),
       routeDecision
-    });
+    }).catch(error => { lifecycle.release(message.conversationId, messageId); throw error; });
 
     if (contextResult instanceof ContextBudgetError) {
+      lifecycle.release(message.conversationId, messageId);
       throw contextResult;
     }
 
@@ -98,65 +103,62 @@ export class ChatOrchestrator {
       context: cloneConversationContext(context)
     } : undefined;
 
-    // Start deep work independently of the provisional model call.
+    let fastAttempt = lifecycle.create(message.conversationId, messageId, "fast", this.timelineStore);
     if (deepTask) {
-      await this.timelineStore.appendEvent(message.conversationId, {
-        type: "activity", messageId, routeDecision, activity: "queued",
-        text: "Waiting for the deep provider", createdAtIso: nowIso()
-      });
+      const deepAttempt = lifecycle.create(message.conversationId, messageId, "deep", this.timelineStore, deepTask.taskId);
+      await deepAttempt.queued();
       await this.queue.enqueue(deepTask);
     }
-
     const fastStart = Date.now();
-
-    const provisionalReply = await this.fastProvider.createProvisionalReply({
-      message,
-      correctedText: adaptedAnalysis.correctedText,
-      routeDecision: adaptedAnalysis.routeDecision,
-      context: cloneConversationContext(context)
-    }).catch(async (error: unknown) => {
-      if (!deepTask) {
-        await this.timelineStore.appendEvent(message.conversationId, {
-          type: "activity", messageId, routeDecision, activity: "failed",
-          text: "The fast provider could not complete this reply. Please try again.", createdAtIso: nowIso()
-        });
-        throw error;
+    let result: GenerationResult;
+    let acknowledgment = false;
+    for (let number = 0; ; number++) {
+      await fastAttempt.start(this.timelineStore, this.fastProvider.metadata);
+      try {
+        if (!fastAttempt.active) throw new GenerationError("CANCELLED", false);
+        result = await this.fastProvider.createProvisionalReply({
+          message, correctedText: adaptedAnalysis.correctedText, routeDecision,
+          context: cloneConversationContext(context)
+        }, fastAttempt.control);
+        if (Buffer.byteLength(result.text) > 1024 * 1024) throw new GenerationError("ANSWER_TOO_LARGE", false);
+        break;
+      } catch (error) {
+        const failure = normalizeGenerationError(error);
+        if (fastAttempt.status === "cancelled" || failure.code === "CANCELLED") {
+          await fastAttempt.finish("cancelled");
+          result = { text: fastAttempt.text, finishReason: "cancelled" }; break;
+        }
+        const retry = failure.retryable && !fastAttempt.text && number < 2;
+        const next = retry ? lifecycle.create(message.conversationId, messageId, "fast", this.timelineStore) : undefined;
+        await fastAttempt.finish("error", undefined, failure.code, retry);
+        if (next) { fastAttempt = next; await next.queued(true); continue; }
+        if (!deepTask) throw failure;
+        acknowledgment = fastAttempt.text.length === 0;
+        result = { text: acknowledgment ? "Your request is queued for deeper analysis." : fastAttempt.text, finishReason: "stop" }; break;
       }
-      return "Your request is queued for deeper analysis.";
-    });
-
-    this.adaptiveRouting?.recordFastLatency(adaptedAnalysis.routeDecision, sizeBand, Date.now() - fastStart);
-
-    await this.timelineStore.appendEvent(message.conversationId, {
-      messageId,
-      routeDecision,
-      processingStatus: deepTask ? "provisional" : "complete",
-      type: "provisional",
-      text: provisionalReply,
-      createdAtIso: nowIso()
-    });
-
-    if (deepTask) {
-      return {
-        messageId,
-        fastResponse: {
-          provisionalReply,
-          analysis: adaptedAnalysis,
-          processingStatus: "provisional"
-        },
-        deepTask
-      };
     }
-
-    return {
-      messageId,
-      fastResponse: {
-        provisionalReply,
-        analysis: adaptedAnalysis,
-        processingStatus: "complete"
-      }
-    };
+    if (fastAttempt.status === "cancelled") result = { text: fastAttempt.text, finishReason: "cancelled" };
+    this.adaptiveRouting?.recordFastLatency(routeDecision, sizeBand, Date.now() - fastStart);
+    const processingStatus = fastAttempt.status === "cancelled" || result.finishReason === "cancelled" ? "cancelled"
+      : result.finishReason === "length" ? "incomplete" : fastAttempt.status === "error" && !deepTask ? "failed"
+      : deepTask ? "provisional" : "complete";
+    if (fastAttempt.active) {
+      fastAttempt.text = result.text;
+      await fastAttempt.finish(result.finishReason, {
+        text: result.text, routeDecision, processingStatus, finishReason: result.finishReason, answerKind: "substantive"
+      });
+    } else if (acknowledgment && lifecycle.get(message.conversationId, messageId, "deep")?.status !== "cancelled") {
+      await this.timelineStore.appendEvent(message.conversationId, {
+        type: "provisional", messageId, phase: "fast", attemptId: fastAttempt.attemptId,
+        text: result.text, answerKind: "acknowledgment", processingStatus: "provisional", routeDecision, createdAtIso: nowIso()
+      });
+    }
+    return { messageId, fastResponse: { provisionalReply: result.text, analysis: adaptedAnalysis, processingStatus }, ...(deepTask ? { deepTask } : {}) };
   }
+  cancel(conversationId: string, messageId: string) {
+    return generationLifecycle(this.queue).cancel(conversationId, messageId);
+  }
+
 }
 
 export class DeepWorker {
@@ -196,53 +198,41 @@ export class DeepWorker {
     const task = await this.queue.dequeue();
     if (!task) return undefined;
 
+    const lifecycle = generationLifecycle(this.queue);
+    const messageId = task.messageId ?? task.taskId;
+    const attempt = lifecycle.get(task.conversationId, messageId, "deep") ??
+      lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId);
+    if (!attempt.active) { this.attemptsByTaskId.delete(task.taskId); return undefined; }
+    await attempt.start(this.timelineStore, this.deepProvider.metadata);
     try {
-      await this.timelineStore.appendEvent(task.conversationId, {
-        type: "activity", messageId: task.messageId, routeDecision: "deep", activity: "thinking",
-        text: "Thinking with the deep provider", createdAtIso: nowIso()
-      });
-      const result = await this.deepProvider.resolveDeepTask(task);
-
+      if (!attempt.active) return undefined;
+      const result = await this.deepProvider.resolveDeepTask(task, attempt.control);
+      if (!attempt.active) return undefined;
+      if (Buffer.byteLength(result.finalReply) > 1024 * 1024) throw new GenerationError("ANSWER_TOO_LARGE", false);
       this.attemptsByTaskId.delete(task.taskId);
-
-      await this.timelineStore.appendEvent(task.conversationId, {
-        messageId: task.messageId,
-        routeDecision: "deep",
-        processingStatus: "complete",
-        type: "refined",
-        text: result.finalReply,
-        createdAtIso: nowIso()
+      attempt.text = result.finalReply;
+      await attempt.finish(result.finishReason, {
+        routeDecision: "deep", processingStatus: result.finishReason === "stop" ? "complete" : result.finishReason === "length" ? "incomplete" : "cancelled",
+        text: result.finalReply, finishReason: result.finishReason, answerKind: "substantive"
       });
-
       this.adaptiveRouting?.recordDeepLatency(task.sizeBand ?? "medium", result.totalLatencyMs);
-
       return result;
     } catch (error) {
+      if (attempt.status === "cancelled") { this.attemptsByTaskId.delete(task.taskId); return undefined; }
+      const failure = normalizeGenerationError(error);
+      if (failure.code === "CANCELLED") { await attempt.finish("cancelled"); this.attemptsByTaskId.delete(task.taskId); return undefined; }
       const attempts = (this.attemptsByTaskId.get(task.taskId) ?? 0) + 1;
       this.attemptsByTaskId.set(task.taskId, attempts);
-
-      if (attempts <= this.maxRetries) {
-        await this.timelineStore.appendEvent(task.conversationId, {
-          type: "activity", messageId: task.messageId, routeDecision: "deep", activity: "retrying",
-          text: `Deep provider retry ${attempts} of ${this.maxRetries} queued`, createdAtIso: nowIso()
-        });
-        await this.queue.enqueue(task);
+      const retry = failure.retryable && !attempt.text && attempts <= this.maxRetries;
+      // Publish the next attempt synchronously so cancellation during the terminal write also cancels the retry.
+      const next = retry ? lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId) : undefined;
+      await attempt.finish("error", undefined, failure.code, retry);
+      if (next) {
+        if (next.active) { await next.queued(true); await this.queue.enqueue(task); }
         return undefined;
       }
-
       this.attemptsByTaskId.delete(task.taskId);
-
-      await this.deadLetterStore.add({
-        task,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        failedAtIso: nowIso()
-      });
-
-      await this.timelineStore.appendEvent(task.conversationId, {
-        type: "activity", messageId: task.messageId, routeDecision: "deep", activity: "failed",
-        text: "Deep analysis failed after retries. Any preliminary reply is not a completed deep answer.", createdAtIso: nowIso()
-      });
-
+      await this.deadLetterStore.add({ task, errorMessage: failure.code, failedAtIso: nowIso() });
       return undefined;
     }
   }

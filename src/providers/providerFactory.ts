@@ -1,3 +1,4 @@
+import type { VerifiedThinking } from "../config/thinkingConfig";
 import { loadContextBudgetConfigFromEnv, type ContextBudgetConfig } from "../config/contextConfig";
 import type { RuntimeProviderConfig } from "../config/providerConfig";
 import { parsePositiveIntEnv } from "../config/runtimeEnv";
@@ -20,7 +21,7 @@ function resolveOllamaDeepTimeoutMs(): number {
   return parsePositiveIntEnv(process.env.OLLAMA_DEEP_TIMEOUT_MS, 10_000, 500, 240_000);
 }
 
-function buildFastProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig): FastModelProvider {
+function buildFastProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): FastModelProvider {
   const fast = config.fast;
 
   if (fast.provider === "mock") return new MockFastProvider();
@@ -31,7 +32,8 @@ function buildFastProvider(config: RuntimeProviderConfig, contextBudget: Context
       fast.model,
       fast.temperature,
       resolveOllamaFastTimeoutMs(),
-      contextBudget.fastOutputTokens
+      contextBudget.fastOutputTokens,
+      thinking.fast
     );
   }
 
@@ -58,7 +60,7 @@ function buildFastProvider(config: RuntimeProviderConfig, contextBudget: Context
   return new BedrockFastProvider(config.bedrock.region, fast.model, fast.temperature, contextBudget.fastOutputTokens);
 }
 
-function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig): DeepModelProvider {
+function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): DeepModelProvider {
   const deep = config.deep;
 
   if (deep.provider === "mock") return new MockDeepProvider();
@@ -69,7 +71,8 @@ function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: Context
       deep.model,
       deep.temperature,
       resolveOllamaDeepTimeoutMs(),
-      contextBudget.deepOutputTokens
+      contextBudget.deepOutputTokens,
+      thinking.deep
     );
   }
 
@@ -98,9 +101,9 @@ function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: Context
 
 export function buildProviderPair(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv({
   ...process.env, CHAT_FAST_PROVIDER: config.fast.provider, CHAT_DEEP_PROVIDER: config.deep.provider
-})): ProviderPair {
+}), thinking: VerifiedThinking = {}): ProviderPair {
   return {
-    fastProvider: buildFastProvider(config, contextBudget),
-    deepProvider: buildDeepProvider(config, contextBudget)
+    fastProvider: buildFastProvider(config, contextBudget, thinking),
+    deepProvider: buildDeepProvider(config, contextBudget, thinking)
   };
 }

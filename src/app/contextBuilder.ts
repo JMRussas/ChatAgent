@@ -90,9 +90,14 @@ interface TurnRecord {
 }
 
 function deriveUnresolvedState(events: ChatTimelineEvent[]): ActiveTaskState {
-  const activities = events.filter((e) => e.type === "activity");
+  const relevantPhase = events.some(e => e.phase === "deep" || e.routeDecision === "deep") ? "deep" : "fast";
+  const activities = events.filter(e => (e.type === "activity" || e.type === "terminal") && (!e.phase || e.phase === relevantPhase));
   const lastActivity = activities[activities.length - 1];
 
+  if (lastActivity?.finishReason === "cancelled") return "cancelled";
+  if (lastActivity?.finishReason === "length") return "incomplete";
+  if (lastActivity?.finishReason === "error") return lastActivity.retrying ? "retrying" : "failed";
+  if (lastActivity?.activity === "running") return "running";
   if (lastActivity?.activity === "failed") return "failed";
   if (lastActivity?.activity === "retrying") return "retrying";
   if (lastActivity?.activity === "thinking") return "running";
@@ -120,7 +125,7 @@ function groupIntoTurns(events: readonly ChatTimelineEvent[]): TurnRecord[] {
     const userEvent = groupEvents.find((e) => e.type === "user");
     if (!userEvent) continue; // never send an unpaired historical assistant/activity event
 
-    const refined = [...groupEvents].reverse().find((e) => e.type === "refined");
+    const refined = [...groupEvents].reverse().find((e) => e.type === "refined" && (!e.finishReason || e.finishReason === "stop") && (!e.processingStatus || e.processingStatus === "complete"));
     const completeProvisional = [...groupEvents].reverse().find((e) => e.type === "provisional" && e.processingStatus === "complete");
     const assistantText = refined?.text ?? completeProvisional?.text;
 

@@ -1,36 +1,13 @@
+import { GenerationError, httpGenerationError, type GenerationControl, type GenerationResult } from "../domain/generation";
+import { AnswerCollector, parseFrame, sseData, withGenerationDeadline } from "./streaming";
 import { buildSystemAndMessages } from "./contextMessages";
 import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
 import type { DeepModelProvider, FastModelProvider } from "./interfaces";
 
-interface AzureChatResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-}
-
 interface AzureChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
-}
-
-function withTimeout<T>(timeoutMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  return operation(controller.signal)
-    .catch((error) => {
-      if (controller.signal.aborted) {
-        throw new Error(`Azure OpenAI request timed out after ${timeoutMs}ms`);
-      }
-
-      throw error;
-    })
-    .finally(() => {
-      clearTimeout(timer);
-    });
 }
 
 async function callAzureChat(args: {
@@ -42,11 +19,12 @@ async function callAzureChat(args: {
   timeoutMs: number;
   messages: AzureChatMessage[];
   maxOutputTokens?: number;
-}): Promise<string> {
+  control?: GenerationControl;
+}): Promise<GenerationResult> {
   const base = args.endpoint.replace(/\/$/, "");
   const url = `${base}/openai/deployments/${args.deployment}/chat/completions?api-version=${encodeURIComponent(args.apiVersion)}`;
 
-  return withTimeout(args.timeoutMs, async (signal) => {
+  return withGenerationDeadline("Azure OpenAI", args.timeoutMs, args.control, async (signal) => {
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -55,20 +33,38 @@ async function callAzureChat(args: {
       },
       body: JSON.stringify({
         messages: args.messages,
+        stream: Boolean(args.control),
         temperature: args.temperature,
         ...(args.maxOutputTokens !== undefined ? { max_tokens: args.maxOutputTokens } : {})
       }),
       signal
     });
 
-    if (!response.ok) {
-      throw new Error(`Azure OpenAI request failed (${response.status} ${response.statusText})`);
+    if (!response.ok) throw httpGenerationError(response.status);
+    const collector = new AnswerCollector(args.control);
+    if (!args.control) {
+      const payload = await response.json();
+      await collector.add(payload.choices?.[0]?.message?.content ?? "");
+      return collector.finish(payload.choices?.[0]?.finish_reason ?? "stop");
     }
+    let finish: string | undefined;
+    for await (const data of sseData(response, signal)) {
+      if (data === "[DONE]") {
+        if (!finish) throw new GenerationError("INVALID_STREAM", false);
+        return collector.finish(finish);
+      }
+      const frame = parseFrame(data);
+      if (frame.error || !Array.isArray(frame.choices) || frame.choices.some((item: unknown) => !item || typeof item !== "object")) throw new GenerationError("INVALID_STREAM", false);
+      const choice = frame.choices.find((item: any) => item.index === 0);
+      if (!choice) continue; // Usage and prompt-filter frames contain no answer.
+      if (choice.delta?.content != null) {
+        if (finish) throw new GenerationError("INVALID_STREAM", false);
+        await collector.add(choice.delta.content);
+      }
+      if (choice.finish_reason != null) finish = choice.finish_reason;
+    }
+    throw new GenerationError("INVALID_STREAM", false);
 
-    const payload = (await response.json()) as AzureChatResponse;
-    const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
-    if (!text) throw new Error("Azure OpenAI returned an empty response");
-    return text;
   });
 }
 
@@ -106,6 +102,7 @@ function contextDeepMessages(context: ConversationContext): AzureChatMessage[] {
 }
 
 export class AzureFastProvider implements FastModelProvider {
+  get metadata() { return { provider: "azure", model: this.deployment }; }
   constructor(
     private readonly endpoint: string,
     private readonly apiKey: string,
@@ -121,7 +118,7 @@ export class AzureFastProvider implements FastModelProvider {
     correctedText: string;
     routeDecision: "direct" | "deep" | "clarify";
     context?: ConversationContext;
-  }): Promise<string> {
+  }, control?: GenerationControl): Promise<GenerationResult> {
     const messages = input.context ? contextFastMessages(input.context) : legacyFastMessages(input);
 
     return callAzureChat({
@@ -132,12 +129,14 @@ export class AzureFastProvider implements FastModelProvider {
       temperature: this.temperature,
       messages,
       timeoutMs: this.timeoutMs,
-      maxOutputTokens: this.maxOutputTokens
+      maxOutputTokens: this.maxOutputTokens,
+      control
     });
   }
 }
 
 export class AzureDeepProvider implements DeepModelProvider {
+  get metadata() { return { provider: "azure", model: this.deployment }; }
   constructor(
     private readonly endpoint: string,
     private readonly apiKey: string,
@@ -148,11 +147,11 @@ export class AzureDeepProvider implements DeepModelProvider {
     private readonly maxOutputTokens?: number
   ) {}
 
-  async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
+  async resolveDeepTask(input: DeepTask, control?: GenerationControl): Promise<DeepResult> {
     const start = Date.now();
     const messages = input.context ? contextDeepMessages(input.context) : legacyDeepMessages(input.normalizedPrompt);
 
-    const finalReply = await callAzureChat({
+    const result = await callAzureChat({
       endpoint: this.endpoint,
       apiKey: this.apiKey,
       apiVersion: this.apiVersion,
@@ -160,12 +159,14 @@ export class AzureDeepProvider implements DeepModelProvider {
       temperature: this.temperature,
       messages,
       timeoutMs: this.timeoutMs,
-      maxOutputTokens: this.maxOutputTokens
+      maxOutputTokens: this.maxOutputTokens,
+      control
     });
 
     return {
       taskId: input.taskId,
-      finalReply,
+      finalReply: result.text,
+      finishReason: result.finishReason,
       confidence: 0.85,
       citations: [],
       totalLatencyMs: Date.now() - start

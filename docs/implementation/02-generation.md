@@ -1,6 +1,7 @@
 # 02 — Thinking controls, answer streaming and cancellation
 
-Status: planned. Depends on 01A (context revision 2). Preserve the memory/task fields
+Status: implemented with offline acceptance evidence in [02 evidence](02-evidence.md).
+Live provider validation remains outstanding. Depends on 01A (context revision 2). Preserve the memory/task fields
 even if 01B is outstanding. Offline completion uses fake HTTP/event streams.
 
 Read [the activity UI extension](02-activity-ui.md) for per-turn sub-bubble layout,

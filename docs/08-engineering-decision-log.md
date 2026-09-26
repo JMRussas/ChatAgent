@@ -1259,3 +1259,21 @@ Validation evidence:
    during investigation.
 2. No ChatRuntime source changed; existing 152-test suite, type checking and
    `verify:release` status are unaffected and were not re-run for this entry.
+
+
+## 2026-09-25 — Spec 02 generation lifecycle and answer preservation
+
+- Implemented streaming at the provider boundary, with typed stop/length/cancelled
+  outcomes and safe terminal errors. Runtime phases own cancellation and retries;
+  Bedrock SDK retries are disabled to avoid multiplying the retry budget.
+- Kept full-snapshot SSE and POST field compatibility. Client UUIDs, per-attempt
+  IDs and monotonic timeline sequences support Stop and exact reconstruction.
+  Protocol v1/Iris migration remains separate.
+- Explicit Ollama on/off controls require live runtime metadata at startup. Unknown
+  support fails configuration; default leaves behavior unspecified. No name-based
+  inference or hidden reasoning text appears in events.
+- Preserved substantive fast/deep answers as versions with attached activity and
+  server-based timers. Application acknowledgments alone may be replaced.
+- Acceptance traceability, documentation sources and verification results are in
+  [02 evidence](implementation/02-evidence.md). 01B, durable storage, live-provider
+  validation and spec 06 real-browser verification remain outstanding.

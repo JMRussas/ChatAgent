@@ -52,7 +52,7 @@ describe("bedrock providers", () => {
       routeDecision: "direct"
     });
 
-    expect(result).toBe("fast bedrock answer");
+    expect(result.text).toBe(" fast bedrock answer ");
     expect(sendMock).toHaveBeenCalledTimes(1);
 
     const command = sendMock.mock.calls[0][0] as { input: { modelId: string } };
@@ -129,6 +129,6 @@ describe("bedrock providers", () => {
         correctedText: "hello",
         routeDecision: "direct"
       })
-    ).rejects.toThrow("bedrock failure");
+    ).rejects.toThrow("PROVIDER_ERROR");
   });
 });

@@ -47,7 +47,7 @@ describe("selected model context limits", () => {
     const timeline = new InMemoryConversationTimelineStore();
     const queue = new InMemoryTaskQueue();
     let calls = 0;
-    const fast = { createProvisionalReply: async () => { calls++; return "answer"; } };
+    const fast = { createProvisionalReply: async () => { calls++; return { text: "answer", finishReason: "stop" as const }; } };
     const budget = loadContextBudgetConfigFromEnv({}, { config, catalog: catalog(4096, 8192) });
     const orchestrator = new ChatOrchestrator(fast, queue, timeline, undefined, new ContextManager(timeline, budget));
     const message = { conversationId: "c", userId: "u", text: "x".repeat(2000), timestampIso: "2026-09-25T00:00:00Z" };

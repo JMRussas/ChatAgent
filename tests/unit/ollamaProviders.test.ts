@@ -31,7 +31,7 @@ describe("ollama providers", () => {
       routeDecision: "deep"
     });
 
-    expect(result).toBe("provisional reply");
+    expect(result.text).toBe("  provisional reply  ");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -121,10 +121,10 @@ describe("ollama providers", () => {
         correctedText: "hello",
         routeDecision: "direct"
       })
-    ).rejects.toThrow("Ollama request failed (500 Internal Server Error)");
+    ).rejects.toThrow("PROVIDER_UNAVAILABLE");
   });
 
-  it("throws clear error when Ollama returns only thinking and no final response", async () => {
+  it("returns incomplete when Ollama exhausts its output without answer text", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -148,7 +148,7 @@ describe("ollama providers", () => {
         correctedText: "hello",
         routeDecision: "direct"
       })
-    ).rejects.toThrow("Increase num_predict or use a faster model");
+    ).resolves.toEqual({ text: "", finishReason: "length" });
   });
 
   it("times out hung Ollama requests", async () => {

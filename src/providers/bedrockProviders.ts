@@ -1,4 +1,6 @@
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { GenerationError, type GenerationControl, type GenerationResult } from "../domain/generation";
+import { AnswerCollector, MAX_ANSWER_BYTES, withGenerationDeadline } from "./streaming";
+import { BedrockRuntimeClient, ConverseCommand, ConverseStreamCommand } from "@aws-sdk/client-bedrock-runtime";
 import { buildSystemAndMessages } from "./contextMessages";
 import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
@@ -15,9 +17,10 @@ async function converseBedrock(
   messages: BedrockConverseMessage[],
   temperature: number,
   system?: string,
-  maxOutputTokens?: number
-): Promise<string> {
-  const command = new ConverseCommand({
+  maxOutputTokens?: number,
+  control?: GenerationControl
+): Promise<GenerationResult> {
+  const input = {
     modelId,
     messages,
     ...(system !== undefined ? { system: [{ text: system }] } : {}),
@@ -25,11 +28,28 @@ async function converseBedrock(
       temperature,
       ...(maxOutputTokens !== undefined ? { maxTokens: maxOutputTokens } : {})
     }
+  };
+  return withGenerationDeadline("Bedrock", 60_000, control, async signal => {
+    const collector = new AnswerCollector(control);
+    if (!control) {
+      const response = await client.send(new ConverseCommand(input), { abortSignal: signal });
+      for (const block of response.output?.message?.content ?? []) if (block.text !== undefined) await collector.add(block.text);
+      return collector.finish(response.stopReason ?? "end_turn");
+    }
+    const response = await client.send(new ConverseStreamCommand(input), { abortSignal: signal });
+    if (!response.stream) throw new GenerationError("INVALID_STREAM", false);
+    for await (const event of response.stream) {
+      signal.throwIfAborted();
+      if (Buffer.byteLength(JSON.stringify(event)) > MAX_ANSWER_BYTES) throw new GenerationError("STREAM_TOO_LARGE", false);
+      if (event.internalServerException || event.modelStreamErrorException || event.serviceUnavailableException || event.throttlingException)
+        throw new GenerationError("PROVIDER_UNAVAILABLE", true);
+      if (event.validationException) throw new GenerationError("PROVIDER_REQUEST_INVALID", false);
+      if (event.$unknown) throw new GenerationError("INVALID_STREAM", false);
+      if (event.contentBlockDelta?.delta?.text !== undefined) await collector.add(event.contentBlockDelta.delta.text);
+      if (event.messageStop) return collector.finish(event.messageStop.stopReason);
+    }
+    throw new GenerationError("INVALID_STREAM", false);
   });
-
-  const response = await client.send(command);
-  const text = response.output?.message?.content?.find((c) => typeof c.text === "string")?.text ?? "";
-  return text.trim();
 }
 
 function legacyFastMessages(input: { message: UserMessage; correctedText: string; routeDecision: string }): BedrockConverseMessage[] {
@@ -60,6 +80,7 @@ function contextMessagesFor(context: ConversationContext, role: "fast" | "deep")
 }
 
 export class BedrockFastProvider implements FastModelProvider {
+  get metadata() { return { provider: "bedrock", model: this.modelId }; }
   private readonly client: BedrockRuntimeClient;
 
   constructor(
@@ -68,7 +89,7 @@ export class BedrockFastProvider implements FastModelProvider {
     private readonly temperature: number,
     private readonly maxOutputTokens?: number
   ) {
-    this.client = new BedrockRuntimeClient({ region });
+    this.client = new BedrockRuntimeClient({ region, maxAttempts: 1 });
   }
 
   async createProvisionalReply(input: {
@@ -76,17 +97,18 @@ export class BedrockFastProvider implements FastModelProvider {
     correctedText: string;
     routeDecision: "direct" | "deep" | "clarify";
     context?: ConversationContext;
-  }): Promise<string> {
+  }, control?: GenerationControl): Promise<GenerationResult> {
     if (input.context) {
       const { system, messages } = contextMessagesFor(input.context, "fast");
-      return converseBedrock(this.client, this.modelId, messages, this.temperature, system, this.maxOutputTokens);
+      return converseBedrock(this.client, this.modelId, messages, this.temperature, system, this.maxOutputTokens, control);
     }
 
-    return converseBedrock(this.client, this.modelId, legacyFastMessages(input), this.temperature, undefined, this.maxOutputTokens);
+    return converseBedrock(this.client, this.modelId, legacyFastMessages(input), this.temperature, undefined, this.maxOutputTokens, control);
   }
 }
 
 export class BedrockDeepProvider implements DeepModelProvider {
+  get metadata() { return { provider: "bedrock", model: this.modelId }; }
   private readonly client: BedrockRuntimeClient;
 
   constructor(
@@ -95,22 +117,23 @@ export class BedrockDeepProvider implements DeepModelProvider {
     private readonly temperature: number,
     private readonly maxOutputTokens?: number
   ) {
-    this.client = new BedrockRuntimeClient({ region });
+    this.client = new BedrockRuntimeClient({ region, maxAttempts: 1 });
   }
 
-  async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
+  async resolveDeepTask(input: DeepTask, control?: GenerationControl): Promise<DeepResult> {
     const start = Date.now();
 
-    const finalReply = input.context
+    const result = input.context
       ? await (async () => {
           const { system, messages } = contextMessagesFor(input.context!, "deep");
-          return converseBedrock(this.client, this.modelId, messages, this.temperature, system, this.maxOutputTokens);
+          return converseBedrock(this.client, this.modelId, messages, this.temperature, system, this.maxOutputTokens, control);
         })()
-      : await converseBedrock(this.client, this.modelId, legacyDeepMessages(input.normalizedPrompt), this.temperature, undefined, this.maxOutputTokens);
+      : await converseBedrock(this.client, this.modelId, legacyDeepMessages(input.normalizedPrompt), this.temperature, undefined, this.maxOutputTokens, control);
 
     return {
       taskId: input.taskId,
-      finalReply,
+      finalReply: result.text,
+      finishReason: result.finishReason,
       confidence: 0.86,
       citations: [],
       totalLatencyMs: Date.now() - start

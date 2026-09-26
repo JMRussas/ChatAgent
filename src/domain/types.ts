@@ -1,8 +1,10 @@
+import type { FinishReason, GenerationMetadata } from "./generation";
 import type { ConversationContext } from "./context";
 
 export type RouteDecision = "direct" | "deep" | "clarify";
 
 export interface UserMessage {
+  messageId?: string;
   conversationId: string;
   userId: string;
   text: string;
@@ -21,7 +23,7 @@ export interface FastAnalysis {
 export interface FastResponse {
   provisionalReply: string;
   analysis: FastAnalysis;
-  processingStatus: "provisional" | "complete";
+  processingStatus: "provisional" | "complete" | "incomplete" | "cancelled" | "failed";
 }
 
 export interface DeepTask {
@@ -40,6 +42,7 @@ export interface DeepTask {
 }
 
 export interface DeepResult {
+  finishReason: FinishReason;
   taskId: string;
   finalReply: string;
   confidence: number;
@@ -48,11 +51,19 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
-  activity?: "queued" | "thinking" | "retrying" | "failed";
+  activity?: "queued" | "thinking" | "running" | "generating" | "retrying" | "failed";
+  phase?: "fast" | "deep";
+  attemptId?: string;
+  taskId?: string;
+  finishReason?: FinishReason | "error";
+  errorCode?: string;
+  retrying?: boolean;
+  model?: GenerationMetadata;
+  answerKind?: "acknowledgment" | "substantive";
   messageId?: string;
   routeDecision?: RouteDecision;
-  processingStatus?: "provisional" | "complete";
-  type: "user" | "provisional" | "refined" | "activity";
+  processingStatus?: "provisional" | "complete" | "incomplete" | "cancelled" | "failed";
+  type: "user" | "provisional" | "refined" | "activity" | "delta" | "terminal";
   text: string;
   createdAtIso: string;
   // Assigned by the timeline store on append (spec 01's context-memory

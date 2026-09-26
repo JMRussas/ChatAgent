@@ -1,3 +1,6 @@
+import { verifyThinkingConfig } from "./config/thinkingConfig";
+import { DuplicateMessageError } from "./app/generationLifecycle";
+import { GenerationError } from "./domain/generation";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
 import { ChatOrchestrator, DeepWorker } from "./app/orchestrator";
@@ -116,6 +119,7 @@ class HttpRequestError extends Error {
 }
 
 const MessageBodySchema = z.object({
+  messageId: z.string().uuid().optional(),
   conversationId: z.string().min(1),
   userId: z.string().min(1),
   text: z.string().min(1),
@@ -185,6 +189,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const body = MessageBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
 
         const response = await service.submitMessage({
+          messageId: body.messageId,
           conversationId: body.conversationId,
           userId: body.userId,
           text: body.text,
@@ -192,6 +197,12 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
 
         return json(res, 200, response);
+      }
+
+      const cancelPath = url.pathname.match(/^\/conversations\/([^/]+)\/messages\/([^/]+)\/cancel$/);
+      if (method === "POST" && cancelPath) {
+        const state = await service.cancelMessage(decodeURIComponent(cancelPath[1]), decodeURIComponent(cancelPath[2]));
+        return state ? json(res, 200, state) : json(res, 404, { error: "Message not found" });
       }
 
       if (method === "POST" && url.pathname === "/workers/deep/run-once") {
@@ -309,6 +320,8 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       return json(res, 404, { error: "Not found" });
     } catch (error) {
+      if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
+      if (error instanceof GenerationError) return json(res, error.code === "CONTEXT_TOO_LARGE" ? 413 : 502, { error: "Generation failed", code: error.code });
       if (error instanceof HttpRequestError) {
         return json(res, error.statusCode, { error: error.message });
       }
@@ -335,7 +348,8 @@ export async function startServer(port: number): Promise<void> {
   const catalog = await loadModelCatalog(process.env.MODEL_CATALOG_PATH);
   const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(process.env, { config, catalog });
   const modelCatalog = describeModelCatalog(catalog, config);
-  const providers = buildProviderPair(config, contextBudget);
+  const thinking = await verifyThinkingConfig(config);
+  const providers = buildProviderPair(config, contextBudget, thinking);
   const estimator = new InMemoryLatencyEstimator();
 
   const fastProfile = {

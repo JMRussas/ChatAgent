@@ -1,3 +1,5 @@
+import { GenerationError, httpGenerationError, type GenerationControl, type GenerationResult } from "../domain/generation";
+import { AnswerCollector, parseFrame, streamLines, withGenerationDeadline } from "./streaming";
 // Source: Ollama official API docs (github.com/ollama/ollama, docs/api.md),
 // verified 2026-09-25. POST /api/chat request: {model, messages, stream, options}.
 // Non-streaming response: {message: {role, content, thinking?}, done, done_reason}.
@@ -13,40 +15,17 @@ interface OllamaChatMessage {
   content: string;
 }
 
-interface OllamaChatResponse {
-  message?: {
-    content?: string;
-    thinking?: string;
-  };
-  done_reason?: string;
-}
-
-function withTimeout<T>(timeoutMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  return operation(controller.signal)
-    .catch((error) => {
-      if (controller.signal.aborted) {
-        throw new Error(`Ollama request timed out after ${timeoutMs}ms`);
-      }
-
-      throw error;
-    })
-    .finally(() => {
-      clearTimeout(timer);
-    });
-}
-
 async function callOllamaChat(
   baseUrl: string,
   model: string,
   messages: OllamaChatMessage[],
   temperature: number,
   timeoutMs: number,
-  numPredict: number
-): Promise<string> {
-  return withTimeout(timeoutMs, async (signal) => {
+  numPredict: number,
+  control?: GenerationControl,
+  think?: boolean
+): Promise<GenerationResult> {
+  return withGenerationDeadline("Ollama", timeoutMs, control, async (signal) => {
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: {
@@ -55,7 +34,8 @@ async function callOllamaChat(
       body: JSON.stringify({
         model,
         messages,
-        stream: false,
+        stream: Boolean(control),
+        ...(think === undefined ? {} : { think }),
         options: {
           temperature,
           num_predict: numPredict
@@ -64,25 +44,22 @@ async function callOllamaChat(
       signal
     });
 
-    if (!response.ok) {
-      throw new Error(`Ollama request failed (${response.status} ${response.statusText})`);
+    if (!response.ok) throw httpGenerationError(response.status);
+    const collector = new AnswerCollector(control);
+    if (!control) {
+      const payload = await response.json();
+      await collector.add(payload.message?.content ?? "");
+      return collector.finish(payload.done_reason ?? "stop");
     }
-
-    const payload = (await response.json()) as OllamaChatResponse;
-    const text = payload.message?.content?.trim() ?? "";
-    if (text.length > 0) {
-      return text;
+    for await (const line of streamLines(response, signal)) {
+      if (!line.trim()) continue;
+      const frame = parseFrame(line);
+      if (frame.error || typeof frame.done !== "boolean" || !frame.message || typeof frame.message !== "object") throw new GenerationError("INVALID_STREAM", false);
+      await collector.add(frame.message.content ?? ""); // Never expose message.thinking.
+      if (frame.done) return collector.finish(frame.done_reason);
     }
+    throw new GenerationError("INVALID_STREAM", false);
 
-    // Some local models emit only "thinking" when token budget is exhausted,
-    // resulting in an empty answer unless callers raise num_predict.
-    if ((payload.message?.thinking?.trim().length ?? 0) > 0 && payload.done_reason === "length") {
-      throw new Error(
-        `Ollama returned no final response text for model ${model} before token limit. Increase num_predict or use a faster model.`
-      );
-    }
-
-    throw new Error(`Ollama returned an empty response for model ${model}`);
   });
 }
 
@@ -120,12 +97,14 @@ function contextMessagesFor(context: ConversationContext, role: "fast" | "deep")
 }
 
 export class OllamaFastProvider implements FastModelProvider {
+  get metadata() { return { provider: "ollama", model: this.model, ...(this.think === undefined ? {} : { reasoningEnabled: this.think }) }; }
   constructor(
     private readonly baseUrl: string,
     private readonly model: string,
     private readonly temperature: number,
     private readonly timeoutMs: number = 10_000,
-    private readonly numPredict: number = 384
+    private readonly numPredict: number = 384,
+    private readonly think?: boolean
   ) {}
 
   async createProvisionalReply(input: {
@@ -133,31 +112,34 @@ export class OllamaFastProvider implements FastModelProvider {
     correctedText: string;
     routeDecision: "direct" | "deep" | "clarify";
     context?: ConversationContext;
-  }): Promise<string> {
+  }, control?: GenerationControl): Promise<GenerationResult> {
     const messages = input.context ? contextMessagesFor(input.context, "fast") : legacyFastMessages(input);
 
-    return callOllamaChat(this.baseUrl, this.model, messages, this.temperature, this.timeoutMs, this.numPredict);
+    return callOllamaChat(this.baseUrl, this.model, messages, this.temperature, this.timeoutMs, this.numPredict, control, this.think);
   }
 }
 
 export class OllamaDeepProvider implements DeepModelProvider {
+  get metadata() { return { provider: "ollama", model: this.model, ...(this.think === undefined ? {} : { reasoningEnabled: this.think }) }; }
   constructor(
     private readonly baseUrl: string,
     private readonly model: string,
     private readonly temperature: number,
     private readonly timeoutMs: number = 10_000,
-    private readonly numPredict: number = 768
+    private readonly numPredict: number = 768,
+    private readonly think?: boolean
   ) {}
 
-  async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
+  async resolveDeepTask(input: DeepTask, control?: GenerationControl): Promise<DeepResult> {
     const start = Date.now();
     const messages = input.context ? contextMessagesFor(input.context, "deep") : legacyDeepMessages(input.normalizedPrompt);
 
-    const finalReply = await callOllamaChat(this.baseUrl, this.model, messages, this.temperature, this.timeoutMs, this.numPredict);
+    const result = await callOllamaChat(this.baseUrl, this.model, messages, this.temperature, this.timeoutMs, this.numPredict, control, this.think);
 
     return {
       taskId: input.taskId,
-      finalReply,
+      finalReply: result.text,
+      finishReason: result.finishReason,
       confidence: 0.8,
       citations: [],
       totalLatencyMs: Date.now() - start

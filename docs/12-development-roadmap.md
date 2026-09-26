@@ -22,13 +22,24 @@ request-handling logic, reusing Hekate's context-store as a durable persistence
 backend. This is a design decision, not an implemented migration; see the ADR's
 "Next vertical slice" for the first concrete cross-repo integration step.
 
-Later UI decisions are now specified in [02 activity sub-bubbles](implementation/02-activity-ui.md):
+Spec 02 now implements [02 activity sub-bubbles](implementation/02-activity-ui.md):
 attached per-turn progress, expandable step history, observable model/activity labels,
-elapsed time and preserved substantive answers with separate updates. These do not
-change Claude's in-progress context scope. Persistence, natural-language task
+elapsed time and preserved substantive answers with separate updates. These preserve the 01A context guarantees. Persistence, natural-language task
 supersession and aggregate budget enforcement are explicitly separate follow-ups.
 
 ## Current status and next implementation order
+
+**Spec 02 is implemented with offline acceptance coverage.** Fast/deep attempts
+stream answer deltas, carry unique attempt IDs and safe terminal outcomes, and
+support explicit cancellation. Transient failures retry only before output;
+truncated/cancelled/failed answers stay out of accepted history. The UI preserves
+substantive answer versions, attached activity/history, server-based timers and
+Stop controls. Ollama explicit thinking controls require runtime metadata.
+Verification: **195 tests / 38 files**, type checking, build and the seeded
+simulated release gate passed. See [02 evidence](implementation/02-evidence.md)
+for acceptance tests and adapter documentation. 01B, Iris integration, live-provider checks and real-browser
+mobile/failure checks remain outstanding.
+
 
 Review follow-up (2026-09-25): startup now bounds context by the minimum of the
 application window and configured catalog context limits for the selected fast/deep
@@ -54,7 +65,7 @@ Regression evidence:
 
 
 Reconciled through implementation commit `8afce48` on 2026-09-25, plus 01A below.
-The latest implementation check passed **152 tests across 32 files and TypeScript
+The earlier 01A implementation check passed **152 tests across 32 files and TypeScript
 checking**, and a full `npm run verify:release` (tests, lint, fixture evaluation,
 simulated benchmark, baseline comparison) passed with `BENCH_MODE=simulate` /
 `BENCH_SIM_SEED=default-v1`. The full clean-install/release/build verification
@@ -86,12 +97,12 @@ of the full SourceStore. Memory stays `null` and `resolvedSources`/
 turns surface as `activeTasks` (capped at 4 most recent) instead of being
 silently dropped. Not yet done: `SourceStore`, `ContextSummarizer`, extractive/
 model summarization, `resolveSources()`, and their settings
-(`CONTEXT_SUMMARY_*`) — all 01B. Streaming stays off per spec (spec 02).
+(`CONTEXT_SUMMARY_*`) — all 01B. Spec 02 now adds streaming while preserving these snapshots.
 
 | Area | Implemented | Still needed |
 |---|---|---|
 | Runtime reliability | Message correlation, worker concurrency guard, body timeouts, serialized telemetry writes, truthful startup errors | Graceful shutdown, backpressure, Bedrock deadlines |
-| Chat progress | Per-bubble queued/thinking/retrying/failure states, model label, terminal spinner removal | Actual model-token streaming, browser smoke coverage |
+| Chat progress | Answer streaming, cancellation, per-attempt activities/timers, preserved answer updates | Live provider and real-browser/mobile verification |
 | Model inventory | Validated catalog, `/models`, capability/task eligibility filtering | Provider discovery, fresh account access/health observations |
 | CLI subscriptions | Catalog schema for profiles, authentication, billing and shared quotas | Actual CLI adapters and verified subscription automation support |
 | Conversation context | 01A: bounded shared snapshot, grounded runtime facts, active-task awareness, ownership/budget guards | 01B: internal summarization, source-linked memory, `resolveSources()` |
@@ -110,7 +121,7 @@ Implementation order following the latest discussion:
 2. **Generation controls and streaming.** Verify model thinking controls; explicitly
    configure them for the fast path. Tune output budgets from measurements, handle
    all length-truncated answers, and add token streaming/cancellation while retaining
-   per-bubble activity and terminal states. These controls are not implemented yet.
+   per-bubble activity and terminal states. These controls are implemented with offline acceptance coverage; live checks remain.
 3. **Discovery and account inventory.** Separate the provider's catalog from our
    reachable, authorized deployments/models. Discover Ollama and cloud candidates;
    add connection IDs, API compatibility, revision and observation freshness.
@@ -127,7 +138,7 @@ Implementation order following the latest discussion:
 
 The milestones below retain detailed acceptance criteria. Cloud provisioning,
 automatic model dispatch, CLI execution, context management and model-token
-streaming are planned work—not capabilities delivered by the catalog commits.
+streaming were not delivered by the catalog commits; streaming is now implemented by spec 02.
 
 All changes are committed locally on `main`; no Git remote is configured. Running
 servers do not hot-reload (`npm run dev` uses `tsx`, not watch mode). The last server
@@ -216,7 +227,7 @@ Benchmark quality values and fixture scores are not evidence of answer correctne
 
 - Implemented: per-bubble generation/queue/thinking/retry indicators and terminal
   failure events, correlated by message ID. Deep-provider activity is visible before
-  its answer arrives. Model token streaming remains separate future work.
+  its answer arrives. Spec 02 now adds answer streaming and preserved update versions.
 - Add graceful shutdown that stops intake, bounds in-flight work, flushes telemetry,
   closes SSE clients, and handles SIGINT/SIGTERM. The current close callback alone
   does not guarantee a flush when a process is terminated.

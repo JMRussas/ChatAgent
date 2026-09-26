@@ -72,8 +72,8 @@ owner. Repository naming does not decide deployment topology or language.
    persistence owner, standalone mode, auth/project isolation boundary, and
    service-failure decisions.
 3. **Schemas proposed in ADR 0001** (request/event shapes, example fixture,
-   field mapping table); shared fixture *tests* are not written yet — that is
-   part of building the vertical slice, not this design step.
+   field mapping table). The example now type-checks against the proposed interfaces;
+   cross-repository fixture tests remain part of the vertical slice.
 4. Build one vertical slice: Iris sends a turn through an adapter to the chosen
    runtime, receives a fast answer and optional deep update attached to that turn.
    Keep an explicit rollback switch and existing clients working during migration.

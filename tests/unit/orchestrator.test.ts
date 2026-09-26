@@ -1,3 +1,4 @@
+import type { GenerationResult } from "../../src/domain/generation";
 import { describe, expect, it } from "vitest";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
 import { ContextBudgetError } from "../../src/app/contextBuilder";
@@ -83,9 +84,9 @@ describe("orchestrator", () => {
 
     let capturedFastContext: ConversationContext | undefined;
     class CapturingFastProvider implements FastModelProvider {
-      async createProvisionalReply(input: { context?: ConversationContext }): Promise<string> {
+      async createProvisionalReply(input: { context?: ConversationContext }): Promise<GenerationResult> {
         capturedFastContext = input.context;
-        return "provisional";
+        return { text: "provisional", finishReason: "stop" };
       }
     }
 

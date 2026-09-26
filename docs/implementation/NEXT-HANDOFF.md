@@ -1,70 +1,61 @@
-# Next handoff after the runtime-ownership ADR
+# Next handoff after spec 02
 
-2026-09-25. Read this before starting another numbered implementation milestone.
+2026-09-25. Read this before starting another implementation milestone.
 
 ## Completed checkpoint
 
-CTX-01–04 are fixed (see [01A review follow-up](01a-review-followup.md)).
-[ADR 0001](../adr/0001-chat-runtime-ownership.md) traces Hekate's/Iris's actual
-active chat paths with file:line evidence, decides ChatRuntime hosts chat
-request-handling logic while reusing Hekate's context-store as a persistence
-backend, proposes protocol v1 schemas/fixtures, and defines one next vertical
-slice (an Iris project-tab session routed through ChatRuntime) with named
-acceptance tests. All three repos' consolidation notes now point to it. No
-cross-repository migration, deployment, or live verification occurred.
+- 01A bounded snapshots and CTX-01–04 regressions remain implemented. Review fix
+  `e568256` also enforces selected catalog context windows and validates the ADR's
+  protocol example against its interfaces.
+- [Spec 02](02-generation.md) and [activity UI](02-activity-ui.md) are implemented:
+  answer streaming, per-attempt lifecycle, cancellation, bounded retries/buffers,
+  explicit thinking verification, activity history/timers and preserved answers.
+  [02 evidence](02-evidence.md) maps acceptance cases to executed tests and records
+  adapter documentation and offline/live verification boundaries. Validation:
+  195 tests / 38 files, type checking, build and the seeded simulated release gate passed.
+- [ADR 0001](../adr/0001-chat-runtime-ownership.md) keeps runtime logic here and
+  proposes context-store as a durable backend. The protocol remains a proposal;
+  the current API is `/messages` plus snapshot SSE and the cancellation endpoint.
 
-Subsequent review fixes: selected catalog context limits now constrain startup
-budgeting; spec 02 is required for full slice acceptance; protocol fixtures match
-the declared interfaces and are checked automatically. Validation: 162 tests / 34
-files, type checking, build, fixture evaluation and seeded simulated benchmark
-comparison passed. See the roadmap's review follow-up for regression evidence.
-Local directory remains ChatAgent; GitHub repo/package is ChatRuntime.
+## Next bounded task: Iris integration slice
 
-## Next bounded task: choose between 01B and the vertical slice
+Spec 02 removes the generation/cancellation prerequisite for the ADR's full slice.
+Before implementation, resolve the remaining two decisions from the ADR:
 
-Choose one workstream explicitly. 01B can start now; the full vertical slice
-requires spec 02 first. Do not start both:
+1. Confirm which Iris `OrchestrationClient` is wired at runtime. Trace current
+   source and DI registrations rather than assuming the earlier line references
+   still apply.
+2. Decide whether the context-store persistence adapter is built now or deferred.
+   Prefer the existing in-memory store for the first slice unless current evidence
+   makes durable storage necessary; explicitly record the choice and restart limits.
 
-**Option A — 01B (internal summarization and source-linked memory).** Design
-`SourceStore`'s interface per ADR 0001's reconciliation section with the future
-context-store adapter in mind, but implement it in-memory first — it does not
-need to wait for the vertical slice. Follow
-[01's memory extension](01-context-memory.md) directly; its acceptance tests are
-unaffected by the ADR.
+Then implement only the ADR's feature-flagged Iris project-tab slice: persistent
+per-conversation identity, a ChatRuntime client, protocol v1 compatibility endpoints
+and typed events, and the named continuity/reconnect/cancellation/isolation/failure/
+late-update/rollback acceptance cases. Current snapshot SSE is not yet protocol v1's
+incremental replay contract; an adapter must make that mapping explicit. Preserve
+unrelated work in all repositories. Do not claim shared-runtime integration from
+this repo's spec 02 pass alone.
 
-**Option B — the vertical slice from ADR 0001.** This is cross-repository (Iris
-+ ChatRuntime) and has two unresolved prerequisites called out in the ADR's
-"Open / unresolved decisions" that must be settled first: (1) confirm which of
-the two near-duplicate `OrchestrationClient` classes in Iris is actually live at
-runtime, and (2) decide whether ChatRuntime's context-store persistence adapter
-is built now or deferred — the slice itself does not strictly require it (it
-can ship using ChatRuntime's existing in-memory store), but building it in the
-wrong order risks throwaway work. Spec 02 (streaming/cancellation) must be
-completed before implementing this slice: its acceptance tests require both
-mid-answer reconnect and cancellation of queued/running work. The existing
-snapshot SSE endpoint supplies neither generation cancellation nor answer deltas.
-There is no pre-02 compatibility milestone in this handoff.
+01B (internal summaries and source-linked memory) is still a valid independent
+workstream, but is not included in this slice. If chosen instead, follow
+[the memory extension](01-context-memory.md), design `SourceStore` for future
+context-store compatibility, and implement in memory first.
 
-Either workstream is legitimate; choosing B means completing spec 02 first if
-it remains outstanding. If neither is picked, spec 02 (generation streaming and
-cancellation) remains the default next numbered milestone per
-[implementation/README.md](README.md)'s execution order.
-
-## Outstanding implementation, not part of the fixes
+## Outstanding work and limits
 
 - 01B summaries/source lookup and restart persistence remain unimplemented.
-- 02 streaming/cancellation/activity extensions remain planned. During integration,
-  include typed terminal context-overflow handling instead of blindly retrying an
-  unchanged provider request; existing generic deep retries do not meet that rule.
-- RES-01–08 describe future resource admission/accounting, not enforced spending
-  controls. Ollama/CLI names are not execution-location or billing evidence.
-- The vertical slice and any Hekate/Iris code changes remain unimplemented; ADR
-  0001 is a design deliverable only.
-- No live provider tests, model-quality certification, cloud provisioning or CLI
-  subscription activation occurred in this checkpoint.
+- Resource-policy RES-01–08 enforcement, discovery/dispatch/CLI and graceful
+  shutdown remain later numbered milestones.
+- No Iris/Hekate files were changed as part of spec 02. Cross-repository runtime
+  migration, protocol v1 endpoints and durable replay are not implemented here.
+- No live inference, model-quality certification or real-browser/mobile gate ran.
+  The UI has offline projection/DOM tests; spec 06 still owns real-browser checks.
+- Explicit Ollama thinking controls require runtime metadata. Older runtimes without
+  `thinking.values` must use `default` or upgrade; the app does not guess support.
+- Development processes were not restarted. Restarting resets in-memory timelines,
+  cancellation state, duplicate-ID claims and queued work.
 
-Suggested task prompt: "Read docs/implementation/NEXT-HANDOFF.md and ADR 0001.
-Choose option A (01B) or option B (the vertical slice) explicitly, state which
-and why. For B, implement spec 02 first if outstanding; otherwise implement the
-slice. Keep the chosen milestone bounded and preserve unrelated work in any repo
-touched."
+Suggested task: "Read NEXT-HANDOFF and ADR 0001. Resolve the two remaining Iris
+slice decisions against current source, record the bounded scope, then implement
+and verify only that feature-flagged slice. Preserve unrelated work."

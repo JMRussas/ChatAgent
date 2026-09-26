@@ -2,8 +2,7 @@
 
 Specification baseline: `7f03beb` (2026-09-25). These documents describe planned
 changes, not existing APIs. Read the current source before editing; do not restore
-the baseline over newer work. The review-correction checkpoint passes 152 tests
-across 32 files, type checking, build and the seeded simulated release gate.
+the baseline over newer work. The spec 02 checkpoint and acceptance results are recorded in [02 evidence](02-evidence.md).
 No live quality pass is claimed. Start with [NEXT-HANDOFF](NEXT-HANDOFF.md).
 
 **Context plan revision 2:** read [01's memory extension](01-context-memory.md)
@@ -39,9 +38,8 @@ when starting 02. Do not add UI/persistence work to the current context task.
 | [05 CLI](05-cli.md) | 02–04; product/account selection for live adapter | Subscription execution via a registered adapter |
 | [06 Verification](06-verification.md) | 01–04; include 05 when enabled | Shutdown, honest benchmarks, browser and live gates |
 
-First complete the ownership ADR/protocol design task in NEXT-HANDOFF.md.
-Then implement one reconciled numbered spec at a time; 02 may start after 01A if
-01B is explicitly recorded as outstanding. Do not implement later
+The ownership ADR and spec 02 are implemented; 01B remains outstanding.
+Follow NEXT-HANDOFF.md for the next bounded task. Implement one reconciled numbered spec at a time. Do not implement later
 milestones as incidental refactoring. Each spec has a scope boundary and named
 acceptance cases; completion requires the cases, not merely new types or metadata.
 03's interfaces can be designed independently, but this handoff does not require

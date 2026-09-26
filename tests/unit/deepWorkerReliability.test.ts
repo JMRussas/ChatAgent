@@ -1,3 +1,4 @@
+import { GenerationError } from "../../src/domain/generation";
 import { describe, expect, it } from "vitest";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
 import { InMemoryDeadLetterStore } from "../../src/app/deadLetterStore";
@@ -13,11 +14,12 @@ class FailingThenPassingProvider implements DeepModelProvider {
   async resolveDeepTask(input: DeepTask): Promise<DeepResult> {
     this.attempts += 1;
     if (this.attempts === 1) {
-      throw new Error("transient failure");
+      throw new GenerationError("PROVIDER_UNAVAILABLE", true);
     }
 
     return {
       taskId: input.taskId,
+      finishReason: "stop",
       finalReply: "recovered answer",
       confidence: 0.8,
       citations: [],
@@ -28,7 +30,7 @@ class FailingThenPassingProvider implements DeepModelProvider {
 
 class AlwaysFailingProvider implements DeepModelProvider {
   async resolveDeepTask(_input: DeepTask): Promise<DeepResult> {
-    throw new Error("permanent failure");
+    throw new GenerationError("PROVIDER_UNAVAILABLE", true);
   }
 }
 
@@ -78,10 +80,10 @@ describe("deep worker reliability", () => {
 
     const failed = await deadLetters.list();
     expect(failed.length).toBe(1);
-    expect(failed[0].errorMessage).toContain("permanent failure");
+    expect(failed[0].errorMessage).toContain("PROVIDER_UNAVAILABLE");
     const events = await timeline.getEvents("conv-dead-letter");
-    expect(events.filter((event) => event.type === "activity").map((event) => event.activity))
-      .toEqual(["queued", "thinking", "retrying", "thinking", "failed"]);
+    expect(events.filter((event) => event.type === "activity" && event.phase === "deep").map((event) => event.activity))
+      .toEqual(["queued", "running", "retrying", "running"]);
     expect(new Set(events.map((event) => event.messageId)).size).toBe(1);
   });
 });

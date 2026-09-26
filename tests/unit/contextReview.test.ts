@@ -1,3 +1,4 @@
+import { GenerationError } from "../../src/domain/generation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
@@ -23,13 +24,18 @@ const config = (provider: ProviderKind): RuntimeProviderConfig => ({
 });
 function transport() {
   const payloads: any[] = [];
-  vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
-    payloads.push(JSON.parse(init.body));
-    return new Response(JSON.stringify({ message: { content: "answer" }, choices: [{ message: { content: "answer" } }] }));
+  vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+    const body = JSON.parse(init.body); payloads.push(body);
+    if (!body.stream) return new Response(JSON.stringify({ message: { content: "answer" }, choices: [{ message: { content: "answer" } }] }));
+    return new Response(String(url).includes("/api/chat")
+      ? JSON.stringify({ message: { content: "answer" }, done: true, done_reason: "stop" }) + "\n"
+      : 'data: {"choices":[{"index":0,"delta":{"content":"answer"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
   }));
   vi.spyOn(BedrockRuntimeClient.prototype, "send").mockImplementation((async (command: any) => {
     payloads.push(command.input);
-    return { output: { message: { content: [{ text: "answer" }] } } };
+    return { output: { message: { content: [{ text: "answer" }] } }, stream: (async function* () {
+      yield { contentBlockDelta: { delta: { text: "answer" } } }; yield { messageStop: { stopReason: "end_turn" } };
+    })() };
   }) as any);
   return payloads;
 }
@@ -124,7 +130,7 @@ describe("CTX-04 replay state", () => {
     const timeline = new InMemoryConversationTimelineStore();
     const dead = new InMemoryDeadLetterStore();
     const manager = new ContextManager(timeline, loadContextBudgetConfigFromEnv({}));
-    const orchestrator = new ChatOrchestrator({ createProvisionalReply: async () => "pending" }, queue, timeline);
+    const orchestrator = new ChatOrchestrator({ createProvisionalReply: async () => ({ text: "pending", finishReason: "stop" }) }, queue, timeline);
     let resolve!: (value: any) => void;
     let reject!: (reason: Error) => void;
     const deep = { resolveDeepTask: vi.fn(() => new Promise<any>((yes, no) => { resolve = yes; reject = no; })) };
@@ -145,11 +151,11 @@ describe("CTX-04 replay state", () => {
     const run = worker.runSingle();
     await vi.waitFor(() => expect(deep.resolveDeepTask).toHaveBeenCalledTimes(1));
     expect((await snapshot()).activeTasks[0].state).toBe("running");
-    reject(new Error("transient")); await run;
+    reject(new GenerationError("PROVIDER_UNAVAILABLE", true)); await run;
     expect((await snapshot()).activeTasks[0].state).toBe("retrying");
     const retry = worker.runSingle();
     await vi.waitFor(() => expect(deep.resolveDeepTask).toHaveBeenCalledTimes(2));
-    resolve({ taskId: result.deepTask!.taskId, finalReply: "completed", totalLatencyMs: 1, confidence: 1, citations: [] }); await retry;
+    resolve({ taskId: result.deepTask!.taskId, finalReply: "completed", finishReason: "stop", totalLatencyMs: 1, confidence: 1, citations: [] }); await retry;
     expect((await snapshot()).activeTasks).toEqual([]);
     expect((await snapshot()).messages.some(m => m.content === "completed")).toBe(true);
     await timeline.appendEvent("c", { type: "refined", messageId: result.messageId, text: "latest completion", processingStatus: "complete", createdAtIso: timestamp });

@@ -1,7 +1,9 @@
+import type { GenerationControl, GenerationMetadata, GenerationResult } from "../domain/generation";
 import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
 
 export interface FastModelProvider {
+  metadata?: GenerationMetadata;
   createProvisionalReply(input: {
     message: UserMessage;
     correctedText: string;
@@ -10,11 +12,12 @@ export interface FastModelProvider {
     // using each adapter's current-prompt-only fallback; every orchestrated
     // call carries one (spec 01).
     context?: ConversationContext;
-  }): Promise<string>;
+  }, control?: GenerationControl): Promise<GenerationResult>;
 }
 
 export interface DeepModelProvider {
-  resolveDeepTask(input: DeepTask): Promise<DeepResult>;
+  metadata?: GenerationMetadata;
+  resolveDeepTask(input: DeepTask, control?: GenerationControl): Promise<DeepResult>;
 }
 
 export interface TaskQueue {

@@ -39,7 +39,7 @@ describe("azure providers", () => {
       routeDecision: "direct"
     });
 
-    expect(result).toBe("quick answer");
+    expect(result.text).toBe(" quick answer ");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -144,7 +144,7 @@ describe("azure providers", () => {
         correctedText: "hello",
         routeDecision: "direct"
       })
-    ).rejects.toThrow("Azure OpenAI request failed (401 Unauthorized)");
+    ).rejects.toThrow("PROVIDER_AUTH");
   });
 
   it("times out hung Azure requests", async () => {

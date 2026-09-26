@@ -18,7 +18,7 @@ describe("timeline workflow", () => {
     });
 
     const events = await timeline.getEvents("conv-direct");
-    expect(events.map((e) => e.type)).toEqual(["user", "provisional"]);
+    expect(events.map((e) => e.type)).toEqual(["user", "activity", "delta", "provisional", "terminal"]);
   });
 
   it("persists refined event after deep worker completes", async () => {
@@ -37,7 +37,7 @@ describe("timeline workflow", () => {
     await worker.runSingle();
 
     const events = await timeline.getEvents("conv-deep");
-    expect(events.map((e) => e.type)).toEqual(["user", "activity", "provisional", "activity", "refined"]);
-    expect(events.filter((e) => e.type === "activity").map((e) => e.activity)).toEqual(["queued", "thinking"]);
+    expect(events.map((e) => e.type)).toEqual(["user", "activity", "activity", "delta", "provisional", "terminal", "activity", "delta", "refined", "terminal"]);
+    expect(events.filter((e) => e.type === "activity").map((e) => e.activity)).toEqual(["queued", "running", "running"]);
   });
 });

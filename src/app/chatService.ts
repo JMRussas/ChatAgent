@@ -1,3 +1,4 @@
+import { generationLifecycle } from "./generationLifecycle";
 import { ChatOrchestrator, DeepWorker } from "./orchestrator";
 import type { ChatTimelineEvent, DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
 import type { DeadLetterRecord, DeadLetterStore } from "./deadLetterStore";
@@ -43,6 +44,10 @@ export class ChatService {
     return this.orchestrator.handleUserMessage(message);
   }
 
+  cancelMessage(conversationId: string, messageId: string) {
+    return this.orchestrator.cancel(conversationId, messageId);
+  }
+
   async runDeepWorkerOnce(): Promise<DeepResult | undefined> {
     return this.worker.runSingle();
   }
@@ -62,10 +67,11 @@ export class ChatService {
     const removed = await this.deadLetterStore.remove(taskId);
     if (!removed) return false;
 
-    await this.timelineStore.appendEvent(removed.task.conversationId, {
-      type: "activity", messageId: removed.task.messageId, routeDecision: "deep",
-      activity: "queued", text: "Deep analysis replay queued", createdAtIso: new Date().toISOString()
-    });
+    const lifecycle = generationLifecycle(this.queue);
+    const messageId = removed.task.messageId ?? removed.task.taskId;
+    if (lifecycle.get(removed.task.conversationId, messageId, "deep")?.status === "cancelled") return false;
+    const attempt = lifecycle.create(removed.task.conversationId, messageId, "deep", this.timelineStore, removed.task.taskId);
+    await attempt.queued();
     await this.queue.enqueue(removed.task);
     return true;
   }

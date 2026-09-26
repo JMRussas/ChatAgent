@@ -10,8 +10,9 @@ The goal is a strong portfolio prototype that demonstrates architecture, measure
 
 ## Current status
 
-The review corrections are complete; see [the next handoff](docs/implementation/NEXT-HANDOFF.md)
-for validation evidence and the bounded runtime-ownership/protocol design task.
+Spec 02 now provides streamed answer text, cancellation, safe retries and attached
+activity/answer updates. See [the next handoff](docs/implementation/NEXT-HANDOFF.md)
+and [spec 02 evidence](docs/implementation/02-evidence.md) for validation and remaining work.
 
 The shared-runtime direction and reuse checkpoint for Hekate and Iris are in
 [the consolidation handoff](docs/implementation/07-shared-chat-runtime.md).
@@ -69,7 +70,10 @@ Open `http://localhost:3100/` to use the built-in prototype UI.
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
 JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and primitive values return `400`.
 
-`POST /messages` also returns:
+`POST /messages` accepts an optional UUID `messageId` (the server allocates one
+when absent) and returns the same response fields after the fast phase ends. It also returns:
+
+- `409` with code `DUPLICATE_MESSAGE_ID` for a repeated ID in the same conversation.
 - `409` with code `CONVERSATION_OWNER_MISMATCH` if a `userId` other than the one
   that first submitted to a `conversationId` tries to post to it. This is a
   local-prototype guard against accidentally mixing two users' turns into one
@@ -206,7 +210,7 @@ OLLAMA_FAST_NUM_PREDICT=256
 OLLAMA_DEEP_NUM_PREDICT=512
 ```
 
-Azure and Ollama HTTP calls use bounded request timeouts so a hung upstream cannot block the fast path indefinitely.
+Azure, Ollama and Bedrock calls have deadlines covering response headers and streamed bodies. Bedrock uses a 60-second deadline; Azure uses 10 seconds.
 If local Ollama models are large or cold-start slowly on your hardware, increase `OLLAMA_FAST_TIMEOUT_MS` and `OLLAMA_DEEP_TIMEOUT_MS`.
 If a model emits long reasoning traces and returns empty final text at low token budgets, increase `OLLAMA_FAST_NUM_PREDICT` and `OLLAMA_DEEP_NUM_PREDICT`.
 
@@ -214,6 +218,36 @@ Ollama requests go to `/api/chat` (not `/api/generate`), sending role-based
 `system`/`user`/`assistant` messages so both fast and deep layers see the same
 shared conversation snapshot; Azure and Bedrock also switch to role-based
 messages (Bedrock's system instruction goes in its separate `system` field).
+
+### Streaming and cancellation
+
+Orchestrated calls use Ollama chat NDJSON, Azure chat SSE, and Bedrock
+`ConverseStream`. Direct adapter callers without `GenerationControl` retain a
+non-streaming transport, with the same typed finish outcomes. Delta events are
+coalesced to at most one per 50 ms per attempt (with a final flush); answer buffers
+and stream frames are capped at 1 MiB. SSE still sends full timeline snapshots.
+
+`POST /conversations/:id/messages/:messageId/cancel` returns 404 for an unknown
+turn, or 200 with existing/cancelled phase states. It aborts running calls and makes
+workers skip cancelled queued tasks. Disconnecting SSE does not cancel work.
+The browser creates IDs before POST so Stop works while the fast call is pending.
+
+`length` output is shown as incomplete and excluded from accepted context history.
+Only transient failures before any answer text are retried (at most twice, each
+with a new attempt ID). Partial failures retain their text; cancellation is never
+retried or dead-lettered. Public failures use safe codes rather than provider bodies.
+
+```bash
+OLLAMA_FAST_THINK=off
+OLLAMA_DEEP_THINK=default
+```
+
+Values are `off`, `on`, or `default`. Explicit controls require a successful
+`/api/version` check and a matching boolean in `/api/show`'s `thinking.values` for
+the selected model. Unsupported or unavailable metadata fails startup; use
+`default` to leave model behavior unspecified. No model-name heuristic establishes
+support. Startup metadata checks do not generate answers. Live behavior and browser
+layout remain separate verification gates; see [adapter notes](docs/implementation/02-evidence.md).
 
 ### Conversation context budget
 
@@ -275,8 +309,13 @@ UI behavior:
 1. `GET /` serves a static control-room page (vanilla HTML/CSS/JS) for desktop and mobile.
 2. The page posts to `/messages`, streams timeline updates from `/conversations/:id/events/stream` (SSE), and polls `/telemetry/latency` once per second.
 3. Deep-route turns render provisional replies first and then swap in-place to refined replies when background processing completes.
-4. Each reply bubble shows activity while work is pending: generating, queued for the deep provider, thinking with the deep model, or retrying. Completion removes the spinner; exhausted retries show a failure inside the same bubble.
-5. SSE currently carries timeline/activity updates and completed replies, not individual model tokens. “Thinking” indicates that a deep-provider request is active; it does not claim access to the model's internal reasoning.
+4. Each turn has attached activity with expandable attempt history, model identity,
+   separate queue/execution times, and a Stop button. Substantive fast answers remain
+   visible when a deep answer arrives as an Update. Application acknowledgments can
+   be replaced; model depth never implies a correction or verification.
+5. SSE snapshots now carry answer deltas and terminal outcomes. The browser rebuilds
+   by event sequence/attempt identity on reconnect. Hidden reasoning is never emitted;
+   “Reasoning enabled” appears only for an explicitly verified/applied control.
 
 Adaptive routing behavior:
 

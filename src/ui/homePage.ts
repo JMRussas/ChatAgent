@@ -1,3 +1,4 @@
+import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
   fastProvider?: string;
@@ -367,6 +368,11 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         grid-template-columns: 1fr;
       }
     }
+    .answer-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .answer-version + .answer-version { margin-top: 12px; padding: 10px; border-left: 2px solid var(--accent); }
+    details.reply-activity { display: block; font-size: 0.8rem; opacity: 0.85; }
+    details.reply-activity summary { cursor: pointer; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; } }
   </style>
 </head>
 <body>
@@ -450,6 +456,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       events: [],
       previousAssistantStatuses: [],
       pendingUserText: "",
+      pendingMessageId: null,
+      reconnecting: false,
       pendingUserSentAtMs: 0,
       lastThreadRenderKey: "",
       runtimeInfo
@@ -490,200 +498,94 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
     }
 
-    function deriveTurns(events) {
-      const turns = [];
+    const deriveTurns = ${deriveTurns.toString()};
+    const turnNodes = new Map();
+    const cancelRetries = new Map();
 
-      for (const event of events) {
-        if (event.type === "user") {
-          turns.push({
-            messageId: event.messageId,
-            userText: event.text,
-            assistantText: "",
-            status: null,
-            activity: "fast",
-            createdAtIso: event.createdAtIso,
-            routeDecision: state.routeDecision
-          });
-          continue;
-        }
-
-        if (event.type === "activity") {
-          const target = event.messageId
-            ? turns.find((turn) => turn.messageId === event.messageId)
-            : [...turns].reverse().find((turn) => turn.status !== "refined" && turn.status !== "complete");
-          if (target && target.status !== "refined") {
-            target.activity = event.activity;
-            target.activityText = event.text;
-            target.routeDecision = event.routeDecision ?? target.routeDecision;
-          }
-          continue;
-        }
-
-        if (event.type === "provisional") {
-          const target = event.messageId
-            ? turns.find((turn) => turn.messageId === event.messageId)
-            : [...turns].reverse().find((turn) => !turn.assistantText);
-          if (target) {
-            if (target.status === "refined") continue;
-            target.assistantText = event.text;
-            target.status = event.processingStatus === "complete" ? "complete" : "provisional";
-            if (target.status === "complete") target.activity = null;
-            target.routeDecision = event.routeDecision ?? target.routeDecision;
-          } else {
-            turns.push({
-              userText: "",
-              assistantText: event.text,
-              status: "provisional",
-              createdAtIso: event.createdAtIso,
-              routeDecision: state.routeDecision
-            });
-          }
-          continue;
-        }
-
-        if (event.type === "refined") {
-          const target = event.messageId
-            ? turns.find((turn) => turn.messageId === event.messageId)
-            : [...turns].reverse().find((turn) => turn.status === "provisional");
-
-          if (target) {
-            target.assistantText = event.text;
-            target.status = "refined";
-            target.activity = null;
-            target.routeDecision = event.routeDecision ?? "deep";
-          } else {
-            turns.push({
-              userText: "",
-              assistantText: event.text,
-              status: "refined",
-              createdAtIso: event.createdAtIso,
-              routeDecision: state.routeDecision
-            });
-          }
+    async function stopTurn(messageId, retry = false) {
+      const conversationId = state.conversationId;
+      try {
+        const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/messages/" + encodeURIComponent(messageId) + "/cancel", { method: "POST" });
+        if (conversationId !== state.conversationId) return;
+        if (res.status === 404 && !retry) {
+          if (state.events.some(e => e.type === "user" && e.messageId === messageId)) void stopTurn(messageId, true);
+          else cancelRetries.set(messageId, true);
+        } else if (!res.ok) setStatus("Could not cancel this turn. Please try again.", true);
+      } catch { setStatus("Could not cancel this turn. Please try again.", true); }
+    }
+    function updateActivityTimers() {
+      for (const node of turnNodes.values()) {
+        for (const entry of node.timers) {
+          const end = entry.end ? Date.parse(entry.end) : Date.now();
+          const start = Date.parse(entry.start);
+          entry.element.textContent = Number.isFinite(start) && Number.isFinite(end) ? entry.label + Math.max(0, Math.floor((end - start) / 1000)) + "s" : "";
         }
       }
-
-      return turns;
     }
-
-    function activityLabel(turn) {
-      const info = state.runtimeInfo || {};
-      const deepModel = info.deepModel || "deep provider";
-      const fastModel = info.fastModel || "fast provider";
-      if (turn.activity === "failed") return turn.activityText || "Reply failed. Please try again.";
-      if (turn.activity === "queued") return "Waiting for " + deepModel + " (deep provider)…";
-      if (turn.activity === "thinking") return "Thinking · " + deepModel + " (deep provider)…";
-      if (turn.activity === "retrying") return "Retrying · " + deepModel + " — " + (turn.activityText || "Please wait");
-      if (turn.activity === "sending") return "Sending…";
-      if (turn.activity === "fast") return "Generating reply · " + fastModel + "…";
-      return "";
-    }
-
     function renderThread() {
       const turns = deriveTurns(state.events);
-      const pendingMirroredInEvents = state.pendingUserText
-        && state.events.some((event) => {
-          if (event.type !== "user") return false;
-
-          const eventCreatedAtMs = Date.parse(event.createdAtIso);
-          return event.text === state.pendingUserText && Number.isFinite(eventCreatedAtMs) && eventCreatedAtMs >= state.pendingUserSentAtMs - 2000;
-        });
-
-      if (pendingMirroredInEvents) {
-        state.pendingUserText = "";
-        state.pendingUserSentAtMs = 0;
-      }
-
-      if (state.pendingUserText) {
-        turns.push({
-          userText: state.pendingUserText,
-          assistantText: "",
-          status: null,
-          activity: "sending",
-          createdAtIso: new Date().toISOString(),
-          routeDecision: state.routeDecision
-        });
-      }
-
-      const nextStatuses = turns.map((turn) => turn.status ?? "none");
-      const renderKey = JSON.stringify({ turns, routeDecision: state.routeDecision });
-      if (renderKey === state.lastThreadRenderKey) {
-        return;
-      }
-
-      thread.innerHTML = "";
-
-      turns.forEach((turn, idx) => {
-        const row = document.createElement("section");
-        row.className = "turn";
-
-        if (turn.userText) {
-          const userBubble = document.createElement("div");
-          userBubble.className = "bubble user";
-          userBubble.textContent = turn.userText;
-          row.appendChild(userBubble);
+      if (state.pendingMessageId && state.events.some(e => e.type === "user" && e.messageId === state.pendingMessageId)) state.pendingUserText = "";
+      if (state.pendingUserText) turns.push({ messageId: state.pendingMessageId, userText: state.pendingUserText, answers: [], attempts: [], active: true, status: "Sending", current: null });
+      const ids = new Set(turns.map(t => t.messageId));
+      for (const [id, node] of turnNodes) if (!ids.has(id)) { node.row.remove(); turnNodes.delete(id); }
+      for (const turn of turns) {
+        if (cancelRetries.has(turn.messageId) && state.events.some(e => e.type === "user" && e.messageId === turn.messageId)) {
+          cancelRetries.delete(turn.messageId); void stopTurn(turn.messageId, true);
         }
-
-        const activity = activityLabel(turn);
-        if (turn.assistantText || activity) {
-          const assistantBubble = document.createElement("div");
-          assistantBubble.setAttribute("aria-busy", String(Boolean(activity && turn.activity !== "failed")));
-          const routeDecision = turn.routeDecision ?? "direct";
-          const routeClass = routeDecision === "deep" ? "deep" : routeDecision === "clarify" ? "clarify" : "direct";
-          const justRefined = state.previousAssistantStatuses[idx] === "provisional" && turn.status === "refined";
-          assistantBubble.className = [
-            "bubble",
-            "assistant",
-            routeClass,
-            turn.status === "refined" ? "refined" : "",
-            justRefined ? "just-refined" : ""
-          ].filter(Boolean).join(" ");
-
-          const tags = document.createElement("div");
-          tags.className = "tag-row";
-
-          const statusTag = document.createElement("span");
-          statusTag.className = "tag " + (turn.status === "refined" ? "refined" : "provisional");
-          statusTag.textContent = turn.activity === "failed" ? "Failed" : turn.status === "refined" ? "Refined" : turn.status === "complete" ? "Complete" : turn.assistantText ? "Provisional" : "In progress";
-          tags.appendChild(statusTag);
-
-          const routeTag = document.createElement("span");
-          routeTag.className = "tag route-" + routeClass;
-          routeTag.textContent = routeDecision.toUpperCase();
-          tags.appendChild(routeTag);
-
-          const content = document.createElement("div");
-          content.innerHTML = escapeHtml(turn.assistantText).replaceAll("\\n", "<br>");
-
-          assistantBubble.appendChild(tags);
-          assistantBubble.appendChild(content);
-          if (activity) {
-            const indicator = document.createElement("div");
-            indicator.className = "reply-activity" + (turn.activity === "failed" ? " failed" : "");
-            indicator.setAttribute("role", "status");
-            if (turn.activity !== "failed") {
-              const spinner = document.createElement("span");
-              spinner.className = "activity-spinner";
-              spinner.setAttribute("aria-hidden", "true");
-              indicator.appendChild(spinner);
-            }
-            const label = document.createElement("span");
-            label.textContent = activity;
-            indicator.appendChild(label);
-            assistantBubble.appendChild(indicator);
+        let node = turnNodes.get(turn.messageId);
+        if (!node) {
+          const row = document.createElement("section"); row.className = "turn";
+          const user = document.createElement("div"); user.className = "bubble user"; row.appendChild(user);
+          const bubble = document.createElement("div"); bubble.className = "bubble assistant"; row.appendChild(bubble);
+          const answers = document.createElement("div"); bubble.appendChild(answers);
+          const details = document.createElement("details"); details.className = "reply-activity";
+          const summary = document.createElement("summary"); summary.setAttribute("aria-live", "polite"); details.appendChild(summary);
+          const history = document.createElement("div"); details.appendChild(history);
+          bubble.appendChild(details);
+          const transport = document.createElement("div"); transport.setAttribute("role", "status"); bubble.appendChild(transport);
+          const stop = document.createElement("button"); stop.type = "button"; stop.textContent = "Stop"; stop.onclick = () => stopTurn(turn.messageId); bubble.appendChild(stop);
+          node = { row, user, bubble, answers, details, summary, history, transport, stop, timers: [], answerNodes: new Map(), historyKey: "", wasActive: true };
+          turnNodes.set(turn.messageId, node); thread.appendChild(row);
+        }
+        node.user.textContent = turn.userText;
+        node.bubble.setAttribute("aria-busy", String(turn.active));
+        node.stop.hidden = !turn.active;
+        node.transport.textContent = state.reconnecting && turn.active ? "Live updates reconnecting" : "";
+        for (const [id, answer] of node.answerNodes) if (!turn.answers.some(a => a.id === id)) { answer.element.remove(); node.answerNodes.delete(id); }
+        for (const [answerIndex, answer] of turn.answers.entries()) {
+          let view = node.answerNodes.get(answer.id);
+          if (!view) {
+            const element = document.createElement("section"); element.className = "answer-version";
+            const label = document.createElement("strong"); element.appendChild(label);
+            const content = document.createElement("div"); content.className = "answer-content"; element.appendChild(content);
+            node.answers.appendChild(element); view = { element, label, content }; node.answerNodes.set(answer.id, view);
           }
-          row.appendChild(assistantBubble);
+          if (node.answers.children[answerIndex] !== view.element) node.answers.insertBefore(view.element, node.answers.children[answerIndex] ?? null);
+          view.label.textContent = answer.label;
+          if (view.content.textContent !== answer.text) view.content.textContent = answer.text;
         }
-
-        thread.appendChild(row);
-      });
-
-      if (thread.lastElementChild) {
-        thread.lastElementChild.scrollIntoView({ behavior: "smooth", block: "end" });
+        const current = turn.current;
+        const working = current?.phase === "deep" && turn.status === "Working" ? "Working on a deeper answer" : turn.status;
+        const label = working + (current?.model ? " · " + current.model : "") + (current?.reasoningEnabled ? " · Reasoning enabled" : "");
+        if (node.summary.textContent !== label) node.summary.textContent = label;
+        if (node.wasActive && !turn.active && turn.status === "Complete") node.details.open = false;
+        node.wasActive = turn.active;
+        const historyKey = JSON.stringify(turn.attempts.map(a => [a.id, a.steps, a.startedAt, a.endedAt, a.queuedAt, a.model]));
+        if (node.historyKey !== historyKey) {
+          node.history.replaceChildren(); node.timers = [];
+          for (const attempt of turn.attempts) {
+            const step = document.createElement("div"); step.textContent = attempt.phase + (attempt.model ? " · " + attempt.model : "") + ": " + attempt.steps.join(" → "); node.history.appendChild(step);
+            for (const timing of [
+              { start: attempt.queuedAt, end: attempt.startedAt ?? attempt.endedAt, label: "Queued: " },
+              { start: attempt.startedAt, end: attempt.endedAt, label: " Active: " }
+            ]) if (timing.start) {
+              const element = document.createElement("span"); step.appendChild(element); node.timers.push({ ...timing, element });
+            }
+          }
+          node.historyKey = historyKey;
+        }
       }
-
-      state.previousAssistantStatuses = nextStatuses;
-      state.lastThreadRenderKey = renderKey;
+      updateActivityTimers();
     }
 
     function renderTelemetry(payload) {
@@ -755,11 +657,13 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       timelineStream = source;
 
       source.addEventListener("timeline", (event) => {
+        if (source !== timelineStream) return;
         try {
           const payload = JSON.parse(event.data);
           state.events = Array.isArray(payload.events) ? payload.events : [];
 
-          if (state.pendingUserText && state.events.some((item) => item.type === "user" && item.text === state.pendingUserText)) {
+          state.reconnecting = false;
+          if (state.pendingUserText && state.events.some((item) => item.type === "user" && item.messageId === state.pendingMessageId)) {
             state.pendingUserText = "";
             state.pendingUserSentAtMs = 0;
           }
@@ -771,7 +675,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       });
 
       source.onerror = () => {
-        // EventSource auto-reconnects; keep status stable.
+        if (source !== timelineStream) return;
+        state.reconnecting = true; renderThread();
       };
     }
 
@@ -804,6 +709,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.conversationId = conversationId;
       state.userId = userId;
       openTimelineStream();
+      state.pendingMessageId = crypto.randomUUID();
+      const messageId = state.pendingMessageId;
       state.pendingUserText = text;
       state.pendingUserSentAtMs = Date.now();
       renderThread();
@@ -817,6 +724,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             conversationId,
+            messageId,
             userId,
             text
           })
@@ -829,6 +737,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         }
 
         const payload = await res.json();
+        if (conversationId !== state.conversationId) return;
         state.routeDecision = payload?.fastResponse?.analysis?.routeDecision ?? null;
         state.confidence = Number(payload?.fastResponse?.analysis?.confidence ?? NaN);
         state.confidence = Number.isFinite(state.confidence) ? state.confidence : null;
@@ -857,6 +766,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     conversationIdInput.addEventListener("change", () => {
       state.conversationId = String(conversationIdInput.value || "").trim();
+      cancelRetries.clear();
+      state.reconnecting = false;
       state.events = [];
       state.previousAssistantStatuses = [];
       state.pendingUserText = "";
@@ -876,6 +787,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     openTimelineStream();
     void fetchTelemetry();
     setInterval(refreshLoop, 1000);
+    setInterval(updateActivityTimers, 1000);
 
     window.addEventListener("beforeunload", () => {
       if (timelineStream) {
