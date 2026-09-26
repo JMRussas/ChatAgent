@@ -243,19 +243,97 @@ interface TurnEvent {
 
 ### Example fixture: one Iris fast/deep turn
 
+The outer object is a fixture envelope: `conversationId` supplies the URL path,
+`request` and `response` are HTTP bodies, and each `events` element is an SSE
+JSON payload. Envelope keys are not sent as wire fields. The answer text is
+synthetic test data, not a factual or retrieval claim.
+
 ```json
-[
-  { "type": "SubmitTurnRequest", "protocolVersion": "1.0", "accountId": "acct-1", "projectId": "iris-proj-42", "conversationId": "8f14e...", "messageId": "b2c1...", "text": "Find latest inflation data and cite sources", "clientTimestampIso": "2026-09-25T18:20:00.000Z" },
-  { "type": "SubmitTurnResponse", "protocolVersion": "1.0", "conversationId": "8f14e...", "messageId": "b2c1...", "fastResponse": { "provisionalReply": "Your request is queued for deeper analysis.", "routeDecision": "deep", "processingStatus": "provisional" }, "deepTask": { "taskId": "t-991..." } },
-  { "type": "TurnEvent", "sequence": 1, "conversationId": "8f14e...", "messageId": "b2c1...", "taskId": "t-991...", "type_": "activity", "phase": "deep", "activity": "queued", "createdAtIso": "2026-09-25T18:20:00.050Z" },
-  { "type": "TurnEvent", "sequence": 2, "conversationId": "8f14e...", "messageId": "b2c1...", "taskId": "t-991...", "attemptId": "a-1", "type_": "activity", "phase": "deep", "activity": "running", "createdAtIso": "2026-09-25T18:20:00.400Z" },
-  { "type": "TurnEvent", "sequence": 3, "conversationId": "8f14e...", "messageId": "b2c1...", "taskId": "t-991...", "attemptId": "a-1", "type_": "delta", "phase": "deep", "text": "Inflation is ", "createdAtIso": "2026-09-25T18:20:01.100Z" },
-  { "type": "TurnEvent", "sequence": 4, "conversationId": "8f14e...", "messageId": "b2c1...", "taskId": "t-991...", "attemptId": "a-1", "type_": "terminal", "phase": "deep", "finishReason": "stop", "answerRevision": 1, "text": "Inflation is 3.1% per the latest report.", "model": { "bindingId": "ollama:qwen2.5:14b", "provider": "ollama", "model": "qwen2.5:14b" }, "usage": null, "createdAtIso": "2026-09-25T18:20:03.200Z" }
-]
+{
+  "conversationId": "8f14e45f-ea3b-4a83-9d70-0d46edccaa01",
+  "request": {
+    "protocolVersion": "1.0",
+    "accountId": "acct-1",
+    "projectId": "iris-proj-42",
+    "messageId": "b2c10000-0000-4000-8000-000000000001",
+    "text": "Find latest inflation data and cite sources",
+    "clientTimestampIso": "2026-09-25T18:20:00.000Z"
+  },
+  "response": {
+    "protocolVersion": "1.0",
+    "conversationId": "8f14e45f-ea3b-4a83-9d70-0d46edccaa01",
+    "messageId": "b2c10000-0000-4000-8000-000000000001",
+    "fastResponse": {
+      "provisionalReply": "Your request is queued for deeper analysis.",
+      "routeDecision": "deep",
+      "processingStatus": "provisional"
+    },
+    "deepTask": {
+      "taskId": "99100000-0000-4000-8000-000000000001"
+    }
+  },
+  "events": [
+    {
+      "type": "activity",
+      "sequence": 1,
+      "conversationId": "8f14e45f-ea3b-4a83-9d70-0d46edccaa01",
+      "messageId": "b2c10000-0000-4000-8000-000000000001",
+      "taskId": "99100000-0000-4000-8000-000000000001",
+      "phase": "deep",
+      "activity": "queued",
+      "createdAtIso": "2026-09-25T18:20:00.050Z",
+      "protocolVersion": "1.0"
+    },
+    {
+      "type": "activity",
+      "sequence": 2,
+      "conversationId": "8f14e45f-ea3b-4a83-9d70-0d46edccaa01",
+      "messageId": "b2c10000-0000-4000-8000-000000000001",
+      "taskId": "99100000-0000-4000-8000-000000000001",
+      "attemptId": "a-1",
+      "phase": "deep",
+      "activity": "running",
+      "createdAtIso": "2026-09-25T18:20:00.400Z",
+      "protocolVersion": "1.0"
+    },
+    {
+      "type": "delta",
+      "sequence": 3,
+      "conversationId": "8f14e45f-ea3b-4a83-9d70-0d46edccaa01",
+      "messageId": "b2c10000-0000-4000-8000-000000000001",
+      "taskId": "99100000-0000-4000-8000-000000000001",
+      "attemptId": "a-1",
+      "phase": "deep",
+      "text": "Inflation is ",
+      "createdAtIso": "2026-09-25T18:20:01.100Z",
+      "protocolVersion": "1.0"
+    },
+    {
+      "type": "terminal",
+      "sequence": 4,
+      "conversationId": "8f14e45f-ea3b-4a83-9d70-0d46edccaa01",
+      "messageId": "b2c10000-0000-4000-8000-000000000001",
+      "taskId": "99100000-0000-4000-8000-000000000001",
+      "attemptId": "a-1",
+      "phase": "deep",
+      "finishReason": "stop",
+      "answerRevision": 1,
+      "text": "Inflation is 3.1% per the latest report.",
+      "model": {
+        "bindingId": "ollama:qwen2.5:14b",
+        "provider": "ollama",
+        "model": "qwen2.5:14b"
+      },
+      "usage": null,
+      "createdAtIso": "2026-09-25T18:20:03.200Z",
+      "protocolVersion": "1.0"
+    }
+  ]
+}
 ```
 
-(`type_` stands in for the reserved word `type` in this illustrative JSON;
-the real wire field is named `type`.)
+The fixture is checked against the interfaces above by
+`tests/unit/protocolFixture.test.ts`; protocol v1 endpoints remain planned.
 
 ### Field mapping (today's systems → protocol v1)
 
@@ -307,10 +385,10 @@ the real wire field is named `type`.)
 should design its `SourceStore` interface with the context-store adapter above
 in mind, but does not need to wait for the vertical slice below to land — the
 interface can be added now, with in-memory as its only implementation until
-the context-store adapter exists. Spec 02 (streaming/cancellation) should land
-before the vertical slice, since protocol v1's `TurnEvent` stream requires it;
-until then, the slice can run in a compatibility mode using ChatRuntime's
-existing non-delta SSE snapshot endpoint.
+the context-store adapter exists. Spec 02 (streaming/cancellation) must land
+before implementing the vertical slice. Its mid-answer reconnect and queued/running
+cancellation acceptance tests require that lifecycle support. Existing snapshot SSE
+is not a substitute; no pre-02 compatibility milestone is defined here.
 
 ## Next vertical slice
 

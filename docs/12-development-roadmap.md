@@ -30,6 +30,29 @@ supersession and aggregate budget enforcement are explicitly separate follow-ups
 
 ## Current status and next implementation order
 
+Review follow-up (2026-09-25): startup now bounds context by the minimum of the
+application window and configured catalog context limits for the selected fast/deep
+bindings, then validates output/safety reserves before constructing providers.
+Unknown/unlisted model limits retain the application bound. The full Iris vertical
+slice requires spec 02; snapshot SSE alone cannot meet its cancellation acceptance
+case. ADR 0001's example now contains valid wire payloads in a fixture envelope.
+
+Validation for this follow-up: **162 tests across 34 files passed**, type checking
+and build passed, and `verify:release` passed with `BENCH_MODE=simulate` and
+`BENCH_SIM_SEED=default-v1`. No live providers or cross-repository integration ran.
+Regression evidence:
+
+- `tests/unit/contextConfig.test.ts`: selected fast/deep limits, application cap,
+  unknown/unlisted limits, unrelated bindings, exhausted reserves, and a turn that
+  fits the application window but is rejected before provider/timeline work under
+  the model window.
+- `tests/integration/startup.test.ts`: `rejects a catalog window consumed by
+  reserves before starting the server` verifies startup uses the catalog limit.
+- `tests/unit/protocolFixture.test.ts`: `ADR protocol fixture type-checks against
+  its declared wire interfaces` compiles the actual example against the ADR's
+  interfaces and checks event identity/sequence continuity.
+
+
 Reconciled through implementation commit `8afce48` on 2026-09-25, plus 01A below.
 The latest implementation check passed **152 tests across 32 files and TypeScript
 checking**, and a full `npm run verify:release` (tests, lint, fixture evaluation,

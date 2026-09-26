@@ -13,15 +13,17 @@ slice (an Iris project-tab session routed through ChatRuntime) with named
 acceptance tests. All three repos' consolidation notes now point to it. No
 cross-repository migration, deployment, or live verification occurred.
 
-Validation: 152 tests / 32 files, type checking, build, fixture evaluation and
-seeded simulated benchmark comparison all pass (unchanged by this checkpoint —
-no `src/` code changed). Local directory remains ChatAgent; GitHub repo/package
-is ChatRuntime.
+Subsequent review fixes: selected catalog context limits now constrain startup
+budgeting; spec 02 is required for full slice acceptance; protocol fixtures match
+the declared interfaces and are checked automatically. Validation: 162 tests / 34
+files, type checking, build, fixture evaluation and seeded simulated benchmark
+comparison passed. See the roadmap's review follow-up for regression evidence.
+Local directory remains ChatAgent; GitHub repo/package is ChatRuntime.
 
 ## Next bounded task: choose between 01B and the vertical slice
 
-Two independent, un-started pieces of work are now both unblocked. Pick one
-explicitly rather than starting both:
+Choose one workstream explicitly. 01B can start now; the full vertical slice
+requires spec 02 first. Do not start both:
 
 **Option A — 01B (internal summarization and source-linked memory).** Design
 `SourceStore`'s interface per ADR 0001's reconciliation section with the future
@@ -37,13 +39,14 @@ the two near-duplicate `OrchestrationClient` classes in Iris is actually live at
 runtime, and (2) decide whether ChatRuntime's context-store persistence adapter
 is built now or deferred — the slice itself does not strictly require it (it
 can ship using ChatRuntime's existing in-memory store), but building it in the
-wrong order risks throwaway work. This slice also depends on spec 02
-(streaming/cancellation) for true SSE deltas; it can run in a non-streaming
-compatibility mode against ChatRuntime's existing snapshot SSE endpoint until
-spec 02 ships, but say so explicitly rather than claiming full parity early.
+wrong order risks throwaway work. Spec 02 (streaming/cancellation) must be
+completed before implementing this slice: its acceptance tests require both
+mid-answer reconnect and cancellation of queued/running work. The existing
+snapshot SSE endpoint supplies neither generation cancellation nor answer deltas.
+There is no pre-02 compatibility milestone in this handoff.
 
-Either choice is a legitimate next step; do not silently start a third,
-unplanned direction. If neither is picked, spec 02 (generation streaming and
+Either workstream is legitimate; choosing B means completing spec 02 first if
+it remains outstanding. If neither is picked, spec 02 (generation streaming and
 cancellation) remains the default next numbered milestone per
 [implementation/README.md](README.md)'s execution order.
 
@@ -62,5 +65,6 @@ cancellation) remains the default next numbered milestone per
 
 Suggested task prompt: "Read docs/implementation/NEXT-HANDOFF.md and ADR 0001.
 Choose option A (01B) or option B (the vertical slice) explicitly, state which
-and why, then implement only that option's acceptance tests. Preserve unrelated
-work in any repo touched."
+and why. For B, implement spec 02 first if outstanding; otherwise implement the
+slice. Keep the chosen milestone bounded and preserve unrelated work in any repo
+touched."

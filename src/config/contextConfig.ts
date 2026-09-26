@@ -1,3 +1,5 @@
+import type { ModelCatalog } from "./modelCatalog";
+import type { RuntimeProviderConfig } from "./providerConfig";
 import { parseStrictNonNegativeIntEnv, parseStrictPositiveIntEnv } from "./runtimeEnv";
 
 /**
@@ -13,8 +15,20 @@ export interface ContextBudgetConfig {
   deepOutputTokens: number;
 }
 
-export function loadContextBudgetConfigFromEnv(env: NodeJS.ProcessEnv = process.env): ContextBudgetConfig {
-  const windowTokens = parseStrictPositiveIntEnv(env.CONTEXT_WINDOW_TOKENS, "CONTEXT_WINDOW_TOKENS", 8192);
+export function loadContextBudgetConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  selection?: { config: RuntimeProviderConfig; catalog: ModelCatalog }
+): ContextBudgetConfig {
+  const applicationWindowTokens = parseStrictPositiveIntEnv(env.CONTEXT_WINDOW_TOKENS, "CONTEXT_WINDOW_TOKENS", 8192);
+  // Match the actual fixed bindings, independently of catalog routing preferences.
+  // Missing limits remain unknown; they do not increase the application allowance.
+  const selectedWindows = selection ? (["fast", "deep"] as const).flatMap(role => {
+    const binding = selection.config[role];
+    const limit = selection.catalog.models.find(entry =>
+      entry.provider === binding.provider && entry.model === binding.model)?.limits.contextTokens;
+    return limit === undefined ? [] : [limit];
+  }) : [];
+  const windowTokens = Math.min(applicationWindowTokens, ...selectedWindows);
   const maxHistoryTurns = parseStrictPositiveIntEnv(env.CONTEXT_MAX_HISTORY_TURNS, "CONTEXT_MAX_HISTORY_TURNS", 12);
   const safetyTokens = parseStrictNonNegativeIntEnv(env.CONTEXT_SAFETY_TOKENS, "CONTEXT_SAFETY_TOKENS", 256);
   const configuredFastOutputTokens = parseStrictPositiveIntEnv(env.CHAT_FAST_MAX_OUTPUT_TOKENS, "CHAT_FAST_MAX_OUTPUT_TOKENS", 512);
@@ -31,9 +45,9 @@ export function loadContextBudgetConfigFromEnv(env: NodeJS.ProcessEnv = process.
   const outputReserve = Math.max(fastOutputTokens, deepOutputTokens);
   if (outputReserve + safetyTokens >= windowTokens) {
     throw new Error(
-      `Context budget misconfigured: CONTEXT_WINDOW_TOKENS (${windowTokens}) leaves no room for input after ` +
+      `Context budget misconfigured: effective context window (${windowTokens}; CONTEXT_WINDOW_TOKENS=${applicationWindowTokens}, selected catalog limits=${selectedWindows.join(",") || "unknown"}) leaves no room for input after ` +
         `reserving effective CHAT_*_MAX_OUTPUT_TOKENS (including OLLAMA_*_NUM_PREDICT overrides) (${outputReserve}) ` +
-        `plus CONTEXT_SAFETY_TOKENS (${safetyTokens}). Increase CONTEXT_WINDOW_TOKENS or lower the others.`
+        `plus CONTEXT_SAFETY_TOKENS (${safetyTokens}). Lower output/safety reserves or configure a larger effective model/application window.`
     );
   }
 

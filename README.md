@@ -232,6 +232,12 @@ CHAT_FAST_MAX_OUTPUT_TOKENS=512
 CHAT_DEEP_MAX_OUTPUT_TOKENS=2048
 ```
 
+Startup caps the shared window at the minimum of `CONTEXT_WINDOW_TOKENS` and
+any `limits.contextTokens` configured in the model catalog for the selected
+fast/deep provider and model bindings. Missing or unlisted limits remain unknown;
+unselected models do not constrain the window. Output and safety reserves are
+validated against this effective window before providers are constructed.
+
 `CONTEXT_WINDOW_TOKENS` is an application working limit for this prototype, not a
 claim about any specific model's real context window; token counts are a
 conservative UTF-8-byte-based estimate, not a provider tokenizer. The server

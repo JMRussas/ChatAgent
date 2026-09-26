@@ -332,8 +332,9 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
 export async function startServer(port: number): Promise<void> {
   const config = loadRuntimeProviderConfigFromEnv();
-  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv();
-  const modelCatalog = describeModelCatalog(await loadModelCatalog(process.env.MODEL_CATALOG_PATH), config);
+  const catalog = await loadModelCatalog(process.env.MODEL_CATALOG_PATH);
+  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(process.env, { config, catalog });
+  const modelCatalog = describeModelCatalog(catalog, config);
   const providers = buildProviderPair(config, contextBudget);
   const estimator = new InMemoryLatencyEstimator();
 
