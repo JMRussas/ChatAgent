@@ -83,3 +83,34 @@ All names below are executable tests. Generation IDs match the numbered cases in
 seeded benchmark comparison both passed. Historical reports/baselines were preserved. Live providers and real-browser/mobile tests
 were not run; they remain explicit spec 06 validation work, not an offline quality
 or visual-parity claim. Existing development processes were not restarted.
+
+
+## Post-implementation review
+
+Reviewed committed milestones `e568256` and `d9c1d51`, concentrating on generation
+lifecycle/cancellation, stream handling, context eligibility, and UI projection.
+Two UI gaps were reproduced and corrected:
+
+- **P2 — retained incomplete answers lost their visible outcome.** A successful
+  deep attempt became the turn's current activity and collapsed its history. The
+  renderer ignored the fast answer's state, making retained partial text look
+  like an ordinary completed answer. Each answer now displays its own state;
+  failed/incomplete/cancelled phase outcomes remain visible outside the disclosure,
+  even when that phase produced no text.
+- **Terminal projection hardening.** The view model ignored late deltas but accepted
+  late full answers and replacement terminal events for the same attempt. The
+  runtime already suppresses late provider results; the projection now independently
+  freezes an attempt after its first terminal event. Its only exception is the
+  runtime's application acknowledgment after an empty fast failure. New replay
+  attempts still have distinct IDs and remain eligible.
+
+`tests/unit/turnViewModel.test.ts` adds `keeps %s fast outcomes visible after a
+successful deep update`, `freezes %s attempts against late answers and terminals`,
+and `still admits the application fallback acknowledgment after an empty fast
+failure`. Seven new parameterized cases failed before the fixes; all eight added
+cases pass afterward. Existing DOM/timer/reconnect tests remain passing.
+
+Review validation: **203 tests / 38 files**, type checking, build and the seeded
+simulated release gate passed (`BENCH_MODE=simulate`, `BENCH_SIM_SEED=default-v1`).
+No additional blocking issue was identified in this review. Live-provider and
+real-browser/mobile verification remain outstanding; this does not certify either.

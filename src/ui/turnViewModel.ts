@@ -25,6 +25,10 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
       attempt = { id, phase, text: "", answerKind: "substantive", state: "Working", terminal: false, reasoningEnabled: false, steps: [] };
       turn.attempts.push(attempt);
     }
+    // Attempts freeze at their first terminal event. The runtime may append one
+    // app-owned acknowledgment after an empty fast failure; it is not a new answer.
+    if (event.attemptId && attempt.terminal && !(event.type === "provisional" && phase === "fast"
+      && attempt.state === "Failed" && !attempt.text && event.answerKind === "acknowledgment")) continue;
     if (event.model) {
       attempt.model = event.model.model;
       attempt.reasoningEnabled = event.model.reasoningEnabled === true;
@@ -70,6 +74,8 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
       id: a.id, text: a.text, label: a.phase === "deep" && turn.attempts.some(f => f.phase === "fast" && f.text && f.answerKind !== "acknowledgment") ? "Update" : "Answer",
       state: a.state
     }));
-    return { ...turn, answers, current, active: current ? active.length > 0 : true, status: current?.state ?? "Working" };
+    const phaseOutcomes = [fast, deep].filter(a => a?.terminal && a.state !== "Complete" && a.state !== "Retrying")
+      .map(a => ({ phase: a!.phase, state: a!.state }));
+    return { ...turn, answers, phaseOutcomes, current, active: current ? active.length > 0 : true, status: current?.state ?? "Working" };
   });
 }

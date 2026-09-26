@@ -29,6 +29,12 @@ supersession and aggregate budget enforcement are explicitly separate follow-ups
 
 ## Current status and next implementation order
 
+Post-implementation review corrected visible outcome labels for retained partial
+answers and froze UI attempts against late answer/terminal events. Latest checks:
+**203 tests / 38 files**, type checking, build and seeded simulated release gate
+passed. See [02 review evidence](implementation/02-evidence.md#post-implementation-review).
+
+
 **Spec 02 is implemented with offline acceptance coverage.** Fast/deep attempts
 stream answer deltas, carry unique attempt IDs and safe terminal outcomes, and
 support explicit cancellation. Transient failures retry only before output;

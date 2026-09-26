@@ -15,6 +15,21 @@ describe("turn activity projection", () => {
     ])[0];
     expect(turn.answers.map(a => [a.label, a.text])).toEqual([["Answer", "late fast answer"], ["Update", "deep answer"]]);
   });
+  it.each(["stop", "length", "cancelled", "error"] as const)("freezes %s attempts against late answers and terminals", finishReason => {
+    const prefix = [event("user"), event("delta", { phase: "fast", attemptId: "f", text: "original" }),
+      event("terminal", { phase: "fast", attemptId: "f", finishReason })];
+    const before = deriveTurns(prefix);
+    expect(deriveTurns([...prefix,
+      event("provisional", { phase: "fast", attemptId: "f", text: "late replacement" }),
+      event("terminal", { phase: "fast", attemptId: "f", finishReason: "stop", createdAtIso: "2026-09-25T00:00:10Z" })
+    ])).toEqual(before);
+  });
+  it("still admits the application fallback acknowledgment after an empty fast failure", () => {
+    const turn = deriveTurns([event("user"), event("terminal", { phase: "fast", attemptId: "f", finishReason: "error" }),
+      event("provisional", { phase: "fast", attemptId: "f", text: "Queued for deeper analysis", answerKind: "acknowledgment" })])[0];
+    expect(turn.answers[0].text).toBe("Queued for deeper analysis");
+    expect(turn.attempts[0].state).toBe("Failed");
+  });
   it("keeps concurrent placeholders, models and timestamps attached by messageId", () => {
     const turns = deriveTurns([
       event("user", { text: "A" }), event("user", { messageId: "b", text: "B" }),
@@ -60,7 +75,7 @@ describe("turn activity projection", () => {
   });
 });
 
-it("preserves answer DOM, disclosure and Stop focus during activity timer ticks and reconnect", () => {
+function createUi(state: { events: ChatTimelineEvent[]; reconnecting: boolean }) {
   class Element {
     children: Element[] = []; parent?: Element; className = ""; textContent = ""; open = false; hidden = false; type = ""; onclick?: () => void;
     attributes: Record<string, string> = {};
@@ -72,9 +87,14 @@ it("preserves answer DOM, disclosure and Stop focus during activity timer ticks 
   }
   const html = renderHomePageHtml();
   const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
-  const state = { events: [event("user"), event("activity", { phase: "fast", attemptId: "f", activity: "running" }), event("delta", { phase: "fast", attemptId: "f", text: "hello" })], reconnecting: false };
   const thread = new Element();
   const ui = new Function("state", "thread", "document", script.slice(script.indexOf("    const deriveTurns ="), script.indexOf("    function renderTelemetry")) + "return { renderThread, updateActivityTimers, turnNodes };")(state, thread, { createElement: () => new Element() });
+  return { ...ui, html };
+}
+
+it("preserves answer DOM, disclosure and Stop focus during activity timer ticks and reconnect", () => {
+  const state = { events: [event("user"), event("activity", { phase: "fast", attemptId: "f", activity: "running" }), event("delta", { phase: "fast", attemptId: "f", text: "hello" })], reconnecting: false };
+  const ui = createUi(state); const html = ui.html;
   ui.renderThread(); const node = ui.turnNodes.get("a"); const content = node.answerNodes.get("f").content;
   node.details.open = true; const stop = node.stop;
   ui.updateActivityTimers(); expect(node.answerNodes.get("f").content).toBe(content); expect(node.stop).toBe(stop);
@@ -83,4 +103,19 @@ it("preserves answer DOM, disclosure and Stop focus during activity timer ticks 
   state.events.push(event("terminal", { phase: "fast", attemptId: "f", finishReason: "stop" })); ui.renderThread();
   expect(node.details.open).toBe(false); expect(node.stop.hidden).toBe(true); expect(node.bubble.attributes["aria-busy"]).toBe("false");
   expect(html).toContain("prefers-reduced-motion");
+});
+
+it.each(["length", "error", "cancelled"] as const)("keeps %s fast outcomes visible after a successful deep update", finishReason => {
+  for (const text of ["", "partial"]) {
+    const state = { reconnecting: false, events: [event("user"),
+      event("delta", { phase: "fast", attemptId: "f", text }),
+      event("terminal", { phase: "fast", attemptId: "f", finishReason }),
+      event("refined", { phase: "deep", attemptId: "d", text: "complete update" }),
+      event("terminal", { phase: "deep", attemptId: "d", finishReason: "stop" })] };
+    const ui = createUi(state); ui.renderThread(); const node = ui.turnNodes.get("a");
+    expect(node.outcomes.textContent).toContain(finishReason === "length" ? "Incomplete" : finishReason === "error" ? "Failed" : "Cancelled");
+    expect(node.outcomes.textContent).toContain("Fast");
+    if (text) expect(node.answerNodes.get("f").status.textContent).toContain(finishReason === "length" ? "Incomplete" : finishReason === "error" ? "Failed" : "Cancelled");
+    expect(node.answerNodes.get("d").status.textContent).toBe("Complete");
+  }
 });

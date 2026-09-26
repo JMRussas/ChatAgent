@@ -311,7 +311,8 @@ UI behavior:
 3. Deep-route turns render provisional replies first and then swap in-place to refined replies when background processing completes.
 4. Each turn has attached activity with expandable attempt history, model identity,
    separate queue/execution times, and a Stop button. Substantive fast answers remain
-   visible when a deep answer arrives as an Update. Application acknowledgments can
+   visible when a deep answer arrives as an Update, with each version’s own outcome
+   label. Empty failed/incomplete/cancelled phases also retain a visible status. Application acknowledgments can
    be replaced; model depth never implies a correction or verification.
 5. SSE snapshots now carry answer deltas and terminal outcomes. The browser rebuilds
    by event sequence/attempt identity on reconnect. Hidden reasoning is never emitted;

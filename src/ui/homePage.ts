@@ -368,6 +368,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         grid-template-columns: 1fr;
       }
     }
+    .answer-status { margin-left: 0.6em; font-size: 0.8rem; }
+    .phase-outcomes { margin-top: 0.5em; font-size: 0.85rem; }
     .answer-content { white-space: pre-wrap; overflow-wrap: anywhere; }
     .answer-version + .answer-version { margin-top: 12px; padding: 10px; border-left: 2px solid var(--accent); }
     details.reply-activity { display: block; font-size: 0.8rem; opacity: 0.85; }
@@ -542,14 +544,17 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           const summary = document.createElement("summary"); summary.setAttribute("aria-live", "polite"); details.appendChild(summary);
           const history = document.createElement("div"); details.appendChild(history);
           bubble.appendChild(details);
+          const outcomes = document.createElement("div"); outcomes.className = "phase-outcomes"; outcomes.setAttribute("role", "status"); bubble.appendChild(outcomes);
           const transport = document.createElement("div"); transport.setAttribute("role", "status"); bubble.appendChild(transport);
           const stop = document.createElement("button"); stop.type = "button"; stop.textContent = "Stop"; stop.onclick = () => stopTurn(turn.messageId); bubble.appendChild(stop);
-          node = { row, user, bubble, answers, details, summary, history, transport, stop, timers: [], answerNodes: new Map(), historyKey: "", wasActive: true };
+          node = { row, user, bubble, answers, details, summary, history, outcomes, transport, stop, timers: [], answerNodes: new Map(), historyKey: "", wasActive: true };
           turnNodes.set(turn.messageId, node); thread.appendChild(row);
         }
         node.user.textContent = turn.userText;
         node.bubble.setAttribute("aria-busy", String(turn.active));
         node.stop.hidden = !turn.active;
+        const outcomes = (turn.phaseOutcomes || []).map(outcome => (outcome.phase === "fast" ? "Fast reply: " : "Deep reply: ") + outcome.state).join(" · ");
+        if (node.outcomes.textContent !== outcomes) node.outcomes.textContent = outcomes;
         node.transport.textContent = state.reconnecting && turn.active ? "Live updates reconnecting" : "";
         for (const [id, answer] of node.answerNodes) if (!turn.answers.some(a => a.id === id)) { answer.element.remove(); node.answerNodes.delete(id); }
         for (const [answerIndex, answer] of turn.answers.entries()) {
@@ -557,11 +562,13 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           if (!view) {
             const element = document.createElement("section"); element.className = "answer-version";
             const label = document.createElement("strong"); element.appendChild(label);
+            const status = document.createElement("span"); status.className = "answer-status"; element.appendChild(status);
             const content = document.createElement("div"); content.className = "answer-content"; element.appendChild(content);
-            node.answers.appendChild(element); view = { element, label, content }; node.answerNodes.set(answer.id, view);
+            node.answers.appendChild(element); view = { element, label, status, content }; node.answerNodes.set(answer.id, view);
           }
           if (node.answers.children[answerIndex] !== view.element) node.answers.insertBefore(view.element, node.answers.children[answerIndex] ?? null);
           view.label.textContent = answer.label;
+          if (view.status.textContent !== answer.state) view.status.textContent = answer.state;
           if (view.content.textContent !== answer.text) view.content.textContent = answer.text;
         }
         const current = turn.current;

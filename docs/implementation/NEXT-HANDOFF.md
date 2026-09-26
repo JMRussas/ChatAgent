@@ -12,7 +12,8 @@
   explicit thinking verification, activity history/timers and preserved answers.
   [02 evidence](02-evidence.md) maps acceptance cases to executed tests and records
   adapter documentation and offline/live verification boundaries. Validation:
-  195 tests / 38 files, type checking, build and the seeded simulated release gate passed.
+  203 tests / 38 files, type checking, build and the seeded simulated release gate passed
+  after review fixes for visible partial-answer outcomes and frozen terminal UI state.
 - [ADR 0001](../adr/0001-chat-runtime-ownership.md) keeps runtime logic here and
   proposes context-store as a durable backend. The protocol remains a proposal;
   the current API is `/messages` plus snapshot SSE and the cancellation endpoint.
