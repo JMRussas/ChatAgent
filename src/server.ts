@@ -1,3 +1,4 @@
+import { createProtocolV1Handler } from "./app/protocolV1";
 import { verifyThinkingConfig } from "./config/thinkingConfig";
 import { DuplicateMessageError } from "./app/generationLifecycle";
 import { GenerationError } from "./domain/generation";
@@ -173,10 +174,13 @@ function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown)
 }
 
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
+  const protocolV1 = createProtocolV1Handler(service);
   return createServer(async (req, res) => {
     try {
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
+
+      if (await protocolV1(req, res, url, () => parseJsonBody(req))) return;
 
       if (method === "GET" && url.pathname === "/") {
         res.statusCode = 200;
@@ -320,6 +324,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       return json(res, 404, { error: "Not found" });
     } catch (error) {
+      if (res.headersSent) { res.destroy(); return; }
       if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
       if (error instanceof GenerationError) return json(res, error.code === "CONTEXT_TOO_LARGE" ? 413 : 502, { error: "Generation failed", code: error.code });
       if (error instanceof HttpRequestError) {

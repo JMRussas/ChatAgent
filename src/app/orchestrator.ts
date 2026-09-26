@@ -89,6 +89,7 @@ export class ChatOrchestrator {
     await this.timelineStore.appendEvent(message.conversationId, {
       messageId,
       type: "user",
+      routeDecision,
       text: message.text,
       createdAtIso: message.timestampIso
     });

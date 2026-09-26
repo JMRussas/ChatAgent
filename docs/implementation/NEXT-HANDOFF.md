@@ -15,28 +15,21 @@
   203 tests / 38 files, type checking, build and the seeded simulated release gate passed
   after review fixes for visible partial-answer outcomes and frozen terminal UI state.
 - [ADR 0001](../adr/0001-chat-runtime-ownership.md) keeps runtime logic here and
-  proposes context-store as a durable backend. The protocol remains a proposal;
-  the current API is `/messages` plus snapshot SSE and the cancellation endpoint.
+  defers durable context-store persistence. The opt-in Iris project-tab integration
+  and protocol v1 endpoints are implemented. See [slice evidence](07-iris-slice-evidence.md)
+  for scope, protocol refinements, tests, enable/rollback instructions and restart limits.
 
-## Next bounded task: Iris integration slice
+## Next bounded task: desktop validation, then 01B
 
-Spec 02 removes the generation/cancellation prerequisite for the ADR's full slice.
-Before implementation, resolve the remaining two decisions from the ADR:
+The Iris slice is implemented with `useSharedChatRuntime=false` by default.
+Perform a real WPF smoke check against a running runtime: two turns, fast/deep
+rendering, cancellation, reconnect and flag-off rollback. Offline tests and the
+cross-process C#/Node smoke check passed; no real desktop/live-model check is claimed.
+Do not restart an existing runtime without accounting for its in-memory state.
 
-1. Confirm which Iris `OrchestrationClient` is wired at runtime. Trace current
-   source and DI registrations rather than assuming the earlier line references
-   still apply.
-2. Decide whether the context-store persistence adapter is built now or deferred.
-   Prefer the existing in-memory store for the first slice unless current evidence
-   makes durable storage necessary; explicitly record the choice and restart limits.
-
-Then implement only the ADR's feature-flagged Iris project-tab slice: persistent
-per-conversation identity, a ChatRuntime client, protocol v1 compatibility endpoints
-and typed events, and the named continuity/reconnect/cancellation/isolation/failure/
-late-update/rollback acceptance cases. Current snapshot SSE is not yet protocol v1's
-incremental replay contract; an adapter must make that mapping explicit. Preserve
-unrelated work in all repositories. Do not claim shared-runtime integration from
-this repo's spec 02 pass alone.
+After desktop validation, the next implementation workstream is 01B. Durable
+context-store integration remains deferred; Iris UUID/history persistence does
+not restore ChatRuntime context after restart.
 
 01B (internal summaries and source-linked memory) is still a valid independent
 workstream, but is not included in this slice. If chosen instead, follow
@@ -48,8 +41,8 @@ context-store compatibility, and implement in memory first.
 - 01B summaries/source lookup and restart persistence remain unimplemented.
 - Resource-policy RES-01–08 enforcement, discovery/dispatch/CLI and graceful
   shutdown remain later numbered milestones.
-- No Iris/Hekate files were changed as part of spec 02. Cross-repository runtime
-  migration, protocol v1 endpoints and durable replay are not implemented here.
+- Iris now has an opt-in runtime adapter; Hekate is unchanged. Durable replay
+  and runtime-context recovery remain unimplemented.
 - No live inference, model-quality certification or real-browser/mobile gate ran.
   The UI has offline projection/DOM tests; spec 06 still owns real-browser checks.
 - Explicit Ollama thinking controls require runtime metadata. Older runtimes without
@@ -57,6 +50,6 @@ context-store compatibility, and implement in memory first.
 - Development processes were not restarted. Restarting resets in-memory timelines,
   cancellation state, duplicate-ID claims and queued work.
 
-Suggested task: "Read NEXT-HANDOFF and ADR 0001. Resolve the two remaining Iris
-slice decisions against current source, record the bounded scope, then implement
-and verify only that feature-flagged slice. Preserve unrelated work."
+Suggested task: "Read NEXT-HANDOFF and the Iris slice evidence. Validate the
+feature-flagged path in WPF, preserve existing development state, then implement
+01B against the retained source/context contracts. Keep durable persistence deferred."

@@ -455,3 +455,14 @@ against the working trees at `D:\Git\Hekate` and `D:\Git\Iris`. No files in
 either repo were modified during the investigation. This ADR itself required
 no ChatRuntime code changes; `npm run verify:release` was not re-run because
 nothing in `src/` changed.
+
+## 2026-09-25 implementation checkpoint
+
+The bounded Iris project-tab slice is implemented. See
+[implementation evidence](../implementation/07-iris-slice-evidence.md) for the
+confirmed active client trace, in-memory persistence decision, concrete wire
+refinements, cancellation and failure behavior, and acceptance evidence. That
+checkpoint supersedes proposal wording above where they differ. In particular,
+there is no automatic CLI fallback after ambiguous submission, and duplicate
+requests use the existing `DUPLICATE_MESSAGE_ID` code. Durable storage/recovery,
+authentication and real desktop/live-provider validation remain outstanding.
