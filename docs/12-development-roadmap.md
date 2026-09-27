@@ -1,5 +1,11 @@
 # Development roadmap
 
+Current integration: [conversation documentation tasks](implementation/11-conversation-tasks.md)
+adds an optional background action, scoped status/results, cancellation and bounded
+admission through a local Python sidecar. Earlier notes describing all Python work
+as disconnected from chat are superseded for this opt-in path. Shared GPU priority,
+automatic context insertion and scheduled triggers remain future work.
+
 Latest lifecycle review: [edge-case findings](../reports/doc-agent/lifecycle-edge-cases-2026-09-27.md) records
 five reproduced fixes and 67 passing offline tests, including a killed worker,
 late provider completion, cancellation races and failed persistence. Historical

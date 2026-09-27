@@ -1,5 +1,11 @@
 # ChatRuntime: Shared Conversation Runtime
 
+Current integration: [conversation documentation tasks](docs/implementation/11-conversation-tasks.md)
+adds an optional background action, scoped status/results, cancellation and bounded
+admission through a local Python sidecar. Earlier notes describing all Python work
+as disconnected from chat are superseded for this opt-in path. Shared GPU priority,
+automatic context insertion and scheduled triggers remain future work.
+
 Learning slice: [LangChain/Ollama documentation agent](experiments/doc-agent/README.md)
 retrieves evidence using bounded read-only tools and returns source-linked answers.
 It runs separately from the chat server; no Hekate integration is required.

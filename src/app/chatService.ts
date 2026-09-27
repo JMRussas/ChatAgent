@@ -34,14 +34,19 @@ export class ChatService {
   ) {}
 
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
-    const existingOwner = this.ownerUserIdByConversationId.get(message.conversationId);
-    if (existingOwner === undefined) {
-      this.ownerUserIdByConversationId.set(message.conversationId, message.userId);
-    } else if (existingOwner !== message.userId) {
-      throw new ConversationOwnershipConflictError(message.conversationId);
-    }
+    this.claimConversation(message.conversationId, message.userId);
 
     return this.orchestrator.handleUserMessage(message);
+  }
+
+  claimConversation(conversationId: string, userId: string, claim = true): void {
+    const existingOwner = this.ownerUserIdByConversationId.get(conversationId);
+    if (existingOwner === undefined) {
+      if (claim) this.ownerUserIdByConversationId.set(conversationId, userId);
+    } else if (existingOwner !== userId) {
+      throw new ConversationOwnershipConflictError(conversationId);
+    }
+
   }
 
   cancelMessage(conversationId: string, messageId: string) {

@@ -1,0 +1,259 @@
+{
+  "generatedAtIso": "2026-09-27T23:52:05.414Z",
+  "mode": "simulate",
+  "runContext": {
+    "simulationSeed": "default-v1",
+    "promptsDigestSha256": "f90b1a14f5598ff36f7cc6d177bc4b484cc16e5766150eb69864db0bbd1ca2bf",
+    "profilesDigestSha256": "f910e9bc65bfc84a9a7658d0b089b31911a568b746bf90d05e4fd1a8bf70c547"
+  },
+  "summaries": [
+    {
+      "profile": {
+        "name": "azure-balanced",
+        "fastProvider": "azure",
+        "fastModel": "gpt-4o-mini",
+        "deepProvider": "azure",
+        "deepModel": "gpt-4.1"
+      },
+      "recordCount": 6,
+      "firstResponseP50": 630,
+      "firstResponseP95": 791,
+      "finalLatencyP95": 3516,
+      "avgQuality": 4.31786,
+      "deepRouteRate": 0.5,
+      "avgRetriesDeep": 0,
+      "deadLetterRateDeep": 0
+    },
+    {
+      "profile": {
+        "name": "bedrock-balanced",
+        "fastProvider": "bedrock",
+        "fastModel": "anthropic.claude-3-5-haiku",
+        "deepProvider": "bedrock",
+        "deepModel": "anthropic.claude-3-5-sonnet"
+      },
+      "recordCount": 6,
+      "firstResponseP50": 673,
+      "firstResponseP95": 810,
+      "finalLatencyP95": 3656,
+      "avgQuality": 4.307793333333334,
+      "deepRouteRate": 0.5,
+      "avgRetriesDeep": 0,
+      "deadLetterRateDeep": 0
+    },
+    {
+      "profile": {
+        "name": "ollama-local",
+        "fastProvider": "ollama",
+        "fastModel": "llama3.1:8b",
+        "deepProvider": "ollama",
+        "deepModel": "qwen2.5:14b"
+      },
+      "recordCount": 6,
+      "firstResponseP50": 814,
+      "firstResponseP95": 983,
+      "finalLatencyP95": 4283,
+      "avgQuality": 4.32494,
+      "deepRouteRate": 0.5,
+      "avgRetriesDeep": 0,
+      "deadLetterRateDeep": 0
+    }
+  ],
+  "recordsByProfile": [
+    {
+      "profile": {
+        "name": "azure-balanced",
+        "fastProvider": "azure",
+        "fastModel": "gpt-4o-mini",
+        "deepProvider": "azure",
+        "deepModel": "gpt-4.1"
+      },
+      "records": [
+        {
+          "promptId": "p1",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 600,
+          "finalLatencyMs": 600,
+          "qualityScore": 4.24144,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p2",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 637,
+          "finalLatencyMs": 2813,
+          "qualityScore": 4.53364,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p3",
+          "routeDecision": "clarify",
+          "firstResponseLatencyMs": 667,
+          "finalLatencyMs": 667,
+          "qualityScore": 4.04376,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p4",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 791,
+          "finalLatencyMs": 3516,
+          "qualityScore": 4.30076,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p5",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 594,
+          "finalLatencyMs": 594,
+          "qualityScore": 4.1296,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p6",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 630,
+          "finalLatencyMs": 2785,
+          "qualityScore": 4.65796,
+          "retryCount": 0,
+          "deadLettered": false
+        }
+      ]
+    },
+    {
+      "profile": {
+        "name": "bedrock-balanced",
+        "fastProvider": "bedrock",
+        "fastModel": "anthropic.claude-3-5-haiku",
+        "deepProvider": "bedrock",
+        "deepModel": "anthropic.claude-3-5-sonnet"
+      },
+      "records": [
+        {
+          "promptId": "p1",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 680,
+          "finalLatencyMs": 680,
+          "qualityScore": 4.24672,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p2",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 640,
+          "finalLatencyMs": 2872,
+          "qualityScore": 4.51156,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p3",
+          "routeDecision": "clarify",
+          "firstResponseLatencyMs": 747,
+          "finalLatencyMs": 747,
+          "qualityScore": 3.9762399999999998,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p4",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 810,
+          "finalLatencyMs": 3656,
+          "qualityScore": 4.62444,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p5",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 673,
+          "finalLatencyMs": 673,
+          "qualityScore": 4.07536,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p6",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 633,
+          "finalLatencyMs": 2841,
+          "qualityScore": 4.41244,
+          "retryCount": 0,
+          "deadLettered": false
+        }
+      ]
+    },
+    {
+      "profile": {
+        "name": "ollama-local",
+        "fastProvider": "ollama",
+        "fastModel": "llama3.1:8b",
+        "deepProvider": "ollama",
+        "deepModel": "qwen2.5:14b"
+      },
+      "records": [
+        {
+          "promptId": "p1",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 902,
+          "finalLatencyMs": 902,
+          "qualityScore": 4.18952,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p2",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 774,
+          "finalLatencyMs": 3359,
+          "qualityScore": 4.36844,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p3",
+          "routeDecision": "clarify",
+          "firstResponseLatencyMs": 814,
+          "finalLatencyMs": 814,
+          "qualityScore": 3.9824,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p4",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 983,
+          "finalLatencyMs": 4283,
+          "qualityScore": 4.51972,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p5",
+          "routeDecision": "direct",
+          "firstResponseLatencyMs": 894,
+          "finalLatencyMs": 894,
+          "qualityScore": 4.350960000000001,
+          "retryCount": 0,
+          "deadLettered": false
+        },
+        {
+          "promptId": "p6",
+          "routeDecision": "deep",
+          "firstResponseLatencyMs": 766,
+          "finalLatencyMs": 3324,
+          "qualityScore": 4.5386,
+          "retryCount": 0,
+          "deadLettered": false
+        }
+      ]
+    }
+  ]
+}

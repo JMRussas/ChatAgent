@@ -1,5 +1,11 @@
 # Implementation handoff
 
+Current integration: [conversation documentation tasks](11-conversation-tasks.md)
+adds an optional background action, scoped status/results, cancellation and bounded
+admission through a local Python sidecar. Earlier notes describing all Python work
+as disconnected from chat are superseded for this opt-in path. Shared GPU priority,
+automatic context insertion and scheduled triggers remain future work.
+
 ## 2026-09-27: explicit LangGraph learning slice
 
 The [LangGraph workflow](../../experiments/doc-agent/LANGGRAPH.md) is implemented as an optional

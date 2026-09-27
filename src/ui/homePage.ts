@@ -1,3 +1,4 @@
+import { documentTaskScript } from "./documentTaskPanel";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -7,7 +8,7 @@ interface RuntimeModeInfo {
   deepModel?: string;
 }
 
-export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unknown" }): string {
+export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unknown" }, documentTasks = false): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
   return `<!doctype html>
@@ -401,8 +402,10 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           <textarea id="prompt" required minlength="1" placeholder="Ask something with external data need to trigger deep path..."></textarea>
         </label>
         <button id="sendButton" type="submit">Send</button>
+        ${documentTasks ? '<button id="documentTaskStart" type="button">Run documentation task</button>' : ""}
       </form>
 
+      ${documentTasks ? '<section aria-label="Documentation tasks"><h2>Documentation tasks</h2><p id="documentTaskStatus" role="status"></p><div id="documentTasks" aria-live="polite"></div></section>' : ""}
       <div id="thread" class="thread" aria-live="polite"></div>
       <footer id="status" class="status">Ready.</footer>
     </section>
@@ -802,6 +805,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
     });
   </script>
+${documentTasks ? documentTaskScript() : ""}
 </body>
 </html>`;
 }

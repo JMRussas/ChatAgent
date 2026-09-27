@@ -1,0 +1,888 @@
+{
+  "foreground": "mock",
+  "background": "local gemma4:26b",
+  "tasks": [
+    {
+      "taskId": "475d73b194604704abe445c604f04d4f",
+      "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+      "status": "completed",
+      "modelCalls": 5,
+      "toolCalls": 3,
+      "answer": {
+        "status": "answered",
+        "answer": "No, the implemented `ContextManager` does not wait for a new background summary. According to the implementation evidence, background jobs start on a later event-loop turn, and the foreground process never awaits a new summary.",
+        "citations": [
+          {
+            "evidence_id": "E2",
+            "source_id": "memory-evidence",
+            "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+            "path": "docs/implementation/01b-evidence.md",
+            "start_line": 1,
+            "end_line": 40
+          }
+        ],
+        "missing_evidence": []
+      },
+      "error": null,
+      "scheduled": false
+    },
+    {
+      "taskId": "2accdf85e75347ea99a473245e77081c",
+      "question": "What is the default summary mode?",
+      "status": "cancelled",
+      "modelCalls": 0,
+      "toolCalls": 0,
+      "answer": null,
+      "error": null,
+      "scheduled": false
+    }
+  ],
+  "records": [
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "start",
+        "requestId": "9f4fae21-50bf-424a-b51c-0acc7ac42c25",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?"
+      },
+      "status": 202,
+      "elapsedMs": 1137.1072000000001,
+      "data": {
+        "taskId": "475d73b194604704abe445c604f04d4f",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "queued",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "start",
+        "requestId": "9f4fae21-50bf-424a-b51c-0acc7ac42c25",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?"
+      },
+      "status": 202,
+      "elapsedMs": 40.5163,
+      "data": {
+        "taskId": "475d73b194604704abe445c604f04d4f",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "start",
+        "requestId": "4f4e4f11-2762-450f-b252-662d34813f17",
+        "question": "What is the default summary mode?"
+      },
+      "status": 202,
+      "elapsedMs": 18.507900000000063,
+      "data": {
+        "taskId": "2accdf85e75347ea99a473245e77081c",
+        "question": "What is the default summary mode?",
+        "status": "queued",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "cancel",
+        "taskId": "2accdf85e75347ea99a473245e77081c"
+      },
+      "status": 200,
+      "elapsedMs": 16.248999999999796,
+      "data": {
+        "taskId": "2accdf85e75347ea99a473245e77081c",
+        "question": "What is the default summary mode?",
+        "status": "cancelled",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": false
+      }
+    },
+    {
+      "path": "/messages",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "text": "hello"
+      },
+      "status": 200,
+      "elapsedMs": 4.455299999999852,
+      "data": {
+        "messageId": "f66de9f2-5d4f-415d-b552-46abcf4875e1",
+        "fastResponse": {
+          "provisionalReply": "I can help. Can you add one more detail so I can be precise?",
+          "analysis": {
+            "correctedText": "hello",
+            "needsExternalData": false,
+            "needsClarification": true,
+            "routeDecision": "clarify",
+            "confidence": 0.45,
+            "reasons": [
+              "Prompt appears underspecified."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "other",
+        "op": "list"
+      },
+      "status": 409,
+      "elapsedMs": 1.7917999999999665,
+      "data": {
+        "error": "Conversation \"smoke-c216be6e-7d22-4330-b9bd-9e0babed077a\" is already owned by a different user.",
+        "code": "CONVERSATION_OWNER_MISMATCH"
+      }
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 21.754300000000057,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.602400000000216,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.45129999999972,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 34.3128999999999,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.71140000000014,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 32.49439999999959,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.913399999999456,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.40949999999975,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 32.345400000000154,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.69000000000051,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.05789999999979,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 32.761499999998705,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.38580000000002,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.44789999999921,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 32.88600000000042,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 1,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.248499999997875,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 2,
+          "toolCalls": 1,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 32.78220000000147,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 3,
+          "toolCalls": 2,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 34.15950000000157,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 3,
+          "toolCalls": 2,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 34.092399999997724,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 3,
+          "toolCalls": 2,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 33.82920000000013,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 3,
+          "toolCalls": 2,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 32.14549999999872,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "running",
+          "modelCalls": 3,
+          "toolCalls": 2,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    },
+    {
+      "path": "/document-tasks",
+      "request": {
+        "conversationId": "smoke-c216be6e-7d22-4330-b9bd-9e0babed077a",
+        "userId": "local-smoke",
+        "op": "list"
+      },
+      "status": 200,
+      "elapsedMs": 4.908900000002177,
+      "data": [
+        {
+          "taskId": "475d73b194604704abe445c604f04d4f",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+          "status": "completed",
+          "modelCalls": 5,
+          "toolCalls": 3,
+          "answer": {
+            "status": "answered",
+            "answer": "No, the implemented `ContextManager` does not wait for a new background summary. According to the implementation evidence, background jobs start on a later event-loop turn, and the foreground process never awaits a new summary.",
+            "citations": [
+              {
+                "evidence_id": "E2",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 1,
+                "end_line": 40
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false
+        },
+        {
+          "taskId": "2accdf85e75347ea99a473245e77081c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ]
+    }
+  ]
+}

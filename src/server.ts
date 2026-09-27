@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./app/documentTasks";
 import { createProtocolV1Handler } from "./app/protocolV1";
 import { verifyThinkingConfig } from "./config/thinkingConfig";
 import { DuplicateMessageError } from "./app/generationLifecycle";
@@ -96,6 +98,7 @@ interface RuntimeModeInfo {
 }
 
 interface ServerOptions {
+  documentTasks?: DocumentTasks;
   modelCatalog?: ReturnType<typeof describeModelCatalog>;
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
@@ -189,8 +192,23 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       if (method === "GET" && url.pathname === "/") {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.end(renderHomePageHtml(options.runtimeMode));
+        res.end(renderHomePageHtml(options.runtimeMode, Boolean(options.documentTasks)));
         return;
+      }
+
+      if (method === "POST" && url.pathname === "/document-tasks") {
+        if (!options.documentTasks) return json(res, 404, { error: "Documentation tasks are disabled" });
+        const body = z.object({
+          op: z.enum(["start", "list", "status", "resume", "cancel"]),
+          conversationId: z.string().min(1).max(200), userId: z.string().min(1).max(200),
+          requestId: z.string().uuid().optional(), taskId: z.string().regex(/^[0-9a-f]{32}$/).optional(),
+          question: z.string().trim().min(1).max(2000).optional()
+        }).parse(requireObjectBody(await parseJsonBody(req)));
+        if (body.op === "start" && (!body.requestId || !body.question)) throw new HttpRequestError(400, "Start requires requestId and question");
+        if (!["start", "list"].includes(body.op) && !body.taskId) throw new HttpRequestError(400, "Task ID required");
+        service.claimConversation(body.conversationId, body.userId, body.op === "start");
+        const result = await options.documentTasks.request(body);
+        return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
       }
 
       if (method === "POST" && url.pathname === "/messages") {
@@ -333,6 +351,10 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       return json(res, 404, { error: "Not found" });
     } catch (error) {
       if (res.headersSent) { res.destroy(); return; }
+      if (error instanceof DocumentTaskError) {
+        const status = error.code === "CAPACITY_FULL" ? 429 : error.code === "OWNER_MISMATCH" || error.code === "REQUEST_CONFLICT" || error.code === "NOT_RESUMABLE" ? 409 : error.code === "TASK_NOT_FOUND" ? 404 : error.code.startsWith("INVALID_") ? 400 : 503;
+        return json(res, status, { error: "Documentation task request failed", code: error.code });
+      }
       if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
       if (error instanceof GenerationError) return json(res, error.code === "CONTEXT_TOO_LARGE" ? 413 : 502, { error: "Generation failed", code: error.code });
       if (error instanceof HttpRequestError) {
@@ -358,6 +380,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
   const close = server.close.bind(server);
   // Node's close callback must not announce completion before internal jobs settle.
   server.close = ((callback?: (error?: Error) => void) => {
+    if (!shutdown) options.documentTasks?.close();
     shutdown ??= options.shutdown?.() ?? Promise.resolve();
     close(error => { void shutdown!.then(() => callback?.(error), failure => callback?.(failure)); });
     return server;
@@ -442,10 +465,15 @@ export async function startServer(port: number): Promise<void> {
   };
 
   const runtimeMode = resolveRuntimeModeInfo(config);
-  const server = createChatServer(service, { runtimeMode, modelCatalog, shutdown: () => contextManager.shutdown(), contextTelemetry: () => contextManager.getSummaryTelemetry() });
+  const documentTasks = process.env.DOC_TASK_PYTHON ? new PythonDocumentTasks(
+    process.env.DOC_TASK_PYTHON, resolve("experiments/doc-agent/chat_bridge.py"),
+    resolve(process.env.DOC_TASK_ROOT ?? "data/document-tasks"), process.env.DOC_TASK_MODEL ?? "gemma4:26b"
+  ) : undefined;
+  const server = createChatServer(service, { documentTasks, runtimeMode, modelCatalog, shutdown: () => contextManager.shutdown(), contextTelemetry: () => contextManager.getSummaryTelemetry() });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
+      documentTasks?.close();
       reject(error.code === "EADDRINUSE"
         ? new Error(`Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`)
         : error);

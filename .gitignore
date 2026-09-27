@@ -10,3 +10,6 @@ data/latency-telemetry.json
 .env
 .env.local
 .env.*.local
+
+# Local task checkpoints and scope bindings
+data/document-tasks/
