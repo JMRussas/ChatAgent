@@ -1,5 +1,19 @@
 # Documentation retrieval agent: LangChain + local Ollama
 
+Latest lifecycle review: [edge-case findings](../../reports/doc-agent/lifecycle-edge-cases-2026-09-27.md) records
+five reproduced fixes and 67 passing offline tests, including a killed worker,
+late provider completion, cancellation races and failed persistence. Historical
+live-run hashes predate these fixes; old durable tasks still require migration.
+
+## 2026-09-27: independent task lifecycle
+
+The [local task manager](TASKS.md) adds task IDs, status/list,
+resume, and persisted cancellation around per-task checkpoints. Managed tasks
+exclude paused time from their execution budget; the standalone durable CLI
+retains its wall-clock policy. This supersedes earlier task-management next-step
+notes. Conversation integration, admission control and scheduled triggers remain
+future work; uncertain in-flight tasks are still refused.
+
 ## 2026-09-27: durable single-task checkpoint
 
 [SQLite pause/resume](DURABILITY.md) now supports process restarts from confirmed

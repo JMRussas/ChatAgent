@@ -1,0 +1,31 @@
+{
+  "action": [
+    "status",
+    "bf8237bc42504ae9a489e6390c4748ac"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "result": {
+    "task_id": "bf8237bc42504ae9a489e6390c4748ac",
+    "status": "paused",
+    "last_checkpoint": {
+      "status": "paused",
+      "engine": "langgraph",
+      "deadline_mode": "active",
+      "elapsed_seconds": 13.83657569999923,
+      "next": [
+        "retrieve"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "retrieval_bytes": 0,
+      "node_trace": [
+        "model",
+        "validate"
+      ]
+    },
+    "error": null,
+    "created_at": 1790550419.1997745,
+    "updated_at": 1790550433.122779
+  }
+}

@@ -5,7 +5,7 @@ from pathlib import Path
 # Optional local dependencies; ordinary installations use requirements-durable.txt.
 local_deps=Path(__file__).with_name('.deps')
 if local_deps.exists(): sys.path.insert(0,str(local_deps))
-import asyncio, hashlib, json, sqlite3, importlib.metadata
+import asyncio, hashlib, json, sqlite3, importlib.metadata, inspect
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from graph_agent import run_graph_agent
 from retrieval import Corpus, Source
@@ -49,6 +49,7 @@ async def run_durable(db, model_factory, *, question=None, corpus=None, identity
                 if task['status']=='completed': return task['result']
                 if task['status']!='paused': raise ValueError('Uncertain in-flight run; automatic replay refused')
             model=model_factory(task['identity'])
+            if inspect.isawaitable(model): model=await model
             corpus=Corpus([Source(**v) for v in task['sources']])
             for source in corpus.sources.values():
                 if hashlib.sha256(source.content.encode()).hexdigest()!=source.revision:

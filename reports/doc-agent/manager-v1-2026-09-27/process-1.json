@@ -1,0 +1,32 @@
+{
+  "action": [
+    "start",
+    "--question",
+    "Does an SSE disconnect cancel generation?"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "result": {
+    "task_id": "8a6fcb4b38be4b7f8e30c896fc5c458a",
+    "status": "paused",
+    "last_checkpoint": {
+      "status": "paused",
+      "engine": "langgraph",
+      "deadline_mode": "active",
+      "elapsed_seconds": 0.70975520000502,
+      "next": [
+        "retrieve"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "retrieval_bytes": 0,
+      "node_trace": [
+        "model",
+        "validate"
+      ]
+    },
+    "error": null,
+    "created_at": 1790550434.3645577,
+    "updated_at": 1790550435.1996472
+  }
+}

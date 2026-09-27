@@ -1,5 +1,22 @@
 # Next ChatAgent handoff after 01B
 
+Latest lifecycle review: [edge-case findings](../../reports/doc-agent/lifecycle-edge-cases-2026-09-27.md) records
+five reproduced fixes and 67 passing offline tests, including a killed worker,
+late provider completion, cancellation races and failed persistence. Historical
+live-run hashes predate these fixes; old durable tasks still require migration.
+
+Latest evidence: [task-manager validation](../../reports/doc-agent/manager-findings-2026-09-27.md)
+records 56 passing offline tests and preserved live success/failure outcomes.
+
+## 2026-09-27: independent task lifecycle
+
+The [local task manager](../../experiments/doc-agent/TASKS.md) adds task IDs, status/list,
+resume, and persisted cancellation around per-task checkpoints. Managed tasks
+exclude paused time from their execution budget; the standalone durable CLI
+retains its wall-clock policy. This supersedes earlier task-management next-step
+notes. Conversation integration, admission control and scheduled triggers remain
+future work; uncertain in-flight tasks are still refused.
+
 Review checkpoint: [pre-commit review](../../reports/doc-agent/review-2026-09-27.md)
 records 50 passing offline tests and two durable-resume validation fixes. Historical
 live manifests predate these fixes; their hashes and results are preserved.

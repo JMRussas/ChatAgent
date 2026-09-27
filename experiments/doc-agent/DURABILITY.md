@@ -1,5 +1,14 @@
 # Durable pause and resume for one documentation task
 
+## 2026-09-27: independent task lifecycle
+
+The [local task manager](TASKS.md) adds task IDs, status/list,
+resume, and persisted cancellation around per-task checkpoints. Managed tasks
+exclude paused time from their execution budget; the standalone durable CLI
+retains its wall-clock policy. This supersedes earlier task-management next-step
+notes. Conversation integration, admission control and scheduled triggers remain
+future work; uncertain in-flight tasks are still refused.
+
 `durable.py` adds a SQLite-backed wrapper around the existing LangGraph engine.
 The ordinary loop and nonpersistent graph commands remain available. One database
 owns one task. There is no multi-task scheduler or production chat integration.

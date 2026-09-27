@@ -5,7 +5,7 @@ import time
 from typing import TypedDict
 from agent import (AIMessage, HumanMessage, SystemMessage, ToolMessage, Answer,
                    PROMPT_VERSION, EXAMPLES, EXAMPLES_VERSION, make_tools,
-                   prompt, serialize, validate_answer, convert_to_openai_tool)
+                   prompt, serialize, validate_answer, convert_to_openai_tool, invoke_bounded)
 from retrieval import Retrieval, Corpus, Source
 from langgraph.graph import StateGraph, START, END
 
@@ -25,6 +25,7 @@ class AgentState(TypedDict):
     retrieval_state: dict
     source_snapshot: list
     started_at: float
+    active_elapsed_seconds: float
 
 
 def enter(state, node):
@@ -38,7 +39,9 @@ async def run_graph_agent(model, corpus, question, *, max_model_calls=6,
                           max_tool_calls=8, max_retrieval_bytes=10000,
                           max_input_bytes=28000, deadline_seconds=180,
                           call_timeout=60, with_examples=False, checkpointer=None,
-                          thread_id=None, resume=False, pause_before_retrieval=False):
+                          thread_id=None, resume=False, pause_before_retrieval=False,
+                          deadline_mode="wall"):
+    if deadline_mode not in ("wall", "active"): raise ValueError("Unknown deadline mode")
     if not 1<=len(question.strip().encode())<=2000:
         raise ValueError('Question must contain 1..2000 UTF-8 bytes')
     # Rebuild invocation-local tools from checkpointed retrieval state at each node.
@@ -59,7 +62,10 @@ async def run_graph_agent(model, corpus, question, *, max_model_calls=6,
         retrieval.corpus=Corpus([Source(**v) for v in saved['source_snapshot']])
     started_at=saved['started_at'] if saved else time.time()
 
+    active_before=saved.get("active_elapsed_seconds",0.0) if saved else 0.0
+
     def elapsed():
+        if deadline_mode=="active": return active_before+time.monotonic()-start
         return time.time()-started_at if checkpointer is not None else time.monotonic()-start
 
     def restore(state,node):
@@ -81,6 +87,7 @@ async def run_graph_agent(model, corpus, question, *, max_model_calls=6,
             'events':s['events'],'model_calls':s['attempts'],
             'tool_calls':retrieval.calls,'retrieval_bytes':retrieval.bytes,
             'elapsed_seconds':elapsed(),
+            **({'deadline_mode':'active'} if deadline_mode=='active' else {}),
             'limits':{'model_calls':max_model_calls,'tool_calls':max_tool_calls,
                       'retrieval_bytes':max_retrieval_bytes,'input_bytes':max_input_bytes,
                       'deadline_seconds':deadline_seconds},
@@ -109,7 +116,7 @@ async def run_graph_agent(model, corpus, question, *, max_model_calls=6,
         t=time.monotonic()
         s['events'].append({'type':'model_request','step':step,'messages':rendered,'tool_schemas':active_schemas,'response_schema':final_schema,'estimated_input_bytes':size})
         try:
-            response=await asyncio.wait_for((model.bind(format=final_schema) if s['finalizing'] else bound).ainvoke(s['messages']),timeout=min(call_timeout,remaining))
+            response=await invoke_bounded(model.bind(format=final_schema) if s['finalizing'] else bound,s['messages'],min(call_timeout,remaining))
         except asyncio.TimeoutError: return finish(s,'deadline_exceeded')
         except Exception as exc: return finish(s,'model_error',error=type(exc).__name__)
         metadata={k:v for k,v in response.response_metadata.items() if k in ('model','done','done_reason','total_duration','load_duration','prompt_eval_count','prompt_eval_duration','eval_count','eval_duration')}
@@ -164,10 +171,17 @@ async def run_graph_agent(model, corpus, question, *, max_model_calls=6,
         s['route']='model'
         return persist_retrieval(s)
 
+    def tracked(node):
+        async def execute(state):
+            result=await node(state)
+            result['active_elapsed_seconds']=active_before+time.monotonic()-start
+            return result
+        return execute
+
     graph=StateGraph(AgentState)
-    graph.add_node('model',model_node)
-    graph.add_node('validate',validate_node)
-    graph.add_node('retrieve',retrieve_node)
+    graph.add_node('model',tracked(model_node))
+    graph.add_node('validate',tracked(validate_node))
+    graph.add_node('retrieve',tracked(retrieve_node))
     graph.add_edge(START,'model')
     graph.add_conditional_edges('model',lambda s:s['route'],{'validate':'validate','end':END})
     graph.add_conditional_edges('validate',lambda s:s['route'],{'model':'model','retrieve':'retrieve','end':END})
@@ -177,12 +191,13 @@ async def run_graph_agent(model, corpus, question, *, max_model_calls=6,
              'events':[],'seen':set(),'attempts':0,'finalizing':False,'force_final':False,
              'retrieval_reminded':False,'response':None,'route':'model','result':None,'node_trace':[],
              'retrieval_state':{'calls':0,'bytes':0,'reads':[]},
-             'source_snapshot':corpus.snapshot(),'started_at':started_at}
+             'source_snapshot':corpus.snapshot(),'started_at':started_at,'active_elapsed_seconds':0.0}
     # Graph super-steps are not model calls. The application budget is authoritative.
     final=await compiled.ainvoke(None if resume else initial,config=config,**({'durability':'sync'} if checkpointer is not None else {}))
     if final.get('result') is None:
         snapshot=await compiled.aget_state(config)
-        return {'status':'paused','engine':'langgraph','next':list(snapshot.next),
+        return {'status':'paused','engine':'langgraph','deadline_mode':deadline_mode,
+                'elapsed_seconds':elapsed(),'next':list(snapshot.next),
                 'model_calls':final['attempts'],'tool_calls':final['retrieval_state']['calls'],
                 'retrieval_bytes':final['retrieval_state']['bytes'],'node_trace':final['node_trace']}
     return {**final['result'],'engine':'langgraph','node_trace':final['node_trace']}

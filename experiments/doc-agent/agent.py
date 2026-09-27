@@ -83,6 +83,27 @@ def validate_answer(text,retrieval):
         return result,None
     except (ValueError,TypeError) as exc: return None,str(exc)[:500]
 
+async def invoke_bounded(model, messages, timeout):
+    """Bound our await even if provider cancellation cleanup stalls or returns late.
+
+    Detached provider completion cannot publish state; consume its exception.
+    This cannot force the remote server to release resources.
+    """
+    started=time.monotonic()
+    pending=asyncio.ensure_future(model.ainvoke(messages))
+    def discard(task):
+        try: task.exception()
+        except asyncio.CancelledError: pass
+    try:
+        done,_=await asyncio.wait({pending},timeout=timeout)
+        if not done or time.monotonic()-started>=timeout:
+            pending.cancel();pending.add_done_callback(discard)
+            raise asyncio.TimeoutError
+        return pending.result()
+    except asyncio.CancelledError:
+        pending.cancel();pending.add_done_callback(discard)
+        raise
+
 async def run_agent(model,corpus,question,*,max_model_calls=6,max_tool_calls=8,max_retrieval_bytes=10000,max_input_bytes=28000,deadline_seconds=180,call_timeout=60,with_examples=False):
     if not 1<=len(question.strip().encode())<=2000: raise ValueError('Question must contain 1..2000 UTF-8 bytes')
     retrieval=Retrieval(corpus,max_tool_calls,max_retrieval_bytes); tools=make_tools(retrieval)
@@ -108,7 +129,7 @@ async def run_agent(model,corpus,question,*,max_model_calls=6,max_tool_calls=8,m
         if size>max_input_bytes: return finish('context_limit')
         attempts+=1; t=time.monotonic()
         events.append({'type':'model_request','step':step,'messages':rendered,'tool_schemas':active_schemas,'response_schema':final_schema,'estimated_input_bytes':size})
-        try: response=await asyncio.wait_for((model.bind(format=final_schema) if finalizing else bound).ainvoke(messages),timeout=min(call_timeout,remaining))
+        try: response=await invoke_bounded(model.bind(format=final_schema) if finalizing else bound,messages,min(call_timeout,remaining))
         except asyncio.TimeoutError: return finish('deadline_exceeded')
         except Exception as exc: return finish('model_error',error=type(exc).__name__)
         metadata={k:v for k,v in response.response_metadata.items() if k in ('model','done','done_reason','total_duration','load_duration','prompt_eval_count','prompt_eval_duration','eval_count','eval_duration')}
