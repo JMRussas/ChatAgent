@@ -1,0 +1,21 @@
+{
+  "verified_at": "2026-09-26T23:09:42.319694+00:00",
+  "scored_requests": 600,
+  "warmups": 5,
+  "case_model_variant_unique": true,
+  "all_cells_have_12_cases_per_split": true,
+  "frozen_code_and_protocol_hashes_match": true,
+  "requests_match_frozen_renderings": true,
+  "source_and_package_hashes_match": true,
+  "recomputed_scores_match": true,
+  "retained_thinking_text": false,
+  "transport_errors": 0,
+  "truncated": 0,
+  "unit_tests": {
+    "experiment_1": 7,
+    "experiment_2": 9,
+    "status": "passed"
+  },
+  "application_tests": "not run; no application source/dependency changes",
+  "command": "python3 experiments/prompt-contract/run.py --windows-host --out reports/prompt-contract/run-2026-09-26"
+}

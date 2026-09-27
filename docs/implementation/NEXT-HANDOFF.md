@@ -1,8 +1,82 @@
 # Next ChatAgent handoff after 01B
 
+Review checkpoint: [pre-commit review](../../reports/doc-agent/review-2026-09-27.md)
+records 50 passing offline tests and two durable-resume validation fixes. Historical
+live manifests predate these fixes; their hashes and results are preserved.
+
+## 2026-09-27: durable single-task checkpoint
+
+[SQLite pause/resume](../../experiments/doc-agent/DURABILITY.md) now supports process restarts from confirmed
+retrieval pauses, preserving sources, evidence and budgets. 33 offline tests and
+a four-process local Gemma4 run passed. This supersedes earlier descriptions of
+persistence as entirely future work; the ordinary graph engine remains optional
+and nonpersistent. Arbitrary in-flight crash replay is refused. The next increment
+is task lifecycle/scheduling around this unit, with explicit long-pause policy.
+
+## 2026-09-27: explicit LangGraph learning slice
+
+The [LangGraph workflow](../../experiments/doc-agent/LANGGRAPH.md) is implemented as an optional
+engine, with the original loop retained for comparison. 29 offline tests pass,
+including contract parity, invocation isolation and cancellation propagation.
+This supersedes earlier text proposing graph translation as future work. The next
+learning step is designing durable state and pause/resume; neither is implemented
+by this invocation-local graph. Production runtime integration remains separate.
+
+2026-09-27: use the [model-specific reference guide](../14-model-reference-guide.md) before
+changing model integration or designing local evaluations. Start with official
+guidance and published benchmarks, then test the application-specific gaps.
+
+## Current learning milestone: documentation agent
+
+[Spec 10](10-doc-retrieval-agent.md) and the [standalone LangChain/Ollama slice](../../experiments/doc-agent/README.md)
+supersede the earlier suggestion to begin with a production provider adapter or
+Hekate audit. Learning and completing this project are primary; sibling projects
+are references. The agent retrieves documentation on demand with native tools,
+bounded host execution and local telemetry. Production TypeScript integration
+remains separate. The next learning exercise is expressing this working loop in
+LangGraph while preserving the same evidence and resource contracts.
+
+## 2026-09-26 planning update
+
+Latest authorized increment: [Task / Guidelines / Response Framework](09-prompt-contract.md)
+and [experiment 2](../../experiments/prompt-contract/README.md). A typed immutable
+package and deterministic renderers are implemented outside the application.
+Evaluate identical-content controls and new held-out cases before runtime
+integration. Scoring is fixed before inference. The next application increment,
+after reviewing results, is a TypeScript contract and one LangChain-backed
+provider adapter with existing behavior preserved; it is not part of this run.
+
+**Experiment 2 complete:** [600 live calls and findings](../../reports/prompt-contract/findings-2026-09-26.md).
+On the new held-out cases TGR scored 40/60, flat identical-content text 38/60,
+legacy prose 36/60, JSON 32/60 and XML 35/60. TGR versus flat had four paired wins,
+two losses and 54 ties; calibration favored flat by one answer. Keep the package
+boundary and configurable rendering, without claiming a universal accuracy gain.
+Nine new experiment tests and seven existing pilot tests passed. No production
+provider or LangChain integration occurred. Review the report before starting
+the separately bounded TypeScript/provider integration.
+
+Prior work: the [prompt-encoding pilot](../../experiments/prompt-encoding/README.md)
+and design reconciliation in [ADR 0002](../adr/0002-layered-context-and-orchestration.md)
+are complete as experimental/documentation artifacts. Preserve those reports.
+Both prompt experiments are independent of the runtime; neither implements a
+production translation layer. Layer-specific context policy and a bounded
+LangChain integration remain separate follow-up work. The spec 03 inventory scope below remains
+queued; it is not the task selected by this latest discussion. Hekate reuse needs
+a separately scoped source investigation; do not modify sibling repos here.
+
 Current user direction: **keep work in ChatAgent**. Leave Iris/Hekate changes and
 integration validation for sessions working on those repositories. Existing
 cross-repository commits are historical context, not authorization to expand scope.
+
+## Prompt-encoding pilot checkpoint (2026-09-26)
+
+The [live pilot findings](../../reports/prompt-encoding/findings-2026-09-26.md)
+record 240 scored calls across five installed local models and four formats.
+The content score was 81.7% prose, 71.7% concise, 65.0% JSON and 71.7% XML;
+this uses an explicitly post-hoc presentation normalization. Exact output-contract
+scores, per-model results, token counts and raw records are retained separately.
+No universal encoding winner is claimed. Seven experiment tests passed. No
+production renderer or framework dependency was added.
 
 ## Completed
 
@@ -43,3 +117,15 @@ or download models, activate subscriptions, or perform billed probes.
 Suggested task: "Implement only ChatAgent spec 03 inventory and its resource
 metadata fixtures. Preserve completed context/generation work and keep other
 repositories out of scope."
+
+## Canonical examples comparison — 2026-09-26
+
+Twelve local Gemma4 runs compared the same tools and schemas with and without
+three fictional examples. Structural checks improved from 4/6 to 5/6, while
+reported input tokens rose 39.3%; evidence coverage and absence wording remain
+limited. Keep examples optional. See the [results](../../reports/doc-agent/examples-findings-2026-09-26.md).
+The next framework-learning step remains LangGraph; a separate retrieval-quality
+experiment should address missed sections before expanding the tool set.
+
+LangGraph live evidence: [four-case report](../../reports/doc-agent/langgraph-findings-2026-09-27.md).
+All structural checks passed. Keep the known uncertainty-wording limitation visible.

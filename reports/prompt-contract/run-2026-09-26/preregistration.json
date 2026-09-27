@@ -1,0 +1,405 @@
+{
+  "frozen_at": "2026-09-26T23:04:07.842097+00:00",
+  "case_count": 24,
+  "expected_records": 600,
+  "primary": "heldout presentation-normalized content correctness; paired TGR versus flat",
+  "secondary": "heldout JSON/XML versus flat; exact output compliance; calibration and combined aggregates; tokens and latency",
+  "scoring_version": "contract-score/1",
+  "contract_version": "task-guidelines-response/1",
+  "renderer_version": "literal-fields/1",
+  "options": {
+    "temperature": 0,
+    "seed": 20260927,
+    "num_ctx": 4096,
+    "num_predict": 384
+  },
+  "variants": [
+    "legacy",
+    "flat",
+    "tgr",
+    "json",
+    "xml"
+  ],
+  "models": [
+    {
+      "name": "qwen3:8b",
+      "model": "qwen3:8b",
+      "modified_at": "2026-08-17T15:07:06.9542598-04:00",
+      "size": 5225388164,
+      "digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3",
+        "families": [
+          "qwen3"
+        ],
+        "parameter_size": "8.2B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 40960,
+        "embedding_length": 4096
+      },
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ]
+    },
+    {
+      "name": "qwen3.5:latest",
+      "model": "qwen3.5:latest",
+      "modified_at": "2026-03-17T09:40:19.4041833-04:00",
+      "size": 6594474711,
+      "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "9.7B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 4096
+      },
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ]
+    },
+    {
+      "name": "gemma4:26b",
+      "model": "gemma4:26b",
+      "modified_at": "2026-08-16T13:47:09.7943289-04:00",
+      "size": 17987581215,
+      "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma4",
+        "families": [
+          "gemma4"
+        ],
+        "parameter_size": "25.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 2816
+      },
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ]
+    },
+    {
+      "name": "qwen3-coder:latest",
+      "model": "qwen3-coder:latest",
+      "modified_at": "2026-03-17T09:37:59.4560624-04:00",
+      "size": 18556700761,
+      "digest": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3moe",
+        "families": [
+          "qwen3moe"
+        ],
+        "parameter_size": "30.5B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 2048
+      },
+      "capabilities": [
+        "completion",
+        "tools"
+      ]
+    },
+    {
+      "name": "qwen2.5-coder:14b",
+      "model": "qwen2.5-coder:14b",
+      "modified_at": "2026-03-17T09:37:20.110544-04:00",
+      "size": 8988124298,
+      "digest": "9ec8897f747e246e970bc5cfdda85d22f1123dc2e3d34978a010a75968716849",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen2",
+        "families": [
+          "qwen2"
+        ],
+        "parameter_size": "14.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 32768,
+        "embedding_length": 5120
+      },
+      "capabilities": [
+        "completion",
+        "tools",
+        "insert"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "retry-partial",
+      "category": "negation",
+      "prose": "A generation may be retried only when its failure is transient and it has emitted no text. Attempt A has a transient failure and zero emitted characters. Attempt B has a transient failure and twelve emitted characters. Attempt C has a permanent failure and zero emitted characters.",
+      "question": "Which attempts may be retried?",
+      "expected": [
+        "A"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "dependency",
+      "category": "relationships",
+      "prose": "A task may start if it is pending and all its dependencies are complete. Task A is complete and has no dependencies. Task B is pending and depends on A. Task C is pending and depends on B. Task D is pending and has no dependencies. Task E is cancelled and depends on A.",
+      "question": "Which tasks may start now?",
+      "expected": [
+        "B",
+        "D"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "revision",
+      "category": "freshness",
+      "prose": "The current objective revision of task K is 3. A result is acceptable only if it belongs to K, matches its current revision, and passed verification. Result A belongs to K, has revision 2, and passed. Result B belongs to K, has revision 3, and failed. Result C belongs to K, has revision 3, and passed. Result D belongs to L, has revision 3, and passed.",
+      "question": "Which results are acceptable?",
+      "expected": [
+        "C"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "scope",
+      "category": "isolation",
+      "prose": "For a task in project P, evidence is eligible if it is verified and either belongs to P or is explicitly shared. Document A belongs to P, is verified, and is not shared. Document B belongs to Q, is verified, and is not shared. Document C belongs to Q, is verified, and is shared. Document D belongs to P, is unverified, and is shared.",
+      "question": "Which documents are eligible?",
+      "expected": [
+        "A",
+        "C"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "evidence",
+      "category": "relationships",
+      "prose": "A requirement is satisfied when at least one passing test explicitly covers it. Test A passes and covers R1 and R2. Test B fails and covers R3. Test C passes and covers R2. Test D passes and covers R4.",
+      "question": "Which of R1, R2, R3, and R4 are unsatisfied?",
+      "expected": [
+        "R3"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "schedule",
+      "category": "time",
+      "prose": "The current time is 10:00 UTC. A pending task is eligible to start when its start-not-before time has arrived and it is not blocked. A deadline alone does not permit early starting. Task A is pending, may start at 12:00 UTC, has a 13:00 UTC deadline, and is not blocked. Task B is pending, may start at 09:00 UTC, has a 12:00 UTC deadline, and is blocked. Task C is pending, may start at 10:00 UTC, has an 11:00 UTC deadline, and is not blocked.",
+      "question": "Which tasks may start now?",
+      "expected": [
+        "C"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "exception",
+      "category": "exceptions",
+      "prose": "Production changes require review unless they modify only documentation. Any change affecting authentication requires review even if it modifies only documentation. Change A is a production code change unrelated to authentication. Change B changes only production documentation unrelated to authentication. Change C changes only production authentication documentation. Change D is a non-production code change unrelated to authentication.",
+      "question": "Which changes require review?",
+      "expected": [
+        "A",
+        "C"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "unknown",
+      "category": "uncertainty",
+      "prose": "Select models only when tool support is confirmed and the context capacity is at least 8000 tokens. Unknown capability or capacity does not satisfy a requirement. Model A supports tools and has a capacity of 8192. Model B has unknown tool support and a capacity of 32000. Model C supports tools and has unknown capacity. Model D supports tools and has a capacity of 4096.",
+      "question": "Which models are eligible?",
+      "expected": [
+        "A"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "budget",
+      "category": "numeric",
+      "prose": "Choose exactly one eligible model with the lowest latency. Eligibility requires confirmed tool support and a price no greater than 3 units. Model A has confirmed tool support, costs 2 units, and takes 100 milliseconds. Model B has confirmed tool support, costs 3 units, and takes 60 milliseconds. Model C has confirmed tool support, costs 4 units, and takes 20 milliseconds. Model D does not support tools, costs 1 unit, and takes 10 milliseconds.",
+      "question": "Which model should be chosen?",
+      "expected": [
+        "B"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "locks",
+      "category": "concurrency",
+      "prose": "Task A is currently writing file X. A new task conflicts if it reads or writes X; work on another file does not conflict. Task B would read X. Task C would write Y. Task D would write X. Task E would read Z.",
+      "question": "Which candidate tasks can run without conflicting with A?",
+      "expected": [
+        "C",
+        "E"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "precedence",
+      "category": "instructions",
+      "prose": "A user revised the task from objective revision 1 to revision 2. The latest revision is authoritative. Revision 1 asked for local or remote models within 5 units. Revision 2 asks for local models only within 3 units. Model A is remote and costs 1 unit. Model B is local and costs 4 units. Model C is local and costs 2 units.",
+      "question": "Which models meet the current objective?",
+      "expected": [
+        "C"
+      ],
+      "split": "calibration"
+    },
+    {
+      "id": "no-evidence",
+      "category": "uncertainty",
+      "prose": "A claim is established only by a passing independent check that explicitly covers it. Claim R1 is supported by an implementing agent saying it is correct, but no independent check covers it. Claim R2 has an independent check that explicitly covers it, but that check failed.",
+      "question": "Which claims are established?",
+      "expected": [],
+      "split": "calibration"
+    },
+    {
+      "id": "h-revision-scope",
+      "category": "freshness",
+      "prose": "The objective is task K in project P at revision 4. Accept a result only if its task, project and revision match, its check passed, and it is not retracted. Result A is K/P/4, passed, retracted. Result B is K/Q/4, passed, not retracted. Result C is K/P/3, passed, not retracted. Result D is K/P/4, passed, not retracted. Result E is L/P/4, passed, not retracted. Result F is K/P/4, failed, not retracted.",
+      "question": "Which results are acceptable?",
+      "expected": [
+        "D"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-joint-dependency",
+      "category": "dependencies",
+      "prose": "Runnable tasks must be pending, unblocked, and have every dependency complete. A is complete with no dependencies. B is failed with no dependencies. C is pending, unblocked, and depends on A and B. D is pending, unblocked, and depends only on A. E is pending, blocked, and depends only on A. F is pending, unblocked, and has no dependencies. G is cancelled, unblocked, and has no dependencies.",
+      "question": "Which tasks can start now?",
+      "expected": [
+        "D",
+        "F"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-explicit-offsets",
+      "category": "time",
+      "prose": "It is 14:00 UTC. A job is ready only if its start-not-before time has arrived and it is not cancelled. Job A starts at 10:00 UTC-04:00 and is not cancelled. Job B starts at 17:00 UTC+02:00 and is not cancelled. Job C starts at 13:30 UTC and is cancelled. Job D starts at 15:00 UTC+02:00 and is not cancelled. Interpret offsets numerically; all timestamps refer to the same date.",
+      "question": "Which jobs are ready?",
+      "expected": [
+        "A",
+        "D"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-mandatory-budget",
+      "category": "context-budget",
+      "prose": "Input capacity is 100 tokens. Mandatory instructions use 30 and the response reserve uses 20, leaving a maximum of 50 for evidence. Process optional sources in priority order A, B, C, D; include a source if it fits the remaining evidence allowance, otherwise skip it and continue. Sources are indivisible. A uses 35 tokens, B uses 20, C uses 15, and D uses 5.",
+      "question": "Which sources are included?",
+      "expected": [
+        "A",
+        "C"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-two-witnesses",
+      "category": "evidence",
+      "prose": "A claim is established only if it has passing checks from at least two distinct independent reviewers. Multiple checks by one reviewer count once. R1 has passing independent checks from U and U. R2 has passing independent checks from U and V. R3 has a passing independent check from U and a failed independent check from V. R4 has passing checks from U and V, but neither reviewer is independent.",
+      "question": "Which claims are established?",
+      "expected": [
+        "R2"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-disclosure-exception",
+      "category": "exceptions",
+      "prose": "A document can be shared if it is public or has explicit owner approval, unless it contains credentials. Credentials always prohibit sharing, even with approval. A is public, lacks approval, and has no credentials. B is private, has approval, and has no credentials. C is public, has approval, and contains credentials. D is private, lacks approval, and has no credentials. E is private, has approval, and contains credentials.",
+      "question": "Which documents may be shared?",
+      "expected": [
+        "A",
+        "B"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-multiple-locks",
+      "category": "concurrency",
+      "prose": "A worker holds a read lock on X and a write lock on Y. Another read of X is compatible; a write of X conflicts. Any read or write of Y conflicts. Access to Z does not conflict. Candidate A reads X and writes Z. Candidate B writes X. Candidate C reads Y. Candidate D reads X and reads Z. Candidate E writes Z and reads Y.",
+      "question": "Which candidates can run without any conflict?",
+      "expected": [
+        "A",
+        "D"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-task-local-revision",
+      "category": "instructions",
+      "prose": "Task K revision 1 allows local or remote models at price at most 5. Task K revision 2 allows local models only at price at most 3. Task L revision 9 allows remote models only at price at most 1. Only revisions of the requested task apply; its highest revision wins. Model A is remote at price 1. Model B is local at price 3. Model C is local at price 4. Model D is local at price 2.",
+      "question": "Which models are eligible for task K?",
+      "expected": [
+        "B",
+        "D"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-unknown-all",
+      "category": "uncertainty",
+      "prose": "Eligibility requires confirmed tool support, confirmed local execution, and at least 8192 context tokens. Unknown facts do not satisfy a requirement. A has tools, unknown execution locality, and 32000 tokens. B has unknown tools, local execution, and 32000 tokens. C has tools, local execution, and 8191 tokens. D has tools, remote execution, and 32000 tokens.",
+      "question": "Which models are eligible?",
+      "expected": [],
+      "split": "heldout"
+    },
+    {
+      "id": "h-select-lexicographic",
+      "category": "selection",
+      "prose": "Eligible models must be local and cost at most 3. Choose exactly one by lowest latency, then lowest price, then alphabetically smallest identifier. A is local, price 3, latency 40. B is local, price 2, latency 40. C is local, price 2, latency 40. D is remote, price 1, latency 10. E is local, price 4, latency 5.",
+      "question": "Which model is selected?",
+      "expected": [
+        "B"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-retry-bounds",
+      "category": "negation",
+      "prose": "Retry an attempt only if its error is transient, no answer text has been emitted, it is not cancelled, and fewer than two retries have already occurred. A: transient, zero characters, not cancelled, two retries. B: transient, zero characters, not cancelled, one retry. C: transient, one character, not cancelled, zero retries. D: transient, zero characters, cancelled, zero retries. E: permanent, zero characters, not cancelled, zero retries.",
+      "question": "Which attempts may be retried?",
+      "expected": [
+        "B"
+      ],
+      "split": "heldout"
+    },
+    {
+      "id": "h-source-authority",
+      "category": "provenance",
+      "prose": "Only the current acceptance specification defines required tests. That specification requires T1 and T3. A historical specification required T1, T2 and T4. The implementer says every test passed, but the actual current check records say T1 passed, T2 failed, T3 failed and T4 passed. Determine unsatisfied requirements from the current specification and actual check records.",
+      "question": "Which currently required tests remain unsatisfied?",
+      "expected": [
+        "T3"
+      ],
+      "split": "heldout"
+    }
+  ],
+  "implementation_sha256": {
+    "README.md": "3750fcb088ac15b78bd8ae423aac36929b4135a835e189917fa4b6eef31bf864",
+    "cases.json": "f58f66eecaf642718123131ba7115f25ec6516793dd738702235283a94cc03b9",
+    "contract.py": "d2ba0d7f85b7604a9c8c4c81935cce18fa2a6b2ed8f3efecde071eb2af8be556",
+    "generate_cases.py": "b97c4503d3e39937a0659de2ec2526184cb6f7e0d60acafac72c9a9e153619e2",
+    "report.py": "032be2e29c770a4b5728e679ccf5108552e16e570d12746c1699ef94865e431d",
+    "run.py": "00f2e45a4d86597049ccdbe6872f07c856b3c8465d4b387951f8d83c50496ee0",
+    "scoring.py": "906ca44649816f44ca0aa2cba85ca442ec724c054c9c910bfce03eb322e0383b",
+    "test_contract.py": "2a4a25acf7cfe1d9c843d7690bfe1bbea617580b7b49f4e3d667e4540fc256da",
+    "pilot_transport.py": "7c00fa4addac7789eaced201a532743bcdd4753765b7572f18101796c8252522"
+  }
+}

@@ -1,5 +1,11 @@
 # ADR 0001: Shared chat runtime ownership and protocol v1
 
+2026-09-26 companion direction: [ADR 0002](0002-layered-context-and-orchestration.md)
+distinguishes chat generation from persistent Hekate objectives, specifies context
+policies by layer, and separates execution telemetry from future learning.
+It adds a prompt-encoding experiment; it does not claim orchestration migration.
+Read the implementation checkpoint at the end of this ADR for superseded proposal details.
+
 Status: Proposed. 2026-09-25. Written per [NEXT-HANDOFF.md](../implementation/NEXT-HANDOFF.md)'s
 bounded task. No code migration, deployment, or live verification occurred while
 writing this ADR. It supersedes the "trace before deciding" instruction in

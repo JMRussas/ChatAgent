@@ -1,5 +1,34 @@
 # Implementation handoff
 
+## 2026-09-27: explicit LangGraph learning slice
+
+The [LangGraph workflow](../../experiments/doc-agent/LANGGRAPH.md) is implemented as an optional
+engine, with the original loop retained for comparison. 29 offline tests pass,
+including contract parity, invocation isolation and cancellation propagation.
+This supersedes earlier text proposing graph translation as future work. The next
+learning step is designing durable state and pause/resume; neither is implemented
+by this invocation-local graph. Production runtime integration remains separate.
+
+2026-09-27: use the [model-specific reference guide](../14-model-reference-guide.md) before
+changing model integration or designing local evaluations. Start with official
+guidance and published benchmarks, then test the application-specific gaps.
+
+Current learning slice: [10 documentation retrieval agent](10-doc-retrieval-agent.md)
+uses the existing sibling course patterns for LangChain/Ollama and bounded
+read-only tools. Hekate integration and production provider migration are not
+prerequisites. Read the latest section of NEXT-HANDOFF before older sequencing.
+
+Latest prompt work: [spec 09](09-prompt-contract.md) and
+[experiment 2](../../experiments/prompt-contract/README.md) define and evaluate
+Task / Guidelines / Response Framework. This experimental branch does not mark
+the queued numbered runtime milestones as complete.
+
+2026-09-26 priority update: [ADR 0002](../adr/0002-layered-context-and-orchestration.md)
+records the latest orchestration/context/telemetry direction. The immediate
+experiment is [paired local prompt encoding](../../experiments/prompt-encoding/README.md).
+Use [NEXT-HANDOFF](NEXT-HANDOFF.md) for current sequencing; the numbered specs
+below remain the queued runtime roadmap, not evidence of implementation.
+
 Specification baseline: `7f03beb` (2026-09-25). These documents describe planned
 changes, not existing APIs. Read the current source before editing; do not restore
 the baseline over newer work. The spec 02 checkpoint and acceptance results are recorded in [02 evidence](02-evidence.md).

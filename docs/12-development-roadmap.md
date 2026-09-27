@@ -1,5 +1,82 @@
 # Development roadmap
 
+## 2026-09-27: durable single-task checkpoint
+
+[SQLite pause/resume](../experiments/doc-agent/DURABILITY.md) now supports process restarts from confirmed
+retrieval pauses, preserving sources, evidence and budgets. 33 offline tests and
+a four-process local Gemma4 run passed. This supersedes earlier descriptions of
+persistence as entirely future work; the ordinary graph engine remains optional
+and nonpersistent. Arbitrary in-flight crash replay is refused. The next increment
+is task lifecycle/scheduling around this unit, with explicit long-pause policy.
+
+## 2026-09-27: explicit LangGraph learning slice
+
+The [LangGraph workflow](../experiments/doc-agent/LANGGRAPH.md) is implemented as an optional
+engine, with the original loop retained for comparison. 29 offline tests pass,
+including contract parity, invocation isolation and cancellation propagation.
+This supersedes earlier text proposing graph translation as future work. The next
+learning step is designing durable state and pause/resume; neither is implemented
+by this invocation-local graph. Production runtime integration remains separate.
+
+2026-09-27: use the [model-specific reference guide](14-model-reference-guide.md) before
+changing model integration or designing local evaluations. Start with official
+guidance and published benchmarks, then test the application-specific gaps.
+
+## Latest priority: learn through a working retrieval agent
+
+The immediate slice is [spec 10](implementation/10-doc-retrieval-agent.md): a
+standalone LangChain/Ollama agent using bounded documentation search/read tools,
+Markdown prompt sections and source-linked answers. It builds on sibling course
+examples. Learning and completing this project come first; Hekate integration is
+optional and is not the next prerequisite. The subsequent learning milestone is
+an explicit LangGraph version of this loop, then a separately scoped connection
+to responsive chat. Earlier production-provider-first planning below is superseded.
+
+## 2026-09-26 direction and current priority
+
+Latest increment: [spec 09 prompt contract](implementation/09-prompt-contract.md)
+defines Task / Guidelines / Response Framework plus referenced context.
+[Experiment 2](../experiments/prompt-contract/README.md) adds validated immutable
+packages, literal-content prose/JSON/XML renderers, a no-heading control, and
+held-out cases with scoring frozen before execution. These are standalone
+experimental artifacts; production integration and framework dependencies remain
+future work. Review the results before selecting the production renderer.
+
+Experiment 2 is complete: [600 live local calls](../reports/prompt-contract/findings-2026-09-26.md).
+Held-out TGR content accuracy was 66.7% versus 63.3% for flat identical-content
+text, with roughly 4.7% more input tokens. The net paired gain was two answers;
+calibration favored flat by one. Maintain configurable renderers and proceed to
+production contract/provider integration only as a separate increment. Sixteen
+experiment tests passed; all requests and source/package hashes match the frozen
+protocol. No runtime behavior or dependencies changed.
+
+[ADR 0002](adr/0002-layered-context-and-orchestration.md) records the latest design:
+ChatRuntime remains responsive conversation infrastructure; evaluate Hekate for
+independent concurrent/scheduled objectives and specialized roles. Context policy
+differs for conversation, orchestration, execution and verification, with shared
+provenance and dynamic retrieval contracts. Record execution/context telemetry;
+analyze it and propose improvements in a separate process. Evaluate a structured
+prompt translation layer instead of assuming XML/JSON improves model behavior.
+Learn LangChain/LangGraph through bounded integrations with preserved invariants.
+
+The [first local prompt-encoding experiment](../experiments/prompt-encoding/README.md)
+and design reconciliation are complete. Current work is spec 09 and experiment 2
+above; next is a production contract/telemetry boundary and bounded framework
+integration planning. Inventory/dispatch/CLI remain queued. Persistent
+orchestration, semantic retrieval, scheduled recovery and automatic learning are
+proposed, not implemented. The learning journal remains outside source control.
+
+Current implementation includes 01A, 01B, spec 02 and an opt-in protocol v1 Iris
+slice; all runtime stores remain in memory. Older dated notes below that describe
+01B as outstanding are historical and superseded by [01B evidence](implementation/01b-evidence.md).
+
+Prompt experiment complete: [240 live local calls and findings](../reports/prompt-encoding/findings-2026-09-26.md).
+Full prose led aggregate content accuracy in this small pilot; compact encodings
+reduced tokens without consistently preserving performance. Preserve a configurable
+renderer design and prose baseline; do not promote a universal XML/JSON policy.
+
+## Earlier implementation record
+
 Updated: 2026-09-25. This is the current plan; earlier review and design documents
 remain as historical context.
 
@@ -316,3 +393,11 @@ execution location, billing mode, quota and compute capacity are independent of
 transport. RES-01–08 are future acceptance requirements, not implemented controls.
 Context corrections are complete; now honor the cross-repository reuse
 checkpoint before adding overlapping provider or memory implementations.
+
+### Canonical examples learning checkpoint
+
+The [controlled local comparison](../reports/doc-agent/examples-findings-2026-09-26.md)
+is complete: one additional structural pass across six paired questions, with
+39.3% more input tokens. Keep the optional examples variant and the two-tool
+retrieval surface; missed source sections need separate evaluation. LangGraph
+translation remains a learning increment, without claiming improved retrieval.

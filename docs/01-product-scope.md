@@ -1,5 +1,7 @@
 # Product Scope (Prototype)
 
+2026-09-26 direction: preserve this conversation runtime as a component of a broader multitasking assistant. Evaluate Hekate for specialized, concurrent and scheduled work. See [ADR 0002](adr/0002-layered-context-and-orchestration.md). The historical tool/retrieval scope below is not a claim that current deep providers actually retrieve sources.
+
 ## Objective
 
 Build a chatbot prototype that behaves as two coordinated cognitive layers:

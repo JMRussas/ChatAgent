@@ -4,3 +4,8 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+
+# Experimental evidence includes byte-level hashes; preserve captured bytes.
+reports/doc-agent/** -text whitespace=cr-at-eol
+reports/prompt-contract/** -text whitespace=cr-at-eol
+reports/prompt-encoding/** -text whitespace=cr-at-eol

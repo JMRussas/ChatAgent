@@ -1,5 +1,16 @@
 # ChatRuntime: Shared Conversation Runtime
 
+Learning slice: [LangChain/Ollama documentation agent](experiments/doc-agent/README.md)
+retrieves evidence using bounded read-only tools and returns source-linked answers.
+It runs separately from the chat server; no Hekate integration is required.
+
+Prompt contract experiment: [Task / Guidelines / Response Framework](experiments/prompt-contract/README.md)
+tests identical-content renderers against a flat-text control and prior prose
+baseline. The contract is experimental; application provider behavior is unchanged.
+See the [600-call findings](reports/prompt-contract/findings-2026-09-26.md).
+
+Current design direction (2026-09-26): see [ADR 0002](docs/adr/0002-layered-context-and-orchestration.md) for layered context, Hekate orchestration boundaries, telemetry and prompt translation. The [local encoding pilot](experiments/prompt-encoding/README.md) measures prose/concise/JSON/XML prompts independently of the runtime. Earlier status notes that say internal summarization is unimplemented are superseded by the 01B section and evidence below.
+
 ChatRuntime is a prototype for a shared conversation runtime for web chat, Iris,
 and Hekate. Its current implementation is a dual-path chatbot:
 

@@ -1,5 +1,9 @@
 # Model catalog and task routing
 
+2026-09-27: use the [model-specific reference guide](14-model-reference-guide.md) before
+changing model integration or designing local evaluations. Start with official
+guidance and published benchmarks, then test the application-specific gaps.
+
 `data/model-catalog.json` is the versioned, validated inventory. Override its path
 with `MODEL_CATALOG_PATH`. Invalid catalogs fail startup. `GET /models` returns the
 inventory, current fast/deep selections, and any configured models missing from it.

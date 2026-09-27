@@ -1,0 +1,21 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "result": {
+    "status": "paused",
+    "engine": "langgraph",
+    "next": [
+      "retrieve"
+    ],
+    "model_calls": 2,
+    "tool_calls": 1,
+    "retrieval_bytes": 1193,
+    "node_trace": [
+      "model",
+      "validate",
+      "retrieve",
+      "model",
+      "validate"
+    ]
+  }
+}

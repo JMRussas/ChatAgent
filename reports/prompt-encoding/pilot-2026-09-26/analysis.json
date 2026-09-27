@@ -1,0 +1,342 @@
+{
+  "grading_version": "exploratory-prefix-and-fence-v1",
+  "post_hoc": true,
+  "rows": [
+    {
+      "model": "qwen3:8b",
+      "variant": "prose",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 10,
+      "strict_format": 12,
+      "mean_input_tokens": 148.16666666666666
+    },
+    {
+      "model": "qwen3:8b",
+      "variant": "concise",
+      "n": 12,
+      "normalized_correct": 8,
+      "exact_pass": 8,
+      "strict_format": 12,
+      "mean_input_tokens": 133.75
+    },
+    {
+      "model": "qwen3:8b",
+      "variant": "json",
+      "n": 12,
+      "normalized_correct": 6,
+      "exact_pass": 6,
+      "strict_format": 12,
+      "mean_input_tokens": 136.16666666666666
+    },
+    {
+      "model": "qwen3:8b",
+      "variant": "xml",
+      "n": 12,
+      "normalized_correct": 8,
+      "exact_pass": 8,
+      "strict_format": 12,
+      "mean_input_tokens": 145.66666666666666
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "prose",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 6,
+      "strict_format": 12,
+      "mean_input_tokens": 145.16666666666666
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "concise",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 10,
+      "strict_format": 12,
+      "mean_input_tokens": 130
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "json",
+      "n": 12,
+      "normalized_correct": 7,
+      "exact_pass": 7,
+      "strict_format": 12,
+      "mean_input_tokens": 132.16666666666666
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "xml",
+      "n": 12,
+      "normalized_correct": 7,
+      "exact_pass": 7,
+      "strict_format": 12,
+      "mean_input_tokens": 141.66666666666666
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "prose",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 145.25
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "concise",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 132.75
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "json",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 134.91666666666666
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "xml",
+      "n": 12,
+      "normalized_correct": 11,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 145.75
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "prose",
+      "n": 12,
+      "normalized_correct": 10,
+      "exact_pass": 10,
+      "strict_format": 12,
+      "mean_input_tokens": 140.16666666666666
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "concise",
+      "n": 12,
+      "normalized_correct": 7,
+      "exact_pass": 7,
+      "strict_format": 12,
+      "mean_input_tokens": 125.75
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "json",
+      "n": 12,
+      "normalized_correct": 7,
+      "exact_pass": 7,
+      "strict_format": 12,
+      "mean_input_tokens": 128.16666666666666
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "xml",
+      "n": 12,
+      "normalized_correct": 8,
+      "exact_pass": 8,
+      "strict_format": 12,
+      "mean_input_tokens": 137.66666666666666
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "prose",
+      "n": 12,
+      "normalized_correct": 9,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 140.16666666666666
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "concise",
+      "n": 12,
+      "normalized_correct": 8,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 125.75
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "json",
+      "n": 12,
+      "normalized_correct": 9,
+      "exact_pass": 1,
+      "strict_format": 1,
+      "mean_input_tokens": 128.16666666666666
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "xml",
+      "n": 12,
+      "normalized_correct": 9,
+      "exact_pass": 0,
+      "strict_format": 0,
+      "mean_input_tokens": 137.66666666666666
+    }
+  ],
+  "aggregate": [
+    {
+      "variant": "prose",
+      "n": 60,
+      "normalized_correct": 49,
+      "exact_pass": 26,
+      "macro_normalized_accuracy": 0.8166666666666667,
+      "mean_input_tokens": 143.78333333333333
+    },
+    {
+      "variant": "concise",
+      "n": 60,
+      "normalized_correct": 43,
+      "exact_pass": 25,
+      "macro_normalized_accuracy": 0.7166666666666667,
+      "mean_input_tokens": 129.6
+    },
+    {
+      "variant": "json",
+      "n": 60,
+      "normalized_correct": 39,
+      "exact_pass": 21,
+      "macro_normalized_accuracy": 0.65,
+      "mean_input_tokens": 131.91666666666666
+    },
+    {
+      "variant": "xml",
+      "n": 60,
+      "normalized_correct": 43,
+      "exact_pass": 23,
+      "macro_normalized_accuracy": 0.7166666666666667,
+      "mean_input_tokens": 141.68333333333334
+    }
+  ],
+  "paired_against_prose": [
+    {
+      "model": "qwen3:8b",
+      "variant": "concise",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 3,
+      "ties": 8
+    },
+    {
+      "model": "qwen3:8b",
+      "variant": "json",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 5,
+      "ties": 6
+    },
+    {
+      "model": "qwen3:8b",
+      "variant": "xml",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 3,
+      "ties": 8
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "concise",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 1,
+      "ties": 10
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "json",
+      "pairs": 12,
+      "wins": 0,
+      "losses": 3,
+      "ties": 9
+    },
+    {
+      "model": "qwen3.5:latest",
+      "variant": "xml",
+      "pairs": 12,
+      "wins": 0,
+      "losses": 3,
+      "ties": 9
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "concise",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 1,
+      "ties": 10
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "json",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 1,
+      "ties": 10
+    },
+    {
+      "model": "gemma4:26b",
+      "variant": "xml",
+      "pairs": 12,
+      "wins": 1,
+      "losses": 0,
+      "ties": 11
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "concise",
+      "pairs": 12,
+      "wins": 0,
+      "losses": 3,
+      "ties": 9
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "json",
+      "pairs": 12,
+      "wins": 0,
+      "losses": 3,
+      "ties": 9
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "variant": "xml",
+      "pairs": 12,
+      "wins": 0,
+      "losses": 2,
+      "ties": 10
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "concise",
+      "pairs": 12,
+      "wins": 2,
+      "losses": 3,
+      "ties": 7
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "json",
+      "pairs": 12,
+      "wins": 3,
+      "losses": 3,
+      "ties": 6
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "variant": "xml",
+      "pairs": 12,
+      "wins": 2,
+      "losses": 2,
+      "ties": 8
+    }
+  ]
+}

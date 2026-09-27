@@ -1,0 +1,90 @@
+{
+  "started_at": "2026-09-26T23:46:36.539734+00:00",
+  "python": "3.13.13 (main, Jun  2 2026, 22:38:31) [MSC v.1944 64 bit (AMD64)]",
+  "versions": {
+    "langchain": "1.3.10",
+    "langchain-core": "1.4.8",
+    "langchain-ollama": "1.1.0",
+    "ollama": "0.6.2",
+    "pydantic": "2.12.5"
+  },
+  "ollama_version": {
+    "version": "0.34.4"
+  },
+  "model": {
+    "name": "qwen3-coder:latest",
+    "model": "qwen3-coder:latest",
+    "modified_at": "2026-03-17T09:37:59.4560624-04:00",
+    "size": 18556700761,
+    "digest": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen3moe",
+      "families": [
+        "qwen3moe"
+      ],
+      "parameter_size": "30.5B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 262144,
+      "embedding_length": 2048
+    },
+    "capabilities": [
+      "completion",
+      "tools"
+    ]
+  },
+  "model_capabilities": [
+    "completion",
+    "tools"
+  ],
+  "thinking_metadata": {
+    "values": [
+      false
+    ],
+    "default": false
+  },
+  "options": {
+    "temperature": 0,
+    "seed": 20260926,
+    "num_ctx": 32768,
+    "num_predict": 1024,
+    "reasoning": false
+  },
+  "prompt_version": "docs-tgr/2",
+  "cases": [
+    {
+      "id": "restart",
+      "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+      "expected_status": "answered",
+      "required_source": "iris-evidence"
+    },
+    {
+      "id": "memory",
+      "question": "Does the implemented ContextManager wait for a new background summary before answering the current request? What happens to the original transcript?",
+      "expected_status": "answered",
+      "required_source": "memory-evidence"
+    },
+    {
+      "id": "routing",
+      "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+      "expected_status": "answered",
+      "required_source": "model-catalog"
+    },
+    {
+      "id": "unknown",
+      "question": "What was the exact measured electricity cost in dollars of this assistant on September 1, 2026? If the documents do not establish it, say what evidence is missing.",
+      "expected_status": "insufficient_evidence",
+      "required_source": null
+    }
+  ],
+  "source_snapshot_sha256": "5337bdb5fc325ede312eef96c96e87c09b7b5bd71153eb8203090ef2cccf3930",
+  "implementation_hashes": {
+    "agent.py": "6e97cd9eda161610141fbe7ae120513215732c5f4f93a1f4d9b4e5f37c67f398",
+    "retrieval.py": "bdaf7442935b9cac0685bbfdde7913627893aba62961fa5e06f1bd9fd7589fcf",
+    "run.py": "16585378028d361ef7a76c0ae61a423bc6f7d66acac9962e8f15f62b4597c6cd",
+    "test_agent.py": "0b8ebdadc030e2379d58911ed8fa23e7dbdc940c62c747a409befc0ebbc52521"
+  },
+  "complete": true,
+  "completed_at": "2026-09-26T23:47:38.402910+00:00"
+}

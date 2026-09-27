@@ -1,5 +1,7 @@
 # Architecture
 
+2026-09-26: the components below describe the existing prototype. [ADR 0002](adr/0002-layered-context-and-orchestration.md) defines the proposed broader boundaries: responsive conversation here, persistent orchestration evaluated in Hekate, layer-specific context, dynamic retrieval, structured prompt rendering and telemetry for separate analysis. These are not implemented by this documentation update.
+
 ## Components
 
 1. Ingress/API
