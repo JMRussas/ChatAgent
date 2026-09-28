@@ -1,0 +1,8 @@
+{
+  "experiments/doc-agent/browser_contention.ts": "1d6285e40fac9878cee998239ce4caabab2cbbc12ccc8387a1eb9eb89cb4d867",
+  "src/ui/turnViewModel.ts": "249c461aa70fcc4f42c23115b89e751db1d02bb351037ffd037ae6331e4f31bf",
+  "src/ui/homePage.ts": "6e38797f69d5bd3d2247f7c77f0cc13fbd9043f600254092b1048e8e35d5de84",
+  "src/app/documentTasks.ts": "7952301317aa51e724ff7d96a3d94aac90c21456edd9157a327abd33f05c7e19",
+  "experiments/doc-agent/chat_bridge.py": "3f84610a946b5e31a594496fdd477b7513fab2329bf40608070d88873c63287d",
+  "src/providers/ollamaProviders.ts": "1919238c6c6d8dfc22146a5695109ff882e944d9ba96a93d299c207cb5f1f121"
+}

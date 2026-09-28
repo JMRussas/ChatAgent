@@ -1,0 +1,553 @@
+{
+  "model": {
+    "name": "gemma4:26b",
+    "model": "gemma4:26b",
+    "modified_at": "2026-08-16T13:47:09.7943289-04:00",
+    "size": 17987581215,
+    "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+        "gemma4"
+      ],
+      "parameter_size": "25.8B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 262144,
+      "embedding_length": 2816
+    },
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ]
+  },
+  "ollamaVersion": {
+    "version": "0.34.4"
+  },
+  "foreground": {
+    "temperature": 0,
+    "numPredict": 64,
+    "think": false,
+    "timeoutMs": 120000
+  },
+  "records": [
+    {
+      "label": "warmup",
+      "status": 200,
+      "elapsedMs": 542.7361999999994,
+      "data": {
+        "messageId": "9e10cdb0-27d3-45a7-9e9c-0a157f09b478",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "label": "baseline-before-0",
+      "status": 200,
+      "elapsedMs": 244.26710000000094,
+      "data": {
+        "messageId": "b951a3a5-2714-4b94-9aa0-41d280e16456",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "label": "baseline-before-1",
+      "status": 200,
+      "elapsedMs": 292.91539999999804,
+      "data": {
+        "messageId": "00ab990b-f9e4-4011-b4b8-e001125558b9",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "label": "baseline-before-2",
+      "status": 200,
+      "elapsedMs": 272.51800000000003,
+      "data": {
+        "messageId": "725e4535-2551-4128-a7da-cfc7d0c017f7",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "label": "background-start-0",
+      "status": 202,
+      "elapsedMs": 26.01009999999951,
+      "data": {
+        "taskId": "e7f946158ee2452daf76599ea86b7a3f",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "queued",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "label": "overlap-0",
+      "status": 200,
+      "elapsedMs": 828.9170999999988,
+      "data": {
+        "messageId": "bba4d94f-dc1d-46e4-8be2-dc6690f91213",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      },
+      "backgroundBefore": {
+        "taskId": "e7f946158ee2452daf76599ea86b7a3f",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      },
+      "ollamaLoadedBefore": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-27T20:34:21.4482626-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "taskId": "e7f946158ee2452daf76599ea86b7a3f",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 1,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "label": "background-terminal-0",
+      "data": {
+        "taskId": "e7f946158ee2452daf76599ea86b7a3f",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "completed",
+        "modelCalls": 5,
+        "toolCalls": 3,
+        "answer": {
+          "status": "answered",
+          "answer": "No, the implemented `ContextManager` does not wait for a new background summary before answering. According to the implementation evidence, `ContextManager.prepare` captures a snapshot and calls the context builder using the latest valid memory; background jobs for summarization start on a later event-loop turn, and the foreground process never awaits a new summary.",
+          "citations": [
+            {
+              "evidence_id": "E1",
+              "source_id": "context-memory-spec",
+              "revision": "7dd5b44338b4305f3d17eab1c72e0432a7e83654e3b60243d96181fcc12cb9cf",
+              "path": "docs/implementation/01-context-memory.md",
+              "start_line": 70,
+              "end_line": 109
+            },
+            {
+              "evidence_id": "E2",
+              "source_id": "memory-evidence",
+              "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+              "path": "docs/implementation/01b-evidence.md",
+              "start_line": 1,
+              "end_line": 40
+            }
+          ],
+          "missing_evidence": []
+        },
+        "error": null,
+        "scheduled": false
+      }
+    },
+    {
+      "label": "background-start-1",
+      "status": 202,
+      "elapsedMs": 18.134799999999814,
+      "data": {
+        "taskId": "0bea9efb30984c05a3adc12740fea577",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "queued",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "label": "overlap-1",
+      "status": 200,
+      "elapsedMs": 888.4709000000003,
+      "data": {
+        "messageId": "5cdc9b51-eb0c-4e27-83f2-5d941b1d854f",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      },
+      "backgroundBefore": {
+        "taskId": "0bea9efb30984c05a3adc12740fea577",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      },
+      "ollamaLoadedBefore": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-27T20:34:29.4179227-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "taskId": "0bea9efb30984c05a3adc12740fea577",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 1,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "label": "background-terminal-1",
+      "data": {
+        "taskId": "0bea9efb30984c05a3adc12740fea577",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "completed",
+        "modelCalls": 5,
+        "toolCalls": 3,
+        "answer": {
+          "status": "answered",
+          "answer": "No, the implemented `ContextManager` does not wait for a new background summary. When `ContextManager.prepare()` is called, it captures a snapshot and uses the latest valid memory; background compression jobs are started on a later event-loop turn, and the foreground process never awaits them.",
+          "citations": [
+            {
+              "evidence_id": "E1",
+              "source_id": "context-memory-spec",
+              "revision": "7dd5b44338b4305f3d17eab1c72e0432a7e83654e3b60243d96181fcc12cb9cf",
+              "path": "docs/implementation/01-context-memory.md",
+              "start_line": 70,
+              "end_line": 109
+            },
+            {
+              "evidence_id": "E2",
+              "source_id": "memory-evidence",
+              "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+              "path": "docs/implementation/01b-evidence.md",
+              "start_line": 1,
+              "end_line": 40
+            }
+          ],
+          "missing_evidence": []
+        },
+        "error": null,
+        "scheduled": false
+      }
+    },
+    {
+      "label": "background-start-2",
+      "status": 202,
+      "elapsedMs": 18.234599999996135,
+      "data": {
+        "taskId": "35a1c4ee45cf4d97ab4ac41161479c18",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "queued",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "label": "overlap-2",
+      "status": 200,
+      "elapsedMs": 892.7829999999958,
+      "data": {
+        "messageId": "113e52e5-baa7-41e5-90b0-5c1afeaf5758",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      },
+      "backgroundBefore": {
+        "taskId": "35a1c4ee45cf4d97ab4ac41161479c18",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 0,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      },
+      "ollamaLoadedBefore": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-27T20:34:36.7176591-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "taskId": "35a1c4ee45cf4d97ab4ac41161479c18",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "running",
+        "modelCalls": 1,
+        "toolCalls": 0,
+        "answer": null,
+        "error": null,
+        "scheduled": true
+      }
+    },
+    {
+      "label": "background-terminal-2",
+      "data": {
+        "taskId": "35a1c4ee45cf4d97ab4ac41161479c18",
+        "question": "Does the implemented ContextManager wait for a new background summary before answering?",
+        "status": "completed",
+        "modelCalls": 5,
+        "toolCalls": 3,
+        "answer": {
+          "status": "answered",
+          "answer": "No, the implemented `ContextManager` does not wait for a new background summary. When `ContextManager.prepare()` is called, it captures a snapshot and uses the latest valid memory; background compression jobs are started on a later event-loop turn, and the foreground process never awaits them.",
+          "citations": [
+            {
+              "evidence_id": "E1",
+              "source_id": "context-memory-spec",
+              "revision": "7dd5b44338b4305f3d17eab1c72e0432a7e83654e3b60243d96181fcc12cb9cf",
+              "path": "docs/implementation/01-context-memory.md",
+              "start_line": 70,
+              "end_line": 109
+            },
+            {
+              "evidence_id": "E2",
+              "source_id": "memory-evidence",
+              "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+              "path": "docs/implementation/01b-evidence.md",
+              "start_line": 1,
+              "end_line": 40
+            }
+          ],
+          "missing_evidence": []
+        },
+        "error": null,
+        "scheduled": false
+      }
+    },
+    {
+      "label": "baseline-after-0",
+      "status": 200,
+      "elapsedMs": 546.4600999999966,
+      "data": {
+        "messageId": "821e343f-c381-417d-a5d9-cf4f5d3e3ebc",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "label": "baseline-after-1",
+      "status": 200,
+      "elapsedMs": 308.20760000000155,
+      "data": {
+        "messageId": "7da96217-2c00-4efc-8099-b6f717ec105a",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    },
+    {
+      "label": "baseline-after-2",
+      "status": 200,
+      "elapsedMs": 297.70969999999943,
+      "data": {
+        "messageId": "009ab8c8-84aa-420e-b96c-b56f90e14f52",
+        "fastResponse": {
+          "provisionalReply": "Two plus two is four.",
+          "analysis": {
+            "correctedText": "What is two plus two? Answer in one short sentence.",
+            "needsExternalData": false,
+            "needsClarification": false,
+            "routeDecision": "direct",
+            "confidence": 0.84,
+            "reasons": [
+              "Can answer from in-context reasoning."
+            ]
+          },
+          "processingStatus": "complete"
+        }
+      }
+    }
+  ],
+  "browserExceptions": [],
+  "browser": {
+    "foreground": "mock",
+    "checks": [
+      "page load",
+      "task start",
+      "Send remains enabled",
+      "foreground Send accepted",
+      "second task cancellation",
+      "completion rendered",
+      "scope change clears old tasks"
+    ],
+    "panel": "Does the implemented ContextManager wait for a new background summary before answering? — completed\n\nNo, the implemented `ContextManager` does not wait for a new background summary. According to the implementation evidence, background jobs start on a later event-loop turn, and the foreground process never awaits a new summary.\n\ndocs/implementation/01b-evidence.md:1–40\n\nWhat is the default summary mode? — cancelled",
+    "exceptions": []
+  },
+  "outcome": "completed"
+}

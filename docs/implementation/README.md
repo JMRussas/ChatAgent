@@ -1,5 +1,11 @@
 # Implementation handoff
 
+Latest validation: [browser and shared Ollama findings](../../reports/doc-agent/browser-contention-findings-2026-09-27.md)
+records a fixed development-browser rendering bug, 248 passing TypeScript tests,
+and a small same-model contention probe (295 ms baseline median; 888 ms during
+background work). Next measure first-token latency and admission wait under varied
+load before selecting a shared foreground/background priority policy.
+
 Current integration: [conversation documentation tasks](11-conversation-tasks.md)
 adds an optional background action, scoped status/results, cancellation and bounded
 admission through a local Python sidecar. Earlier notes describing all Python work

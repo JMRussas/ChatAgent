@@ -1,0 +1,39 @@
+{
+  "model": {
+    "name": "gemma4:26b",
+    "model": "gemma4:26b",
+    "modified_at": "2026-08-16T13:47:09.7943289-04:00",
+    "size": 17987581215,
+    "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+        "gemma4"
+      ],
+      "parameter_size": "25.8B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 262144,
+      "embedding_length": 2816
+    },
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ]
+  },
+  "ollamaVersion": {
+    "version": "0.34.4"
+  },
+  "foreground": {
+    "temperature": 0,
+    "numPredict": 64,
+    "think": false,
+    "timeoutMs": 120000
+  },
+  "records": [],
+  "outcome": "failed",
+  "error": "Error: Condition timed out"
+}

@@ -64,8 +64,10 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
     }
   }
   return turns.map(turn => {
-    const latest = (phase: "fast" | "deep") => turn.attempts.filter(a => a.phase === phase).at(-1);
-    const fast = latest("fast"), deep = latest("deep");
+    // This function is serialized into the page. Named local functions can
+    // acquire a module-scoped __name helper under tsx and fail in the browser.
+    const fast = turn.attempts.filter(a => a.phase === "fast").at(-1);
+    const deep = turn.attempts.filter(a => a.phase === "deep").at(-1);
     const active = [fast, deep].filter(a => a && !a.terminal);
     const current = active.at(-1) ?? deep ?? fast;
     const hasDeepText = turn.attempts.some(a => a.phase === "deep" && a.text);

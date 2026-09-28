@@ -75,8 +75,13 @@ The live check uses an actual HTTP server, Node/Python subprocess transport and
 local Ollama for background work, with mock foreground providers. It verifies a
 completed sourced answer, independent cancellation, duplicate-request identity,
 owner rejection and foreground response. It is not a shared-GPU latency benchmark.
-Browser rendering/interaction has not been exercised in a real browser; generated
-script syntax, safe text rendering and server HTML exposure are tested offline.
+A later [real-browser and shared Ollama check](../../reports/doc-agent/browser-contention-findings-2026-09-27.md)
+verified start, foreground Send, queued cancellation, sourced completion and scope
+switching in headless Chrome. It also fixed a tsx-generated helper missing from the
+embedded turn renderer. A small live foreground probe measured a 295 ms baseline
+median versus 888 ms while background work ran; this is not a p95 or broad latency
+guarantee. Restart/resume and reconnect browser scenarios remain untested.
 
-Next: validate the browser flow, then design shared inference admission/priority
-and deliberate rules for bringing completed task evidence into conversational context.
+Next: measure first-token latency and admission wait under varied load before
+selecting shared inference admission/priority. Deliberate rules for bringing
+completed task evidence into conversational context remain separate work.
