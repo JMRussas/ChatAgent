@@ -6,20 +6,41 @@ user-triggered work, not automatic agent routing or a scheduled-task service.
 
 ## Enable and use
 
-Install `experiments/doc-agent/requirements-durable.txt` in a Python environment,
-or use the existing course environment plus the local experiment dependencies.
-Set these variables before starting the server normally:
+Use a dedicated Python environment in this repository (tested with Python 3.13):
+
+```bash
+python -m venv .venv
+# Activate .venv using your shell's activation command.
+python -m pip install -r experiments/doc-agent/requirements-durable.txt
+```
+
+Ollama must already be running locally on port 11434 with the selected model
+installed. Published runs used `gemma4:26b`; the worker verifies tool support,
+thinking=false, context capacity and model identity. It does not download models.
+Check model memory requirements before running it on another machine.
+
+Set these variables before starting the server. PowerShell:
 
 ```powershell
-$env:DOC_TASK_PYTHON = 'D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe'
+$env:DOC_TASK_PYTHON = (Resolve-Path '.venv/Scripts/python.exe').Path
 $env:DOC_TASK_ROOT = 'data/document-tasks'
 $env:DOC_TASK_MODEL = 'gemma4:26b'
 npm run dev
 ```
 
+Bash:
+
+```bash
+export DOC_TASK_PYTHON="$PWD/.venv/bin/python"
+export DOC_TASK_ROOT=data/document-tasks
+export DOC_TASK_MODEL=gemma4:26b
+npm run dev
+```
+
 The Python executable must run on the same OS as Node (Windows Node requires
-Windows Python paths). Omitting DOC_TASK_PYTHON leaves the feature disabled. No
-existing development process is restarted or configured automatically.
+Windows Python paths). Omitting DOC_TASK_PYTHON leaves the feature disabled.
+Foreground chat still uses its separately configured providers; enabling this
+worker alone does not switch foreground mock responses to live inference.
 
 In the composer, enter a documentation question and choose **Run documentation
 task**. **Send** remains available for ordinary chat. The conversation's task panel
@@ -82,6 +103,7 @@ embedded turn renderer. A small live foreground probe measured a 295 ms baseline
 median versus 888 ms while background work ran; this is not a p95 or broad latency
 guarantee. Restart/resume and reconnect browser scenarios remain untested.
 
-Next: measure first-token latency and admission wait under varied load before
-selecting shared inference admission/priority. Deliberate rules for bringing
-completed task evidence into conversational context remain separate work.
+The [controlled timing follow-up](../../reports/doc-agent/contention-findings-2026-09-28.md)
+now measures application admission and first-answer latency. It did not justify
+enabling the experimental priority policy. Next: evidence-quality evaluation before
+selecting completed-task evidence for conversational context.
