@@ -1,0 +1,3846 @@
+{
+  "startedAt": "2026-09-28T17:08:58.723Z",
+  "prompts": [
+    "Convert 90 minutes into hours. Answer in one sentence.",
+    "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+    "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays."
+  ],
+  "questions": [
+    "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+    "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+    "Does the model catalog currently enable automatic model dispatch, or is that still planned?"
+  ],
+  "order": [
+    "concurrent",
+    "foreground-priority",
+    "foreground-priority",
+    "concurrent"
+  ],
+  "blocks": [
+    {
+      "index": 0,
+      "policy": "concurrent",
+      "foreground": [
+        {
+          "label": "warmup",
+          "text": "Say ready in one word.",
+          "clientStartedAt": "2026-09-28T17:09:00.598Z",
+          "firstDeltaMs": 12483.4182,
+          "result": {
+            "text": "Ready.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 12531.392500000002
+        },
+        {
+          "label": "baseline-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:13.130Z",
+          "firstDeltaMs": 78.45679999999993,
+          "result": {
+            "text": "90 minutes is equal to 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 155.68019999999888
+        },
+        {
+          "label": "baseline-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:13.286Z",
+          "firstDeltaMs": 76.71229999999923,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts the active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 248.15840000000026
+        },
+        {
+          "label": "baseline-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:13.534Z",
+          "firstDeltaMs": 86.39309999999932,
+          "result": {
+            "text": "A responsive interface only ensures low latency in UI rendering and input handling, not in the backend computation required by the model. The delay can stem from either network transit or the heavy computational workload of the LLM itself. You can distinguish these by measuring \"Time to First Token\" (model/network latency) versus \"UI Input Latency\" (interface responsiveness).",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 402.98009999999886
+        },
+        {
+          "label": "overlap-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:14.140Z",
+          "firstDeltaMs": 980.1939999999995,
+          "result": {
+            "text": "90 minutes is equal to 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 1040.9591
+        },
+        {
+          "label": "overlap-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:14.140Z",
+          "firstDeltaMs": 340.14050000000134,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts the active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 513.2509000000009
+        },
+        {
+          "label": "overlap-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:14.140Z",
+          "firstDeltaMs": 582.7011000000002,
+          "result": {
+            "text": "A responsive interface only ensures low latency in UI rendering and input handling, not in the backend processing of the LLM. The delay can stem from either network transit or the computational time required for the model to generate tokens. You can distinguish these by measuring \"Time to First Token\" (TTFT) for model latency versus \"Round Trip Time\" (RTT) for network latency.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 912.9308999999994
+        },
+        {
+          "label": "active-cancel",
+          "text": "List twenty concrete steps to design, implement, test, deploy and monitor a reliable background task system.",
+          "clientStartedAt": "2026-09-28T17:09:27.946Z",
+          "firstDeltaMs": 193.423700000003,
+          "outcome": "CANCELLED",
+          "elapsedMs": 194.63070000000153
+        },
+        {
+          "label": "after-cancel",
+          "text": "What is three plus four? Answer briefly.",
+          "clientStartedAt": "2026-09-28T17:09:28.141Z",
+          "firstDeltaMs": 78.49239999999918,
+          "result": {
+            "text": "Seven.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 96.86869999999908
+        }
+      ],
+      "timings": [
+        {
+          "id": "842619fe-57ed-42e7-9c7d-a952bbb67abc",
+          "phase": "warmup",
+          "lane": "foreground",
+          "label": "warmup",
+          "arrivedMs": 16.17540000000008,
+          "readyMs": 16.546900000000278,
+          "admittedMs": 16.57430000000022,
+          "admissionWaitMs": 0.027399999999943248,
+          "headersMs": 12495.3236,
+          "status": 200,
+          "firstAnswerMs": 12496.1103,
+          "doneMs": 12541.6065,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 12523863200,
+            "load_duration": 12191079000,
+            "prompt_eval_count": 168,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 283691000,
+            "eval_count": 3,
+            "eval_duration": 46560000
+          },
+          "outcome": "completed",
+          "finishedMs": 12543.529,
+          "elapsedMs": 12527.3536,
+          "firstAnswerLatencyMs": 12479.9349
+        },
+        {
+          "id": "9df2e3a2-bbe2-49f4-87a0-6ab176165edc",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-0",
+          "arrivedMs": 12546.4498,
+          "readyMs": 12546.6294,
+          "admittedMs": 12546.6342,
+          "admissionWaitMs": 0.004800000000614091,
+          "headersMs": 12622.9007,
+          "status": 200,
+          "firstAnswerMs": 12623.0554,
+          "doneMs": 12699.550799999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 151786000,
+            "load_duration": 2577700,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 55454000,
+            "eval_count": 13,
+            "eval_duration": 76948000
+          },
+          "outcome": "completed",
+          "finishedMs": 12699.8822,
+          "elapsedMs": 153.4323999999997,
+          "firstAnswerLatencyMs": 76.60559999999896
+        },
+        {
+          "id": "4d4d38d3-7b63-42fa-bac1-39e566d24e1e",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-1",
+          "arrivedMs": 12701.5886,
+          "readyMs": 12701.7694,
+          "admittedMs": 12701.7716,
+          "admissionWaitMs": 0.002200000000811997,
+          "headersMs": 12776.826799999999,
+          "status": 200,
+          "firstAnswerMs": 12777.092499999999,
+          "doneMs": 12947.7503,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 244699100,
+            "load_duration": 1544000,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 53367000,
+            "eval_count": 41,
+            "eval_duration": 171205000
+          },
+          "outcome": "completed",
+          "finishedMs": 12948.1216,
+          "elapsedMs": 246.53300000000127,
+          "firstAnswerLatencyMs": 75.5038999999997
+        },
+        {
+          "id": "9724be21-8095-487c-81bd-3723995ad7a2",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-2",
+          "arrivedMs": 12949.7735,
+          "readyMs": 12949.9011,
+          "admittedMs": 12949.9053,
+          "admissionWaitMs": 0.0042000000012194505,
+          "headersMs": 13034.964899999999,
+          "status": 200,
+          "firstAnswerMs": 13035.1062,
+          "doneMs": 13350.9934,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 399501800,
+            "load_duration": 1542400,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 60425000,
+            "eval_count": 73,
+            "eval_duration": 316344000
+          },
+          "outcome": "completed",
+          "finishedMs": 13351.2879,
+          "elapsedMs": 401.5144,
+          "firstAnswerLatencyMs": 85.33270000000084
+        },
+        {
+          "id": "c778116a-00fd-44ed-9614-ce909280273c",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 13502.7754,
+          "readyMs": 13503.0437,
+          "admittedMs": 13503.0476,
+          "admissionWaitMs": 0.003899999999703141,
+          "headersMs": 13739.2004,
+          "status": 200,
+          "firstToolMs": 13739.407299999999,
+          "doneMs": 13743.0245,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 239808800,
+            "load_duration": 2046400,
+            "prompt_eval_count": 1077,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 122551000,
+            "eval_count": 19,
+            "eval_duration": 85680000
+          },
+          "outcome": "completed",
+          "finishedMs": 13743.364599999999,
+          "elapsedMs": 240.58919999999853
+        },
+        {
+          "id": "510f998b-1445-482f-aa56-3bddbb70e7e7",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-0",
+          "arrivedMs": 13556.506599999999,
+          "readyMs": 13556.6324,
+          "admittedMs": 13556.6349,
+          "admissionWaitMs": 0.0024999999986903276,
+          "headersMs": 14534.981300000001,
+          "status": 200,
+          "firstAnswerMs": 14535.1553,
+          "doneMs": 14595.2393,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1037405200,
+            "load_duration": 3082300,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46681000,
+            "eval_count": 13,
+            "eval_duration": 60444000
+          },
+          "outcome": "completed",
+          "finishedMs": 14595.5577,
+          "elapsedMs": 1039.0511000000006,
+          "firstAnswerLatencyMs": 978.6487000000016
+        },
+        {
+          "id": "466d790b-3731-4776-a13f-56420ef5eb28",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-1",
+          "arrivedMs": 13557.0548,
+          "readyMs": 13557.1366,
+          "admittedMs": 13557.1386,
+          "admissionWaitMs": 0.0020000000004074536,
+          "headersMs": 13894.9671,
+          "status": 200,
+          "firstAnswerMs": 13895.2226,
+          "doneMs": 14067.8455,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 510109100,
+            "load_duration": 2050600,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 48319000,
+            "eval_count": 41,
+            "eval_duration": 173286000
+          },
+          "outcome": "completed",
+          "finishedMs": 14068.1556,
+          "elapsedMs": 511.10080000000016,
+          "firstAnswerLatencyMs": 338.16779999999926
+        },
+        {
+          "id": "b2afb21b-841c-40ab-a2de-29fa41194949",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-2",
+          "arrivedMs": 13557.9939,
+          "readyMs": 13558.0603,
+          "admittedMs": 13558.0622,
+          "admissionWaitMs": 0.0019000000011146767,
+          "headersMs": 14137.9341,
+          "status": 200,
+          "firstAnswerMs": 14138.0581,
+          "doneMs": 14467.6854,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 909068100,
+            "load_duration": 2053900,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 53595000,
+            "eval_count": 77,
+            "eval_duration": 330014000
+          },
+          "outcome": "completed",
+          "finishedMs": 14467.9749,
+          "elapsedMs": 909.9809999999998,
+          "firstAnswerLatencyMs": 580.0642000000007
+        },
+        {
+          "id": "62a09c0c-5fde-4531-ba55-92ecac12668a",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 13836.6976,
+          "readyMs": 13836.8976,
+          "admittedMs": 13836.9031,
+          "admissionWaitMs": 0.005499999999301508,
+          "headersMs": 14915.581499999998,
+          "status": 200,
+          "firstToolMs": 14915.6978,
+          "doneMs": 14919.9848,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1082077500,
+            "load_duration": 1545300,
+            "prompt_eval_count": 1537,
+            "prompt_eval_cached_count": 1072,
+            "prompt_eval_duration": 117694000,
+            "eval_count": 36,
+            "eval_duration": 159812000
+          },
+          "outcome": "completed",
+          "finishedMs": 14920.342999999999,
+          "elapsedMs": 1083.6453999999994
+        },
+        {
+          "id": "75b71013-6271-44fc-9c38-7f1ff8b5a218",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 15026.635400000001,
+          "readyMs": 15026.967900000001,
+          "admittedMs": 15026.973499999998,
+          "admissionWaitMs": 0.005599999996775296,
+          "headersMs": 15219.727700000001,
+          "status": 200,
+          "firstAnswerMs": 15219.836099999999,
+          "doneMs": 15644.9132,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 617615400,
+            "load_duration": 3231400,
+            "prompt_eval_count": 2630,
+            "prompt_eval_cached_count": 1537,
+            "prompt_eval_duration": 150520000,
+            "eval_count": 106,
+            "eval_duration": 452561000
+          },
+          "outcome": "completed",
+          "finishedMs": 15645.209499999999,
+          "elapsedMs": 618.574099999998,
+          "firstAnswerLatencyMs": 193.2006999999976
+        },
+        {
+          "id": "375d5f55-6181-4dd4-8b66-fd629cde9275",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 15672.918199999998,
+          "readyMs": 15673.1366,
+          "admittedMs": 15673.1421,
+          "admissionWaitMs": 0.005499999999301508,
+          "headersMs": 16206.1743,
+          "status": 200,
+          "firstAnswerMs": 16206.329899999999,
+          "doneMs": 16616.794400000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 943113300,
+            "load_duration": 1591400,
+            "prompt_eval_count": 2445,
+            "prompt_eval_cached_count": 52,
+            "prompt_eval_duration": 306775000,
+            "eval_count": 96,
+            "eval_duration": 410835000
+          },
+          "outcome": "completed",
+          "finishedMs": 16617.184500000003,
+          "elapsedMs": 944.2663000000048,
+          "firstAnswerLatencyMs": 533.4117000000006
+        },
+        {
+          "id": "7e5f303d-eb94-4823-811f-065686ae480d",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 16775.005,
+          "readyMs": 16775.1757,
+          "admittedMs": 16775.184500000003,
+          "admissionWaitMs": 0.008800000003247987,
+          "headersMs": 21164.4931,
+          "status": 200,
+          "firstToolMs": 21164.704100000003,
+          "doneMs": 21168.9163,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 4393073700,
+            "load_duration": 1529200,
+            "prompt_eval_count": 1082,
+            "prompt_eval_cached_count": 52,
+            "prompt_eval_duration": 4169256999,
+            "eval_count": 22,
+            "eval_duration": 135408000
+          },
+          "outcome": "completed",
+          "finishedMs": 21169.210700000003,
+          "elapsedMs": 4394.205700000002
+        },
+        {
+          "id": "f2ef4e0e-e307-44df-b382-247c39123a99",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 21327.6195,
+          "readyMs": 21327.805500000002,
+          "admittedMs": 21327.813100000003,
+          "admissionWaitMs": 0.007600000000820728,
+          "headersMs": 21596.675600000002,
+          "status": 200,
+          "firstToolMs": 21596.8218,
+          "doneMs": 21600.834300000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 271974500,
+            "load_duration": 2042500,
+            "prompt_eval_count": 1577,
+            "prompt_eval_cached_count": 1078,
+            "prompt_eval_duration": 102488000,
+            "eval_count": 37,
+            "eval_duration": 160591000
+          },
+          "outcome": "completed",
+          "finishedMs": 21601.1487,
+          "elapsedMs": 273.52920000000086
+        },
+        {
+          "id": "45d9cf3e-20e4-45a5-8468-e07b7bce276e",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 21755.4581,
+          "readyMs": 21755.651800000003,
+          "admittedMs": 21755.6574,
+          "admissionWaitMs": 0.005599999996775296,
+          "headersMs": 22090.570200000002,
+          "status": 200,
+          "firstToolMs": 22090.677000000003,
+          "doneMs": 22094.769500000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 338571900,
+            "load_duration": 1541100,
+            "prompt_eval_count": 2773,
+            "prompt_eval_cached_count": 1577,
+            "prompt_eval_duration": 159083000,
+            "eval_count": 38,
+            "eval_duration": 166139000
+          },
+          "outcome": "completed",
+          "finishedMs": 22095.1994,
+          "elapsedMs": 339.7413000000015
+        },
+        {
+          "id": "0752f0c6-995f-49a7-9db2-df5006b6c891",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 22195.5979,
+          "readyMs": 22195.7701,
+          "admittedMs": 22195.7798,
+          "admissionWaitMs": 0.00969999999870197,
+          "headersMs": 22362.906000000003,
+          "status": 200,
+          "firstAnswerMs": 22363.006100000002,
+          "doneMs": 23352.9154,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1156651800,
+            "load_duration": 1550700,
+            "prompt_eval_count": 3096,
+            "prompt_eval_cached_count": 2773,
+            "prompt_eval_duration": 125461000,
+            "eval_count": 236,
+            "eval_duration": 1016798000
+          },
+          "outcome": "completed",
+          "finishedMs": 23353.2275,
+          "elapsedMs": 1157.6296000000002,
+          "firstAnswerLatencyMs": 167.40820000000167
+        },
+        {
+          "id": "60926924-70d6-46f4-b429-104b221bffc4",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 23366.4985,
+          "readyMs": 23366.6669,
+          "admittedMs": 23366.6768,
+          "admissionWaitMs": 0.009900000000925502,
+          "headersMs": 23972.1807,
+          "status": 200,
+          "firstAnswerMs": 23972.309500000003,
+          "doneMs": 24950.5832,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1582404700,
+            "load_duration": 1542600,
+            "prompt_eval_count": 2911,
+            "prompt_eval_cached_count": 57,
+            "prompt_eval_duration": 324028000,
+            "eval_count": 225,
+            "eval_duration": 978350000
+          },
+          "outcome": "completed",
+          "finishedMs": 24950.9035,
+          "elapsedMs": 1584.4049999999988,
+          "firstAnswerLatencyMs": 605.8110000000015
+        },
+        {
+          "id": "a942d88d-4f36-4cb5-a7c3-76f174482bf9",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 25082.739400000002,
+          "readyMs": 25083.034900000002,
+          "admittedMs": 25083.038500000002,
+          "admissionWaitMs": 0.0036000000000058208,
+          "headersMs": 25358.798000000003,
+          "status": 200,
+          "firstToolMs": 25358.9353,
+          "doneMs": 25362.6676,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 278915500,
+            "load_duration": 3136700,
+            "prompt_eval_count": 1072,
+            "prompt_eval_cached_count": 57,
+            "prompt_eval_duration": 107635000,
+            "eval_count": 19,
+            "eval_duration": 85092000
+          },
+          "outcome": "completed",
+          "finishedMs": 25363.0122,
+          "elapsedMs": 280.2727999999988
+        },
+        {
+          "id": "e49820a8-0e9b-4c0a-906f-f719520210e2",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 25494.4841,
+          "readyMs": 25494.661200000002,
+          "admittedMs": 25494.664200000003,
+          "admissionWaitMs": 0.0030000000006111804,
+          "headersMs": 25737.5913,
+          "status": 200,
+          "firstToolMs": 25737.6944,
+          "doneMs": 25741.5586,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 246411000,
+            "load_duration": 2030100,
+            "prompt_eval_count": 1524,
+            "prompt_eval_cached_count": 1068,
+            "prompt_eval_duration": 101149000,
+            "eval_count": 29,
+            "eval_duration": 135993000
+          },
+          "outcome": "completed",
+          "finishedMs": 25741.8596,
+          "elapsedMs": 247.37549999999828
+        },
+        {
+          "id": "54321599-6c59-41bb-894f-0d3afd1d487e",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 25859.8426,
+          "readyMs": 25859.9948,
+          "admittedMs": 25859.9978,
+          "admissionWaitMs": 0.0030000000006111804,
+          "headersMs": 26028.4203,
+          "status": 200,
+          "firstAnswerMs": 26028.5155,
+          "doneMs": 26413.3426,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 552540000,
+            "load_duration": 2560300,
+            "prompt_eval_count": 2399,
+            "prompt_eval_cached_count": 1524,
+            "prompt_eval_duration": 128945000,
+            "eval_count": 96,
+            "eval_duration": 411193000
+          },
+          "outcome": "completed",
+          "finishedMs": 26413.761700000003,
+          "elapsedMs": 553.9191000000028,
+          "firstAnswerLatencyMs": 168.6729000000014
+        },
+        {
+          "id": "52b4132e-87c0-460a-924f-a9b6ec53fb08",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 26432.859500000002,
+          "readyMs": 26433.020500000002,
+          "admittedMs": 26433.0233,
+          "admissionWaitMs": 0.002799999998387648,
+          "headersMs": 26920.535300000003,
+          "status": 200,
+          "firstAnswerMs": 26920.688000000002,
+          "doneMs": 27319.3374,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 885554000,
+            "load_duration": 2161700,
+            "prompt_eval_count": 2214,
+            "prompt_eval_cached_count": 56,
+            "prompt_eval_duration": 267572000,
+            "eval_count": 88,
+            "eval_duration": 399068000
+          },
+          "outcome": "completed",
+          "finishedMs": 27319.6492,
+          "elapsedMs": 886.7896999999975,
+          "firstAnswerLatencyMs": 487.8284999999996
+        },
+        {
+          "id": "f8dc1827-174e-4c91-a9ea-222e9765c801",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "active-cancel",
+          "arrivedMs": 27362.4005,
+          "readyMs": 27362.492400000003,
+          "admittedMs": 27362.4961,
+          "admissionWaitMs": 0.0036999999974796083,
+          "headersMs": 27554.326800000003,
+          "status": 200,
+          "firstAnswerMs": 27554.4546,
+          "outcome": "CLIENT_CANCELLED",
+          "finishedMs": 27558.6186,
+          "elapsedMs": 196.21810000000187,
+          "firstAnswerLatencyMs": 192.0541000000012
+        },
+        {
+          "id": "1766b647-8975-4c3f-963e-fb13b67fccc0",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "after-cancel",
+          "arrivedMs": 27558.711000000003,
+          "readyMs": 27558.8198,
+          "admittedMs": 27558.822200000002,
+          "admissionWaitMs": 0.00240000000121654,
+          "headersMs": 27634.056900000003,
+          "status": 200,
+          "firstAnswerMs": 27634.194600000003,
+          "doneMs": 27651.882100000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 92198400,
+            "load_duration": 2090200,
+            "prompt_eval_count": 174,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46611000,
+            "eval_count": 3,
+            "eval_duration": 17998000
+          },
+          "outcome": "completed",
+          "finishedMs": 27652.186700000002,
+          "elapsedMs": 93.47569999999905,
+          "firstAnswerLatencyMs": 75.48359999999957
+        }
+      ],
+      "loadedAfterWarmup": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:14:13.9363796-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "queuedCancellation": {
+        "before": {
+          "taskId": "14cd0432a39e4beabdcb55675625760b",
+          "question": "What is the default summary mode?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        "after": {
+          "taskId": "14cd0432a39e4beabdcb55675625760b",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      },
+      "backgroundAtBurst": [
+        {
+          "taskId": "f3d9564fb25140f58cf376756e9bf3b2",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "c62c77fce89d4ca9a7065a347a36dc99",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "4dfbbdefcf684441bfdd53886cc80647",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "14cd0432a39e4beabdcb55675625760b",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ],
+      "background": [
+        {
+          "taskId": "14cd0432a39e4beabdcb55675625760b",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 1263.8759999999984
+        },
+        {
+          "taskId": "f3d9564fb25140f58cf376756e9bf3b2",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The implemented `ContextManager.prepare` does not wait for a new background summary; background jobs start on a later event-loop turn, and the foreground process never awaits a new summary. Regarding the original transcript, it is never summarized in place or given a summary bubble.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 1,
+                "end_line": 40
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 3333.8405999999977
+        },
+        {
+          "taskId": "c62c77fce89d4ca9a7065a347a36dc99",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "completed",
+          "modelCalls": 5,
+          "toolCalls": 3,
+          "answer": {
+            "status": "answered",
+            "answer": "In the implemented Iris protocol slice, restarting `ChatRuntime` does **not** preserve conversation context or queued work. While Iris history and UUIDs survive, they are not rehydrated into the runtime context, and an application restart does not resume an outstanding turn or durable replay; such recovery remains future work. This implementation deliberately supersedes the original ADR proposal, which had suggested an automatic unavailable-runtime fallback.\n\nSpecifically:\n- **Implementation (Iris slice):** A restart discards runtime sources, summaries, context, and jobs. Reconnecting carries a `runtimeId` but fails explicitly after a restart, and no durable replay claim is made (E1).\n- **Proposal (ADR):** The implementation deliberately avoids the ADR's proposed automatic fallback to an unavailable runtime to prevent the risk of a second execution of an accepted turn (E1).",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "iris-evidence",
+                "revision": "94edfe6a8744517f28bb025ae8272ff9c7a4e4bdd573e92dfc6a472d1bae035b",
+                "path": "docs/implementation/07-iris-slice-evidence.md",
+                "start_line": 28,
+                "end_line": 67
+              },
+              {
+                "evidence_id": "E2",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 100,
+                "end_line": 105
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 11702.047499999999
+        },
+        {
+          "taskId": "4dfbbdefcf684441bfdd53886cc80647",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The model catalog does not currently enable automatic model dispatch. While the catalog includes metadata for model eligibility, the current router still relies on `CHAT_FAST_*` and `CHAT_DEEP_*` identifiers. The implementation of catalog eligibility is described as groundwork for automatic selection, rather than an implemented automatic dispatch change.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "model-catalog",
+                "revision": "e3ff183758f13ab2e45ca3b06e3fe59bd8c1a74d3a0f41d47815ba2e068e8613",
+                "path": "docs/13-model-catalog.md",
+                "start_line": 1,
+                "end_line": 30
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 14007.957099999998
+        }
+      ],
+      "loadedAfter": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:28.237215-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "outcome": "completed"
+    },
+    {
+      "index": 1,
+      "policy": "foreground-priority",
+      "foreground": [
+        {
+          "label": "warmup",
+          "text": "Say ready in one word.",
+          "clientStartedAt": "2026-09-28T17:09:28.455Z",
+          "firstDeltaMs": 62.83310000000347,
+          "result": {
+            "text": "Ready.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 82.11390000000029
+        },
+        {
+          "label": "baseline-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:28.537Z",
+          "firstDeltaMs": 64.64760000000024,
+          "result": {
+            "text": "90 minutes is 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 115.20790000000125
+        },
+        {
+          "label": "baseline-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:28.652Z",
+          "firstDeltaMs": 65.84699999999793,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts the active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 237.21639999999752
+        },
+        {
+          "label": "baseline-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:28.889Z",
+          "firstDeltaMs": 73.1843000000008,
+          "result": {
+            "text": "A responsive interface only ensures low input latency, whereas model response speed depends on computational load and queue position. You can distinguish these by measuring \"Time to First Token\" (model latency) versus \"UI Latency\" (interface responsiveness). The difference between the time you hit enter and the time the request reaches the server identifies network or queue delays.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 375.7471000000005
+        },
+        {
+          "label": "overlap-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:29.481Z",
+          "firstDeltaMs": 437.60979999999836,
+          "result": {
+            "text": "90 minutes is equal to 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 500.66509999999835
+        },
+        {
+          "label": "overlap-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:29.481Z",
+          "firstDeltaMs": 566.7112000000016,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts an active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 739.9274000000005
+        },
+        {
+          "label": "overlap-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:29.481Z",
+          "firstDeltaMs": 809.2566000000006,
+          "result": {
+            "text": "A responsive interface only ensures low input latency, whereas model response speed depends on computational load and token generation rates. The interface delay is measured by \"Time to First Byte\" (TTFB), while model delay is measured by \"Tokens Per Second\" (TPS). Distinguishing these requires comparing network round-trip time against the duration of the inference process.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 1114.2497000000003
+        },
+        {
+          "label": "active-cancel",
+          "text": "List twenty concrete steps to design, implement, test, deploy and monitor a reliable background task system.",
+          "clientStartedAt": "2026-09-28T17:09:38.823Z",
+          "firstDeltaMs": 186.43540000000212,
+          "outcome": "CANCELLED",
+          "elapsedMs": 186.85970000000088
+        },
+        {
+          "label": "after-cancel",
+          "text": "What is three plus four? Answer briefly.",
+          "clientStartedAt": "2026-09-28T17:09:39.010Z",
+          "firstDeltaMs": 79.55250000000524,
+          "result": {
+            "text": "Seven.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 98.41860000000452
+        }
+      ],
+      "timings": [
+        {
+          "id": "aeccfe98-3071-46a8-af88-e35d6858fddb",
+          "phase": "warmup",
+          "lane": "foreground",
+          "label": "warmup",
+          "arrivedMs": 6.9307000000007974,
+          "readyMs": 7.039899999999761,
+          "admittedMs": 7.175200000001496,
+          "admissionWaitMs": 0.1353000000017346,
+          "headersMs": 68.22509999999966,
+          "status": 200,
+          "firstAnswerMs": 68.35710000000108,
+          "doneMs": 86.78610000000117,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 78927100,
+            "load_duration": 1539600,
+            "prompt_eval_count": 168,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 45739000,
+            "eval_count": 3,
+            "eval_duration": 18602000
+          },
+          "outcome": "completed",
+          "finishedMs": 87.12060000000201,
+          "elapsedMs": 80.18990000000122,
+          "firstAnswerLatencyMs": 61.426400000000285
+        },
+        {
+          "id": "b75bcb86-fe1e-43e6-bbe1-4635e19a7c3c",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-0",
+          "arrivedMs": 88.95939999999973,
+          "readyMs": 89.04219999999987,
+          "admittedMs": 89.0666999999994,
+          "admissionWaitMs": 0.02449999999953434,
+          "headersMs": 152.27950000000055,
+          "status": 200,
+          "firstAnswerMs": 152.38709999999992,
+          "doneMs": 201.79869999999937,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 112052300,
+            "load_duration": 1547900,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 47571000,
+            "eval_count": 11,
+            "eval_duration": 49758000
+          },
+          "outcome": "completed",
+          "finishedMs": 202.08120000000054,
+          "elapsedMs": 113.1218000000008,
+          "firstAnswerLatencyMs": 63.427700000000186
+        },
+        {
+          "id": "c6536e5a-97b7-4348-ba31-38d05b93f931",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-1",
+          "arrivedMs": 203.81270000000222,
+          "readyMs": 203.88969999999972,
+          "admittedMs": 203.91080000000147,
+          "admissionWaitMs": 0.02110000000175205,
+          "headersMs": 268.75090000000273,
+          "status": 200,
+          "firstAnswerMs": 268.8568000000014,
+          "doneMs": 439.52649999999994,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 235116600,
+            "load_duration": 2069500,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 48393000,
+            "eval_count": 41,
+            "eval_duration": 171010000
+          },
+          "outcome": "completed",
+          "finishedMs": 439.82730000000083,
+          "elapsedMs": 236.0145999999986,
+          "firstAnswerLatencyMs": 65.04409999999916
+        },
+        {
+          "id": "4efab66f-3a29-49d2-9d45-3f916f130bc6",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-2",
+          "arrivedMs": 441.11119999999937,
+          "readyMs": 441.19550000000163,
+          "admittedMs": 441.21689999999944,
+          "admissionWaitMs": 0.021399999997811392,
+          "headersMs": 513.3624000000018,
+          "status": 200,
+          "firstAnswerMs": 513.4675000000025,
+          "doneMs": 815.197500000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 372699800,
+            "load_duration": 1532300,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 54093000,
+            "eval_count": 70,
+            "eval_duration": 301897000
+          },
+          "outcome": "completed",
+          "finishedMs": 815.5295000000006,
+          "elapsedMs": 374.4183000000012,
+          "firstAnswerLatencyMs": 72.3563000000031
+        },
+        {
+          "id": "9e9bcf6c-3e3c-43f4-8ef2-fe7e6fe7abf0",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 969.0693000000028,
+          "readyMs": 969.2495000000017,
+          "admittedMs": 969.2861000000012,
+          "admissionWaitMs": 0.03659999999945285,
+          "headersMs": 1286.2237999999998,
+          "status": 200,
+          "firstToolMs": 1286.3462,
+          "doneMs": 1290.2176,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 319940400,
+            "load_duration": 1532900,
+            "prompt_eval_count": 1077,
+            "prompt_eval_cached_count": 1072,
+            "prompt_eval_duration": 172416000,
+            "eval_count": 19,
+            "eval_duration": 85510000
+          },
+          "outcome": "completed",
+          "finishedMs": 1290.5393000000004,
+          "elapsedMs": 321.4699999999975
+        },
+        {
+          "id": "f25badd8-9060-44bf-b4bb-7b8c01367151",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-0",
+          "arrivedMs": 1033.4861999999994,
+          "readyMs": 1033.6761000000006,
+          "admittedMs": 1290.5650000000023,
+          "admissionWaitMs": 256.88890000000174,
+          "headersMs": 1469.0053000000007,
+          "status": 200,
+          "firstAnswerMs": 1469.1298000000024,
+          "doneMs": 1530.8549999999996,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 238523900,
+            "load_duration": 2065700,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 51596000,
+            "eval_count": 13,
+            "eval_duration": 62071000
+          },
+          "outcome": "completed",
+          "finishedMs": 1531.3327000000027,
+          "elapsedMs": 497.8465000000033,
+          "firstAnswerLatencyMs": 435.64360000000306
+        },
+        {
+          "id": "d7e1f7bd-47f7-4621-a4c3-6c810a73e4ba",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-1",
+          "arrivedMs": 1033.7439000000013,
+          "readyMs": 1033.7981,
+          "admittedMs": 1531.3963000000003,
+          "admissionWaitMs": 497.59820000000036,
+          "headersMs": 1598.4099000000024,
+          "status": 200,
+          "firstAnswerMs": 1598.5748999999996,
+          "doneMs": 1770.813000000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 238671800,
+            "load_duration": 2058900,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 50042000,
+            "eval_count": 41,
+            "eval_duration": 172700000
+          },
+          "outcome": "completed",
+          "finishedMs": 1771.0591999999997,
+          "elapsedMs": 737.3152999999984,
+          "firstAnswerLatencyMs": 564.8309999999983
+        },
+        {
+          "id": "b7d3ab8a-a4eb-41a4-b8d2-6dcb90eed5ba",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-2",
+          "arrivedMs": 1034.2716,
+          "readyMs": 1034.3602000000028,
+          "admittedMs": 1771.0850000000028,
+          "admissionWaitMs": 736.7248,
+          "headersMs": 1841.2443999999996,
+          "status": 200,
+          "firstAnswerMs": 1841.3407000000007,
+          "doneMs": 2145.0038999999997,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 372719400,
+            "load_duration": 2052100,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 51798000,
+            "eval_count": 71,
+            "eval_duration": 303881000
+          },
+          "outcome": "completed",
+          "finishedMs": 2145.322,
+          "elapsedMs": 1111.0504,
+          "firstAnswerLatencyMs": 807.0691000000006
+        },
+        {
+          "id": "5c311976-7581-4db3-bd82-e9478c458484",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 1388.9409000000014,
+          "readyMs": 1389.3162000000011,
+          "admittedMs": 2145.3500999999997,
+          "admissionWaitMs": 756.0338999999985,
+          "headersMs": 2486.096300000001,
+          "status": 200,
+          "firstToolMs": 2486.207000000002,
+          "doneMs": 2490.1906000000017,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 343055600,
+            "load_duration": 2062500,
+            "prompt_eval_count": 1537,
+            "prompt_eval_cached_count": 52,
+            "prompt_eval_duration": 168736000,
+            "eval_count": 29,
+            "eval_duration": 127757000
+          },
+          "outcome": "completed",
+          "finishedMs": 2490.5646000000015,
+          "elapsedMs": 1101.6237
+        },
+        {
+          "id": "a909b4af-b472-408d-90ab-b24c70177ea2",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 2605.5959000000003,
+          "readyMs": 2605.783900000002,
+          "admittedMs": 2605.826000000001,
+          "admissionWaitMs": 0.042099999998754356,
+          "headersMs": 2770.206000000002,
+          "status": 200,
+          "firstAnswerMs": 2770.3086999999978,
+          "doneMs": 3197.1951999999983,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 591086200,
+            "load_duration": 2064600,
+            "prompt_eval_count": 2445,
+            "prompt_eval_cached_count": 1537,
+            "prompt_eval_duration": 122737000,
+            "eval_count": 106,
+            "eval_duration": 455237000
+          },
+          "outcome": "completed",
+          "finishedMs": 3197.5052000000032,
+          "elapsedMs": 591.909300000003,
+          "firstAnswerLatencyMs": 164.71279999999751
+        },
+        {
+          "id": "3cc86f4a-6373-4f27-9dff-71d31b06a962",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 3225.4151999999995,
+          "readyMs": 3225.6734000000033,
+          "admittedMs": 3225.7354000000014,
+          "admissionWaitMs": 0.06199999999807915,
+          "headersMs": 3711.7466999999997,
+          "status": 200,
+          "firstAnswerMs": 3711.8777999999984,
+          "doneMs": 4127.4324000000015,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 900835000,
+            "load_duration": 2562300,
+            "prompt_eval_count": 2260,
+            "prompt_eval_cached_count": 52,
+            "prompt_eval_duration": 251731000,
+            "eval_count": 94,
+            "eval_duration": 415877000
+          },
+          "outcome": "completed",
+          "finishedMs": 4127.711599999999,
+          "elapsedMs": 902.2963999999993,
+          "firstAnswerLatencyMs": 486.46259999999893
+        },
+        {
+          "id": "a21d0ca8-ecd8-4ebc-94e7-dea484ac2e26",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 4294.510100000003,
+          "readyMs": 4294.678400000001,
+          "admittedMs": 4294.7032,
+          "admissionWaitMs": 0.02479999999923166,
+          "headersMs": 4715.6358,
+          "status": 200,
+          "firstToolMs": 4715.766899999999,
+          "doneMs": 4719.674800000004,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 424103900,
+            "load_duration": 1542700,
+            "prompt_eval_count": 1082,
+            "prompt_eval_cached_count": 1077,
+            "prompt_eval_duration": 197114000,
+            "eval_count": 22,
+            "eval_duration": 99072000
+          },
+          "outcome": "completed",
+          "finishedMs": 4719.986699999998,
+          "elapsedMs": 425.4765999999945
+        },
+        {
+          "id": "2fb15700-4845-4c52-a1e6-529a707d6371",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 4803.426199999998,
+          "readyMs": 4803.621600000002,
+          "admittedMs": 4803.652900000005,
+          "admissionWaitMs": 0.03130000000237487,
+          "headersMs": 5127.584899999998,
+          "status": 200,
+          "firstToolMs": 5127.694100000004,
+          "doneMs": 5132.090500000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 327681200,
+            "load_duration": 2048800,
+            "prompt_eval_count": 1577,
+            "prompt_eval_cached_count": 57,
+            "prompt_eval_duration": 157561000,
+            "eval_count": 37,
+            "eval_duration": 160366000
+          },
+          "outcome": "completed",
+          "finishedMs": 5132.607800000002,
+          "elapsedMs": 329.1816000000035
+        },
+        {
+          "id": "57cf3316-2ce8-4f6b-b5a4-500e6ffc6fd3",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 5215.905500000004,
+          "readyMs": 5216.095600000004,
+          "admittedMs": 5216.1227000000035,
+          "admissionWaitMs": 0.027099999999336433,
+          "headersMs": 5543.2838999999985,
+          "status": 200,
+          "firstToolMs": 5543.389299999999,
+          "doneMs": 5547.497400000004,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 330574100,
+            "load_duration": 2578700,
+            "prompt_eval_count": 2773,
+            "prompt_eval_cached_count": 1577,
+            "prompt_eval_duration": 150871000,
+            "eval_count": 38,
+            "eval_duration": 166353000
+          },
+          "outcome": "completed",
+          "finishedMs": 5547.802200000002,
+          "elapsedMs": 331.8966999999975
+        },
+        {
+          "id": "1660c39f-6891-40bc-80e1-8660b86bcad1",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 5675.463800000001,
+          "readyMs": 5675.641700000004,
+          "admittedMs": 5675.6651999999995,
+          "admissionWaitMs": 0.023499999995692633,
+          "headersMs": 5817.937200000004,
+          "status": 200,
+          "firstAnswerMs": 5818.0393,
+          "doneMs": 6502.719200000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 826305000,
+            "load_duration": 1538700,
+            "prompt_eval_count": 3096,
+            "prompt_eval_cached_count": 2773,
+            "prompt_eval_duration": 100989000,
+            "eval_count": 165,
+            "eval_duration": 712808000
+          },
+          "outcome": "completed",
+          "finishedMs": 6503.148799999999,
+          "elapsedMs": 827.6849999999977,
+          "firstAnswerLatencyMs": 142.575499999999
+        },
+        {
+          "id": "6c5440c3-a1cc-4ec9-9618-cc49436417c6",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 6514.880699999998,
+          "readyMs": 6515.062500000004,
+          "admittedMs": 6515.084400000003,
+          "admissionWaitMs": 0.021899999999732245,
+          "headersMs": 6865.727800000004,
+          "status": 200,
+          "firstAnswerMs": 6865.864600000004,
+          "doneMs": 7791.839900000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1275905800,
+            "load_duration": 2046800,
+            "prompt_eval_count": 2911,
+            "prompt_eval_cached_count": 2906,
+            "prompt_eval_duration": 117135000,
+            "eval_count": 218,
+            "eval_duration": 926288000
+          },
+          "outcome": "completed",
+          "finishedMs": 7792.153900000001,
+          "elapsedMs": 1277.2732000000033,
+          "firstAnswerLatencyMs": 350.98390000000654
+        },
+        {
+          "id": "de5790c7-778f-43c8-8b7b-659c84e92310",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 7942.770200000003,
+          "readyMs": 7942.941600000002,
+          "admittedMs": 7942.9661000000015,
+          "admissionWaitMs": 0.02449999999953434,
+          "headersMs": 8335.335900000002,
+          "status": 200,
+          "firstToolMs": 8335.439200000004,
+          "doneMs": 8339.336599999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 396061000,
+            "load_duration": 1547400,
+            "prompt_eval_count": 1072,
+            "prompt_eval_cached_count": 1067,
+            "prompt_eval_duration": 159945000,
+            "eval_count": 19,
+            "eval_duration": 85082000
+          },
+          "outcome": "completed",
+          "finishedMs": 8339.6047,
+          "elapsedMs": 396.8344999999972
+        },
+        {
+          "id": "9d0a63b1-9a0c-4d44-a854-33f8869c890b",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 8433.834200000001,
+          "readyMs": 8434.0874,
+          "admittedMs": 8434.113999999998,
+          "admissionWaitMs": 0.02659999999741558,
+          "headersMs": 8726.8852,
+          "status": 200,
+          "firstToolMs": 8727.009699999999,
+          "doneMs": 8731.1583,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 296386700,
+            "load_duration": 2054600,
+            "prompt_eval_count": 1524,
+            "prompt_eval_cached_count": 56,
+            "prompt_eval_duration": 152196000,
+            "eval_count": 29,
+            "eval_duration": 134823000
+          },
+          "outcome": "completed",
+          "finishedMs": 8731.5958,
+          "elapsedMs": 297.761599999998
+        },
+        {
+          "id": "014031cb-dd6f-4dc3-9433-f21c6bb235c1",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 8904.818300000003,
+          "readyMs": 8904.9728,
+          "admittedMs": 8904.996000000003,
+          "admissionWaitMs": 0.02320000000327127,
+          "headersMs": 9061.106300000003,
+          "status": 200,
+          "firstAnswerMs": 9061.202699999998,
+          "doneMs": 9520.172300000002,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 614358800,
+            "load_duration": 1532300,
+            "prompt_eval_count": 2399,
+            "prompt_eval_cached_count": 1524,
+            "prompt_eval_duration": 117784000,
+            "eval_count": 113,
+            "eval_duration": 485736000
+          },
+          "outcome": "completed",
+          "finishedMs": 9520.450800000002,
+          "elapsedMs": 615.6324999999997,
+          "firstAnswerLatencyMs": 156.38439999999537
+        },
+        {
+          "id": "4d6b61d9-d5c5-4137-bb14-18dda09ea302",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 9532.870400000003,
+          "readyMs": 9533.0206,
+          "admittedMs": 9533.043000000001,
+          "admissionWaitMs": 0.022400000001653098,
+          "headersMs": 9888.0269,
+          "status": 200,
+          "firstAnswerMs": 9888.156200000001,
+          "doneMs": 10286.646000000004,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 752601400,
+            "load_duration": 2087700,
+            "prompt_eval_count": 2214,
+            "prompt_eval_cached_count": 2209,
+            "prompt_eval_duration": 134755000,
+            "eval_count": 88,
+            "eval_duration": 398738000
+          },
+          "outcome": "completed",
+          "finishedMs": 10287.0563,
+          "elapsedMs": 754.1858999999968,
+          "firstAnswerLatencyMs": 355.28579999999783
+        },
+        {
+          "id": "264853c6-fada-495a-9d6a-252088da775a",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "active-cancel",
+          "arrivedMs": 10375.205400000003,
+          "readyMs": 10375.3023,
+          "admittedMs": 10375.3187,
+          "admissionWaitMs": 0.016400000000430737,
+          "headersMs": 10560.218300000004,
+          "status": 200,
+          "firstAnswerMs": 10560.339300000003,
+          "outcome": "CLIENT_CANCELLED",
+          "finishedMs": 10562.746600000002,
+          "elapsedMs": 187.54119999999966,
+          "firstAnswerLatencyMs": 185.13390000000072
+        },
+        {
+          "id": "dfb806b8-8144-4a46-9766-2a1be3de6df4",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "after-cancel",
+          "arrivedMs": 10562.829200000004,
+          "readyMs": 10562.901300000001,
+          "admittedMs": 10562.913199999999,
+          "admissionWaitMs": 0.011899999997694977,
+          "headersMs": 10640.258400000002,
+          "status": 200,
+          "firstAnswerMs": 10640.364400000002,
+          "doneMs": 10658.135700000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 94088400,
+            "load_duration": 1542300,
+            "prompt_eval_count": 174,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46526000,
+            "eval_count": 3,
+            "eval_duration": 18067000
+          },
+          "outcome": "completed",
+          "finishedMs": 10658.5932,
+          "elapsedMs": 95.76399999999558,
+          "firstAnswerLatencyMs": 77.53519999999844
+        }
+      ],
+      "loadedAfterWarmup": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:29.2647058-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "queuedCancellation": {
+        "before": {
+          "taskId": "8743effcc535421ca27c841433db953a",
+          "question": "What is the default summary mode?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        "after": {
+          "taskId": "8743effcc535421ca27c841433db953a",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      },
+      "backgroundAtBurst": [
+        {
+          "taskId": "cdf410efa1634e86893b53799c8be4aa",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "6c605538c61d41cbbb742cc74f321063",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "dce754cbb6a6431c82d07929c060e7e7",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "8743effcc535421ca27c841433db953a",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ],
+      "background": [
+        {
+          "taskId": "8743effcc535421ca27c841433db953a",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 1350.6117999999988
+        },
+        {
+          "taskId": "cdf410efa1634e86893b53799c8be4aa",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The implemented `ContextManager.prepare` does not wait for a new background summary; background jobs start on a later event-loop turn, and the foreground never awaits a new summary. Additionally, the original transcript is never summarized in place or given a summary bubble.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 8,
+                "end_line": 37
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 3408.3590000000004
+        },
+        {
+          "taskId": "6c605538c61d41cbbb742cc74f321063",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "completed",
+          "modelCalls": 5,
+          "toolCalls": 3,
+          "answer": {
+            "status": "answered",
+            "answer": "In the implemented Iris protocol slice, restarting `ChatRuntime` does **not** preserve conversation context or queued work. While Iris history and UUIDs survive, they are not rehydrated into the runtime context, and an application restart does not resume an outstanding turn or durable replay; such recovery remains future work. This implementation deliberately supersedes the original ADR proposal, which had suggested an automatic unavailable-runtime fallback.\n\nSpecifically:\n- **Implementation Checkpoint (Iris slice):** An application restart does not resume outstanding turns, and no durable replay claim is made. Reconnecting carries a `runtimeId` but fails explicitly after a restart (E1).\n- **Implementation Evidence (Memory):** A restart discards runtime sources, summaries, context, and jobs. Durable adapters and retention APIs are still considered future work (E2).",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "iris-evidence",
+                "revision": "94edfe6a8744517f28bb025ae8272ff9c7a4e4bdd573e92dfc6a472d1bae035b",
+                "path": "docs/implementation/07-iris-slice-evidence.md",
+                "start_line": 28,
+                "end_line": 67
+              },
+              {
+                "evidence_id": "E2",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 100,
+                "end_line": 105
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 7035.5286000000015
+        },
+        {
+          "taskId": "dce754cbb6a6431c82d07929c060e7e7",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The model catalog does not currently enable automatic model dispatch. While the catalog includes metadata for model eligibility, the current router still relies on `CHAT_FAST_*` and `CHAT_DEEP_*` identifiers. The implementation of catalog eligibility is described as groundwork for automatic selection, rather than an implemented automatic dispatch change.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "model-catalog",
+                "revision": "e3ff183758f13ab2e45ca3b06e3fe59bd8c1a74d3a0f41d47815ba2e068e8613",
+                "path": "docs/13-model-catalog.md",
+                "start_line": 1,
+                "end_line": 30
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 9556.495400000003
+        }
+      ],
+      "loadedAfter": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:39.1072652-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "outcome": "completed"
+    },
+    {
+      "index": 2,
+      "policy": "foreground-priority",
+      "foreground": [
+        {
+          "label": "warmup",
+          "text": "Say ready in one word.",
+          "clientStartedAt": "2026-09-28T17:09:39.333Z",
+          "firstDeltaMs": 63.35489999999845,
+          "result": {
+            "text": "Ready.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 82.84260000000359
+        },
+        {
+          "label": "baseline-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:39.416Z",
+          "firstDeltaMs": 63.53280000000086,
+          "result": {
+            "text": "90 minutes is 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 115.22849999999744
+        },
+        {
+          "label": "baseline-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:39.532Z",
+          "firstDeltaMs": 65.34199999999691,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts an active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 239.325499999999
+        },
+        {
+          "label": "baseline-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:39.771Z",
+          "firstDeltaMs": 75.88470000000234,
+          "result": {
+            "text": "A responsive interface only ensures low latency in UI rendering and input handling, not in the backend processing of the model. The delay can stem from either network transit time or the computational time required for the model to generate tokens. You can distinguish these by measuring \"Time to First Token\" (TTFT) for model latency versus \"Round Trip Time\" (RTT) for network latency.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 406.19170000000304
+        },
+        {
+          "label": "overlap-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:40.389Z",
+          "firstDeltaMs": 404.69940000000497,
+          "result": {
+            "text": "90 minutes is equal to 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 468.3643000000011
+        },
+        {
+          "label": "overlap-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:40.389Z",
+          "firstDeltaMs": 537.3710000000065,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts an active process, which may require cleanup of partially completed actions or rolled-back transactions.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 732.6782000000021
+        },
+        {
+          "label": "overlap-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:40.389Z",
+          "firstDeltaMs": 808.6261999999988,
+          "result": {
+            "text": "A responsive interface only ensures low latency in UI rendering and input handling, not in the backend processing of the LLM. The delay can stem from either network transit time or the computational time required for the model to generate tokens. You can distinguish these by measuring \"Time to First Token\" (TTFT) for model latency versus \"Round Trip Time\" (RTT) for network latency.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 1145.543700000002
+        },
+        {
+          "label": "active-cancel",
+          "text": "List twenty concrete steps to design, implement, test, deploy and monitor a reliable background task system.",
+          "clientStartedAt": "2026-09-28T17:09:48.273Z",
+          "firstDeltaMs": 172.1458999999959,
+          "outcome": "CANCELLED",
+          "elapsedMs": 172.50079999999434
+        },
+        {
+          "label": "after-cancel",
+          "text": "What is three plus four? Answer briefly.",
+          "clientStartedAt": "2026-09-28T17:09:48.446Z",
+          "firstDeltaMs": 77.93869999999879,
+          "result": {
+            "text": "Seven.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 96.62589999999909
+        }
+      ],
+      "timings": [
+        {
+          "id": "d3249c53-7c2f-4666-b2fa-61275ad8fe68",
+          "phase": "warmup",
+          "lane": "foreground",
+          "label": "warmup",
+          "arrivedMs": 6.638299999998708,
+          "readyMs": 6.766200000005483,
+          "admittedMs": 6.7894000000014785,
+          "admissionWaitMs": 0.023199999995995313,
+          "headersMs": 68.46700000000419,
+          "status": 200,
+          "firstAnswerMs": 68.61200000000099,
+          "doneMs": 87.09610000000248,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 79546700,
+            "load_duration": 1531800,
+            "prompt_eval_count": 168,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46394000,
+            "eval_count": 3,
+            "eval_duration": 18793000
+          },
+          "outcome": "completed",
+          "finishedMs": 87.51600000000326,
+          "elapsedMs": 80.87770000000455,
+          "firstAnswerLatencyMs": 61.97370000000228
+        },
+        {
+          "id": "afe7e249-facd-4bc0-8976-3895706951b7",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-0",
+          "arrivedMs": 89.45249999999942,
+          "readyMs": 89.52720000000409,
+          "admittedMs": 89.54160000000411,
+          "admissionWaitMs": 0.014400000000023283,
+          "headersMs": 151.63880000000063,
+          "status": 200,
+          "firstAnswerMs": 151.74380000000383,
+          "doneMs": 202.44450000000506,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 112151800,
+            "load_duration": 2064400,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46848000,
+            "eval_count": 11,
+            "eval_duration": 50914000
+          },
+          "outcome": "completed",
+          "finishedMs": 202.92859999999928,
+          "elapsedMs": 113.47609999999986,
+          "firstAnswerLatencyMs": 62.29130000000441
+        },
+        {
+          "id": "5496e6e2-b1cb-49c2-99a3-a823da3a3046",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-1",
+          "arrivedMs": 204.28330000000278,
+          "readyMs": 204.36639999999898,
+          "admittedMs": 204.380799999999,
+          "admissionWaitMs": 0.014400000000023283,
+          "headersMs": 268.72060000000056,
+          "status": 200,
+          "firstAnswerMs": 268.82560000000376,
+          "doneMs": 442.040700000005,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 236720700,
+            "load_duration": 1536600,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 48434000,
+            "eval_count": 41,
+            "eval_duration": 173349000
+          },
+          "outcome": "completed",
+          "finishedMs": 442.34909999999945,
+          "elapsedMs": 238.06579999999667,
+          "firstAnswerLatencyMs": 64.54230000000098
+        },
+        {
+          "id": "4a8ddb3f-fbb7-4125-9a87-938664a28c61",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-2",
+          "arrivedMs": 443.7430000000022,
+          "readyMs": 443.8277999999991,
+          "admittedMs": 443.8452000000034,
+          "admissionWaitMs": 0.017400000004272442,
+          "headersMs": 518.568100000004,
+          "status": 200,
+          "firstAnswerMs": 518.7122000000018,
+          "doneMs": 848.3938000000053,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 403614000,
+            "load_duration": 2142300,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 55442000,
+            "eval_count": 77,
+            "eval_duration": 330148000
+          },
+          "outcome": "completed",
+          "finishedMs": 848.6598999999987,
+          "elapsedMs": 404.91689999999653,
+          "firstAnswerLatencyMs": 74.96919999999955
+        },
+        {
+          "id": "6736e8f6-005c-4c38-9ca6-818062ed3ce6",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 1011.2594000000026,
+          "readyMs": 1011.4470000000001,
+          "admittedMs": 1011.4707000000053,
+          "admissionWaitMs": 0.023700000005192123,
+          "headersMs": 1275.1424000000043,
+          "status": 200,
+          "firstToolMs": 1275.2681999999986,
+          "doneMs": 1279.0489000000016,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 266558800,
+            "load_duration": 1524000,
+            "prompt_eval_count": 1077,
+            "prompt_eval_cached_count": 512,
+            "prompt_eval_duration": 128502000,
+            "eval_count": 19,
+            "eval_duration": 84318000
+          },
+          "outcome": "completed",
+          "finishedMs": 1279.3510999999999,
+          "elapsedMs": 268.0916999999972
+        },
+        {
+          "id": "193ad9a4-a720-4dc1-9035-7db1b810a2a2",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-0",
+          "arrivedMs": 1062.2060000000056,
+          "readyMs": 1062.3148,
+          "admittedMs": 1279.3657999999996,
+          "admissionWaitMs": 217.05099999999948,
+          "headersMs": 1465.3293000000049,
+          "status": 200,
+          "firstAnswerMs": 1465.4295000000056,
+          "doneMs": 1527.9690000000046,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 247384700,
+            "load_duration": 1549600,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 49826000,
+            "eval_count": 13,
+            "eval_duration": 62862000
+          },
+          "outcome": "completed",
+          "finishedMs": 1528.2585000000036,
+          "elapsedMs": 466.05249999999796,
+          "firstAnswerLatencyMs": 403.22350000000006
+        },
+        {
+          "id": "4d4e38ee-1dd0-41f7-b25a-c63e495433c6",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-1",
+          "arrivedMs": 1062.3436000000002,
+          "readyMs": 1062.3703000000023,
+          "admittedMs": 1528.2720000000045,
+          "admissionWaitMs": 465.90170000000217,
+          "headersMs": 1598.343200000003,
+          "status": 200,
+          "firstAnswerMs": 1598.4642000000022,
+          "doneMs": 1792.085500000001,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 263496400,
+            "load_duration": 2080900,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 52643000,
+            "eval_count": 46,
+            "eval_duration": 193906000
+          },
+          "outcome": "completed",
+          "finishedMs": 1792.4038,
+          "elapsedMs": 730.0601999999999,
+          "firstAnswerLatencyMs": 536.120600000002
+        },
+        {
+          "id": "2f66400a-606c-417a-8a14-07e8f530d575",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-2",
+          "arrivedMs": 1062.6958000000013,
+          "readyMs": 1062.7585000000036,
+          "admittedMs": 1792.4182,
+          "admissionWaitMs": 729.6596999999965,
+          "headersMs": 1869.6673999999985,
+          "status": 200,
+          "firstAnswerMs": 1869.8447000000015,
+          "doneMs": 2205.546699999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 411104400,
+            "load_duration": 2068900,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 55929000,
+            "eval_count": 78,
+            "eval_duration": 336181000
+          },
+          "outcome": "completed",
+          "finishedMs": 2205.8426000000036,
+          "elapsedMs": 1143.1468000000023,
+          "firstAnswerLatencyMs": 807.1489000000001
+        },
+        {
+          "id": "52cde4b9-6d1d-43b5-9f40-60791481e702",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 1372.9608000000007,
+          "readyMs": 1373.175900000002,
+          "admittedMs": 2205.856899999999,
+          "admissionWaitMs": 832.6809999999969,
+          "headersMs": 2521.291900000004,
+          "status": 200,
+          "firstToolMs": 2521.3983000000007,
+          "doneMs": 2525.2741000000024,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 317810200,
+            "load_duration": 1556600,
+            "prompt_eval_count": 1537,
+            "prompt_eval_cached_count": 1072,
+            "prompt_eval_duration": 108565000,
+            "eval_count": 36,
+            "eval_duration": 156345000
+          },
+          "outcome": "completed",
+          "finishedMs": 2525.5526000000027,
+          "elapsedMs": 1152.591800000002
+        },
+        {
+          "id": "bf8b2e88-92d4-49c0-bd2b-0472825530f8",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 2625.5023,
+          "readyMs": 2625.674500000001,
+          "admittedMs": 2625.6986000000034,
+          "admissionWaitMs": 0.02410000000236323,
+          "headersMs": 2808.046300000002,
+          "status": 200,
+          "firstAnswerMs": 2808.1676000000007,
+          "doneMs": 3236.9716000000044,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 611072900,
+            "load_duration": 2060200,
+            "prompt_eval_count": 2630,
+            "prompt_eval_cached_count": 1537,
+            "prompt_eval_duration": 140908000,
+            "eval_count": 106,
+            "eval_duration": 456543000
+          },
+          "outcome": "completed",
+          "finishedMs": 3237.4974,
+          "elapsedMs": 611.9951000000001,
+          "firstAnswerLatencyMs": 182.66530000000057
+        },
+        {
+          "id": "ac694029-51ea-44c6-bcab-2b139b7410ea",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 3258.0814000000028,
+          "readyMs": 3258.2926000000007,
+          "admittedMs": 3258.3179999999993,
+          "admissionWaitMs": 0.0253999999986263,
+          "headersMs": 3811.0674,
+          "status": 200,
+          "firstAnswerMs": 3811.191700000003,
+          "doneMs": 4222.1826,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 962578000,
+            "load_duration": 2069400,
+            "prompt_eval_count": 2445,
+            "prompt_eval_cached_count": 1235,
+            "prompt_eval_duration": 191391000,
+            "eval_count": 95,
+            "eval_duration": 411239000
+          },
+          "outcome": "completed",
+          "finishedMs": 4222.460100000004,
+          "elapsedMs": 964.3787000000011,
+          "firstAnswerLatencyMs": 553.1103000000003
+        },
+        {
+          "id": "1bf079ce-1233-43fd-9018-fb9d00e3c33c",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 4390.428200000002,
+          "readyMs": 4390.6149000000005,
+          "admittedMs": 4390.638700000003,
+          "admissionWaitMs": 0.02380000000266591,
+          "headersMs": 4790.323400000001,
+          "status": 200,
+          "firstToolMs": 4790.490400000002,
+          "doneMs": 4794.321300000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 402822900,
+            "load_duration": 1533600,
+            "prompt_eval_count": 1082,
+            "prompt_eval_cached_count": 552,
+            "prompt_eval_duration": 137910000,
+            "eval_count": 22,
+            "eval_duration": 99452000
+          },
+          "outcome": "completed",
+          "finishedMs": 4794.770700000001,
+          "elapsedMs": 404.34249999999884
+        },
+        {
+          "id": "f533ae3d-1260-4cba-b8b3-f17b37bd54c7",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 4952.544300000001,
+          "readyMs": 4952.700600000004,
+          "admittedMs": 4952.720000000001,
+          "admissionWaitMs": 0.01939999999740394,
+          "headersMs": 5226.355000000003,
+          "status": 200,
+          "firstToolMs": 5226.491600000001,
+          "doneMs": 5230.500599999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 277118300,
+            "load_duration": 2050000,
+            "prompt_eval_count": 1577,
+            "prompt_eval_cached_count": 1078,
+            "prompt_eval_duration": 105454000,
+            "eval_count": 37,
+            "eval_duration": 161116000
+          },
+          "outcome": "completed",
+          "finishedMs": 5230.876600000003,
+          "elapsedMs": 278.33230000000185
+        },
+        {
+          "id": "c9e89050-3aab-4cc9-aef5-e4dd0616d4b0",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 5391.493900000001,
+          "readyMs": 5391.655500000001,
+          "admittedMs": 5391.679000000004,
+          "admissionWaitMs": 0.02350000000296859,
+          "headersMs": 5575.0508000000045,
+          "status": 200,
+          "doneMs": 5575.1556000000055,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 182329900,
+            "load_duration": 2042200,
+            "prompt_eval_count": 2773,
+            "prompt_eval_cached_count": 1577,
+            "prompt_eval_duration": 146174000,
+            "eval_count": 4,
+            "eval_duration": 22799000
+          },
+          "outcome": "completed",
+          "finishedMs": 5575.506800000003,
+          "elapsedMs": 184.01290000000154
+        },
+        {
+          "id": "2ce4043c-dfde-4d5a-a80f-560425815a1a",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 5587.456000000006,
+          "readyMs": 5587.613100000002,
+          "admittedMs": 5587.6325,
+          "admissionWaitMs": 0.01939999999740394,
+          "headersMs": 5943.161200000002,
+          "status": 200,
+          "firstAnswerMs": 5943.302000000003,
+          "doneMs": 6491.854599999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 903223700,
+            "load_duration": 2553700,
+            "prompt_eval_count": 2588,
+            "prompt_eval_cached_count": 1886,
+            "prompt_eval_duration": 151724000,
+            "eval_count": 126,
+            "eval_duration": 548785000
+          },
+          "outcome": "completed",
+          "finishedMs": 6492.2850000000035,
+          "elapsedMs": 904.8289999999979,
+          "firstAnswerLatencyMs": 355.84599999999773
+        },
+        {
+          "id": "b32c6e34-0487-4f15-9e35-4b8503834a57",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 6622.1273,
+          "readyMs": 6622.313099999999,
+          "admittedMs": 6622.343700000005,
+          "admissionWaitMs": 0.030600000005506445,
+          "headersMs": 6987.5422000000035,
+          "status": 200,
+          "firstToolMs": 6987.738100000002,
+          "doneMs": 6991.690699999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 368273900,
+            "load_duration": 1531400,
+            "prompt_eval_count": 1072,
+            "prompt_eval_cached_count": 499,
+            "prompt_eval_duration": 134857000,
+            "eval_count": 19,
+            "eval_duration": 84814000
+          },
+          "outcome": "completed",
+          "finishedMs": 6991.971700000002,
+          "elapsedMs": 369.84440000000177
+        },
+        {
+          "id": "49d0dee4-a929-4b8f-b91d-e7b3aad1de4b",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 7110.155700000003,
+          "readyMs": 7110.313699999999,
+          "admittedMs": 7110.337400000004,
+          "admissionWaitMs": 0.023700000005192123,
+          "headersMs": 7355.693900000006,
+          "status": 200,
+          "firstToolMs": 7355.797200000001,
+          "doneMs": 7359.917800000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 248867100,
+            "load_duration": 2040500,
+            "prompt_eval_count": 1524,
+            "prompt_eval_cached_count": 1068,
+            "prompt_eval_duration": 101085000,
+            "eval_count": 29,
+            "eval_duration": 138829000
+          },
+          "outcome": "completed",
+          "finishedMs": 7360.186700000006,
+          "elapsedMs": 250.03100000000268
+        },
+        {
+          "id": "a3bb21f5-e5f0-4890-882e-47d3b8f7d741",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 7502.358100000005,
+          "readyMs": 7502.5302999999985,
+          "admittedMs": 7502.553,
+          "admissionWaitMs": 0.022700000001350418,
+          "headersMs": 7662.716500000002,
+          "status": 200,
+          "firstAnswerMs": 7662.810000000005,
+          "doneMs": 8112.981899999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 609958600,
+            "load_duration": 1534300,
+            "prompt_eval_count": 2399,
+            "prompt_eval_cached_count": 1524,
+            "prompt_eval_duration": 117527000,
+            "eval_count": 113,
+            "eval_duration": 481098000
+          },
+          "outcome": "completed",
+          "finishedMs": 8113.316600000006,
+          "elapsedMs": 610.9585000000006,
+          "firstAnswerLatencyMs": 160.45190000000002
+        },
+        {
+          "id": "04d8076e-2506-4fc1-a07b-736793cc4781",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 8124.198900000003,
+          "readyMs": 8124.3678,
+          "admittedMs": 8124.3897,
+          "admissionWaitMs": 0.021899999999732245,
+          "headersMs": 8518.354299999999,
+          "status": 200,
+          "firstAnswerMs": 8518.490300000005,
+          "doneMs": 8911.193400000004,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 785640600,
+            "load_duration": 2154800,
+            "prompt_eval_count": 2214,
+            "prompt_eval_cached_count": 2209,
+            "prompt_eval_duration": 139008000,
+            "eval_count": 88,
+            "eval_duration": 392973000
+          },
+          "outcome": "completed",
+          "finishedMs": 8911.513200000001,
+          "elapsedMs": 787.3142999999982,
+          "firstAnswerLatencyMs": 394.2914000000019
+        },
+        {
+          "id": "7ff12d60-7027-4ada-85d0-410286068d48",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "active-cancel",
+          "arrivedMs": 8946.498100000004,
+          "readyMs": 8946.589700000004,
+          "admittedMs": 8946.605800000005,
+          "admissionWaitMs": 0.016100000000733417,
+          "headersMs": 9117.258800000003,
+          "status": 200,
+          "firstAnswerMs": 9117.396400000005,
+          "outcome": "CLIENT_CANCELLED",
+          "finishedMs": 9119.687600000005,
+          "elapsedMs": 173.1895000000004,
+          "firstAnswerLatencyMs": 170.89830000000075
+        },
+        {
+          "id": "3aeb135a-49d7-4e51-b5a2-a1823a1830bc",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "after-cancel",
+          "arrivedMs": 9119.7673,
+          "readyMs": 9119.839,
+          "admittedMs": 9119.851000000002,
+          "admissionWaitMs": 0.012000000002444722,
+          "headersMs": 9195.6639,
+          "status": 200,
+          "firstAnswerMs": 9195.762300000002,
+          "doneMs": 9213.465400000001,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 92693100,
+            "load_duration": 1541700,
+            "prompt_eval_count": 174,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46276000,
+            "eval_count": 3,
+            "eval_duration": 17908000
+          },
+          "outcome": "completed",
+          "finishedMs": 9213.847699999998,
+          "elapsedMs": 94.08039999999892,
+          "firstAnswerLatencyMs": 75.99500000000262
+        }
+      ],
+      "loadedAfterWarmup": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:40.1769295-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "queuedCancellation": {
+        "before": {
+          "taskId": "686e533a04e0497ab76dbb35dcbb558c",
+          "question": "What is the default summary mode?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        "after": {
+          "taskId": "686e533a04e0497ab76dbb35dcbb558c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      },
+      "backgroundAtBurst": [
+        {
+          "taskId": "71a192c8fab04cdf93e9797a049f2640",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "20ac7349f29244f9b40b1e046e4bc83a",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "4f7cbd3fe1be43459353517e589ab5ae",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "686e533a04e0497ab76dbb35dcbb558c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ],
+      "background": [
+        {
+          "taskId": "686e533a04e0497ab76dbb35dcbb558c",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 1382.3827999999994
+        },
+        {
+          "taskId": "71a192c8fab04cdf93e9797a049f2640",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The implemented `ContextManager.prepare` does not wait for a new background summary; background jobs start on a later event-loop turn, and the foreground process never awaits a new summary. Additionally, the original transcript is never summarized in place or given a summary bubble.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 1,
+                "end_line": 40
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 3470.230499999998
+        },
+        {
+          "taskId": "20ac7349f29244f9b40b1e046e4bc83a",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "In the implemented Iris protocol slice, restarting `ChatRuntime` does **not** preserve conversation context or queued work. While Iris history and UUIDs survive, they are not rehydrated into the runtime context, and an application restart does not resume an outstanding turn or claim durable replay. The implementation explicitly avoids the ADR's proposed automatic fallback for unavailable runtimes to prevent the risk of executing an accepted turn a second time.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "iris-evidence",
+                "revision": "94edfe6a8744517f28bb025ae8272ff9c7a4e4bdd573e92dfc6a472d1bae035b",
+                "path": "docs/implementation/07-iris-slice-evidence.md",
+                "start_line": 28,
+                "end_line": 67
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 5741.719899999996
+        },
+        {
+          "taskId": "4f7cbd3fe1be43459353517e589ab5ae",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The model catalog does not currently enable automatic model dispatch. While the catalog includes metadata for model eligibility, the current router still relies on `CHAT_FAST_*` and `CHAT_DEEP_*` identifiers. The implementation of catalog eligibility is described as groundwork for automatic selection, rather than an implemented automatic dispatch change.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "model-catalog",
+                "revision": "e3ff183758f13ab2e45ca3b06e3fe59bd8c1a74d3a0f41d47815ba2e068e8613",
+                "path": "docs/13-model-catalog.md",
+                "start_line": 1,
+                "end_line": 30
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 8095.118300000002
+        }
+      ],
+      "loadedAfter": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:48.5418032-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "outcome": "completed"
+    },
+    {
+      "index": 3,
+      "policy": "concurrent",
+      "foreground": [
+        {
+          "label": "warmup",
+          "text": "Say ready in one word.",
+          "clientStartedAt": "2026-09-28T17:09:48.767Z",
+          "firstDeltaMs": 70.16229999999632,
+          "result": {
+            "text": "Ready.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 88.18369999999413
+        },
+        {
+          "label": "baseline-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:48.856Z",
+          "firstDeltaMs": 64.22209999999905,
+          "result": {
+            "text": "90 minutes is 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 114.41369999999733
+        },
+        {
+          "label": "baseline-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:48.970Z",
+          "firstDeltaMs": 66.9461999999985,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts an active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 237.46919999999955
+        },
+        {
+          "label": "baseline-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:49.208Z",
+          "firstDeltaMs": 75.05240000000049,
+          "result": {
+            "text": "A responsive interface only ensures low latency in UI rendering and input handling, not in backend computation. The delay can stem from high inference time (model processing) or queueing latency (waiting for available compute). You can distinguish these by measuring \"Time to First Token\" (model/server delay) versus \"UI Latency\" (network/rendering delay).",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 390.77240000000165
+        },
+        {
+          "label": "overlap-0",
+          "text": "Convert 90 minutes into hours. Answer in one sentence.",
+          "clientStartedAt": "2026-09-28T17:09:49.837Z",
+          "firstDeltaMs": 685.5982000000004,
+          "result": {
+            "text": "90 minutes is 1.5 hours.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 737.6396000000022
+        },
+        {
+          "label": "overlap-1",
+          "text": "Explain the difference between cancelling queued work and cancelling an already running operation. Use two short bullet points.",
+          "clientStartedAt": "2026-09-28T17:09:49.837Z",
+          "firstDeltaMs": 447.0584000000017,
+          "result": {
+            "text": "* **Queued work:** Prevents the task from ever starting, saving all associated resources.\n* **Running operation:** Interrupts an active process, requiring logic to handle partial completion or cleanup.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 622.6373000000021
+        },
+        {
+          "label": "overlap-2",
+          "text": "A documentation task is still running while I ask another question. Explain in three short sentences why a responsive chat interface does not guarantee a fast model response, and what timing measurements would distinguish the delays.",
+          "clientStartedAt": "2026-09-28T17:09:49.838Z",
+          "firstDeltaMs": 806.2449999999953,
+          "result": {
+            "text": "A responsive interface only ensures low latency in UI rendering and input handling, not in backend processing. The model response delay is caused by computational inference time and queueing, which are independent of the frontend's ability to display text. You can distinguish these by measuring \"Time to First Token\" (model latency) versus \"UI Input Latency\" (interface responsiveness).",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 1128.4170999999988
+        },
+        {
+          "label": "active-cancel",
+          "text": "List twenty concrete steps to design, implement, test, deploy and monitor a reliable background task system.",
+          "clientStartedAt": "2026-09-28T17:09:58.813Z",
+          "firstDeltaMs": 173.1692000000039,
+          "outcome": "CANCELLED",
+          "elapsedMs": 173.60599999999977
+        },
+        {
+          "label": "after-cancel",
+          "text": "What is three plus four? Answer briefly.",
+          "clientStartedAt": "2026-09-28T17:09:58.987Z",
+          "firstDeltaMs": 78.71700000000419,
+          "result": {
+            "text": "Seven.",
+            "finishReason": "stop"
+          },
+          "outcome": "completed",
+          "elapsedMs": 96.7783000000054
+        }
+      ],
+      "timings": [
+        {
+          "id": "e58eadf8-1967-4aad-a49f-2eeeafe87fcf",
+          "phase": "warmup",
+          "lane": "foreground",
+          "label": "warmup",
+          "arrivedMs": 6.1362000000008265,
+          "readyMs": 6.235000000000582,
+          "admittedMs": 6.2370000000009895,
+          "admissionWaitMs": 0.0020000000004074536,
+          "headersMs": 74.966499999995,
+          "status": 200,
+          "firstAnswerMs": 75.06719999999768,
+          "doneMs": 92.24599999999919,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 85735000,
+            "load_duration": 1536800,
+            "prompt_eval_count": 168,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 45895000,
+            "eval_count": 3,
+            "eval_duration": 17447000
+          },
+          "outcome": "completed",
+          "finishedMs": 92.61069999999745,
+          "elapsedMs": 86.47449999999662,
+          "firstAnswerLatencyMs": 68.93099999999686
+        },
+        {
+          "id": "c9946437-8c05-48dc-aeb9-489d3443237e",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-0",
+          "arrivedMs": 94.91909999999916,
+          "readyMs": 94.99789999999484,
+          "admittedMs": 95.00009999999747,
+          "admissionWaitMs": 0.0022000000026309863,
+          "headersMs": 157.2396000000008,
+          "status": 200,
+          "firstAnswerMs": 157.3489999999947,
+          "doneMs": 206.79260000000068,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 110772900,
+            "load_duration": 1542200,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 47020000,
+            "eval_count": 11,
+            "eval_duration": 49705000
+          },
+          "outcome": "completed",
+          "finishedMs": 207.10209999999643,
+          "elapsedMs": 112.18299999999726,
+          "firstAnswerLatencyMs": 62.42989999999554
+        },
+        {
+          "id": "c9de5645-2042-4259-b556-f4e98b72dde6",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-1",
+          "arrivedMs": 208.48359999999957,
+          "readyMs": 208.58350000000064,
+          "admittedMs": 208.585699999996,
+          "admissionWaitMs": 0.0021999999953550287,
+          "headersMs": 274.41629999999714,
+          "status": 200,
+          "firstAnswerMs": 274.54869999999937,
+          "doneMs": 444.3012999999992,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 235045200,
+            "load_duration": 2058400,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 47495000,
+            "eval_count": 41,
+            "eval_duration": 170104000
+          },
+          "outcome": "completed",
+          "finishedMs": 444.61189999999624,
+          "elapsedMs": 236.12829999999667,
+          "firstAnswerLatencyMs": 66.0650999999998
+        },
+        {
+          "id": "c8235c8b-e208-494b-b4b3-da689b363ffa",
+          "phase": "baseline",
+          "lane": "foreground",
+          "label": "baseline-2",
+          "arrivedMs": 445.9615999999951,
+          "readyMs": 446.07340000000113,
+          "admittedMs": 446.0758999999962,
+          "admissionWaitMs": 0.002499999995052349,
+          "headersMs": 520.0383999999976,
+          "status": 200,
+          "firstAnswerMs": 520.140800000001,
+          "doneMs": 835.1500000000015,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 388048000,
+            "load_duration": 1535000,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 53876000,
+            "eval_count": 72,
+            "eval_duration": 315368000
+          },
+          "outcome": "completed",
+          "finishedMs": 835.4638999999952,
+          "elapsedMs": 389.5023000000001,
+          "firstAnswerLatencyMs": 74.17920000000595
+        },
+        {
+          "id": "fec75dd1-3ff8-47f4-ac48-81118f2ac7cd",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 1024.9883999999947,
+          "readyMs": 1025.1661999999997,
+          "admittedMs": 1025.169799999996,
+          "admissionWaitMs": 0.003599999996367842,
+          "headersMs": 1331.4945999999982,
+          "status": 200,
+          "firstToolMs": 1331.739999999998,
+          "doneMs": 1335.4660000000003,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 310066500,
+            "load_duration": 2055100,
+            "prompt_eval_count": 1077,
+            "prompt_eval_cached_count": 1072,
+            "prompt_eval_duration": 163884000,
+            "eval_count": 19,
+            "eval_duration": 82801000
+          },
+          "outcome": "completed",
+          "finishedMs": 1335.8013999999966,
+          "elapsedMs": 310.8130000000019
+        },
+        {
+          "id": "cbd91b8a-1672-454a-9e6d-ee9e593e9624",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-0",
+          "arrivedMs": 1076.0320999999967,
+          "readyMs": 1076.1487999999954,
+          "admittedMs": 1076.1506999999983,
+          "admissionWaitMs": 0.0019000000029336661,
+          "headersMs": 1760.1083999999973,
+          "status": 200,
+          "firstAnswerMs": 1760.2072999999946,
+          "doneMs": 1811.3721000000005,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 733351100,
+            "load_duration": 2603700,
+            "prompt_eval_count": 182,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 48142000,
+            "eval_count": 11,
+            "eval_duration": 51322000
+          },
+          "outcome": "completed",
+          "finishedMs": 1811.742299999998,
+          "elapsedMs": 735.7102000000014,
+          "firstAnswerLatencyMs": 684.1751999999979
+        },
+        {
+          "id": "24522338-3f41-451a-adb2-0ad7b84c00c3",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-1",
+          "arrivedMs": 1076.7687000000005,
+          "readyMs": 1076.8493999999992,
+          "admittedMs": 1076.8508000000002,
+          "admissionWaitMs": 0.0014000000010128133,
+          "headersMs": 1521.9042999999947,
+          "status": 200,
+          "firstAnswerMs": 1522.0097999999998,
+          "doneMs": 1696.8696999999956,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 619294100,
+            "load_duration": 2087800,
+            "prompt_eval_count": 196,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 48729000,
+            "eval_count": 41,
+            "eval_duration": 175156000
+          },
+          "outcome": "completed",
+          "finishedMs": 1697.2116999999998,
+          "elapsedMs": 620.4429999999993,
+          "firstAnswerLatencyMs": 445.2410999999993
+        },
+        {
+          "id": "0da63f99-835b-4005-b3d2-c842a9ac911b",
+          "phase": "overlap",
+          "lane": "foreground",
+          "label": "overlap-2",
+          "arrivedMs": 1077.6506999999983,
+          "readyMs": 1077.770700000001,
+          "admittedMs": 1077.7718999999997,
+          "admissionWaitMs": 0.0011999999987892807,
+          "headersMs": 1881.2021999999997,
+          "status": 200,
+          "firstAnswerMs": 1881.3041999999987,
+          "doneMs": 2202.7195999999967,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1124502600,
+            "load_duration": 2604100,
+            "prompt_eval_count": 234,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 55634000,
+            "eval_count": 74,
+            "eval_duration": 321792000
+          },
+          "outcome": "completed",
+          "finishedMs": 2203.0197999999946,
+          "elapsedMs": 1125.3690999999963,
+          "firstAnswerLatencyMs": 803.6535000000003
+        },
+        {
+          "id": "19f69ac6-50c8-4d58-be0b-ad5dfde45b3d",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 1431.9902999999977,
+          "readyMs": 1432.2720999999947,
+          "admittedMs": 1432.2770999999993,
+          "admissionWaitMs": 0.005000000004656613,
+          "headersMs": 2513.744399999996,
+          "status": 200,
+          "firstToolMs": 2513.887299999995,
+          "doneMs": 2517.8682999999946,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1084886900,
+            "load_duration": 2559500,
+            "prompt_eval_count": 1537,
+            "prompt_eval_cached_count": 511,
+            "prompt_eval_duration": 147218000,
+            "eval_count": 29,
+            "eval_duration": 126586000
+          },
+          "outcome": "completed",
+          "finishedMs": 2518.2261999999973,
+          "elapsedMs": 1086.2358999999997
+        },
+        {
+          "id": "c52c6b84-15db-441c-bc2e-f231c69ac39e",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 2619.806899999996,
+          "readyMs": 2619.9985000000015,
+          "admittedMs": 2620.002099999998,
+          "admissionWaitMs": 0.003599999996367842,
+          "headersMs": 2778.014799999997,
+          "status": 200,
+          "firstAnswerMs": 2778.1089999999967,
+          "doneMs": 3186.4998999999953,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 566359200,
+            "load_duration": 2058500,
+            "prompt_eval_count": 2394,
+            "prompt_eval_cached_count": 1537,
+            "prompt_eval_duration": 118363000,
+            "eval_count": 101,
+            "eval_duration": 435499000
+          },
+          "outcome": "completed",
+          "finishedMs": 3186.8076,
+          "elapsedMs": 567.0007000000041,
+          "firstAnswerLatencyMs": 158.3021000000008
+        },
+        {
+          "id": "c232c7db-6b0a-4069-88c0-3184521576c4",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 3200.360999999997,
+          "readyMs": 3200.6002999999982,
+          "admittedMs": 3200.6031999999977,
+          "admissionWaitMs": 0.002899999999499414,
+          "headersMs": 3553.500899999999,
+          "status": 200,
+          "firstAnswerMs": 3553.630099999995,
+          "doneMs": 3965.122199999998,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 763956800,
+            "load_duration": 2049500,
+            "prompt_eval_count": 2209,
+            "prompt_eval_cached_count": 1235,
+            "prompt_eval_duration": 177217000,
+            "eval_count": 95,
+            "eval_duration": 411801000
+          },
+          "outcome": "completed",
+          "finishedMs": 3965.4498999999996,
+          "elapsedMs": 765.0889000000025,
+          "firstAnswerLatencyMs": 353.2690999999977
+        },
+        {
+          "id": "d0172ad4-b390-48ca-a8e3-200bc63b81a1",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 4156.540799999995,
+          "readyMs": 4156.716499999995,
+          "admittedMs": 4156.7197000000015,
+          "admissionWaitMs": 0.003200000006472692,
+          "headersMs": 4509.528999999995,
+          "status": 200,
+          "firstToolMs": 4509.662599999996,
+          "doneMs": 4514.452599999997,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 356807800,
+            "load_duration": 1531900,
+            "prompt_eval_count": 1082,
+            "prompt_eval_cached_count": 1077,
+            "prompt_eval_duration": 114866000,
+            "eval_count": 22,
+            "eval_duration": 96466000
+          },
+          "outcome": "completed",
+          "finishedMs": 4514.8436,
+          "elapsedMs": 358.30280000000494
+        },
+        {
+          "id": "badb8ddc-8b84-4427-9e39-ae6958851f3f",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 4621.378400000001,
+          "readyMs": 4621.545599999998,
+          "admittedMs": 4621.548599999995,
+          "admissionWaitMs": 0.0029999999969732016,
+          "headersMs": 4934.806700000001,
+          "status": 200,
+          "firstToolMs": 4934.914299999997,
+          "doneMs": 4939.1921,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 316592400,
+            "load_duration": 1537200,
+            "prompt_eval_count": 1577,
+            "prompt_eval_cached_count": 551,
+            "prompt_eval_duration": 145557000,
+            "eval_count": 37,
+            "eval_duration": 160746000
+          },
+          "outcome": "completed",
+          "finishedMs": 4939.603499999997,
+          "elapsedMs": 318.225099999996
+        },
+        {
+          "id": "2f67984d-b701-4731-8e2d-4aef2f75cdd3",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 5088.245299999995,
+          "readyMs": 5088.406799999997,
+          "admittedMs": 5088.409099999997,
+          "admissionWaitMs": 0.002300000000104774,
+          "headersMs": 5404.6443,
+          "status": 200,
+          "firstToolMs": 5404.774399999995,
+          "doneMs": 5408.716899999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 319733000,
+            "load_duration": 2039600,
+            "prompt_eval_count": 2773,
+            "prompt_eval_cached_count": 1577,
+            "prompt_eval_duration": 142154000,
+            "eval_count": 38,
+            "eval_duration": 164990000
+          },
+          "outcome": "completed",
+          "finishedMs": 5409.033100000001,
+          "elapsedMs": 320.7878000000055
+        },
+        {
+          "id": "8ed0f79e-3b67-4332-9db8-fb2b2105c0bd",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 5586.167399999998,
+          "readyMs": 5586.314699999995,
+          "admittedMs": 5586.3169999999955,
+          "admissionWaitMs": 0.002300000000104774,
+          "headersMs": 5719.740699999995,
+          "status": 200,
+          "firstAnswerMs": 5719.837399999997,
+          "doneMs": 6520.421699999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 933486400,
+            "load_duration": 1533800,
+            "prompt_eval_count": 3096,
+            "prompt_eval_cached_count": 2773,
+            "prompt_eval_duration": 93449000,
+            "eval_count": 194,
+            "eval_duration": 827154000
+          },
+          "outcome": "completed",
+          "finishedMs": 6520.870899999994,
+          "elapsedMs": 934.703499999996,
+          "firstAnswerLatencyMs": 133.66999999999825
+        },
+        {
+          "id": "41377ae0-8f5f-48f4-8d5a-c55da51b2c3d",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 6532.696499999998,
+          "readyMs": 6532.8704,
+          "admittedMs": 6532.8727,
+          "admissionWaitMs": 0.002300000000104774,
+          "headersMs": 6986.071499999998,
+          "status": 200,
+          "firstAnswerMs": 6986.200499999999,
+          "doneMs": 7647.126700000001,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 1113217800,
+            "load_duration": 1544100,
+            "prompt_eval_count": 2911,
+            "prompt_eval_cached_count": 1885,
+            "prompt_eval_duration": 184509000,
+            "eval_count": 154,
+            "eval_duration": 661205000
+          },
+          "outcome": "completed",
+          "finishedMs": 7647.3914,
+          "elapsedMs": 1114.6949000000022,
+          "firstAnswerLatencyMs": 453.5040000000008
+        },
+        {
+          "id": "30405212-f898-4acc-9556-6ad85a35a3ca",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 7824.8034999999945,
+          "readyMs": 7824.962099999997,
+          "admittedMs": 7824.964399999997,
+          "admissionWaitMs": 0.002300000000104774,
+          "headersMs": 8192.8943,
+          "status": 200,
+          "firstToolMs": 8193.0449,
+          "doneMs": 8197.034599999999,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 371058300,
+            "load_duration": 1536600,
+            "prompt_eval_count": 1072,
+            "prompt_eval_cached_count": 1067,
+            "prompt_eval_duration": 142233000,
+            "eval_count": 19,
+            "eval_duration": 83699000
+          },
+          "outcome": "completed",
+          "finishedMs": 8197.352899999998,
+          "elapsedMs": 372.5494000000035
+        },
+        {
+          "id": "8db9283c-4f14-4f4f-8855-25178e0ee8f2",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 8316.061399999999,
+          "readyMs": 8316.197499999995,
+          "admittedMs": 8316.199799999995,
+          "admissionWaitMs": 0.002300000000104774,
+          "headersMs": 8598.4047,
+          "status": 200,
+          "firstToolMs": 8598.540399999998,
+          "doneMs": 8602.436799999996,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 285617100,
+            "load_duration": 1526600,
+            "prompt_eval_count": 1524,
+            "prompt_eval_cached_count": 498,
+            "prompt_eval_duration": 139889000,
+            "eval_count": 29,
+            "eval_duration": 136332000
+          },
+          "outcome": "completed",
+          "finishedMs": 8602.762299999995,
+          "elapsedMs": 286.7008999999962
+        },
+        {
+          "id": "cc06ff1a-9deb-4fe5-90b8-81f0488986af",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 8730.2788,
+          "readyMs": 8730.428199999995,
+          "admittedMs": 8730.430499999995,
+          "admissionWaitMs": 0.002300000000104774,
+          "headersMs": 8887.316200000001,
+          "status": 200,
+          "firstAnswerMs": 8887.410599999996,
+          "doneMs": 9265.605799999998,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 534580100,
+            "load_duration": 2064700,
+            "prompt_eval_count": 2399,
+            "prompt_eval_cached_count": 1524,
+            "prompt_eval_duration": 118241000,
+            "eval_count": 95,
+            "eval_duration": 405079000
+          },
+          "outcome": "completed",
+          "finishedMs": 9265.909999999996,
+          "elapsedMs": 535.6311999999962,
+          "firstAnswerLatencyMs": 157.13179999999556
+        },
+        {
+          "id": "dd0e8d32-117c-434f-b675-f79a274751e8",
+          "phase": "overlap",
+          "lane": "background",
+          "label": "worker",
+          "arrivedMs": 9302.351499999997,
+          "readyMs": 9302.5262,
+          "admittedMs": 9302.528299999998,
+          "admissionWaitMs": 0.002099999997881241,
+          "headersMs": 9623.2235,
+          "status": 200,
+          "firstAnswerMs": 9623.3511,
+          "doneMs": 10017.262499999997,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 713258600,
+            "load_duration": 2138800,
+            "prompt_eval_count": 2214,
+            "prompt_eval_cached_count": 2209,
+            "prompt_eval_duration": 135835000,
+            "eval_count": 88,
+            "eval_duration": 394197000
+          },
+          "outcome": "completed",
+          "finishedMs": 10017.525199999996,
+          "elapsedMs": 715.1736999999994,
+          "firstAnswerLatencyMs": 320.99960000000283
+        },
+        {
+          "id": "24fe716a-19bc-4f0e-a972-116407248849",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "active-cancel",
+          "arrivedMs": 10051.947999999997,
+          "readyMs": 10052.042399999998,
+          "admittedMs": 10052.044300000001,
+          "admissionWaitMs": 0.0019000000029336661,
+          "headersMs": 10223.671600000001,
+          "status": 200,
+          "firstAnswerMs": 10223.812899999997,
+          "outcome": "CLIENT_CANCELLED",
+          "finishedMs": 10226.604500000001,
+          "elapsedMs": 174.6565000000046,
+          "firstAnswerLatencyMs": 171.8649000000005
+        },
+        {
+          "id": "311fe128-0059-4d90-a472-c41176ca95bc",
+          "phase": "cancellation",
+          "lane": "foreground",
+          "label": "after-cancel",
+          "arrivedMs": 10226.670899999997,
+          "readyMs": 10226.739699999998,
+          "admittedMs": 10226.741199999997,
+          "admissionWaitMs": 0.0014999999984866008,
+          "headersMs": 10302.872499999998,
+          "status": 200,
+          "firstAnswerMs": 10302.9951,
+          "doneMs": 10320.419499999996,
+          "finishReason": "stop",
+          "usage": {
+            "total_duration": 92939300,
+            "load_duration": 2115500,
+            "prompt_eval_count": 174,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 46676000,
+            "eval_count": 3,
+            "eval_duration": 17690000
+          },
+          "outcome": "completed",
+          "finishedMs": 10320.694199999998,
+          "elapsedMs": 94.02330000000075,
+          "firstAnswerLatencyMs": 76.32420000000275
+        }
+      ],
+      "loadedAfterWarmup": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:49.5981742-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "queuedCancellation": {
+        "before": {
+          "taskId": "b1a99f44bed440bd879254a98dc4279d",
+          "question": "What is the default summary mode?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        "after": {
+          "taskId": "b1a99f44bed440bd879254a98dc4279d",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      },
+      "backgroundAtBurst": [
+        {
+          "taskId": "091bbc89598d4cb8934549b2d5eb7d4c",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "running",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "08fe997b3e934bb381176569b8bde8f9",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "4c69c018002c4b1a93b4e1418088c4a8",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "queued",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": true
+        },
+        {
+          "taskId": "b1a99f44bed440bd879254a98dc4279d",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false
+        }
+      ],
+      "background": [
+        {
+          "taskId": "b1a99f44bed440bd879254a98dc4279d",
+          "question": "What is the default summary mode?",
+          "status": "cancelled",
+          "modelCalls": 0,
+          "toolCalls": 0,
+          "answer": null,
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 1391.3110000000015
+        },
+        {
+          "taskId": "091bbc89598d4cb8934549b2d5eb7d4c",
+          "question": "Does the implemented ContextManager wait for a new background summary before answering? What happens to the original transcript?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The implemented `ContextManager.prepare` does not wait for a new background summary; background jobs start on a later event-loop turn, and the foreground process never awaits a new summary. Additionally, the original transcript is never summarized in place or given a summary bubble.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 1,
+                "end_line": 30
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 3188.2530000000042
+        },
+        {
+          "taskId": "08fe997b3e934bb381176569b8bde8f9",
+          "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+          "status": "completed",
+          "modelCalls": 5,
+          "toolCalls": 3,
+          "answer": {
+            "status": "answered",
+            "answer": "In the implemented Iris protocol slice, restarting `ChatRuntime` does **not** preserve conversation context or queued work. While Iris history and UUIDs survive, they are not rehydrated into the runtime context, and an application restart does not resume outstanding turns or rehydrate state and queued work; durable recovery is explicitly noted as future work. This implementation deliberately supersedes the original ADR proposal, which had suggested an automatic unavailable-runtime fallback. Additionally, evidence confirms that a restart discards runtime sources, summaries, context, and jobs.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "iris-evidence",
+                "revision": "94edfe6a8744517f28bb025ae8272ff9c7a4e4bdd573e92dfc6a472d1bae035b",
+                "path": "docs/implementation/07-iris-slice-evidence.md",
+                "start_line": 28,
+                "end_line": 67
+              },
+              {
+                "evidence_id": "E2",
+                "source_id": "memory-evidence",
+                "revision": "59d851816c265364dad7382435241ea71a955102f7d0d5c81eeb3c7037a40a10",
+                "path": "docs/implementation/01b-evidence.md",
+                "start_line": 100,
+                "end_line": 105
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 6917.741800000003
+        },
+        {
+          "taskId": "4c69c018002c4b1a93b4e1418088c4a8",
+          "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+          "status": "completed",
+          "modelCalls": 4,
+          "toolCalls": 2,
+          "answer": {
+            "status": "answered",
+            "answer": "The model catalog does not currently enable automatic model dispatch. While the catalog includes metadata for model eligibility, the current router still relies on `CHAT_FAST_*` and `CHAT_DEEP_*` identifiers. The implementation of catalog eligibility is described as groundwork for automatic selection, rather than an implemented automatic dispatch change.",
+            "citations": [
+              {
+                "evidence_id": "E1",
+                "source_id": "model-catalog",
+                "revision": "e3ff183758f13ab2e45ca3b06e3fe59bd8c1a74d3a0f41d47815ba2e068e8613",
+                "path": "docs/13-model-catalog.md",
+                "start_line": 1,
+                "end_line": 30
+              }
+            ],
+            "missing_evidence": []
+          },
+          "error": null,
+          "scheduled": false,
+          "observedTerminalMs": 9213.735100000005
+        }
+      ],
+      "loadedAfter": {
+        "models": [
+          {
+            "name": "gemma4:26b",
+            "model": "gemma4:26b",
+            "size": 17721102171,
+            "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "gemma4",
+              "families": [
+                "gemma4"
+              ],
+              "parameter_size": "25.8B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-09-28T13:11:59.083274-04:00",
+            "size_vram": 17721102171,
+            "context_length": 32768
+          }
+        ]
+      },
+      "outcome": "completed"
+    }
+  ],
+  "outcome": "completed",
+  "foreground": {
+    "temperature": 0,
+    "numPredict": 160,
+    "think": false,
+    "timeoutMs": 120000
+  },
+  "semantics": "Gateway arrival to first nonempty answer chunk. Admission is application dispatch, not Ollama internal admission. Baseline sequential; overlap burst of three.",
+  "model": {
+    "name": "gemma4:26b",
+    "model": "gemma4:26b",
+    "modified_at": "2026-08-16T13:47:09.7943289-04:00",
+    "size": 17987581215,
+    "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+        "gemma4"
+      ],
+      "parameter_size": "25.8B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 262144,
+      "embedding_length": 2816
+    },
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ]
+  },
+  "thinking": {
+    "values": [
+      false,
+      true
+    ],
+    "default": true
+  },
+  "modelInfo": {
+    "gemma4.attention.head_count": 16,
+    "gemma4.attention.head_count_kv": [
+      8,
+      8,
+      8,
+      8,
+      8,
+      2,
+      8,
+      8,
+      8,
+      8,
+      8,
+      2,
+      8,
+      8,
+      8,
+      8,
+      8,
+      2,
+      8,
+      8,
+      8,
+      8,
+      8,
+      2,
+      8,
+      8,
+      8,
+      8,
+      8,
+      2
+    ],
+    "gemma4.attention.key_length": 512,
+    "gemma4.attention.key_length_swa": 256,
+    "gemma4.attention.layer_norm_rms_epsilon": 0.000001,
+    "gemma4.attention.shared_kv_layers": 0,
+    "gemma4.attention.sliding_window": 1024,
+    "gemma4.attention.sliding_window_pattern": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ],
+    "gemma4.attention.value_length": 512,
+    "gemma4.attention.value_length_swa": 256,
+    "gemma4.block_count": 30,
+    "gemma4.context_length": 262144,
+    "gemma4.embedding_length": 2816,
+    "gemma4.embedding_length_per_layer_input": 0,
+    "gemma4.expert_count": 128,
+    "gemma4.expert_feed_forward_length": 704,
+    "gemma4.expert_used_count": 8,
+    "gemma4.feed_forward_length": 2112,
+    "gemma4.final_logit_softcapping": 30,
+    "gemma4.rope.dimension_count": 512,
+    "gemma4.rope.dimension_count_swa": 256,
+    "gemma4.rope.freq_base": 1000000,
+    "gemma4.rope.freq_base_swa": 10000,
+    "gemma4.vision.attention.head_count": 16,
+    "gemma4.vision.attention.layer_norm_epsilon": 0.000001,
+    "gemma4.vision.block_count": 27,
+    "gemma4.vision.embedding_length": 1152,
+    "gemma4.vision.feed_forward_length": 4304,
+    "gemma4.vision.num_channels": 3,
+    "gemma4.vision.patch_size": 16,
+    "gemma4.vision.projector.scale_factor": 3,
+    "general.architecture": "gemma4",
+    "general.file_type": 15,
+    "general.parameter_count": 25805936462,
+    "general.quantization_version": 2,
+    "tokenizer.ggml.add_bos_token": false,
+    "tokenizer.ggml.add_eos_token": false,
+    "tokenizer.ggml.add_mask_token": false,
+    "tokenizer.ggml.add_padding_token": false,
+    "tokenizer.ggml.add_unknown_token": false,
+    "tokenizer.ggml.bos_token_id": 2,
+    "tokenizer.ggml.eos_token_id": 1,
+    "tokenizer.ggml.eos_token_ids": [
+      1,
+      106,
+      50
+    ],
+    "tokenizer.ggml.mask_token_id": 4,
+    "tokenizer.ggml.merges": [],
+    "tokenizer.ggml.model": "llama",
+    "tokenizer.ggml.padding_token_id": 0,
+    "tokenizer.ggml.pre": "gemma4",
+    "tokenizer.ggml.scores": [],
+    "tokenizer.ggml.token_type": [],
+    "tokenizer.ggml.tokens": [],
+    "tokenizer.ggml.unknown_token_id": 3
+  },
+  "ollamaVersion": {
+    "version": "0.34.4"
+  },
+  "loadedBefore": {
+    "models": []
+  },
+  "nodeVersion": "v24.15.0",
+  "python": "3.13.13 (main, Jun  2 2026, 22:38:31) [MSC v.1944 64 bit (AMD64)]",
+  "versions": {
+    "langgraph": "1.2.6",
+    "langgraph-checkpoint": "4.1.1",
+    "langgraph-checkpoint-sqlite": "3.1.1",
+    "langchain-core": "1.4.8",
+    "langchain-ollama": "1.1.0",
+    "ollama": "0.6.2",
+    "aiosqlite": "0.22.1",
+    "pydantic": "2.12.5"
+  },
+  "hashes": {
+    "experiments/doc-agent/run_contention.ts": "698bdc54a79e98a4d3d674129e67011699b3c27b916ed3195676d2735cb98949",
+    "experiments/doc-agent/contention_gateway.ts": "3445029d123c9a853fac9c9f7881d5544dc4258aaac2eafe55016cc9188c4431",
+    "experiments/doc-agent/CONTENTION-EVALUATION.md": "28227de8774cb3ceea0eee2f1250d207cf33e96b664b5461fa34b2a2a81b9f0c",
+    "experiments/doc-agent/chat_bridge.py": "4d80fd60fe061cbe989965252c6b3c1439486d4c4872480864d3b807a2d6ac9d",
+    "experiments/doc-agent/durable.py": "e291d98ebeddeb9f28e41a0f5b924d320288d4468e1010b2a7bb3e0a5efdc0b7",
+    "experiments/doc-agent/graph_agent.py": "5b7ec9d45b83586b07551aabfa75defa7301c6e17d1cb56eb35b9f26a7ba49f5",
+    "experiments/doc-agent/agent.py": "5e5aac3d7675d0422fc6750e92cae3f74882fbac33aa1709fcee35feffdbd125",
+    "experiments/doc-agent/task_manager.py": "56cf0a979d848bd2449cb7beffcc70018e4495a3e8d8b7c8266f5eff2df6e496",
+    "experiments/doc-agent/retrieval.py": "d9bfc765369fd0f66a6d648831f5a94bd376588ff52b6efe8171950ad06073da",
+    "experiments/doc-agent/examples.py": "1214aa7f28e3cb3e2ab1f5145da6bfbc6d24be4fe1a623b20e79a4eb471d2901",
+    "src/app/documentTasks.ts": "febbee215dfd3f74dda5ba3d99222eee7c35c672efe2db2add097de8b104ee6d",
+    "src/providers/ollamaProviders.ts": "1919238c6c6d8dfc22146a5695109ff882e944d9ba96a93d299c207cb5f1f121",
+    "src/providers/streaming.ts": "817f0407edbec1ac9ecd6ffffa91ffaf5cab128c334df59e1ae079e143971916"
+  },
+  "finishedAt": "2026-09-28T17:09:59.297Z"
+}

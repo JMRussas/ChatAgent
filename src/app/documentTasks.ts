@@ -15,8 +15,8 @@ export class PythonDocumentTasks implements DocumentTasks {
   private sequence = 0;
   private closed = false;
   private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
-  constructor(python: string, script: string, root: string, model = "gemma4:26b") {
-    this.child = spawn(python, [script, "--root", root, "--model", model], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+  constructor(python: string, script: string, root: string, model = "gemma4:26b", baseUrl?: string) {
+    this.child = spawn(python, [script, "--root", root, "--model", model, ...(baseUrl ? ["--base-url", baseUrl] : [])], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     // Drain diagnostics without exposing local paths/model errors through HTTP.
     this.child.stderr.resume();
     const lines = createInterface({ input: this.child.stdout });

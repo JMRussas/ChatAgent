@@ -71,10 +71,9 @@ async def run_durable(db, model_factory, *, question=None, corpus=None, identity
         lock.close()
 
 
-def local_model(identity):
+def local_model(identity, base='http://127.0.0.1:11434'):
     from run import api
     from langchain_ollama import ChatOllama
-    base='http://127.0.0.1:11434'
     entry=next((m for m in api(base,'/api/tags')['models'] if m['name']==identity['name']),None)
     if entry is None or entry['digest']!=identity['digest']: raise ValueError('Installed model digest changed or missing')
     if api(base,'/api/version')!=identity['ollama_version']: raise ValueError('Ollama version changed')

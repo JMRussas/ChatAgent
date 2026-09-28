@@ -1,16 +1,32 @@
 # Implementation handoff
 
+## 2026-09-28: shared inference decision
+
+[Controlled contention findings](../../reports/doc-agent/contention-findings-2026-09-28.md)
+now separate application admission wait, first answer text and completion across
+Node/Ollama and Python/LangGraph. With equal foreground bursts and a FIFO control,
+overlap medians were 477 ms concurrent, 479 ms FIFO and 569 ms foreground-priority.
+All 18 documentation tasks completed; cancellation/recovery checks passed.
+**Keep normal runtime scheduling unchanged.** The gateway and policies are optional
+experiments, not a production scheduler. This supersedes the older instruction to
+measure first-token/admission timing next; it does not establish an SLA or a general
+scheduling result. See the report for the preserved exploratory run and limitations.
+
+Next: held-out multi-part documentation evaluation for requirement coverage,
+citation support and scoped uncertainty, before selecting completed-task evidence
+for on-demand conversation context. Keep planning optional. Revisit scheduling if
+longer calls or sustained/multi-worker load misses the documented latency target.
+
 Latest learning experiment: [observable plans versus actual execution](../../reports/doc-agent/plan-findings-2026-09-28.md)
 compares eight local runs under shared budgets. Both conditions pass 4/4 structural
 checks, but manual review finds citation and uncertainty gaps; planning remains
 optional and outside production. Next: held-out requirement/evidence review and
 plan readability before considering runtime integration.
 
-Latest validation: [browser and shared Ollama findings](../../reports/doc-agent/browser-contention-findings-2026-09-27.md)
+Earlier validation: [browser and shared Ollama findings](../../reports/doc-agent/browser-contention-findings-2026-09-27.md)
 records a fixed development-browser rendering bug, 248 passing TypeScript tests,
 and a small same-model contention probe (295 ms baseline median; 888 ms during
-background work). Next measure first-token latency and admission wait under varied
-load before selecting a shared foreground/background priority policy.
+background work). That timing follow-up is now recorded in the 2026-09-28 findings above.
 
 Current integration: [conversation documentation tasks](11-conversation-tasks.md)
 adds an optional background action, scoped status/results, cancellation and bounded

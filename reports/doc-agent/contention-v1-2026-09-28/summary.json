@@ -1,0 +1,127 @@
+{
+  "outcome": "completed",
+  "policies": {
+    "concurrent": {
+      "conditions": {
+        "baseline": {
+          "requests": 6,
+          "outcomes": {
+            "completed": 6
+          },
+          "firstAnswerLatencyMs": {
+            "count": 6,
+            "median": 74.84155000000283,
+            "max": 85.33270000000084
+          },
+          "admissionWaitMs": {
+            "count": 6,
+            "median": 0.0023499999988416675,
+            "max": 0.004800000000614091
+          },
+          "elapsedMs": {
+            "count": 6,
+            "median": 241.33064999999897,
+            "max": 401.5144
+          },
+          "missingFirstAnswer": 0
+        },
+        "overlap": {
+          "requests": 6,
+          "outcomes": {
+            "completed": 6
+          },
+          "firstAnswerLatencyMs": {
+            "count": 6,
+            "median": 632.1196999999993,
+            "max": 978.6487000000016
+          },
+          "admissionWaitMs": {
+            "count": 6,
+            "median": 0.0019000000020241714,
+            "max": 0.0024999999986903276
+          },
+          "elapsedMs": {
+            "count": 6,
+            "median": 822.8456000000006,
+            "max": 1125.3690999999963
+          },
+          "missingFirstAnswer": 0
+        }
+      },
+      "background": {
+        "tasks": 6,
+        "completed": 6,
+        "waveCompletionObservedMs": [
+          14007.957099999998,
+          9213.735100000005
+        ],
+        "note": "Observed terminal upper bounds from batch submission; includes Python queue time. Not individual execution durations."
+      },
+      "queuedCancellationChecks": 2,
+      "activeCancellationChecks": 2,
+      "recoveryChecks": 2,
+      "foregroundOvertakesWaitingBackground": 0
+    },
+    "foreground-priority": {
+      "conditions": {
+        "baseline": {
+          "requests": 6,
+          "outcomes": {
+            "completed": 6
+          },
+          "firstAnswerLatencyMs": {
+            "count": 6,
+            "median": 64.79320000000007,
+            "max": 74.96919999999955
+          },
+          "admissionWaitMs": {
+            "count": 6,
+            "median": 0.019250000003012246,
+            "max": 0.02449999999953434
+          },
+          "elapsedMs": {
+            "count": 6,
+            "median": 237.04019999999764,
+            "max": 404.91689999999653
+          },
+          "missingFirstAnswer": 0
+        },
+        "overlap": {
+          "requests": 6,
+          "outcomes": {
+            "completed": 6
+          },
+          "firstAnswerLatencyMs": {
+            "count": 6,
+            "median": 550.4758000000002,
+            "max": 807.1489000000001
+          },
+          "admissionWaitMs": {
+            "count": 6,
+            "median": 481.74995000000126,
+            "max": 736.7248
+          },
+          "elapsedMs": {
+            "count": 6,
+            "median": 733.6877499999991,
+            "max": 1143.1468000000023
+          },
+          "missingFirstAnswer": 0
+        }
+      },
+      "background": {
+        "tasks": 6,
+        "completed": 6,
+        "waveCompletionObservedMs": [
+          9556.495400000003,
+          8095.118300000002
+        ],
+        "note": "Observed terminal upper bounds from batch submission; includes Python queue time. Not individual execution durations."
+      },
+      "queuedCancellationChecks": 2,
+      "activeCancellationChecks": 2,
+      "recoveryChecks": 2,
+      "foregroundOvertakesWaitingBackground": 0
+    }
+  }
+}

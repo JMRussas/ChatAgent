@@ -8,14 +8,24 @@ from task_manager import TaskManager
 from durable import local_model
 from retrieval import Corpus
 from run import ROOT,api
+from urllib.parse import urlsplit
+from functools import partial
+
+def local_endpoint(value):
+    u=urlsplit(value)
+    if u.scheme!='http' or u.hostname not in ('localhost','127.0.0.1','::1') or u.username or u.password or u.query or u.fragment:
+        raise ValueError('Requires a loopback HTTP Ollama endpoint')
+    return value.rstrip('/')
 
 class BridgeError(ValueError):
     def __init__(self,code):self.code=code;super().__init__(code)
 
 class ConversationTasks:
-    def __init__(self,root,identity,corpus,model_factory=local_model,capacity=8,model_name="gemma4:26b"):
+    def __init__(self,root,identity,corpus,model_factory=local_model,capacity=8,model_name="gemma4:26b",base_url='http://127.0.0.1:11434'):
         self.manager=TaskManager(root);self.identity=identity;self.corpus=corpus;self.model_name=model_name
-        self.factory=model_factory;self.capacity=capacity
+        self.base_url=local_endpoint(base_url)
+        self.factory=partial(local_model,base=self.base_url) if model_factory is local_model else model_factory
+        self.capacity=capacity
         self.jobs={};self.slot=asyncio.Semaphore(1);self.command_lock=asyncio.Lock()
         with self.manager.connect() as c:
             c.execute('CREATE TABLE IF NOT EXISTS owners (conversation TEXT PRIMARY KEY, user TEXT NOT NULL)')
@@ -74,7 +84,7 @@ class ConversationTasks:
                     if row[1:]!=(conversation,question):raise BridgeError('REQUEST_CONFLICT')
                     return self.view(row[0])
                 if len(self.jobs)>=self.capacity:raise BridgeError('CAPACITY_FULL')
-                if self.identity is None:self.identity=await asyncio.to_thread(identity_for,self.model_name)
+                if self.identity is None:self.identity=await asyncio.to_thread(identity_for,self.model_name,self.base_url)
                 task_id=self.manager.submit(question,self.corpus,self.identity)
                 with self.manager.connect() as c:c.execute('INSERT INTO bindings VALUES (?,?,?,?)',(request,task_id,conversation,question))
                 self.schedule(task_id);return self.view(task_id)
@@ -99,8 +109,7 @@ class ConversationTasks:
         await asyncio.gather(*jobs,return_exceptions=True)
 
 
-def identity_for(name):
-    base='http://127.0.0.1:11434'
+def identity_for(name,base='http://127.0.0.1:11434'):
     entry=next((m for m in api(base,'/api/tags')['models'] if m['name']==name),None)
     if entry is None:raise ValueError('Model not installed')
     show=api(base,'/api/show',{'model':name})
@@ -111,7 +120,8 @@ def identity_for(name):
 
 async def main():
     import argparse
-    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--model',default='gemma4:26b');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--model',default='gemma4:26b')
+    p.add_argument('--base-url',default='http://127.0.0.1:11434',type=local_endpoint);a=p.parse_args()
     manager=TaskManager(a.root)
     with closing(sqlite3.connect(manager.root/'bridge.owner',timeout=0)) as owner:
         owner.execute('BEGIN EXCLUSIVE')
@@ -123,7 +133,7 @@ async def main():
                     if len(line)>16000:raise BridgeError('REQUEST_TOO_LARGE')
                     request=json.loads(line)
                     if bridge is None:
-                        bridge=ConversationTasks(a.root,None,Corpus.load(ROOT),model_name=a.model)
+                        bridge=ConversationTasks(a.root,None,Corpus.load(ROOT),model_name=a.model,base_url=a.base_url)
                     result=await bridge.command(request)
                     response={'id':request.get('id'),'result':result}
                 except Exception as exc:

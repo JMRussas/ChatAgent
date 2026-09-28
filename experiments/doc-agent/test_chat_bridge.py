@@ -1,11 +1,28 @@
 import asyncio
 import tempfile
 import unittest
-from chat_bridge import ConversationTasks,BridgeError
+from chat_bridge import ConversationTasks,BridgeError,local_endpoint
+from unittest.mock import patch
 from test_durable import fixture_corpus
 from test_agent import FakeModel,call,answer
 
 class BridgeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_gateway_endpoint_used_for_identity_and_model_without_changing_identity(self):
+        with tempfile.TemporaryDirectory() as td:
+            endpoint='http://127.0.0.1:54321/background/worker'
+            with patch('chat_bridge.identity_for',return_value={'name':'test'}) as identify, patch('chat_bridge.local_model') as model:
+                # Explicit injected factory and default endpoint lookup use the same URL.
+                b=ConversationTasks(td,None,fixture_corpus(),model_factory=model,base_url=endpoint)
+                with patch.object(b,'schedule'):
+                    await b.command({'op':'start','conversationId':'c','userId':'u','requestId':'r','question':'Question'})
+                identify.assert_called_once_with('gemma4:26b',endpoint)
+                await b.close()
+            b=ConversationTasks(td,{},fixture_corpus(),base_url=endpoint)
+            self.assertEqual(b.factory.keywords,{'base':endpoint})
+            await b.close()
+        for invalid in ('https://127.0.0.1:11434','http://example.com','http://user:secret@localhost','http://localhost?token=x'):
+            with self.assertRaises(ValueError):local_endpoint(invalid)
+
     async def test_immediate_ack_scoping_idempotency_capacity_and_cancel(self):
         with tempfile.TemporaryDirectory() as td:
             entered=asyncio.Event();model_entries=[]

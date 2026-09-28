@@ -1,5 +1,14 @@
 # Documentation retrieval agent: LangChain + local Ollama
 
+Latest: [shared inference protocol](CONTENTION-EVALUATION.md) and
+[controlled findings](../../reports/doc-agent/contention-findings-2026-09-28.md).
+The real foreground provider and Python sidecar can use an experiment-only
+loopback gateway for timing and admission comparisons. Normal runtime scheduling
+is unchanged. See the findings for commands, limitations and source-pin migration.
+The original standalone loop remains available; the optional conversation-task
+bridge now connects the durable graph to chat (older standalone-only notes below
+are historical).
+
 Latest lifecycle review: [edge-case findings](../../reports/doc-agent/lifecycle-edge-cases-2026-09-27.md) records
 five reproduced fixes and 67 passing offline tests, including a killed worker,
 late provider completion, cancellation races and failed persistence. Historical
