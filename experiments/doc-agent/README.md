@@ -167,3 +167,7 @@ optional; the ordinary CLI retains the baseline. Seventeen offline tests pass.
 
 Before extending model coverage or prompting experiments, follow the
 [model-specific reference guide](../../docs/14-model-reference-guide.md).
+
+## Observable planning experiment
+
+[Protocol](PLAN-EVALUATION.md) and [eight-run findings](../../reports/doc-agent/plan-findings-2026-09-28.md) compare a brief proposed plan with host-recorded tool actions under shared budgets. This is opt-in and does not change the chat worker.

@@ -1,0 +1,102 @@
+{
+  "rows": [
+    {
+      "case": "memory",
+      "condition": "baseline",
+      "structural_pass": true,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "elapsed_seconds": 3.041645299992524,
+      "input_tokens": 7701,
+      "output_tokens": 257
+    },
+    {
+      "case": "memory",
+      "condition": "plan",
+      "structural_pass": true,
+      "model_calls": 5,
+      "tool_calls": 2,
+      "elapsed_seconds": 3.886769299992011,
+      "input_tokens": 8157,
+      "output_tokens": 291
+    },
+    {
+      "case": "restart",
+      "condition": "baseline",
+      "structural_pass": true,
+      "model_calls": 5,
+      "tool_calls": 3,
+      "elapsed_seconds": 16.680008600000292,
+      "input_tokens": 11439,
+      "output_tokens": 477
+    },
+    {
+      "case": "restart",
+      "condition": "plan",
+      "structural_pass": true,
+      "model_calls": 6,
+      "tool_calls": 4,
+      "elapsed_seconds": 5.555664600004093,
+      "input_tokens": 14518,
+      "output_tokens": 453
+    },
+    {
+      "case": "routing",
+      "condition": "baseline",
+      "structural_pass": true,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "elapsed_seconds": 2.974931099990499,
+      "input_tokens": 7209,
+      "output_tokens": 243
+    },
+    {
+      "case": "routing",
+      "condition": "plan",
+      "structural_pass": true,
+      "model_calls": 5,
+      "tool_calls": 2,
+      "elapsed_seconds": 4.016937099993811,
+      "input_tokens": 8154,
+      "output_tokens": 336
+    },
+    {
+      "case": "unknown",
+      "condition": "baseline",
+      "structural_pass": true,
+      "model_calls": 6,
+      "tool_calls": 3,
+      "elapsed_seconds": 4.076969000001554,
+      "input_tokens": 10591,
+      "output_tokens": 344
+    },
+    {
+      "case": "unknown",
+      "condition": "plan",
+      "structural_pass": true,
+      "model_calls": 5,
+      "tool_calls": 2,
+      "elapsed_seconds": 4.732876800000668,
+      "input_tokens": 7541,
+      "output_tokens": 423
+    }
+  ],
+  "totals": {
+    "baseline": {
+      "structural_pass": 4,
+      "model_calls": 19,
+      "tool_calls": 10,
+      "elapsed_seconds": 26.77355399998487,
+      "input_tokens": 36940,
+      "output_tokens": 1321
+    },
+    "plan": {
+      "structural_pass": 4,
+      "model_calls": 21,
+      "tool_calls": 10,
+      "elapsed_seconds": 18.192247799990582,
+      "input_tokens": 38370,
+      "output_tokens": 1503
+    }
+  }
+}

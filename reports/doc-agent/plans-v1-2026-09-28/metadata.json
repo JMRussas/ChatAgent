@@ -1,0 +1,83 @@
+{
+  "version": "observable-plan/1",
+  "started_at": "2026-09-28T03:20:42.762302+00:00",
+  "model": {
+    "name": "gemma4:26b",
+    "model": "gemma4:26b",
+    "modified_at": "2026-08-16T13:47:09.7943289-04:00",
+    "size": 17987581215,
+    "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+        "gemma4"
+      ],
+      "parameter_size": "25.8B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 262144,
+      "embedding_length": 2816
+    },
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ]
+  },
+  "ollama_version": {
+    "version": "0.34.4"
+  },
+  "options": {
+    "temperature": 0,
+    "seed": 20260928,
+    "num_ctx": 32768,
+    "num_predict": 1024,
+    "reasoning": false
+  },
+  "versions": {
+    "langchain-core": "1.4.8",
+    "langchain-ollama": "1.1.0",
+    "pydantic": "2.12.5"
+  },
+  "cases": [
+    {
+      "id": "restart",
+      "question": "Does restarting ChatRuntime preserve conversation context and queued work in the implemented Iris protocol slice? Distinguish the proposal from the implementation checkpoint.",
+      "expected_status": "answered",
+      "required_source": "iris-evidence"
+    },
+    {
+      "id": "memory",
+      "question": "Does the implemented ContextManager wait for a new background summary before answering the current request? What happens to the original transcript?",
+      "expected_status": "answered",
+      "required_source": "memory-evidence"
+    },
+    {
+      "id": "routing",
+      "question": "Does the model catalog currently enable automatic model dispatch, or is that still planned?",
+      "expected_status": "answered",
+      "required_source": "model-catalog"
+    },
+    {
+      "id": "unknown",
+      "question": "What was the exact measured electricity cost in dollars of this assistant on September 1, 2026? If the documents do not establish it, say what evidence is missing.",
+      "expected_status": "insufficient_evidence",
+      "required_source": null
+    }
+  ],
+  "budget": {
+    "total_model_calls": 6,
+    "tool_calls": 8,
+    "deadline_seconds": 180,
+    "planning_uses_one_call": true
+  },
+  "hashes": {
+    "agent.py": "5e5aac3d7675d0422fc6750e92cae3f74882fbac33aa1709fcee35feffdbd125",
+    "retrieval.py": "d9bfc765369fd0f66a6d648831f5a94bd376588ff52b6efe8171950ad06073da",
+    "plan_experiment.py": "bc8631ff57abd136c62d91f64099abbfd258532b677daee67d0e45993d6ff590",
+    "run_plans.py": "cbbee00a0be0b43a5c75802852fc705995f60a80dcc0218971d9f5b178faf799"
+  },
+  "complete": true
+}

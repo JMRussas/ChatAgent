@@ -1,5 +1,11 @@
 # Development roadmap
 
+Latest learning experiment: [observable plans versus actual execution](../reports/doc-agent/plan-findings-2026-09-28.md)
+compares eight local runs under shared budgets. Both conditions pass 4/4 structural
+checks, but manual review finds citation and uncertainty gaps; planning remains
+optional and outside production. Next: held-out requirement/evidence review and
+plan readability before considering runtime integration.
+
 Latest validation: [browser and shared Ollama findings](../reports/doc-agent/browser-contention-findings-2026-09-27.md)
 records a fixed development-browser rendering bug, 248 passing TypeScript tests,
 and a small same-model contention probe (295 ms baseline median; 888 ms during
