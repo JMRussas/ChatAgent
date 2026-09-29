@@ -570,13 +570,14 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             node.answers.appendChild(element); view = { element, label, status, content }; node.answerNodes.set(answer.id, view);
           }
           if (node.answers.children[answerIndex] !== view.element) node.answers.insertBefore(view.element, node.answers.children[answerIndex] ?? null);
-          view.label.textContent = answer.label;
+          view.label.textContent = answer.label + (answer.model ? " · " + (answer.provider ? answer.provider + "/" : "") + answer.model : "");
+          view.label.title = (answer.selectionReasons ?? []).join("; ");
           if (view.status.textContent !== answer.state) view.status.textContent = answer.state;
           if (view.content.textContent !== answer.text) view.content.textContent = answer.text;
         }
         const current = turn.current;
         const working = current?.phase === "deep" && turn.status === "Working" ? "Working on a deeper answer" : turn.status;
-        const label = working + (current?.model ? " · " + current.model : "") + (current?.reasoningEnabled ? " · Reasoning enabled" : "");
+        const label = working + (current?.model ? " · " + (current.provider ? current.provider + "/" : "") + current.model : "") + (current?.reasoningEnabled ? " · Reasoning enabled" : "");
         if (node.summary.textContent !== label) node.summary.textContent = label;
         if (node.wasActive && !turn.active && turn.status === "Complete") node.details.open = false;
         node.wasActive = turn.active;
@@ -584,7 +585,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         if (node.historyKey !== historyKey) {
           node.history.replaceChildren(); node.timers = [];
           for (const attempt of turn.attempts) {
-            const step = document.createElement("div"); step.textContent = attempt.phase + (attempt.model ? " · " + attempt.model : "") + ": " + attempt.steps.join(" → "); node.history.appendChild(step);
+            const step = document.createElement("div"); step.textContent = attempt.phase + (attempt.model ? " · " + (attempt.provider ? attempt.provider + "/" : "") + attempt.model : "") + ": " + attempt.steps.join(" → "); node.history.appendChild(step);
             for (const timing of [
               { start: attempt.queuedAt, end: attempt.startedAt ?? attempt.endedAt, label: "Queued: " },
               { start: attempt.startedAt, end: attempt.endedAt, label: " Active: " }

@@ -64,27 +64,49 @@ export class ContextManager {
   resolveSources(refs: readonly SourceRef[], snapshot: SourceSnapshot, allowance: number) {
     return resolveSources(refs, snapshot, this.sources, allowance);
   }
-  async prepare(input: PrepareContextInput): Promise<ConversationContext | ContextBudgetError> {
+  async capture(input: PrepareContextInput) {
+    const capturedInput = structuredClone(input);
     const events = structuredClone(await this.timelineStore.getEvents(input.conversationId));
     const snapshot = this.sources.capture(input.conversationId, events);
     const stored = this.config.mode === "off" ? null : this.summaries.get(input.conversationId);
-    const memory = stored && this.valid(stored, events, snapshot) && !isCorrection(input.currentUserText) ? stored : null;
-    const base = { conversationId: input.conversationId, events, currentMessageId: input.currentMessageId,
-      currentUserText: input.currentUserText, capturedAtIso: new Date().toISOString(),
-      systemInstruction: buildSystemInstruction(input.trustedFacts), roleInstructions: roleInstructionsForRoute(input.routeDecision ?? "direct"),
-      budget: this.budget, memory, summaryMaxTokens: this.config.maxTokens };
-    let context = buildContext(base);
-    if (context instanceof ContextBudgetError) return context;
-    if (checkPrompt(input.currentUserText) && context.memory) {
-      const refs = context.memory.items.slice(0, 4).flatMap(i => i.sources).filter((ref, index, refs) => refs.findIndex(r => r.eventId === ref.eventId) === index).slice(0, 4);
-      const resolved = this.resolveSources(refs, snapshot, this.config.maxTokens);
-      context = buildContext({ ...base, resolvedSources: resolved.resolved, unavailableSources: resolved.unavailable });
-    }
-    const mandatory = buildContext({ ...base, events: [], memory: null });
-    if (!(mandatory instanceof ContextBudgetError)) {
-      const usable = this.budget.windowTokens - Math.max(this.budget.fastOutputTokens, this.budget.deepOutputTokens) - this.budget.safetyTokens - mandatory.estimatedInputTokens;
-      this.schedule(input.conversationId, events, snapshot, usable);
-    }
+    const memory = stored && this.valid(stored, events, snapshot) && !isCorrection(input.currentUserText) ? structuredClone(stored) : null;
+    const capturedAtIso = new Date().toISOString();
+    const baseFor = (budget: ContextBudget, facts = capturedInput.trustedFacts, taskIntent?: string) => ({
+      conversationId: capturedInput.conversationId, events,
+      currentMessageId: capturedInput.currentMessageId, currentUserText: capturedInput.currentUserText,
+      capturedAtIso, systemInstruction: buildSystemInstruction(facts),
+      roleInstructions: { ...roleInstructionsForRoute(capturedInput.routeDecision ?? "direct"),
+        fast: roleInstructionsForRoute(capturedInput.routeDecision ?? "direct").fast + (taskIntent ? `\nTask intent: ${taskIntent}. No tool execution is available.` : "") },
+      budget, memory, summaryMaxTokens: this.config.maxTokens
+    });
+    let scheduled = false;
+    return {
+      preview: (budget: ContextBudget = this.budget, facts = capturedInput.trustedFacts, taskIntent?: string): ConversationContext | ContextBudgetError => {
+        const base = baseFor(budget, facts, taskIntent);
+        let context = buildContext(base);
+        if (context instanceof ContextBudgetError) return context;
+        if (checkPrompt(capturedInput.currentUserText) && context.memory) {
+          const refs = context.memory.items.slice(0, 4).flatMap(i => i.sources).filter((ref, index, refs) => refs.findIndex(r => r.eventId === ref.eventId) === index).slice(0, 4);
+          const resolved = this.resolveSources(refs, snapshot, this.config.maxTokens);
+          context = buildContext({ ...base, resolvedSources: resolved.resolved, unavailableSources: resolved.unavailable });
+        }
+        return context;
+      },
+      schedule: (budget: ContextBudget = this.budget, facts = capturedInput.trustedFacts, taskIntent?: string) => {
+        if (scheduled) return;
+        scheduled = true;
+        const mandatory = buildContext({ ...baseFor(budget, facts, taskIntent), events: [], memory: null });
+        if (!(mandatory instanceof ContextBudgetError)) {
+          const usable = budget.windowTokens - Math.max(budget.fastOutputTokens, budget.deepOutputTokens) - budget.safetyTokens - mandatory.estimatedInputTokens;
+          this.schedule(capturedInput.conversationId, events, snapshot, usable);
+        }
+      }
+    };
+  }
+  async prepare(input: PrepareContextInput): Promise<ConversationContext | ContextBudgetError> {
+    const captured = await this.capture(input);
+    const context = captured.preview();
+    if (!(context instanceof ContextBudgetError)) captured.schedule();
     return context;
   }
   private schedule(conversationId: string, events: ChatTimelineEvent[], snapshot: SourceSnapshot, allowance: number) {

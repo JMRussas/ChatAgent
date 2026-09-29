@@ -1,3 +1,4 @@
+import { GenerationError } from "../domain/generation";
 import type { GenerationControl, GenerationMetadata, GenerationResult } from "../domain/generation";
 import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
@@ -39,4 +40,11 @@ export class InMemoryTaskQueue implements TaskQueue {
   size(): number {
     return this.tasks.length;
   }
+}
+
+/** The current chat input is text-only. Reject action/input payloads explicitly
+ * rather than silently stripping them and implying the action was performed. */
+export function rejectUnsupportedInputs(input: unknown): void {
+  if (input && typeof input === "object" && ["images", "attachments", "tools", "actions"].some(key => key in input))
+    throw new GenerationError("CAPABILITY_UNSUPPORTED", false);
 }

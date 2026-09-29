@@ -60,7 +60,7 @@ export function buildFastProvider(config: RuntimeProviderConfig, contextBudget: 
   return new BedrockFastProvider(config.bedrock.region, fast.model, fast.temperature, contextBudget.fastOutputTokens);
 }
 
-function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): DeepModelProvider {
+export function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): DeepModelProvider {
   const deep = config.deep;
 
   if (deep.provider === "mock") return new MockDeepProvider();

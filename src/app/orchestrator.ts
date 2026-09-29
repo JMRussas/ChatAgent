@@ -1,3 +1,5 @@
+import { bindingKey, type ApiKind } from "../models/connections";
+import { CatalogDispatch, type DispatchPlan } from "../routing/catalogDispatch";
 import { generationLifecycle } from "./generationLifecycle";
 import { GenerationError, normalizeGenerationError, type GenerationResult } from "../domain/generation";
 import { randomUUID } from "node:crypto";
@@ -10,6 +12,14 @@ import { ContextManager } from "./contextManager";
 import { NoopDeadLetterStore, type DeadLetterStore } from "./deadLetterStore";
 import type { TrustedRuntimeFacts } from "./systemInstructions";
 import { NoopConversationTimelineStore, type ConversationTimelineStore } from "./timelineStore";
+
+function fixedMetadata(metadata?: import("../domain/generation").GenerationMetadata) {
+  const model = metadata ?? { provider: "unknown", model: "unknown" };
+  const kinds: Record<string, ApiKind> = { mock: "mock", ollama: "ollama-chat", azure: "azure-openai-chat", bedrock: "bedrock-converse" };
+  const bindingId = model.bindingId ?? (kinds[model.provider] ? bindingKey(`default-${model.provider}`, kinds[model.provider], model.model) : `fixed:${model.provider}/${model.model}`);
+  return { ...model, bindingId, selection: { bindingId,
+    catalogVersion: 1, observationTimeIso: new Date().toISOString(), reasons: ["fixed-selection"], eligibleBindingIds: [] } };
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -46,7 +56,8 @@ export class ChatOrchestrator {
     private readonly timelineStore: ConversationTimelineStore = new NoopConversationTimelineStore(),
     private readonly adaptiveRouting?: AdaptiveRoutingCoordinator,
     contextManager?: ContextManager,
-    trustedFactsProvider?: () => TrustedRuntimeFacts
+    trustedFactsProvider?: () => TrustedRuntimeFacts,
+    private readonly dispatch?: CatalogDispatch
   ) {
     this.contextManager = contextManager ?? new ContextManager(this.timelineStore, DEFAULT_CONTEXT_BUDGET);
     this.trustedFactsProvider = trustedFactsProvider ?? defaultTrustedFacts;
@@ -71,13 +82,18 @@ export class ChatOrchestrator {
     // Capture the shared snapshot before appending anything for this turn, so a
     // budget rejection leaves the timeline/queue untouched (spec 01: "before
     // appending events/enqueuing/calling providers").
-    const contextResult = await this.contextManager.prepare({
+    let plan: DispatchPlan | undefined;
+    const contextInput = {
       conversationId: message.conversationId,
       currentMessageId: messageId,
       currentUserText: message.text,
       trustedFacts: this.trustedFactsProvider(),
       routeDecision
-    }).catch(error => { lifecycle.release(message.conversationId, messageId); throw error; });
+    };
+    const contextResult = await (this.dispatch
+      ? this.dispatch.prepare(this.contextManager, contextInput).then(value => { plan = value; return value.context; })
+      : this.contextManager.prepare(contextInput))
+      .catch(error => { lifecycle.release(message.conversationId, messageId); throw error; });
 
     if (contextResult instanceof ContextBudgetError) {
       lifecycle.release(message.conversationId, messageId);
@@ -89,9 +105,13 @@ export class ChatOrchestrator {
     await this.timelineStore.appendEvent(message.conversationId, {
       messageId,
       type: "user",
+      selections: plan ? structuredClone({ fast: plan.fast.candidate.selection, deep: plan.deep?.candidate.selection }) : undefined,
       routeDecision,
       text: message.text,
       createdAtIso: message.timestampIso
+    }).catch(error => {
+      this.dispatch?.release(plan?.fast); this.dispatch?.release(plan?.deep);
+      lifecycle.release(message.conversationId, messageId); throw error;
     });
 
     const deepTask = routeDecision === "deep" ? {
@@ -101,26 +121,44 @@ export class ChatOrchestrator {
       normalizedPrompt: adaptedAnalysis.correctedText,
       createdAtIso: nowIso(),
       sizeBand,
+      dispatchId: plan?.deep?.id, selection: plan?.deep ? structuredClone(plan.deep.candidate.selection) : undefined,
       context: cloneConversationContext(context)
     } : undefined;
 
     let fastAttempt = lifecycle.create(message.conversationId, messageId, "fast", this.timelineStore);
+    fastAttempt.dispatchId = plan?.fast.id;
     if (deepTask) {
       const deepAttempt = lifecycle.create(message.conversationId, messageId, "deep", this.timelineStore, deepTask.taskId);
-      await deepAttempt.queued();
-      await this.queue.enqueue(deepTask);
+      deepAttempt.dispatchId = plan?.deep?.id;
+      if (plan?.deep) deepAttempt.model = this.dispatch!.metadata(plan.deep);
+      try {
+        await deepAttempt.queued();
+        await this.queue.enqueue(deepTask);
+      } catch (error) {
+        this.dispatch?.release(plan?.fast); this.dispatch?.release(plan?.deep);
+        await lifecycle.cancel(message.conversationId, messageId);
+        throw error;
+      }
     }
     const fastStart = Date.now();
     let result: GenerationResult;
     let acknowledgment = false;
     for (let number = 0; ; number++) {
-      await fastAttempt.start(this.timelineStore, this.fastProvider.metadata);
+      const fastProvider = plan ? plan.fast.candidate.binding.fast! : this.fastProvider;
+      await fastAttempt.start(this.timelineStore, plan ? this.dispatch!.metadata(plan.fast) : fixedMetadata(this.fastProvider.metadata))
+        .catch(error => { this.dispatch?.release(plan?.fast); throw error; });
       try {
-        if (!fastAttempt.active) throw new GenerationError("CANCELLED", false);
-        result = await this.fastProvider.createProvisionalReply({
-          message, correctedText: adaptedAnalysis.correctedText, routeDecision,
-          context: cloneConversationContext(context)
-        }, fastAttempt.control);
+        if (!fastAttempt.active) { this.dispatch?.release(plan?.fast); throw new GenerationError("CANCELLED", false); }
+        const invoke = async () => {
+          const generated = await fastProvider.createProvisionalReply({
+            message, correctedText: adaptedAnalysis.correctedText, routeDecision,
+            context: cloneConversationContext(plan?.fast.context ?? context)
+          }, fastAttempt.control);
+          if (Buffer.byteLength(generated.text) > 1024 * 1024) throw new GenerationError("ANSWER_TOO_LARGE", false);
+          if (plan) this.dispatch!.validateAnswer(plan.fast, generated.text, generated.finishReason);
+          return generated;
+        };
+        result = plan ? await this.dispatch!.execute(plan.fast, fastAttempt.control, sizeBand, invoke) : await invoke();
         if (Buffer.byteLength(result.text) > 1024 * 1024) throw new GenerationError("ANSWER_TOO_LARGE", false);
         break;
       } catch (error) {
@@ -129,17 +167,19 @@ export class ChatOrchestrator {
           await fastAttempt.finish("cancelled");
           result = { text: fastAttempt.text, finishReason: "cancelled" }; break;
         }
-        const retry = failure.retryable && !fastAttempt.text && number < 2;
+        const fallback = failure.retryable && !fastAttempt.text && plan && this.dispatch!.fallback(plan.fast, failure.code);
+        const retry = !!fallback || failure.retryable && !fastAttempt.text && number < 2;
         const next = retry ? lifecycle.create(message.conversationId, messageId, "fast", this.timelineStore) : undefined;
+        if (next) next.dispatchId = plan?.fast.id;
         await fastAttempt.finish("error", undefined, failure.code, retry);
-        if (next) { fastAttempt = next; await next.queued(true); continue; }
+        if (next) { fastAttempt = next; next.dispatchId = plan?.fast.id; if (plan) next.model = this.dispatch!.metadata(plan.fast); await next.queued(true); continue; }
         if (!deepTask) throw failure;
         acknowledgment = fastAttempt.text.length === 0;
         result = { text: acknowledgment ? "Your request is queued for deeper analysis." : fastAttempt.text, finishReason: "stop" }; break;
       }
     }
     if (fastAttempt.status === "cancelled") result = { text: fastAttempt.text, finishReason: "cancelled" };
-    this.adaptiveRouting?.recordFastLatency(routeDecision, sizeBand, Date.now() - fastStart);
+    if (!plan) this.adaptiveRouting?.recordFastLatency(routeDecision, sizeBand, Date.now() - fastStart);
     const processingStatus = fastAttempt.status === "cancelled" || result.finishReason === "cancelled" ? "cancelled"
       : result.finishReason === "length" ? "incomplete" : fastAttempt.status === "error" && !deepTask ? "failed"
       : deepTask ? "provisional" : "complete";
@@ -156,8 +196,13 @@ export class ChatOrchestrator {
     }
     return { messageId, fastResponse: { provisionalReply: result.text, analysis: adaptedAnalysis, processingStatus }, ...(deepTask ? { deepTask } : {}) };
   }
-  cancel(conversationId: string, messageId: string) {
-    return generationLifecycle(this.queue).cancel(conversationId, messageId);
+  async cancel(conversationId: string, messageId: string) {
+    const lifecycle = generationLifecycle(this.queue);
+    for (const role of ["fast", "deep"] as const) {
+      const id = lifecycle.get(conversationId, messageId, role)?.dispatchId;
+      this.dispatch?.release(this.dispatch.get(id));
+    }
+    return lifecycle.cancel(conversationId, messageId);
   }
 
 }
@@ -176,7 +221,8 @@ export class DeepWorker {
     timelineStore?: ConversationTimelineStore,
     maxRetries: number = 2,
     deadLetterStore?: DeadLetterStore,
-    adaptiveRouting?: AdaptiveRoutingCoordinator
+    adaptiveRouting?: AdaptiveRoutingCoordinator,
+    private readonly dispatch?: CatalogDispatch
   ) {
     this.timelineStore = timelineStore ?? new NoopConversationTimelineStore();
     this.maxRetries = maxRetries;
@@ -203,11 +249,22 @@ export class DeepWorker {
     const messageId = task.messageId ?? task.taskId;
     const attempt = lifecycle.get(task.conversationId, messageId, "deep") ??
       lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId);
-    if (!attempt.active) { this.attemptsByTaskId.delete(task.taskId); return undefined; }
-    await attempt.start(this.timelineStore, this.deepProvider.metadata);
+    const selected = this.dispatch?.get(task.dispatchId);
+    attempt.dispatchId = task.dispatchId;
+    if (!attempt.active) { this.dispatch?.release(selected); this.attemptsByTaskId.delete(task.taskId); return undefined; }
+    await attempt.start(this.timelineStore, selected ? this.dispatch!.metadata(selected) : fixedMetadata(this.deepProvider.metadata))
+      .catch(error => { this.dispatch?.release(selected); throw error; });
     try {
-      if (!attempt.active) return undefined;
-      const result = await this.deepProvider.resolveDeepTask(task, attempt.control);
+      if (!attempt.active) { this.dispatch?.release(selected); return undefined; }
+      if (task.dispatchId && !selected) throw new GenerationError("DISPATCH_SNAPSHOT_UNAVAILABLE", false);
+      const invoke = async () => {
+        const result = await (selected?.candidate.binding.deep ?? this.deepProvider).resolveDeepTask(
+          selected ? { ...task, context: cloneConversationContext(selected.context), selection: selected.candidate.selection } : task, attempt.control);
+        if (Buffer.byteLength(result.finalReply) > 1024 * 1024) throw new GenerationError("ANSWER_TOO_LARGE", false);
+        if (selected) this.dispatch!.validateAnswer(selected, result.finalReply, result.finishReason);
+        return result;
+      };
+      const result = selected ? await this.dispatch!.execute(selected, attempt.control, task.sizeBand ?? "medium", invoke) : await invoke();
       if (!attempt.active) return undefined;
       if (Buffer.byteLength(result.finalReply) > 1024 * 1024) throw new GenerationError("ANSWER_TOO_LARGE", false);
       this.attemptsByTaskId.delete(task.taskId);
@@ -216,7 +273,7 @@ export class DeepWorker {
         routeDecision: "deep", processingStatus: result.finishReason === "stop" ? "complete" : result.finishReason === "length" ? "incomplete" : "cancelled",
         text: result.finalReply, finishReason: result.finishReason, answerKind: "substantive"
       });
-      this.adaptiveRouting?.recordDeepLatency(task.sizeBand ?? "medium", result.totalLatencyMs);
+      if (!selected) this.adaptiveRouting?.recordDeepLatency(task.sizeBand ?? "medium", result.totalLatencyMs);
       return result;
     } catch (error) {
       if (attempt.status === "cancelled") { this.attemptsByTaskId.delete(task.taskId); return undefined; }
@@ -224,11 +281,15 @@ export class DeepWorker {
       if (failure.code === "CANCELLED") { await attempt.finish("cancelled"); this.attemptsByTaskId.delete(task.taskId); return undefined; }
       const attempts = (this.attemptsByTaskId.get(task.taskId) ?? 0) + 1;
       this.attemptsByTaskId.set(task.taskId, attempts);
-      const retry = failure.retryable && !attempt.text && attempts <= this.maxRetries;
+      const fallback = failure.retryable && !attempt.text && selected && this.dispatch!.fallback(selected, failure.code);
+      const retry = !!fallback || failure.retryable && !attempt.text && attempts <= this.maxRetries;
       // Publish the next attempt synchronously so cancellation during the terminal write also cancels the retry.
       const next = retry ? lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId) : undefined;
+      if (next) next.dispatchId = task.dispatchId;
       await attempt.finish("error", undefined, failure.code, retry);
       if (next) {
+        next.dispatchId = task.dispatchId;
+        if (selected) next.model = this.dispatch!.metadata(selected);
         if (next.active) { await next.queued(true); await this.queue.enqueue(task); }
         return undefined;
       }

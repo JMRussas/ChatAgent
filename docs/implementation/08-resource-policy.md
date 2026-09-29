@@ -1,7 +1,10 @@
 # Execution, billing, quota and resource policy
 
 2026-09-25. Normative planning extension to specs 03–06 and consolidation 07.
-These contracts are not implemented yet. They supersede any inference that an
+Metadata is implemented in spec 03; catalog-mode admission and process-local
+reservation coverage are recorded in [04 evidence](04-evidence.md). CLI enforcement,
+full provider usage/pricing reconciliation and integrated reporting remain later work.
+The contracts below retain their normative scope and do not imply fixed-mode enforcement. They supersede any inference that an
 Ollama binding is local/free, a CLI is subscription-billed, or cloud means per-token
 billing. Implement metadata in 03, admission/selection in 04, CLI enforcement in
 05, and reporting in 06. Context review fixes remain a separate bounded task.

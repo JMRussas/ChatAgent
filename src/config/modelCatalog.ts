@@ -15,6 +15,7 @@ export const modelEntrySchema = z.object({
   roles: z.array(z.enum(["fast", "deep"])).min(1),
   // Operator routing preferences, not claims of measured quality.
   tasks: z.array(taskSchema),
+  routingPriority: z.number().int().optional(),
   capabilities: z.object({
     thinking: supportSchema,
     tools: supportSchema,
@@ -132,6 +133,7 @@ export function describeModelCatalog(catalog: ModelCatalog, config: RuntimeProvi
     return {
       ...entry,
       connectionId,
+      bindingId,
       apiKind,
       selectedRoles: (["fast", "deep"] as const).filter((role) =>
         config[role].provider === entry.provider && config[role].model === entry.model),

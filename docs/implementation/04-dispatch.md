@@ -1,7 +1,8 @@
 # 04 — Task-based model selection and dispatch
 
-Status: in progress. Classification and its corpus are implemented; dispatch is not
-yet wired. See [04A evidence](04a-evidence.md). Depends on 01–03. Default remains fixed routing until explicitly
+Status: implemented with offline acceptance coverage; live provider selection is
+not yet measured. See [04 evidence](04-evidence.md), including the earlier
+[classification checkpoint](04a-evidence.md). Depends on 01–03. Default remains fixed routing until explicitly
 enabled with `MODEL_ROUTING_MODE=catalog` (enum fixed/catalog; default fixed).
 
 ## Outcome
@@ -99,3 +100,108 @@ never mix a fast provisional call with deep reasoning on the same model.
 9. Fixed mode passes existing golden routing expectations and HTTP compatibility tests.
 
 Run common checks plus new selection corpus. Automatic cloud deployment is out of scope.
+
+## Configuration
+
+Set `MODEL_ROUTING_MODE=catalog` and `MODEL_DISPATCH_CONFIG_PATH` to a local JSON
+policy file. The existing catalog remains the curated model/task/capability list;
+add known `limits.contextTokens`, `limits.maxOutputTokens` and optional integer
+`routingPriority` there. Observed limits can supply missing limits or reduce declared
+ones. Unknown limits, missing registry adapters, stale discovery and denied access
+exclude a binding. Default mode remains `fixed`; its resource admission is unchanged.
+
+Minimal policy shape for the existing mock catalog entry (synthetic only):
+
+```json
+{
+  "environment": "default",
+  "allowedExecutionScopes": ["local-device"],
+  "allowedBillingComponents": ["owned-compute"],
+  "maxIncrementalUsd": 0,
+  "unknownCostAction": "deny",
+  "quotaExhaustionAction": "fail",
+  "waitTimeoutMs": 5000,
+  "fallbackBindingIds": { "fast": [], "deep": [] },
+  "bindings": {
+    "mock-default": {
+      "facts": { "executionScope": "local-device", "billingComponents": ["owned-compute"] },
+      "evidence": {
+        "source": "operator: synthetic mock adapter",
+        "kind": "configured",
+        "checkedAtIso": "2026-09-29T00:00:00.000Z",
+        "expiresAtIso": "2026-09-30T00:00:00.000Z"
+      },
+      "incremental": {
+        "currency": "USD",
+        "maxInvocationUsd": 0,
+        "evidence": {
+          "source": "operator: synthetic mock adapter",
+          "kind": "configured",
+          "checkedAtIso": "2026-09-29T00:00:00.000Z",
+          "expiresAtIso": "2026-09-30T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}
+```
+
+Update the example evidence dates when reviewing the facts. In a copy of the
+catalog, set the synthetic mock entry's limits (for example 8192/2048) explicitly;
+the shipped entry intentionally has unknown limits. This example does not grant
+access to a real provider. `bindings` keys are catalog IDs; fallback lists use the
+actual `bindingId` returned by `/models`, preserving explicit order. Discovery runs
+asynchronously, so newly started catalog mode may report 503 until observations arrive.
+
+`maxIncrementalUsd` is a process-lifetime aggregate USD ceiling across foreground,
+deep, retry, fallback and model-summary reservations. `incremental.maxInvocationUsd`
+is an operator-declared complete upper bound per invocation, covering all applicable
+token/cache/request/time charges; it is not a measured bill or an inferred per-token
+price. The old catalog's optional token pricing alone does not establish a complete
+bound. Keep fixed subscription/compute expense separate (`fixedCostNote`). Missing
+cost is allowed only with explicit `unknownCostAction: "allow-unpriced"` and a null
+monetary ceiling. Such work has unknown cost, not zero cost.
+
+Optional per-binding `quota` contains `poolId`, unit (`requests` or `tokens`),
+`remaining`, and the same evidence fields. Shared pools must use identical snapshots;
+conflicts fail closed. Subscription bindings require quota evidence. Optional
+`compute` contains `poolId` and positive `concurrency`. `quotaExhaustionAction` also
+controls whether busy compute pools fail immediately or wait up to `waitTimeoutMs`.
+Queued tasks reserve cost/quota but do not occupy compute slots until execution.
+A wait cannot invent fresh quota: exhausted/unchanged snapshots eventually fail.
+
+The registry reuses existing adapters and configured credentials; it adds no CLI,
+image or tool execution. Explicit image/action payloads are rejected. JSON output
+requests require declared structuredOutput support and are checked for valid JSON
+before acceptance; this is host validation, not a provider-native constrained decoder
+or arbitrary JSON Schema guarantee. Malformed output terminates with
+`STRUCTURED_OUTPUT_INVALID` and does not enter accepted history.
+
+## Runtime boundaries
+
+Initial fast/deep selections are saved on the user timeline event before enqueue.
+Deep tasks reference an in-memory frozen dispatch plan by `dispatchId`; that plan
+holds the selected adapter/configuration and context. Retry revalidates access,
+revision, fit and resource policy without consulting new catalog preferences.
+An explicit fallback keeps captured history/memory intact, corrects its phase's
+trusted provider/model fact, budgets that correction, and receives a new context
+snapshot and attempt. No fallback follows text emission, cancellation, auth or
+context errors; changing to metered billing additionally requires the original
+entry's `billing.usageBillingFallbackAllowed`.
+
+Matching evaluations use `<connectionId>:<policy.environment>`, at least 20 samples,
+and a timestamp between now and 30 days ago. Missing measurements rank after valid
+ones. No model-name score is invented. Fixed-mode adaptive metrics retain their legacy
+schema; catalog attempt telemetry is separate by binding, phase, task, size and result,
+and is included in the existing telemetry file saves. The telemetry endpoint omits
+pool IDs and credentials. Summary jobs use their explicit configured fast binding,
+validated for summarization, and the same ledger with separate request budgets.
+
+The ledger is in memory. Restart loses reservations; saved telemetry is evidence,
+not a ledger to replay. Existing adapters do not normalize provider charges/usage,
+so started calls remain unsettled at their reservation bound, including cancellation
+and timeout. The ledger supports reported-consumption reconciliation when supplied,
+but does not invent missing usage. Configured cost bounds are not guarantees about
+provider invoices. Multi-process/account-wide enforcement, automated quota refresh
+and provider-specific pricing/usage reconciliation remain separate work. Compute
+slots cover the adapter call lifetime; abort does not prove remote GPU work stopped.

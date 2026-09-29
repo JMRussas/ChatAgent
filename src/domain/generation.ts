@@ -1,6 +1,7 @@
 export type FinishReason = "stop" | "length" | "cancelled";
 export interface GenerationResult { text: string; finishReason: FinishReason }
-export interface GenerationMetadata { provider: string; model: string; reasoningEnabled?: boolean }
+export interface GenerationMetadata { provider: string; model: string; reasoningEnabled?: boolean; bindingId?: string; task?: string;
+  selection?: import("../routing/modelSelector").ModelSelection }
 export interface GenerationControl {
   signal: AbortSignal;
   attemptId: string;

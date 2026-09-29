@@ -1,5 +1,20 @@
 # Implementation handoff
 
+## 2026-09-29: spec 04 dispatch implemented
+
+Catalog-mode selection, captured-context previews, provider registry, resource
+admission, frozen retries, explicit bounded fallback and per-turn model labels are
+implemented. Fixed mode remains the default. [04 evidence](04-evidence.md) maps
+acceptance and resource fixtures: **391 tests / 57 files**, type checking, build and
+seeded simulated release gate pass. No live/billed provider or real-browser run was
+performed. Cost bounds are declared, usage remains unsettled when unreported, and
+reservations are process-local; see the evidence for limits.
+
+**Next bounded task: [spec 05 — CLI execution](05-cli.md)**, starting with its
+product/account selection and documented adapter contract. Keep spec 06 evaluation
+mode queued and the sports demo after the runtime sequence. Do not reactivate the
+parked documentation-agent experiments as the default next task.
+
 ## 2026-09-29: spec 03 (inventory) implemented
 
 Real discovery for Ollama/Azure/Bedrock, catalog v1->v2 migration, and the

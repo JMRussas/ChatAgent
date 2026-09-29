@@ -27,6 +27,8 @@ export interface FastResponse {
 }
 
 export interface DeepTask {
+  dispatchId?: string;
+  selection?: import("../routing/modelSelector").ModelSelection;
   taskId: string;
   messageId?: string;
   conversationId: string;
@@ -51,6 +53,7 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  selections?: { fast: import("../routing/modelSelector").ModelSelection; deep?: import("../routing/modelSelector").ModelSelection };
   activity?: "queued" | "thinking" | "running" | "generating" | "retrying" | "failed";
   phase?: "fast" | "deep";
   attemptId?: string;

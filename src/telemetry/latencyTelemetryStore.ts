@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { LatencyEstimatorSnapshot } from "./latencyEstimator";
 
 export interface RoutingTelemetrySnapshot {
+  dispatch?: ReturnType<import("../routing/catalogDispatch").CatalogDispatch["telemetry"]>;
   estimator: LatencyEstimatorSnapshot;
   policy: {
     maxFastP95Ms: number;
@@ -46,6 +47,14 @@ const LatencyEstimatorSnapshotSchema = z.object({
 });
 
 const RoutingTelemetrySnapshotSchema = z.object({
+  dispatch: z.object({
+    attempts: z.array(z.object({ bindingId: z.string(), phase: z.enum(["fast", "deep"]),
+      task: z.enum(["conversation", "coding", "summarization", "extraction", "reasoning"]), size: z.string(),
+      attemptId: z.string(), result: z.string(), elapsedMs: z.number().finite().nonnegative() })),
+    reservations: z.array(z.object({ id: z.string(), status: z.enum(["reserved", "unsettled", "released", "reported"]),
+      reservedUsd: z.number().finite().nonnegative().nullable(), reportedUsd: z.number().finite().nonnegative().nullable(),
+      quotaUnits: z.number().finite().nonnegative().nullable(), started: z.boolean() }))
+  }).optional(),
   estimator: LatencyEstimatorSnapshotSchema,
   policy: z.object({
     maxFastP95Ms: z.number().finite().positive()

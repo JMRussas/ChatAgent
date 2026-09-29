@@ -21,6 +21,7 @@ export class GenerationAttempt {
   private writeError?: unknown;
   private completion?: Promise<void>;
   model?: GenerationMetadata;
+  dispatchId?: string;
   constructor(readonly conversationId: string, readonly messageId: string, readonly phase: Phase,
     private timeline: ConversationTimelineStore, readonly taskId?: string) {}
   get active() { return this.status === "queued" || this.status === "running"; }

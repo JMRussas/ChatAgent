@@ -29,6 +29,16 @@ No sibling repository or private project is required to run it.
 - **Evidence-based decisions:** controlled prompt experiments, lifecycle fault
   injection and real local-model contention measurements inform the design.
 
+## Task-based model dispatch
+
+`MODEL_ROUTING_MODE=fixed` preserves the configured fast/deep pair. Opt into
+`catalog` with curated limits, fresh discovery and a local resource policy to select
+bindings by task, retained context, matching evaluations and configured priority.
+Selections and fallback reasons appear on each turn; `/telemetry/dispatch` separates
+fast/deep attempt records and reservation states. See
+[configuration and limits](docs/implementation/04-dispatch.md#configuration) and
+[offline acceptance evidence](docs/implementation/04-evidence.md).
+
 ## Selected results
 
 Measurements are dated **September 2026**. Each link includes methods and limits.

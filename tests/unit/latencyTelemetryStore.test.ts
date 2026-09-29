@@ -119,3 +119,14 @@ describe("latency telemetry store", () => {
     ).toThrow();
   });
 });
+
+it("persists separate fast/deep dispatch attempts and unknown reservation usage", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "dispatch-telemetry-")); dirs.push(dir);
+  const store = new FileLatencyTelemetryStore(join(dir, "snapshot.json"));
+  const snapshot = validateRoutingTelemetrySnapshot({ estimator: { priors: [], samples: [] }, policy: { maxFastP95Ms: 1000 },
+    dispatch: { attempts: ["fast", "deep"].map((phase, index) => ({ bindingId: "same-binding", phase, task: "coding", size: "small",
+      attemptId: `attempt-${index}`, result: "stop", elapsedMs: 10 })),
+      reservations: [{ id: "r", status: "unsettled", reservedUsd: 1, reportedUsd: null, quotaUnits: null, started: true }] } });
+  await store.save(snapshot);
+  expect(await store.load()).toEqual(snapshot);
+});

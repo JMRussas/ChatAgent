@@ -3,7 +3,7 @@ import type { ChatTimelineEvent } from "../domain/types";
 /** Pure snapshot projection, also embedded in the browser. No external runtime dependencies. */
 export function deriveTurns(events: ChatTimelineEvent[]) {
   type Attempt = { id: string; phase: "fast" | "deep"; text: string; answerKind: string; state: string;
-    queuedAt?: string; startedAt?: string; endedAt?: string; model?: string; reasoningEnabled: boolean; terminal: boolean; steps: string[] };
+    queuedAt?: string; startedAt?: string; endedAt?: string; model?: string; provider?: string; bindingId?: string; selectionReasons?: string[]; reasoningEnabled: boolean; terminal: boolean; steps: string[] };
   type Turn = { messageId: string; userText: string; attempts: Attempt[]; routeDecision?: string };
   const turns: Turn[] = [];
   const seen = new Set<string | number>();
@@ -31,6 +31,9 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
       && attempt.state === "Failed" && !attempt.text && event.answerKind === "acknowledgment")) continue;
     if (event.model) {
       attempt.model = event.model.model;
+      attempt.provider = event.model.provider;
+      attempt.bindingId = event.model.bindingId;
+      attempt.selectionReasons = event.model.selection?.reasons;
       attempt.reasoningEnabled = event.model.reasoningEnabled === true;
     }
     if (event.type === "activity" && !attempt.terminal) {
@@ -74,7 +77,7 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
     const answers = turn.attempts.filter(a => a.text && !(a.answerKind === "acknowledgment" && hasDeepText))
       .sort((a, b) => (a.phase === "fast" ? 0 : 1) - (b.phase === "fast" ? 0 : 1)).map(a => ({
       id: a.id, text: a.text, label: a.phase === "deep" && turn.attempts.some(f => f.phase === "fast" && f.text && f.answerKind !== "acknowledgment") ? "Update" : "Answer",
-      state: a.state
+      state: a.state, model: a.model, provider: a.provider, bindingId: a.bindingId, selectionReasons: a.selectionReasons
     }));
     const phaseOutcomes = [fast, deep].filter(a => a?.terminal && a.state !== "Complete" && a.state !== "Retrying")
       .map(a => ({ phase: a!.phase, state: a!.state }));

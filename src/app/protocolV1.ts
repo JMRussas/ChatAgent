@@ -1,3 +1,4 @@
+import { rejectUnsupportedInputs } from "../providers/interfaces";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod";
@@ -23,7 +24,7 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
     answerRevision: event.type === "provisional" || event.type === "refined" ? event.sequence : undefined,
     text: event.text, finishReason: event.finishReason, retrying: event.retrying,
     answerKind: event.answerKind, processingStatus: event.processingStatus,
-    model: event.model ? { ...event.model, bindingId: event.phase } : undefined,
+    model: event.model ? { ...event.model, bindingId: event.model.bindingId ?? event.phase } : undefined,
     usage: null, createdAtIso: event.createdAtIso
   };
 }
@@ -43,7 +44,9 @@ export function createProtocolV1Handler(service: ChatService) {
     const stream = req.method === "GET" && match[2] === "events/stream";
     const cancel = req.method === "POST" && !!match[3];
     if (!submit && !stream && !cancel) return false;
-    const body = submit ? submitSchema.parse(await parseBody()) : undefined;
+    const raw = submit ? await parseBody() : undefined;
+    if (submit) rejectUnsupportedInputs(raw);
+    const body = submit ? submitSchema.parse(raw) : undefined;
     const scope = scopeSchema.parse(body ?? Object.fromEntries(url.searchParams));
     const key = JSON.stringify([scope.accountId, scope.projectId, conversationId]);
     let internalId = conversations.get(key);

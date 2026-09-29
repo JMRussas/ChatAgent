@@ -86,9 +86,9 @@ function parseResourceFactsFromEnv(env: NodeJS.ProcessEnv, prefix: string): Reso
  * new `<PROVIDER>_EXECUTION_SCOPE` / `<PROVIDER>_BILLING_COMPONENTS` env vars --
  * a base URL of "localhost" or a provider name is never treated as evidence.
  */
-export function defaultConnectionsFromEnv(config: RuntimeProviderConfig, env: NodeJS.ProcessEnv = process.env): Connection[] {
+export function defaultConnectionsFromEnv(config: RuntimeProviderConfig, env: NodeJS.ProcessEnv = process.env, additionalProviders: RuntimeProviderConfig["fast"]["provider"][] = []): Connection[] {
   const connections: Connection[] = [];
-  const providers = new Set([config.fast.provider, config.deep.provider]);
+  const providers = new Set([config.fast.provider, config.deep.provider, ...additionalProviders]);
 
   if (providers.has("mock")) {
     connections.push({

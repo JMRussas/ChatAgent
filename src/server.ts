@@ -1,3 +1,8 @@
+import { loadDispatchConfig } from "./config/dispatchConfig";
+import { CatalogDispatch } from "./routing/catalogDispatch";
+import { ModelSelectionError } from "./routing/modelSelector";
+import { buildProviderRegistry, entryBindingId } from "./providers/providerRegistry";
+import { rejectUnsupportedInputs } from "./providers/interfaces";
 import { resolve } from "node:path";
 import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./app/documentTasks";
 import { createProtocolV1Handler } from "./app/protocolV1";
@@ -107,9 +112,10 @@ interface ServerOptions {
   documentTasks?: DocumentTasks;
   // A function, not a static value: discovery observations change over the
   // process lifetime, so each request must recompute readiness from current data.
-  modelCatalog?: () => ReturnType<typeof describeModelCatalog>;
+  modelCatalog?: () => Omit<ReturnType<typeof describeModelCatalog>, "routingMode"> & { routingMode: "catalog" | "fixed-fast-deep" };
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
+  dispatchTelemetry?: () => ReturnType<CatalogDispatch["telemetry"]>;
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
 }
 
@@ -220,7 +226,9 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
 
       if (method === "POST" && url.pathname === "/messages") {
-        const body = MessageBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
+        const raw = requireObjectBody(await parseJsonBody(req));
+        rejectUnsupportedInputs(raw);
+        const body = MessageBodySchema.parse(raw);
 
         const response = await service.submitMessage({
           messageId: body.messageId,
@@ -265,6 +273,9 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, 200, { replayed: true, taskId });
       }
 
+      if (method === "GET" && url.pathname === "/telemetry/dispatch") {
+        return json(res, 200, options.dispatchTelemetry?.() ?? { attempts: [], reservations: [] });
+      }
       if (method === "GET" && url.pathname === "/telemetry/context") {
         return json(res, 200, options.contextTelemetry?.() ?? {});
       }
@@ -363,8 +374,9 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const status = error.code === "CAPACITY_FULL" ? 429 : error.code === "OWNER_MISMATCH" || error.code === "REQUEST_CONFLICT" || error.code === "NOT_RESUMABLE" ? 409 : error.code === "TASK_NOT_FOUND" ? 404 : error.code.startsWith("INVALID_") ? 400 : 503;
         return json(res, status, { error: "Documentation task request failed", code: error.code });
       }
+      if (error instanceof ModelSelectionError) return json(res, 503, { error: error.message, code: error.code, exclusions: error.exclusions });
       if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
-      if (error instanceof GenerationError) return json(res, error.code === "CONTEXT_TOO_LARGE" ? 413 : 502, { error: "Generation failed", code: error.code });
+      if (error instanceof GenerationError) return json(res, error.code === "CONTEXT_TOO_LARGE" ? 413 : error.code === "CAPABILITY_UNSUPPORTED" ? 400 : 502, { error: "Generation failed", code: error.code });
       if (error instanceof HttpRequestError) {
         return json(res, error.statusCode, { error: error.message });
       }
@@ -402,8 +414,8 @@ export async function startServer(port: number): Promise<void> {
   if (summaryConfig.mode === "model" && process.env.CONTEXT_SUMMARY_MODEL_BINDING !== "fast")
     throw new Error("CONTEXT_SUMMARY_MODE=model requires CONTEXT_SUMMARY_MODEL_BINDING=fast (explicit extra model calls)");
   const catalog = await loadModelCatalog(process.env.MODEL_CATALOG_PATH);
-  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(process.env, { config, catalog });
-  const modelCatalog = describeModelCatalog(catalog, config);
+  const dispatchConfig = await loadDispatchConfig();
+  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(process.env, dispatchConfig.mode === "fixed" ? { config, catalog } : undefined);
   const thinking = await verifyThinkingConfig(config);
   const providers = buildProviderPair(config, contextBudget, thinking);
   const estimator = new InMemoryLatencyEstimator();
@@ -436,12 +448,42 @@ export async function startServer(port: number): Promise<void> {
     adaptiveRouting.setMaxFastP95Ms(parseBoundedNumberEnv(process.env.ROUTING_MAX_FAST_P95_MS, 1000, 400, 5000));
   }
 
+  const discoveryConfig = loadDiscoveryConfigFromEnv();
+  const connections: Connection[] = defaultConnectionsFromEnv(config, process.env, dispatchConfig.mode === "catalog" ? catalog.models.flatMap(e => e.provider === "cli" ? [] : [e.provider]) : []);
+  const discoveryAdapters: Partial<Record<Connection["apiKind"], DiscoveryAdapter>> = {
+    "mock": { discover: async connection => catalog.models.filter(e => e.provider === "mock").map(entry => ({
+      bindingId: entryBindingId(entry), connectionId: connection.connectionId, model: entry.model,
+      observedAtIso: new Date().toISOString(), expiresAtIso: new Date().toISOString(), source: "synthetic-mock-adapter",
+      installed: "yes" as const, access: "allowed" as const, health: "reachable" as const, apiCompatibility: ["mock"]
+    })) },
+    "ollama-chat": new OllamaDiscoveryAdapter(),
+    "azure-openai-chat": new AzureDiscoveryAdapter(),
+    "bedrock-converse": new BedrockDiscoveryAdapter()
+  };
+  const inventoryStore = new InventoryStore(discoveryAdapters, discoveryConfig);
+  const registry = dispatchConfig.mode === "catalog" ? await buildProviderRegistry(catalog, connections, config, contextBudget) : undefined;
+  const dispatch = registry ? new CatalogDispatch(catalog, registry, dispatchConfig.policy, contextBudget, () => inventoryStore.listObservations()) : undefined;
+  const buildCatalogResponse = () => {
+    const view = describeModelCatalog(catalog, config, { connections, observations: inventoryStore.listObservations() });
+    return { ...view, routingMode: dispatch ? "catalog" as const : "fixed-fast-deep" as const,
+      models: dispatch ? view.models.map(model => ({ ...model, selectedRoles: [],
+        resourceFacts: dispatch.policy.bindings[model.id]?.facts ?? model.resourceFacts,
+        resourceEvidenceKind: dispatch.policy.bindings[model.id]?.evidence.kind ?? "unknown"
+      })) : view.models };
+  };
+
   const queue = new InMemoryTaskQueue();
   const timeline = new InMemoryConversationTimelineStore();
   const deadLetters = new InMemoryDeadLetterStore();
-  const summaryProvider = summaryConfig.mode === "model"
-    ? new ModelContextSummarizer(buildFastProvider(config, { ...contextBudget, fastOutputTokens: summaryConfig.maxTokens }, thinking),
-      contextBudget.windowTokens, summaryConfig.maxTokens, contextBudget.safetyTokens) : undefined;
+  let summaryModel = summaryConfig.mode === "model"
+    ? buildFastProvider(config, { ...contextBudget, fastOutputTokens: summaryConfig.maxTokens }, thinking) : undefined;
+  if (summaryModel && dispatch) {
+    const entry = catalog.models.find(e => e.provider === config.fast.provider && e.model === config.fast.model);
+    if (!entry) throw new Error("Catalog summary binding must be curated");
+    summaryModel = dispatch.wrapSummary(summaryModel, entryBindingId(entry), summaryConfig.maxTokens);
+  }
+  const summaryProvider = summaryModel ? new ModelContextSummarizer(summaryModel,
+    contextBudget.windowTokens, summaryConfig.maxTokens, contextBudget.safetyTokens) : undefined;
   const contextManager = new ContextManager(timeline, contextBudget, { config: summaryConfig, summarizer: summaryProvider });
   const trustedFactsProvider = () => ({
     fastProvider: config.fast.provider,
@@ -450,13 +492,13 @@ export async function startServer(port: number): Promise<void> {
     deepModel: config.deep.model,
     generatedAtIso: new Date().toISOString()
   });
-  const orchestrator = new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider);
-  const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting);
+  const orchestrator = new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider, dispatch);
+  const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting, dispatch);
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 
   const saveTelemetry = async () => {
     try {
-      await telemetryStore.save(adaptiveRouting.snapshotState());
+      await telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
     } catch (error) {
       console.warn(`Telemetry save failed: ${(error as Error).message}`);
     }
@@ -478,18 +520,10 @@ export async function startServer(port: number): Promise<void> {
     resolve(process.env.DOC_TASK_ROOT ?? "data/document-tasks"), process.env.DOC_TASK_MODEL ?? "gemma4:26b"
   ) : undefined;
 
-  const discoveryConfig = loadDiscoveryConfigFromEnv();
-  const connections: Connection[] = defaultConnectionsFromEnv(config);
-  const discoveryAdapters: Partial<Record<Connection["apiKind"], DiscoveryAdapter>> = {
-    "ollama-chat": new OllamaDiscoveryAdapter(),
-    "azure-openai-chat": new AzureDiscoveryAdapter(),
-    "bedrock-converse": new BedrockDiscoveryAdapter()
-  };
-  const inventoryStore = new InventoryStore(discoveryAdapters, discoveryConfig);
-  const buildCatalogResponse = () => describeModelCatalog(catalog, config, { connections, observations: inventoryStore.listObservations() });
 
   const server = createChatServer(service, {
-    documentTasks, runtimeMode, modelCatalog: buildCatalogResponse,
+    documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
+    dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
     shutdown: async () => { inventoryStore.shutdown(); await contextManager.shutdown(); },
     contextTelemetry: () => contextManager.getSummaryTelemetry()
   });
