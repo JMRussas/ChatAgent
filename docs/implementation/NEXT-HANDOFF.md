@@ -1,5 +1,18 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: evaluation mode added to the plan
+
+[Evaluation mode and orchestration comparisons](../04-evaluation-plan.md#evaluation-mode-planned-2026-09-29)
+now cover passive metadata, correlated traces, quality/cost/latency evidence,
+structured decision checkpoints, redaction/retention and recorder overhead.
+[Spec 06](06-verification.md#evaluation-mode) owns implementation and EVAL-01–06
+acceptance. Recording and orchestration are independent settings; private reasoning
+is excluded. Compare sequential, batched and delegated execution when supported,
+without reactivating the parked experimental track. This is planning only.
+**Spec 04 dispatch remains the next bounded task.** After the runtime sequence
+through spec 06 is verified, the [sports-agent demonstration](../12-development-roadmap.md#next-domain-project-temporally-grounded-sports-agent)
+is the next domain project, starting with one league and timestamped evidence.
+
 ## 2026-09-29: spec 03 (inventory) implemented
 
 [03 evidence](03-evidence.md) records the full acceptance mapping. Real discovery

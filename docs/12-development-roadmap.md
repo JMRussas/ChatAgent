@@ -1,5 +1,26 @@
 # Development roadmap
 
+## Next domain project: temporally grounded sports agent
+
+After completing and verifying the active runtime sequence through spec 06, build
+a sports demonstration in ChatAgent. Start with one league and latest/next games,
+scores and standings, including conversational follow-ups. Choose the league and
+verify provider coverage, freshness, access terms and cost before implementation.
+
+Expose focused team-resolution, schedule, game and standings tools. Return stable
+game/team IDs, game status, scheduled start, source update time when available,
+retrieval time and provenance. Interpret relative dates using explicit timezone
+context; an unknown update time remains unknown. GraphQL is optional, not required.
+
+Use timestamped recorded fixtures to test pregame/live/final transitions, postponed
+games, stale or unavailable feeds, timezone boundaries and repeated matchups. Score
+game selection, factual support, freshness disclosure and appropriate uncertainty.
+Keep the sourced live demonstration separate from repeatable fixture results, using
+the planned evaluation recorder. First milestone: grounded latest/next-game answers
+for one team with natural follow-ups and visible dated evidence.
+
+This is queued domain work; spec 04 dispatch remains the next runtime task.
+
 ## 2026-09-29: spec 03 (inventory) implemented
 
 Real discovery adapters (Ollama `/api/tags`+`/api/show`, Azure ARM management

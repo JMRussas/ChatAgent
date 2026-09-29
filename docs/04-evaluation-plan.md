@@ -42,3 +42,75 @@ Produce `reports/prototype-eval.md` with:
 1. Metric table
 2. Strengths and failure modes
 3. Recommendation for default provider profile
+
+## Evaluation mode (planned, 2026-09-29)
+
+Implement an opt-in passive recorder in [spec 06](implementation/06-verification.md#evaluation-mode).
+Recording and orchestration strategy are separate settings. Enabling recording must
+preserve prompts, model selection, tool permissions, budgets, retry policy and
+scheduling policy. Recording can affect elapsed time and deadline outcomes; measure
+that overhead rather than promising identical live timing. This is planned work,
+not an existing capability.
+
+Persist a versioned manifest, correlated event trace, scored results and summary in
+`reports/evaluations/<run-id>/`. Capture:
+
+- Configuration: run ID, dataset/version and fixture digest, repetition, code revision
+  and dirty state (plus a digest of evaluated source when dirty), prompt/configuration
+  digests, actual model bindings/revisions,
+  generation settings, tools, orchestration strategy, resource budgets, hardware,
+  concurrency and warm/cold conditions.
+- Execution: turn/task/attempt and parent-child call IDs, model/tool/sub-agent
+  start/end events where supported, result references, errors, retries,
+  cancellations and terminal outcomes. Correlate using IDs rather than text.
+- Performance: wall time, queue/admission wait, model/tool durations, first answer
+  and annotated first useful answer, per-attempt and aggregate token usage, and
+  measured/estimated/unknown costs. Parallel durations are not elapsed wall time;
+  include child usage without double counting. Unavailable values remain null.
+- Outcomes: answer artifacts/hashes, task/test results, versioned rubric,
+  evaluator identity/configuration, human annotations and missing observations.
+  Keep synthetic and live evidence explicitly separate.
+- Decision checkpoints: existing structured action/reason codes and evidence IDs,
+  such as a failed test leading to parser inspection. Do not store private internal
+  reasoning or add model calls to explain decisions. Additional model-generated
+  explanations, if studied, constitute a separate experimental intervention.
+
+Redact credentials and sensitive payload fields before persistence. Default to
+allowlisted metadata and hashes/references; full prompt/tool payload capture requires
+explicit configuration for an appropriate dataset. Record capture/redaction policy,
+retention duration, size limits, dropped events and recorder failures. Keep private
+payloads out of committed reports. Flush on completion/cancellation and identify
+incomplete traces explicitly.
+
+For quality scoring, reference retained, access-controlled answer artifacts from the
+runner, or explicitly enable answer capture for the evaluation dataset. A hash alone
+cannot support review. Key annotations to the exact scored answer hash; if redaction
+changes a saved answer, record its separate artifact hash and transformation status.
+If the scored answer is unavailable or redaction prevents assessment, mark the
+required rating unavailable rather than inferring a pass. Retention applies to these
+referenced artifacts as well as traces; record expiry so it is clear when a run can
+no longer be independently reviewed.
+
+## Orchestration comparison
+
+When the execution capabilities exist, compare:
+
+1. One agent making sequential calls with reassessment between results.
+2. One agent batching independent calls and reassessing at dependency boundaries.
+3. A main agent delegating bounded independent work and assessing child results.
+
+Use identical held-out tasks, initial context, tools, model configuration, rubric
+and aggregate token/time budgets, counting all child work. Record strategy-specific
+instructions separately and vary only the intended strategy. Before execution,
+declare the allowed comparison dimensions in a versioned experiment manifest;
+validate that every other configuration field matches. Preserve each run's full
+configuration digest rather than pretending the configurations are identical. Include dependent tasks
+and tasks with independent branches. Run at least three repetitions, counterbalance
+run order, and record seeds where supported and shared-resource load.
+
+Compare paired task success, quality, latency distributions, total usage/cost,
+retries, redundant calls and coordination overhead. Retain failed, timed-out and
+cancelled runs in the denominator. Measure recorder overhead with matched on/off
+controls. Select based on quality/cost/latency tradeoffs without assuming a winning
+strategy. Unsupported conditions are not run; this experiment does not reactivate
+the parked doc-agent track or require sub-agent implementation in spec 06.

@@ -50,9 +50,52 @@ Live runner reads actual selection/runtime metadata; do not loop through hypothe
 profile names against an unchanged server. One run represents one actual configuration.
 Simulation stays available with explicit synthetic labels and separate schema/version.
 Update compareCore so modes, dataset versions, config identity and quality methods
-must match; missing/incompatible quality evidence fails quality comparison clearly.
+must match by default. Controlled comparisons use a versioned experiment manifest
+that declares allowed configuration differences before execution (for example,
+single/dual path or orchestration strategy). Validate all remaining fields and
+retain each configuration's distinct digest; do not bypass compatibility checks.
+Missing/incompatible quality evidence fails quality comparison clearly.
 Preserve existing baseline artifacts as historical rather than silently regenerating
 them to suit new metrics. Add a new versioned baseline after explaining methodology.
+
+## Evaluation mode
+
+Implement the passive recorder and artifact contract in the
+[evaluation plan](../04-evaluation-plan.md#evaluation-mode-planned-2026-09-29).
+Reuse existing turn/task/attempt correlation and serialized telemetry persistence;
+add run and parent-child call identities where needed. Recording is independent of
+orchestration selection. Record supported paths; sub-agent execution is not a
+prerequisite. The strategy comparison follows when its conditions are available.
+
+Named acceptance cases:
+
+- **EVAL-01 — Passive recording:** a deterministic deferred-provider scenario with
+  recording on/off produces identical provider requests, tool actions, selection,
+  retry decisions and terminal answers, excluding recorder metadata/timestamps.
+  Use controlled time for this invariant; assess real timing/deadline effects in
+  EVAL-06 rather than requiring identical live timing.
+- **EVAL-02 — Trace integrity:** overlapping turns, retries and cancellation preserve
+  run/turn/task/attempt and parent-child identities. Distinguish parallel durations
+  from elapsed time; unavailable usage and cost remain null.
+- **EVAL-03 — Reproducibility and scoring:** retain actual configuration, dataset,
+  prompt/code identity, response hashes and versioned annotations. Reject incompatible
+  comparisons except differences declared in the experiment manifest before execution.
+  Verify access to the exact scored answer or mark its review evidence unavailable;
+  distinguish redacted artifact hashes from scored answer hashes. Missing required
+  ratings cannot pass quality gates.
+- **EVAL-04 — Capture boundaries:** redact secret-bearing fixtures before persistence,
+  default to metadata-only capture and exclude private reasoning. Verify configured
+  retention/size limits and explicit dropped-event counts.
+- **EVAL-05 — Recorder lifecycle:** completion, cancellation, shutdown and write
+  failure yield flushed artifacts or explicit incomplete/failed recording status.
+  Recorder failure does not change answers or trigger inference retries; the
+  evaluation command reports invalid evidence with a nonzero exit status.
+- **EVAL-06 — Measurement validity:** reports separate live/synthetic evidence,
+  failures and unrun conditions, aggregate executed child usage without double
+  counting, and include measured recorder overhead from matched on/off runs.
+
+Map these cases to named tests/evidence at implementation. Recorder fixture tests
+cannot establish live orchestration quality or performance improvements.
 
 ## Browser and HTTP acceptance
 
