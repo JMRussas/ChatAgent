@@ -1,13 +1,18 @@
 # Implementation handoff
 
+## 2026-09-29: spec 03 (inventory) implemented
+
+Real discovery for Ollama/Azure/Bedrock, catalog v1->v2 migration, and the
+RES-01/03/04/08 resource-policy metadata fixtures are done. See
+[03 evidence](03-evidence.md) for the acceptance mapping and
+[NEXT-HANDOFF](NEXT-HANDOFF.md) for the matching entry and next task (spec 04).
+
 ## 2026-09-29: canonical direction confirmed — resume the numbered runtime spec
 
 The numbered spec sequence below (01–06) is the confirmed active plan; the
 experimental doc-agent/learning track referenced further down is parked, not
-the active priority. **Current task: [spec 03 — inventory](03-inventory.md).**
-See [NEXT-HANDOFF](NEXT-HANDOFF.md)'s matching 2026-09-29 entry for the full
-reasoning. Entries below this one predate that decision and are preserved as
-history, not current sequencing.
+the active priority. Entries below this one predate that decision and are
+preserved as history, not current sequencing.
 
 ## 2026-09-28: shared inference decision
 

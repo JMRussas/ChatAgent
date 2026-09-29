@@ -1,7 +1,9 @@
 # 03 — Discovery, connections and account inventory
 
-Status: planned. Builds on current model catalog; integrate after 02. No deployment,
-subscription activation, billed health probe, or local model download in this task.
+Status: implemented 2026-09-29. See [03 evidence](03-evidence.md) for the
+acceptance-case-to-test mapping and validation results. Builds on current
+model catalog; integrated after 02. No deployment, subscription activation,
+billed health probe, or local model download was added by this task.
 
 ## Data model
 

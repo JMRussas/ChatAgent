@@ -12,7 +12,9 @@ import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProv
 import { AdaptiveRoutingCoordinator } from "../../src/routing/adaptiveRouting";
 import { createChatServer } from "../../src/server";
 import { InMemoryLatencyEstimator } from "../../src/telemetry/latencyEstimator";
-import { describeModelCatalog, loadModelCatalog } from "../../src/config/modelCatalog";
+import { describeModelCatalog, loadModelCatalog, modelCatalogSchema } from "../../src/config/modelCatalog";
+import { bindingKey } from "../../src/models/connections";
+import type { ModelObservation } from "../../src/models/inventory";
 
 const servers: Array<{ close: () => void }> = [];
 
@@ -33,12 +35,59 @@ describe("chat server", () => {
       fast: { provider: "mock", model: "mock-v1", temperature: 0.2 },
       deep: { provider: "mock", model: "mock-v1", temperature: 0.2 }
     });
-    const server = createChatServer(service, { modelCatalog });
+    const server = createChatServer(service, { modelCatalog: () => modelCatalog });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
     const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/models`);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(modelCatalog);
+  });
+  it("serves fresh-ready local and stale cloud fixtures with distinct availability over GET /models (spec 03)", async () => {
+    const queue = new InMemoryTaskQueue();
+    const timeline = new InMemoryConversationTimelineStore();
+    const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
+      new DeepWorker(queue, new MockDeepProvider(), timeline), timeline);
+
+    const baseEntry = (await loadModelCatalog()).models[0];
+    const catalog = modelCatalogSchema.parse({
+      version: 1,
+      models: [
+        { ...baseEntry, id: "local-fixture", provider: "ollama", model: "qwen3:8b" },
+        { ...baseEntry, id: "cloud-fixture", provider: "bedrock", model: "anthropic.model-deep" }
+      ]
+    });
+    const config = {
+      fast: { provider: "ollama" as const, model: "qwen3:8b", temperature: 0.2 },
+      deep: { provider: "azure" as const, model: "custom-deployment", temperature: 0.2 },
+      azure: { endpoint: "https://example.test", apiKey: "test-secret", apiVersion: "test" }
+    };
+
+    const freshLocal: ModelObservation = {
+      bindingId: bindingKey("default-ollama", "ollama-chat", "qwen3:8b"),
+      connectionId: "default-ollama", model: "qwen3:8b",
+      observedAtIso: "2026-09-29T00:00:00.000Z", expiresAtIso: "2099-01-01T00:00:00.000Z",
+      source: "ollama-api-tags", installed: "yes", access: "allowed", health: "reachable", apiCompatibility: ["ollama-chat"]
+    };
+    const staleCloud: ModelObservation = {
+      bindingId: bindingKey("default-bedrock", "bedrock-converse", "anthropic.model-deep"),
+      connectionId: "default-bedrock", model: "anthropic.model-deep",
+      observedAtIso: "2000-01-01T00:00:00.000Z", expiresAtIso: "2000-01-01T00:10:00.000Z",
+      source: "bedrock-list-foundation-models", installed: "yes", access: "unknown", health: "reachable", apiCompatibility: ["bedrock-converse"]
+    };
+
+    const modelCatalog = () => describeModelCatalog(catalog, config, { observations: [freshLocal, staleCloud] });
+    const server = createChatServer(service, { modelCatalog });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    servers.push(server);
+
+    const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/models`);
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { models: Array<{ id: string; availability: string }>; discovered: unknown[] };
+
+    expect(payload.models.find((m) => m.id === "local-fixture")?.availability).toBe("ready");
+    expect(payload.models.find((m) => m.id === "cloud-fixture")?.availability).toBe("stale");
+    expect(payload.discovered).toEqual([]);
+    expect(JSON.stringify(payload)).not.toContain("test-secret");
   });
   it("streams conversation timeline over SSE", async () => {
     const queue = new InMemoryTaskQueue();

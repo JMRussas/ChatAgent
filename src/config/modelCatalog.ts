@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { providerKindSchema, type RuntimeProviderConfig } from "./providerConfig";
+import { bindingKey, type ApiKind, type Connection } from "../models/connections";
+import { computeReadiness, isChatAdapterImplemented, type ModelObservation, type Readiness } from "../models/inventory";
 
 const taskSchema = z.enum(["conversation", "coding", "reasoning", "summarization", "extraction"]);
 const supportSchema = z.enum(["supported", "unsupported", "unknown"]);
@@ -87,18 +89,80 @@ export async function loadModelCatalog(path = "data/model-catalog.json"): Promis
   return modelCatalogSchema.parse(JSON.parse(await readFile(path, "utf8")));
 }
 
-export function describeModelCatalog(catalog: ModelCatalog, config: RuntimeProviderConfig) {
+/**
+ * v1 -> v2 in-memory migration (spec 03): v1 catalog entries only name a
+ * `provider`, not a `connectionId`/`apiKind`. Derive both deterministically so
+ * every entry has a stable binding key, without ever rewriting the catalog file.
+ */
+export function apiKindForEntry(entry: Pick<ModelEntry, "provider">): ApiKind {
+  if (entry.provider === "mock") return "mock";
+  if (entry.provider === "ollama") return "ollama-chat";
+  if (entry.provider === "azure") return "azure-openai-chat";
+  if (entry.provider === "bedrock") return "bedrock-converse";
+  return "cli";
+}
+
+export function connectionIdForEntry(entry: Pick<ModelEntry, "provider" | "cli">): string {
+  if (entry.provider === "cli" && entry.cli) return `cli-${entry.cli.adapterId}-${entry.cli.accountProfile}`;
+  return `default-${entry.provider}`;
+}
+
+export interface CatalogInventoryView {
+  connections?: readonly Connection[];
+  observations?: readonly ModelObservation[];
+}
+
+export function describeModelCatalog(catalog: ModelCatalog, config: RuntimeProviderConfig, inventory: CatalogInventoryView = {}) {
+  const observationsByBindingId = new Map((inventory.observations ?? []).map((o) => [o.bindingId, o] as const));
+  const connectionsById = new Map((inventory.connections ?? []).map((c) => [c.connectionId, c] as const));
+  const nowIso = new Date().toISOString();
+  const curatedBindingIds = new Set<string>();
+
+  const models = catalog.models.map((entry) => {
+    const apiKind = apiKindForEntry(entry);
+    const connectionId = connectionIdForEntry(entry);
+    const bindingId = bindingKey(connectionId, apiKind, entry.model, entry.cli?.accountProfile);
+    curatedBindingIds.add(bindingId);
+    const observation = observationsByBindingId.get(bindingId);
+    const connection = connectionsById.get(connectionId);
+    const adapterImplemented = isChatAdapterImplemented(apiKind);
+
+    const availability: Readiness = computeReadiness({ enabled: entry.enabled, adapterImplemented, observation, nowIso });
+
+    return {
+      ...entry,
+      connectionId,
+      apiKind,
+      selectedRoles: (["fast", "deep"] as const).filter((role) =>
+        config[role].provider === entry.provider && config[role].model === entry.model),
+      availability,
+      adapterStatus: adapterImplemented ? "implemented" as const : "not-implemented" as const,
+      // Declared, not observed (RES-01/03/04) -- resourceFacts/quota/compute come
+      // only from connection configuration, never inferred from provider/model names.
+      ...(connection ? { resourceFacts: connection.resourceFacts, quota: connection.quota, compute: connection.compute } : {}),
+      ...(observation ? {
+        observation: {
+          installed: observation.installed, access: observation.access, health: observation.health,
+          observedAtIso: observation.observedAtIso,
+          ...(observation.effectiveContextTokens !== undefined ? { effectiveContextTokens: observation.effectiveContextTokens } : {}),
+          ...(observation.effectiveOutputTokens !== undefined ? { effectiveOutputTokens: observation.effectiveOutputTokens } : {}),
+          ...(observation.lastErrorCode !== undefined ? { lastErrorCode: observation.lastErrorCode } : {})
+        }
+      } : {})
+    };
+  });
+
+  // Discovered-but-uncurated: real observations with no matching catalog entry.
+  // Listed separately and never enabled -- discovery never curates automatically.
+  const discovered = (inventory.observations ?? [])
+    .filter((o) => !curatedBindingIds.has(o.bindingId))
+    .map((o) => ({ connectionId: o.connectionId, model: o.model, revision: o.revision, enabled: false as const }));
+
   return {
     version: catalog.version,
     routingMode: "fixed-fast-deep" as const,
-    models: catalog.models.map((entry) => ({
-      ...entry,
-      selectedRoles: (["fast", "deep"] as const).filter((role) =>
-        config[role].provider === entry.provider && config[role].model === entry.model),
-      // Configuration is not evidence that a model is installed, healthy, or accessible.
-      availability: "unchecked" as const,
-      adapterStatus: entry.provider === "cli" ? "not-implemented" as const : "implemented" as const
-    })),
+    models,
+    discovered,
     unlistedSelections: (["fast", "deep"] as const).filter((role) => !catalog.models.some((entry) =>
       entry.provider === config[role].provider && entry.model === config[role].model))
       .map((role) => ({ role, provider: config[role].provider, model: config[role].model }))

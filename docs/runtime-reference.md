@@ -105,10 +105,17 @@ requires a separate authentication and operational-hardening design.
 ## Provider configuration
 
 The validated inventory lives in [data/model-catalog.json](../data/model-catalog.json).
-Inspect it and the active selections at `GET /models`. See [model catalog design](../docs/13-model-catalog.md)
-for metadata and the task-routing plan. Automatic selection is not enabled yet.
-The schema also accounts for CLI subscription access and shared quota pools;
-CLI execution adapters are not implemented yet.
+Inspect it and the active selections at `GET /models`, which now also reports
+each binding's real discovery-derived `availability` (`disabled`,
+`unsupported-adapter`, `unchecked`, `stale`, `denied`, `unavailable`, `ready`,
+in that precedence) instead of a hardcoded value, plus declared
+execution/billing/compute facts when a matching connection exists. Discovered
+models with no matching catalog entry appear separately under `discovered`,
+always disabled -- discovery never auto-curates. See
+[model catalog design](../docs/13-model-catalog.md) for metadata and the
+task-routing plan. Automatic selection is not enabled yet. The schema also
+accounts for CLI subscription access and shared quota pools; CLI execution
+adapters are not implemented yet.
 
 Fast and deep layers are independently configurable. This allows mix-and-match across Azure, Bedrock, and Ollama.
 
@@ -157,6 +164,54 @@ Ollama requests go to `/api/chat` (not `/api/generate`), sending role-based
 `system`/`user`/`assistant` messages so both fast and deep layers see the same
 shared conversation snapshot; Azure and Bedrock also switch to role-based
 messages (Bedrock's system instruction goes in its separate `system` field).
+
+### Model discovery and inventory (spec 03)
+
+On startup, and every `MODEL_DISCOVERY_INTERVAL_MS`, the server discovers what
+each configured connection actually offers: Ollama's installed models via
+`GET /api/tags` + `POST /api/show` (verified against the official docs), Azure
+deployments via the ARM management plane (the Azure OpenAI resource's own
+deployments-list endpoint was retired in 2024; this now requires a *separate*
+AAD app-registration credential, distinct from `AZURE_OPENAI_API_KEY`), and
+Bedrock foundation models via `@aws-sdk/client-bedrock`'s
+`ListFoundationModelsCommand` (the control-plane client, distinct from
+`@aws-sdk/client-bedrock-runtime` used for actual inference). Missing cloud
+credentials make that connection's discovery simply unavailable; they never
+block startup or affect other connections. An observation is fresh for
+`MODEL_DISCOVERY_TTL_MS`; a failed refresh retains the last-known observation
+without extending its expiry, so a binding correctly becomes `stale`.
+
+```bash
+MODEL_DISCOVERY_INTERVAL_MS=300000
+MODEL_DISCOVERY_TTL_MS=600000
+MODEL_DISCOVERY_TIMEOUT_MS=10000
+
+# Azure ARM (management-plane) credentials, separate from AZURE_OPENAI_API_KEY:
+AZURE_ARM_TENANT_ID=
+AZURE_ARM_CLIENT_ID=
+AZURE_ARM_CLIENT_SECRET=
+AZURE_ARM_SUBSCRIPTION_ID=
+AZURE_ARM_RESOURCE_GROUP=
+AZURE_ARM_ACCOUNT_NAME=
+```
+
+Execution location and billing are **declared policy facts, never inferred**
+from a base URL or provider name -- a `localhost` Ollama endpoint is not by
+itself evidence of `local-device` execution, since Ollama can also proxy its
+own hosted cloud models through a local instance. Set them explicitly per
+connection if you want them recorded:
+
+```bash
+# Scope: local-device | self-hosted-remote | managed-cloud | hybrid | unknown
+# Billing (comma-separated): metered-usage, subscription, provisioned-capacity, owned-compute, unknown
+OLLAMA_EXECUTION_SCOPE=local-device
+OLLAMA_BILLING_COMPONENTS=owned-compute
+```
+
+Legacy v1 catalog entries (naming only a `provider`) are migrated in memory to
+v2's `connectionId`/`apiKind` shape using a deterministic `default-<provider>`
+connection -- the catalog file itself is never rewritten. This is metadata
+only (spec 03); admission/selection logic that acts on it is spec 04.
 
 ### Streaming and cancellation
 

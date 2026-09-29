@@ -1,5 +1,15 @@
 # Development roadmap
 
+## 2026-09-29: spec 03 (inventory) implemented
+
+Real discovery adapters (Ollama `/api/tags`+`/api/show`, Azure ARM management
+plane, Bedrock `ListFoundationModelsCommand`), catalog v1->v2 migration, and
+the RES-01/03/04/08 resource-policy metadata fixtures are done. `GET /models`
+now computes real readiness (`disabled`/`unsupported-adapter`/`unchecked`/
+`stale`/`denied`/`unavailable`/`ready`) instead of a hardcoded value. 299 tests
+/ 51 files pass; see [03 evidence](implementation/03-evidence.md). Next:
+[spec 04 — dispatch](implementation/04-dispatch.md).
+
 ## 2026-09-29: canonical direction confirmed — resume the numbered runtime spec
 
 Explicit user decision: the numbered runtime spec (01–06,

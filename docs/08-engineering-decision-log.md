@@ -1277,3 +1277,77 @@ Validation evidence:
 - Acceptance traceability, documentation sources and verification results are in
   [02 evidence](implementation/02-evidence.md). 01B, durable storage, live-provider
   validation and spec 06 real-browser verification remain outstanding.
+
+## 2026-09-29 — Canonical direction confirmed, then spec 03 (inventory) implemented
+
+Issue:
+
+- Since the 2026-09-25 ADR 0001 checkpoint, effort diverged into an unplanned
+  experimental track (`experiments/doc-agent`, `experiments/prompt-contract`,
+  `experiments/prompt-encoding`, per ADR 0002) and a portfolio-presentation pass.
+  Spec 03 was named "next" on 2026-09-26 but never started; `NEXT-HANDOFF.md`
+  had no entry confirming whether it was still the plan or had been superseded.
+
+Decision:
+
+- Explicit user decision: the numbered runtime spec (01-06) is the canonical
+  plan going forward. The experimental track is parked (not abandoned; its
+  reports remain as historical record), and is not the default next step.
+- Implemented [spec 03](implementation/03-inventory.md): real discovery adapters
+  for Ollama (`GET /api/tags` + `POST /api/show`), Azure (ARM management plane
+  -- the direct Azure OpenAI deployments-list endpoint was retired in 2024, so
+  this required a new, separate AAD app-registration credential distinct from
+  `AZURE_OPENAI_API_KEY`), and Bedrock (`@aws-sdk/client-bedrock`'s
+  `ListFoundationModelsCommand`, verified against the installed package's own
+  type definitions -- the control-plane client, distinct from the
+  already-used `@aws-sdk/client-bedrock-runtime`).
+- `GET /models` now computes real per-binding readiness
+  (`disabled`/`unsupported-adapter`/`unchecked`/`stale`/`denied`/`unavailable`/
+  `ready`, in that precedence) from live discovery observations instead of a
+  hardcoded value, and surfaces declared execution/billing/compute facts
+  (RES-01/03/04/08) from connection configuration -- never inferred from a
+  base URL or provider name (a `localhost` Ollama endpoint is not evidence of
+  local execution, since Ollama can proxy its own hosted cloud models locally).
+  Discovered-but-uncurated models appear separately, always disabled.
+- V1 catalog entries migrate to v2's `connectionId`/`apiKind` shape in memory
+  via a deterministic `default-<provider>` connection; the catalog file itself
+  is never rewritten.
+
+Changes made:
+
+1. Added `src/models/connections.ts`, `src/models/inventory.ts`,
+   `src/models/discovery/{ollamaDiscovery,azureDiscovery,bedrockDiscovery,util}.ts`,
+   `src/config/discoveryConfig.ts`.
+2. Extended `src/config/modelCatalog.ts` (v1->v2 migration, real readiness,
+   `discovered` list) and `src/server.ts` (live `InventoryStore`, startup +
+   interval discovery refresh, shutdown wiring, `GET /models` as a per-request
+   computation instead of a startup-time snapshot).
+3. Added `@aws-sdk/client-bedrock` dependency (control-plane; distinct from
+   the existing `-runtime` package).
+4. Added `tests/unit/connections.test.ts`, `tests/unit/inventory.test.ts`,
+   `tests/unit/discovery/{ollamaDiscovery,azureDiscovery,bedrockDiscovery}.test.ts`;
+   extended `tests/unit/modelCatalog.test.ts` and `tests/integration/server.test.ts`.
+5. Updated `.env.example`, `docs/runtime-reference.md`,
+   `docs/implementation/{README,NEXT-HANDOFF,03-inventory}.md`, added
+   `docs/implementation/03-evidence.md`, and this roadmap.
+
+Files changed: see commit for the full list; summarized above by area.
+
+Validation evidence:
+
+1. **299 tests across 51 files passed** (up from 258/46), including 34 new
+   tests covering the full spec 03 acceptance list (see
+   [03 evidence](implementation/03-evidence.md) for the case-to-test mapping).
+2. Type checking (`npm run lint`) and `npm run build` passed.
+3. `npm run verify:release` passed with `BENCH_MODE=simulate`
+   `BENCH_SIM_SEED=default-v1`; the regenerated benchmark timestamp-only diff
+   was not retained.
+4. No live cloud discovery was run (no Azure ARM or AWS credentials configured
+   in this environment) -- recorded as not run, not simulated as passing.
+5. A real Vitest quirk was found and worked around during this work: resetting
+   a mock (`mockReset()`) that had a persistent `mockImplementation`/
+   `mockResolvedValue` confused Vitest's unhandled-rejection tracking for a
+   later rejecting mock in the same file, misattributing the failure to the
+   mock-setup line. Fixed by using one-shot `mockImplementationOnce`/
+   `mockResolvedValueOnce` and `mockClear()` (call-history only) instead of
+   `mockReset()` in `tests/unit/discovery/bedrockDiscovery.test.ts`.

@@ -1,5 +1,22 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: spec 03 (inventory) implemented
+
+[03 evidence](03-evidence.md) records the full acceptance mapping. Real discovery
+adapters for Ollama (`/api/tags` + `/api/show`), Azure (ARM management plane,
+separate credentials from `AZURE_OPENAI_API_KEY`), and Bedrock
+(`@aws-sdk/client-bedrock`'s `ListFoundationModelsCommand`) are implemented and
+wired into `GET /models`, which now computes real per-binding readiness instead
+of a hardcoded value. Catalog v1 -> v2 migration, connections, and the
+RES-01/03/04/08 resource-policy metadata fixtures named as spec 03's scope are
+done. 299 tests / 51 files pass; `verify:release` passes. Live cloud discovery
+was not run (no Azure ARM or AWS credentials configured here) -- recorded as
+not run, not simulated as passing.
+
+**Next bounded task: [spec 04 — dispatch](04-dispatch.md)**, which consumes this
+inventory (readiness, resourceFacts) for deterministic task-based model
+selection. Do not implement CLI execution (05) incidentally.
+
 ## 2026-09-29: canonical direction confirmed — resume the numbered runtime spec
 
 Explicit user decision: the numbered runtime spec (01–06, `docs/implementation/README.md`)

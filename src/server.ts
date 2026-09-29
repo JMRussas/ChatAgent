@@ -26,6 +26,12 @@ import { FileLatencyTelemetryStore } from "./telemetry/latencyTelemetryStore";
 import { renderHomePageHtml } from "./ui/homePage";
 import { z } from "zod";
 import { describeModelCatalog, loadModelCatalog } from "./config/modelCatalog";
+import { loadDiscoveryConfigFromEnv } from "./config/discoveryConfig";
+import { defaultConnectionsFromEnv, type Connection } from "./models/connections";
+import { InventoryStore, type DiscoveryAdapter } from "./models/inventory";
+import { OllamaDiscoveryAdapter } from "./models/discovery/ollamaDiscovery";
+import { AzureDiscoveryAdapter } from "./models/discovery/azureDiscovery";
+import { BedrockDiscoveryAdapter } from "./models/discovery/bedrockDiscovery";
 
 function seedPriorsForProfile(
   estimator: InMemoryLatencyEstimator,
@@ -99,7 +105,9 @@ interface RuntimeModeInfo {
 
 interface ServerOptions {
   documentTasks?: DocumentTasks;
-  modelCatalog?: ReturnType<typeof describeModelCatalog>;
+  // A function, not a static value: discovery observations change over the
+  // process lifetime, so each request must recompute readiness from current data.
+  modelCatalog?: () => ReturnType<typeof describeModelCatalog>;
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
@@ -270,7 +278,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
 
       if (method === "GET" && url.pathname === "/models") {
-        return json(res, 200, options.modelCatalog ?? { version: 1, routingMode: "fixed-fast-deep", models: [], unlistedSelections: [] });
+        return json(res, 200, options.modelCatalog?.() ?? { version: 1, routingMode: "fixed-fast-deep", models: [], discovered: [], unlistedSelections: [] });
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/tune") {
@@ -469,7 +477,22 @@ export async function startServer(port: number): Promise<void> {
     process.env.DOC_TASK_PYTHON, resolve("experiments/doc-agent/chat_bridge.py"),
     resolve(process.env.DOC_TASK_ROOT ?? "data/document-tasks"), process.env.DOC_TASK_MODEL ?? "gemma4:26b"
   ) : undefined;
-  const server = createChatServer(service, { documentTasks, runtimeMode, modelCatalog, shutdown: () => contextManager.shutdown(), contextTelemetry: () => contextManager.getSummaryTelemetry() });
+
+  const discoveryConfig = loadDiscoveryConfigFromEnv();
+  const connections: Connection[] = defaultConnectionsFromEnv(config);
+  const discoveryAdapters: Partial<Record<Connection["apiKind"], DiscoveryAdapter>> = {
+    "ollama-chat": new OllamaDiscoveryAdapter(),
+    "azure-openai-chat": new AzureDiscoveryAdapter(),
+    "bedrock-converse": new BedrockDiscoveryAdapter()
+  };
+  const inventoryStore = new InventoryStore(discoveryAdapters, discoveryConfig);
+  const buildCatalogResponse = () => describeModelCatalog(catalog, config, { connections, observations: inventoryStore.listObservations() });
+
+  const server = createChatServer(service, {
+    documentTasks, runtimeMode, modelCatalog: buildCatalogResponse,
+    shutdown: async () => { inventoryStore.shutdown(); await contextManager.shutdown(); },
+    contextTelemetry: () => contextManager.getSummaryTelemetry()
+  });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
@@ -496,17 +519,30 @@ export async function startServer(port: number): Promise<void> {
       }, autoRunConfig.intervalMs)
     : undefined;
 
+  // Refresh asynchronously so a slow/unreachable provider never delays startup
+  // reporting success; failures retain prior observations (see InventoryStore).
+  void inventoryStore.refreshAll(connections).catch((error) => {
+    console.warn(`Model discovery refresh failed: ${(error as Error).message}`);
+  });
+  const discoveryTimer = setInterval(() => {
+    void inventoryStore.refreshAll(connections).catch((error) => {
+      console.warn(`Model discovery refresh failed: ${(error as Error).message}`);
+    });
+  }, discoveryConfig.intervalMs);
+
   server.on("close", () => {
     clearInterval(timer);
     if (deepWorkerTimer) {
       clearInterval(deepWorkerTimer);
     }
+    clearInterval(discoveryTimer);
     void saveTelemetry();
   });
 
   const stop = () => {
     clearInterval(timer);
     if (deepWorkerTimer) clearInterval(deepWorkerTimer);
+    clearInterval(discoveryTimer);
     server.close(() => { server.closeAllConnections(); });
     server.closeAllConnections();
   };
