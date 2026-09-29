@@ -1,6 +1,7 @@
 # 04 — Task-based model selection and dispatch
 
-Status: planned. Depends on 01–03. Default remains fixed routing until explicitly
+Status: in progress. Classification and its corpus are implemented; dispatch is not
+yet wired. See [04A evidence](04a-evidence.md). Depends on 01–03. Default remains fixed routing until explicitly
 enabled with `MODEL_ROUTING_MODE=catalog` (enum fixed/catalog; default fixed).
 
 ## Outcome

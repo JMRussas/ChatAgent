@@ -1,5 +1,12 @@
 # Development roadmap
 
+## 2026-09-29: spec 04 started
+
+Task classification and its corpus are implemented, with 351 passing tests and
+passing type/build/seeded simulated release checks. See
+[04A evidence](implementation/04a-evidence.md). Selection, admission and dispatch
+integration remain open; runtime routing is unchanged. Continue spec 04 before 05.
+
 ## Next domain project: temporally grounded sports agent
 
 After completing and verifying the active runtime sequence through spec 06, build

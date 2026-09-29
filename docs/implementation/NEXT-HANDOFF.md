@@ -1,5 +1,19 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: spec 04 classification checkpoint
+
+The first step required before dispatch wiring is implemented: deterministic task
+classification and a 52-case test suite covering precedence, code/stack traces,
+whole-word matching, JSON output requirements and clarification. See
+[04A evidence](04a-evidence.md). All 351 tests / 52 files, type checking, build and
+the seeded simulated release gate passed. No live-provider checks ran.
+
+Spec 04 remains in progress: model selection, registry, shared-context previews,
+resource admission/reservations, fallback, and per-binding telemetry still need
+implementation and acceptance coverage. Existing runtime routing is unchanged.
+The next implementation step is catalog selection and resource admission, followed
+by orchestrator/worker integration. Do not mark spec 04 complete or start 05 yet.
+
 ## 2026-09-29: evaluation mode added to the plan
 
 [Evaluation mode and orchestration comparisons](../04-evaluation-plan.md#evaluation-mode-planned-2026-09-29)
