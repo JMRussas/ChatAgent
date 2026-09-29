@@ -1,5 +1,16 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: spec 05A offline milestone
+
+The offline CLI runner and provider registration contract are implemented and
+validated: **411 tests / 58 files**, type checking, build, simulated release gate.
+See [05 evidence](05-evidence.md) for acceptance mapping and platform limits.
+**Next: 05B**, pending the user's CLI product/profile selection; no real product
+was selected or invoked implicitly. Production CLI entries still report not
+implemented. Evaluation-mode grader design is updated in
+[the plan](../04-evaluation-plan.md#grader-design-planned), with a
+[learning guide](../15-evaluation-graders.md). Spec 06 and the sports demo follow.
+
 ## 2026-09-29: spec 04 dispatch implemented
 
 Catalog-mode selection, captured-context previews, provider registry, resource

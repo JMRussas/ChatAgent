@@ -167,7 +167,7 @@ export class ChatOrchestrator {
           await fastAttempt.finish("cancelled");
           result = { text: fastAttempt.text, finishReason: "cancelled" }; break;
         }
-        const fallback = failure.retryable && !fastAttempt.text && plan && this.dispatch!.fallback(plan.fast, failure.code);
+        const fallback = (failure.retryable || failure.code === "QUOTA_EXHAUSTED") && !fastAttempt.text && plan && this.dispatch!.fallback(plan.fast, failure.code);
         const retry = !!fallback || failure.retryable && !fastAttempt.text && number < 2;
         const next = retry ? lifecycle.create(message.conversationId, messageId, "fast", this.timelineStore) : undefined;
         if (next) next.dispatchId = plan?.fast.id;
@@ -281,7 +281,7 @@ export class DeepWorker {
       if (failure.code === "CANCELLED") { await attempt.finish("cancelled"); this.attemptsByTaskId.delete(task.taskId); return undefined; }
       const attempts = (this.attemptsByTaskId.get(task.taskId) ?? 0) + 1;
       this.attemptsByTaskId.set(task.taskId, attempts);
-      const fallback = failure.retryable && !attempt.text && selected && this.dispatch!.fallback(selected, failure.code);
+      const fallback = (failure.retryable || failure.code === "QUOTA_EXHAUSTED") && !attempt.text && selected && this.dispatch!.fallback(selected, failure.code);
       const retry = !!fallback || failure.retryable && !attempt.text && attempts <= this.maxRetries;
       // Publish the next attempt synchronously so cancellation during the terminal write also cancels the retry.
       const next = retry ? lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId) : undefined;

@@ -161,7 +161,8 @@ export class CatalogDispatch {
     }
   }
   fallback(phase: PhaseDispatch, code: string): boolean {
-    if (phase.fallbackUsed || !["PROVIDER_UNAVAILABLE", "PROVIDER_TIMEOUT"].includes(code)) return false;
+    const quotaFallback = code === "QUOTA_EXHAUSTED" && phase.candidate.entry.billing?.exhaustionPolicy === "approved-fallback";
+    if (phase.fallbackUsed || !quotaFallback && !["PROVIDER_UNAVAILABLE", "PROVIDER_TIMEOUT"].includes(code)) return false;
     for (const candidate of phase.fallbacks) {
       // Per-entry permission is required in addition to the explicit list/policy
       // when changing to metered billing.

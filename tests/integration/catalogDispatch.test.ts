@@ -176,6 +176,19 @@ it("rolls back unstarted pair reservations when timeline persistence fails", asy
   expect(r.queue.size()).toBe(0);
 });
 
+it.each([false, true])("quota fallback respects metered permission (%s)", async allowed => {
+  const r = runtime([entry("a", { billing: { kind: "subscription", exhaustionPolicy: "approved-fallback", usageBillingFallbackAllowed: allowed } }), entry("b")],
+    { a: { fast: { createProvisionalReply: vi.fn().mockRejectedValue(new GenerationError("QUOTA_EXHAUSTED", false)) } } });
+  r.policy.maxIncrementalUsd = 1; r.policy.allowedBillingComponents.push("metered-usage");
+  r.policy.bindings.b = resources({ facts: { executionScope: "local-device", billingComponents: ["metered-usage"] },
+    incremental: { currency: "USD", maxInvocationUsd: 0.1, evidence } });
+  r.policy.fallbackBindingIds.fast = [entryBindingId(r.catalog.models[1])];
+  if (allowed) await r.service.submitMessage(message());
+  else await expect(r.service.submitMessage(message())).rejects.toThrow("QUOTA_EXHAUSTED");
+  expect(r.calls.get("a")!.fast.createProvisionalReply).toHaveBeenCalledTimes(1);
+  expect(r.calls.get("b")!.fast.createProvisionalReply).toHaveBeenCalledTimes(allowed ? 1 : 0);
+});
+
 it("allows at most one explicit fallback per phase", async () => {
   const fail = () => ({ createProvisionalReply: vi.fn().mockRejectedValue(new GenerationError("PROVIDER_UNAVAILABLE", true)) });
   const r = runtime([entry("a"), entry("b"), entry("c")], { a: { fast: fail() }, b: { fast: fail() } });

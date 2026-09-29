@@ -56,6 +56,10 @@ export class GenerationAttempt {
   readonly control: GenerationControl = {
     signal: this.controller.signal,
     attemptId: this.attemptId,
+    onQueued: async reason => {
+      if (this.active) await this.append({ type: "activity", activity: "queued",
+        text: reason === "quota" ? "Waiting for provider quota to reset" : "Waiting for provider capacity" });
+    },
     onDelta: async text => {
       if (!this.active) return;
       if (this.writeError) throw this.writeError;

@@ -6,6 +6,8 @@ import type { RuntimeProviderConfig } from "../config/providerConfig";
 import type { ContextBudgetConfig } from "../config/contextConfig";
 import { verifyThinkingConfig } from "../config/thinkingConfig";
 import { buildFastProvider, buildDeepProvider } from "./providerFactory";
+import { cliBinding } from "./cli/providers";
+import type { CliAdapterRegistry } from "./cli/adapter";
 
 export interface RegisteredBinding {
   bindingId: string;
@@ -27,6 +29,12 @@ export class ProviderRegistry {
       connection: structuredClone(binding.connection), capabilities: [...binding.capabilities] });
   }
   get(id: string) { return this.bindings.get(id); }
+  registerCli(binding: Omit<RegisteredBinding, "fast" | "deep" | "capabilities">,
+    adapters: CliAdapterRegistry, workingDirectory: string, outputBudget: number) {
+    const adapter = adapters.get(binding.entry.cli?.adapterId ?? "");
+    if (!adapter) throw new Error("CLI_ADAPTER_NOT_IMPLEMENTED");
+    this.register(cliBinding(binding, adapter, workingDirectory, outputBudget));
+  }
 }
 
 export async function buildProviderRegistry(catalog: ModelCatalog, connections: Connection[], config: RuntimeProviderConfig,

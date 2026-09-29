@@ -6,6 +6,7 @@ export interface GenerationControl {
   signal: AbortSignal;
   attemptId: string;
   onDelta: (text: string) => Promise<void>;
+  onQueued?: (reason: "concurrency" | "quota") => Promise<void>;
 }
 export class GenerationError extends Error {
   constructor(readonly code: string, readonly retryable: boolean, message = code) {

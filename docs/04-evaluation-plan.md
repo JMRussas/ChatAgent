@@ -91,6 +91,22 @@ required rating unavailable rather than inferring a pass. Retention applies to t
 referenced artifacts as well as traces; record expiry so it is clear when a run can
 no longer be independently reviewed.
 
+## Grader design (planned)
+
+See the [code and model grader learning guide](15-evaluation-graders.md) for
+worked examples. Separate deterministic facts/policy checks from model-judged
+clarity, completeness and evidence support. A factual or policy failure cannot be
+averaged away by style scores. Model judgments must use supplied reference evidence,
+not remembered temporal facts; synthetic and live cases remain separate.
+
+Version each grader/rubric and record judge model/settings, reference digest,
+structured verdict, short evidence-based rationale, grading errors and human
+adjudication. Measure judge cost/latency separately from candidate execution.
+Calibrate on human-reviewed correct/wrong/borderline examples, then measure
+agreement on held-out cases. Balance pairwise answer order, allow ties, and retain
+disagreement. Missing evidence or invalid judge output is ungradable, not a pass.
+Multi-judge consensus is optional and does not replace a reliable reference.
+
 ## Orchestration comparison
 
 When the execution capabilities exist, compare:

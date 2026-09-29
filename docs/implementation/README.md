@@ -1,5 +1,16 @@
 # Implementation handoff
 
+## 2026-09-29: spec 05A offline CLI milestone
+
+Offline runner, explicit adapter registration, provider wrappers, quota waits and
+dispatcher-owned fallback are implemented. [05 evidence](05-evidence.md) records
+**411 tests / 58 files**, type checking, build and seeded simulated release gate.
+Production CLI support remains not implemented until **05B**, which needs the
+user's CLI product/account profile and documented live checks. No live/billed call
+was made. The [grader guide](../15-evaluation-graders.md) explains code/model
+evaluation methods; grader metadata/calibration is incorporated into the evaluation
+plan. Spec 06 evaluation mode remains queued, then the sports demonstration.
+
 ## 2026-09-29: spec 04 dispatch implemented
 
 Catalog-mode selection, captured-context previews, provider registry, resource
