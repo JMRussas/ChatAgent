@@ -1,5 +1,14 @@
 # Development roadmap
 
+## 2026-09-29: canonical direction confirmed — resume the numbered runtime spec
+
+Explicit user decision: the numbered runtime spec (01–06,
+[implementation handoff](implementation/README.md)) is the canonical plan
+going forward. The doc-agent/learning experimental track recorded below is
+parked, not abandoned — its evidence stays as historical record — but it is
+not the active priority. **Current task: [spec 03 — inventory](implementation/03-inventory.md).**
+See [NEXT-HANDOFF](implementation/NEXT-HANDOFF.md) for full reasoning.
+
 ## 2026-09-28: shared inference decision
 
 [Controlled contention findings](../reports/doc-agent/contention-findings-2026-09-28.md)

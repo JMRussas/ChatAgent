@@ -1,5 +1,14 @@
 # Implementation handoff
 
+## 2026-09-29: canonical direction confirmed — resume the numbered runtime spec
+
+The numbered spec sequence below (01–06) is the confirmed active plan; the
+experimental doc-agent/learning track referenced further down is parked, not
+the active priority. **Current task: [spec 03 — inventory](03-inventory.md).**
+See [NEXT-HANDOFF](NEXT-HANDOFF.md)'s matching 2026-09-29 entry for the full
+reasoning. Entries below this one predate that decision and are preserved as
+history, not current sequencing.
+
 ## 2026-09-28: shared inference decision
 
 [Controlled contention findings](../../reports/doc-agent/contention-findings-2026-09-28.md)

@@ -99,9 +99,10 @@ schemas do not establish that every answer claim is supported by its citation.
 Provider adapters exist for Azure and Bedrock, but the linked agent and contention
 results are local Ollama measurements.
 
-Next: held-out tests for requirement coverage, citation support and appropriately
-scoped uncertainty, before reusing completed task evidence in conversation context.
-Automatic task-result insertion, timed triggers and automatic learning are not
+As of 2026-09-29, active development resumed on the numbered runtime spec
+(spec 03 — provider discovery/inventory); the documentation-agent/learning
+track referenced below is parked, not the active priority. Automatic
+task-result insertion, timed triggers and automatic learning are not
 implemented. Older planning documents are historical where they conflict with
 this overview; the [current roadmap](docs/12-development-roadmap.md) tracks sequencing.
 

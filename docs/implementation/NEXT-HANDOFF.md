@@ -1,5 +1,22 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: canonical direction confirmed — resume the numbered runtime spec
+
+Explicit user decision: the numbered runtime spec (01–06, `docs/implementation/README.md`)
+is the canonical plan going forward, not the doc-agent/learning experimental track.
+The experimental work below (documentation agent, LangGraph, task lifecycle,
+shared-inference scheduling, prompt-contract/prompt-encoding research) is **parked,
+not abandoned** — it remains a real, evidenced body of work and its reports stay
+as historical record — but it is not the active priority. Do not continue it
+as the default next step without a new explicit decision to do so.
+
+**Next bounded task: [spec 03 — inventory](03-inventory.md)**, integrating the
+applicable RES-01/03/04/08 fixtures from [08 resource policy](08-resource-policy.md).
+This was already named "next" on 2026-09-26 below but was superseded in practice
+by the experimental track before being started; it is now confirmed, not merely
+carried over by default. Preserve 01A/01B/02 and the protocol v1 surface; do not
+re-litigate their acceptance criteria as part of this task.
+
 ## 2026-09-28: shared inference decision
 
 [Controlled contention findings](../../reports/doc-agent/contention-findings-2026-09-28.md)
