@@ -97,8 +97,8 @@ function contextMessagesFor(context: ConversationContext, role: "fast" | "deep")
 }
 
 export class OllamaFastProvider implements FastModelProvider {
-  async thinkingOptions(): Promise<("on" | "off")[]> {
-    return withGenerationDeadline("Ollama thinking options",5000,undefined,async signal => {
+  async thinkingOptions(control?: GenerationControl): Promise<("on" | "off")[]> {
+    return withGenerationDeadline("Ollama thinking options",5000,control,async signal => {
       const base=this.baseUrl.replace(/\/$/,"");
       const response=await fetch(`${base}/api/show`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:this.model}),signal});
       if(!response.ok) throw new GenerationError("THINKING_CONFIG_UNVERIFIED",false);
@@ -107,8 +107,8 @@ export class OllamaFastProvider implements FastModelProvider {
       return Array.isArray(values) ? (["on","off"] as const).filter(v=>values.includes(v === "on")) : [];
     });
   }
-  async withThinking(value: "on" | "off"): Promise<FastModelProvider> {
-    if(!(await this.thinkingOptions()).includes(value)) throw new GenerationError("THINKING_CONFIG_UNSUPPORTED",false);
+  async withThinking(value: "on" | "off", control?: GenerationControl): Promise<FastModelProvider> {
+    if(!(await this.thinkingOptions(control)).includes(value)) throw new GenerationError("THINKING_CONFIG_UNSUPPORTED",false);
     return new OllamaFastProvider(this.baseUrl,this.model,this.temperature,this.timeoutMs,this.numPredict,value === "on");
   }
   get metadata() { return { provider: "ollama", model: this.model, ...(this.think === undefined ? {} : { reasoningEnabled: this.think }) }; }

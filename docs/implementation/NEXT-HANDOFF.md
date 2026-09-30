@@ -1,5 +1,14 @@
 # Next ChatAgent handoff after 01B
 
+## Manual-control review fixes — 2026-09-30
+
+Early control failures retain a user timeline event. Thinking verification propagates
+cancellation and dispatch ownership is established before the metadata await. The UI
+locks submission before context refresh, preventing duplicate requests. Validation:
+17 focused unit tests, duplicate-submit browser regression and TypeScript build.
+Next: explicit bounded reference rows and payload review against selected evidence.
+
+
 ## Manual run controls implemented — 2026-09-30
 
 The live planner UI/API accepts explicit model binding, thinking selection and action

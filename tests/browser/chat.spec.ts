@@ -173,3 +173,13 @@ test("manual review targets a chosen answer and records requested controls",asyn
   expect(JSON.stringify(app.controls.inputs.at(-1))).toContain('"mode":"review"');
   expect(JSON.stringify(app.controls.inputs.at(-1))).toContain("Initial answer");
 });
+
+test("guards duplicate submits while context is refreshing",async({page,app})=>{
+ app.controls.plan={action:"answer",message:"One reply"};
+ let release!:()=>void;const gate=new Promise<void>(r=>{release=r;});
+ await page.route("**/conversation-context",async route=>{await gate;await route.fulfill({json:{context:null}});});
+ await page.locator("#prompt").fill("Once");
+ await page.locator("#composer").evaluate(form=>{form.dispatchEvent(new Event("submit",{cancelable:true}));form.dispatchEvent(new Event("submit",{cancelable:true}));});
+ await expect(page.locator("#sendButton")).toBeDisabled();release();
+ await expect(page.locator(".answer-content")).toContainText("One reply");expect(app.controls.inputs).toHaveLength(1);
+});

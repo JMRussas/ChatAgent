@@ -12,6 +12,13 @@ describe("ollama providers", () => {
     expect(provider.metadata.reasoningEnabled).toBeUndefined();
     await expect(provider.withThinking("off")).rejects.toThrow("THINKING_CONFIG_UNSUPPORTED");
   });
+  it("cancels thinking verification before inference", async () => {
+    let observed:AbortSignal|undefined;
+    global.fetch=vi.fn(async(_url,init)=>new Promise<Response>((_resolve,reject)=>{observed=init?.signal as AbortSignal;observed.addEventListener("abort",()=>reject(Error("aborted")));})) as typeof fetch;
+    const controller=new AbortController();
+    const pending=new OllamaFastProvider("http://localhost:11434","test",0).withThinking("on",{signal:controller.signal,attemptId:"a",onDelta:async()=>{}});
+    controller.abort();await expect(pending).rejects.toThrow("CANCELLED");expect(observed?.aborted).toBe(true);
+  });
   const originalFetch = global.fetch;
 
   afterEach(() => {

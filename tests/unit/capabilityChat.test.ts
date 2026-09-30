@@ -34,6 +34,7 @@ describe("capability-based conversation", () => {
     await expect(a.chat.handleUserMessage({...message,runControls:{mode:"chat",thinking:"on"}})).rejects.toThrow("THINKING_CONFIG_UNSUPPORTED");
     await expect(a.chat.handleUserMessage({...message,messageId:"wrong-model",runControls:{mode:"chat",thinking:"configured",bindingId:"missing"}})).rejects.toThrow("MODEL_SELECTION_UNAVAILABLE");
     expect(a.generate).not.toHaveBeenCalled();
+    expect((await a.timeline.getEvents("c")).filter(e=>e.type === "user").map(e=>e.messageId)).toEqual(["one","wrong-model"]);
   });
   it("keeps user payload and evidence out of subsequent model calls", async () => {
     const store = new ToolResultStore();

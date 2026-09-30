@@ -86,6 +86,7 @@ export class CapabilityChat {
     let dispatch: DispatchPlan | undefined;
     const attempt = lifecycle.create(message.conversationId, messageId, "fast", this.timeline);
     try {
+      await this.timeline.appendEvent(message.conversationId, { type: "user", messageId, text: message.text, selectedContext: message.selectedContext, runControls: controls, createdAtIso: message.timestampIso });
       if (!this.dispatch && controls.bindingId && controls.bindingId !== "fixed") throw new GenerationError("MODEL_SELECTION_UNAVAILABLE",false);
       if (controls.mode !== "chat") {
         const events = await this.timeline.getEvents(message.conversationId);
@@ -101,11 +102,11 @@ export class CapabilityChat {
       const context = this.dispatch ? (dispatch = await this.dispatch.prepare(this.context, input, controls.bindingId)).context : await this.context.prepare(input);
       if (context instanceof ContextBudgetError) throw context;
       attempt.control.signal.throwIfAborted();
-      await this.timeline.appendEvent(message.conversationId, { type: "user", messageId, text: message.text, selectedContext: message.selectedContext, runControls: controls, createdAtIso: message.timestampIso });
+      attempt.dispatchId = dispatch?.fast.id;
       let provider = dispatch ? dispatch.fast.candidate.binding.fast! : this.provider;
       if (controls.thinking !== "configured") {
         if (!provider.withThinking) throw new GenerationError("THINKING_CONFIG_UNSUPPORTED",false);
-        provider = await provider.withThinking(controls.thinking);
+        provider = await provider.withThinking(controls.thinking, attempt.control);
         attempt.control.signal.throwIfAborted();
       }
       attempt.dispatchId = dispatch?.fast.id;

@@ -762,6 +762,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     composer.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (sendButton.disabled) return;
       const conversationId = String(conversationIdInput.value || "").trim();
       const userId = String(userIdInput.value || "").trim();
       const text = String(promptInput.value || "").trim();
@@ -775,8 +776,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         ...($("runModel").value ? {bindingId:$("runModel").value}:{}),thinking:$("runThinking").value,mode:$("runMode").value,
         ...($("runMode").value !== "chat" ? {targetMessageId:$("runTarget").value}:{})};
       if (runControls?.mode !== "chat" && runControls && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
+      sendButton.disabled = true;
       await refreshConversationContext();
-      if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) return;
+      if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) { sendButton.disabled = false; return; }
       saveConversation();
       state.conversationId = conversationId;
       state.userId = userId;

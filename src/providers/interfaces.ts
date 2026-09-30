@@ -4,8 +4,8 @@ import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
 
 export interface FastModelProvider {
-  thinkingOptions?(): Promise<("on" | "off")[]>;
-  withThinking?(value: "on" | "off"): Promise<FastModelProvider>;
+  thinkingOptions?(control?: GenerationControl): Promise<("on" | "off")[]>;
+  withThinking?(value: "on" | "off", control?: GenerationControl): Promise<FastModelProvider>;
   metadata?: GenerationMetadata;
   createProvisionalReply(input: {
     message: UserMessage;
