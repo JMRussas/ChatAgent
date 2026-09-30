@@ -76,4 +76,79 @@ describe("live benchmark observations", () => {
     await expect(runLiveBenchmark(prompts, { ...options, deadlineMs: NaN })).rejects.toThrow("timing");
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("observes streaming text before the submission response completes", async () => {
+    let messageId = "", release!: () => void, completed = false;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/messages")) {
+        messageId = JSON.parse(init!.body as string).messageId;
+        await held;
+        completed = true;
+        return { ok: true, json: async () => ({ messageId, fastResponse: { analysis: { routeDecision: "direct" } } }) };
+      }
+      const events = [
+        { type: "user", routeDecision: "direct", text: "Question", messageId },
+        { type: "delta", phase: "fast", attemptId: "a", text: "Early", messageId }
+      ];
+      if (!completed) setTimeout(release, 10);
+      return { ok: true, json: async () => ({ events: completed
+        ? [...events, { ...stop("fast", "a"), messageId, text: "Early" }]
+        : events }) };
+    }));
+    const [record] = await runLiveBenchmark(prompts, options);
+    expect(record.outcome).toBe("stop");
+    expect(record.firstAnswerObservedMs).not.toBeNull();
+    expect(record.firstAnswerObservedMs!).toBeLessThan(record.responseReceivedMs!);
+    expect(record.firstAnswerObservedMs!).toBeLessThan(record.finalObservedMs!);
+  });
+
+  it("recovers actual attempts and retries after a provider HTTP 502", async () => {
+    let messageId = "";
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/messages")) {
+        messageId = JSON.parse(init!.body as string).messageId;
+        return { ok: false, status: 502, json: async () => ({ code: "PROVIDER_UNAVAILABLE", error: "private detail" }) };
+      }
+      return { ok: true, json: async () => ({ events: [
+        { type: "user", routeDecision: "direct", text: "Question", messageId },
+        ...["a", "b", "c"].map((attemptId, i) => ({ type: "terminal", phase: "fast", attemptId, messageId,
+          text: "", retrying: i < 2, finishReason: "error", model: { provider: "actual", model: "actual-model", bindingId: "binding" } }))
+      ] }) };
+    });
+    vi.stubGlobal("fetch", fetch);
+    const [record] = await runLiveBenchmark(prompts, options);
+    expect(record).toMatchObject({ outcome: "error", httpStatus: 502, errorCode: "PROVIDER_UNAVAILABLE",
+      evidenceMode: "live", routeDecision: "direct", retryCount: 2, cancellation: "not-requested" });
+    expect(record.attempts).toHaveLength(3);
+    expect(record.attempts[2]).toMatchObject({ provider: "actual", model: "actual-model", bindingId: "binding", finishReason: "error" });
+    expect(JSON.stringify(record)).not.toContain("private detail");
+    expect(fetch.mock.calls.some(([url]) => url.endsWith("/events"))).toBe(true);
+  });
+
+  it("reports admission rejection without waiting for nonexistent terminal events", async () => {
+    const fetch = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? { ok: false, status: 503, json: async () => ({ code: "NO_ELIGIBLE_MODEL" }) }
+      : url.endsWith("/cancel") ? { ok: false, status: 404 }
+      : { ok: true, json: async () => ({ events: [] }) });
+    vi.stubGlobal("fetch", fetch);
+    const [record] = await runLiveBenchmark(prompts, options);
+    expect(record).toMatchObject({ outcome: "error", httpStatus: 503, errorCode: "NO_ELIGIBLE_MODEL", attempts: [], finalObservedMs: null });
+    expect(record.elapsedMs).toBeLessThan(options.deadlineMs);
+    expect(fetch.mock.calls.filter(([url]) => url.endsWith("/events")).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("aborts and awaits submission when concurrent timeline observation fails", async () => {
+    let aborted = false;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/messages")) return await new Promise((_, reject) => {
+        init!.signal!.addEventListener("abort", () => { aborted = true; reject(new Error("aborted")); });
+      });
+      if (url.endsWith("/cancel")) return { ok: true };
+      throw new Error("connection lost");
+    }));
+    const [record] = await runLiveBenchmark(prompts, options);
+    expect(record.outcome).toBe("transport-error");
+    expect(aborted).toBe(true);
+  });
+
 });

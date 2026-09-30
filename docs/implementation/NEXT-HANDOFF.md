@@ -1,5 +1,23 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: live benchmark review fixes
+
+Fixed both findings in the review of `0a04daa`. Timeline polling now runs alongside
+submission, so first-answer observation can precede completion of the fast response.
+The user timeline event supplies route identity before the HTTP response arrives.
+Provider HTTP failures retain status and a bounded code (not raw error bodies), and
+the runner collects correlated terminal/model/attempt evidence instead of reporting
+all failures as transport errors with zero retries. Failed submissions without
+terminal evidence receive bounded cleanup; observation failures abort and await the
+outstanding submission. Timings still include polling/transport delay.
+
+Regression evidence includes early streaming before submission completion, HTTP 502
+with retries, admission rejection without terminal events, concurrent-observation
+cleanup, and a real local HTTP server returning a provider failure after retries.
+Validation: 467 tests / 63 files, typecheck, build and seeded simulated release gate
+pass. All providers in HTTP integration tests are mocked; no live inference ran.
+Next remains 06C configuration/annotation compatibility and matched overhead.
+
 ## 2026-09-30: 06C live measurement foundation implemented
 
 The live benchmark now submits each prompt once against the actual server, waits
