@@ -1,3 +1,6 @@
+import { createLiveBriefing } from "../../src/sports/liveBriefing";
+import { readFileSync } from "node:fs";
+const sportsConfig = JSON.parse(readFileSync("data/sports/nfl-live-briefing.example.json", "utf8"));
 import { CapabilityChat } from "../../src/app/capabilityChat";
 import { ContextManager } from "../../src/app/contextManager";
 import { test as base, expect } from "@playwright/test";
@@ -34,20 +37,21 @@ async function runtime() {
     return { taskId: task.taskId, finalReply: result.text, finishReason: result.finishReason, confidence: 1, citations: [], totalLatencyMs: 0 };
   } };
   const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue();
+  const sports = createLiveBriefing(sportsConfig, "fixture-key", (async () => Response.json({data:[{id:1,full_name:"Harbor <Comets>",name:"Comets",abbreviation:"HC",city:"Harbor"}]})) as typeof fetch);
   const legacy = new ChatOrchestrator(fast, queue, timeline);
   const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async () => ({ text: JSON.stringify(controls.plan), finishReason: "stop" }) }, queue, timeline,
     new ContextManager(timeline, { windowTokens: 8192, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
-    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => []);
+    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools());
   const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),
     cancel: (conversation, message) => legacy.cancel(conversation, message), whenIdle: () => planner.whenIdle() }, new DeepWorker(queue, deep, timeline), timeline, queue);
-  const server = createChatServer(service);
+  const server = createChatServer(service, {briefings:sports.http});
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   let workerError: unknown;
   const worker = setInterval(() => { if (controls.worker) void service.runDeepWorkerOnce().catch(e => { workerError = e; }); }, 10);
   const handle = createRuntimeHandle(server, service, { config: { graceMs: 0, timeoutMs: 2000 },
     stopBackground: () => clearInterval(worker), stopInternal: async () => {}, persist: async () => {} });
   return { url: `http://127.0.0.1:${handle.address.port}`, pending, controls,
-    disconnect: () => server.closeStreams(), close: async () => { await handle.shutdown(); if (workerError) throw workerError; } };
+    disconnect: () => server.closeStreams(), close: async () => { await handle.shutdown(); sports.http.close(); if (workerError) throw workerError; } };
 }
 export const test = base.extend<{ app: Awaited<ReturnType<typeof runtime>> }>({ app: async ({}, use) => {
   const app = await runtime(); try { await use(app); } finally { await app.close(); }

@@ -53,6 +53,8 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  /** UI/evaluation only; never serialize into model history. */
+  payloadResults?: import("../app/toolResult").ToolResult[];
   capabilityPlan?: unknown;
   selections?: { fast: import("../routing/modelSelector").ModelSelection; deep?: import("../routing/modelSelector").ModelSelection };
   activity?: "queued" | "thinking" | "running" | "generating" | "retrying" | "failed";

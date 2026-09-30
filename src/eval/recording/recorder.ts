@@ -72,7 +72,13 @@ export class EvaluationRecorder {
         answerKind: event.answerKind ?? null,
         answer: answerEvent ? { scoredHash: textHash, artifactHash: captured === undefined ? null : digest(captured),
           transformed: captured !== undefined && captured !== event.text, ...(captured === undefined ? {} : { text: captured }) } : null,
-        usage: null, costUsd: null };
+        usage: null, costUsd: null,
+        ...(event.payloadResults?.length ? {payloads:event.payloadResults.map(result => {
+          const raw = JSON.stringify(result), captured = this.config.capture === "answers" ? redact(raw) : undefined;
+          return {resultId:this.identity("result",result.context.resultId),contentHash:digest(raw),
+            artifactHash:captured === undefined ? null : digest(captured),transformed:captured !== undefined && captured !== raw,
+            ...(captured === undefined ? {} : {text:captured})};
+        })} : {}) };
       const size = Buffer.byteLength(JSON.stringify(record)) + 1;
       if (this.bytes + size > this.config.maxBytes) { this.artifact.manifest.droppedEvents++; return; }
       this.bytes += size; this.artifact.trace.push(record);

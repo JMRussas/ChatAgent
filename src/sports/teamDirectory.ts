@@ -1,3 +1,4 @@
+import { ToolResultStore } from "../app/toolResult";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { CapabilityTool } from "../app/capabilityChat";
@@ -24,6 +25,7 @@ type Snapshot = z.infer<typeof resolutionSnapshotSchema>;
 
 /** Account budget is shared with game reads. Failed or partial directories never establish absence. */
 export class TeamDirectory {
+  readonly results: ToolResultStore;
   private cache = new Map<string, Directory>();
   private snapshots = new Map<string, Snapshot>();
   private busy = new Set<string>();
@@ -33,8 +35,9 @@ export class TeamDirectory {
   constructor(private key: string | undefined, private budget: SportsRequestBudget, options: unknown,
     private revision: string, private transport: typeof fetch = fetch, private clock = Date.now) {
     this.options = directoryOptionsSchema.parse(options);
+    this.results = new ToolResultStore(clock, this.options.maxSnapshots);
   }
-  close() { this.closed = true; this.shutdown.abort(); this.snapshots.clear(); this.cache.clear(); }
+  close() { this.closed = true; this.shutdown.abort(); this.results.clear(); this.snapshots.clear(); this.cache.clear(); }
   private directoryRevision() {
     return createHash("sha256").update(JSON.stringify([...this.cache].map(([k,v]) => [k,v.revision]).sort())).digest("hex");
   }
@@ -118,8 +121,30 @@ export class TeamDirectory {
     return selectTeamCandidate(snapshot, choice, { userId, conversationId, registryRevision: this.revision,
       directoryRevision: this.directoryRevision(), now: new Date(this.clock()).toISOString() });
   }
+  leagues() { return [...this.options.leagues]; }
+  async list(input: unknown, userId: string, conversationId: string, signal: AbortSignal) {
+    const { league } = z.object({league:z.enum(["NBA","NFL"])}).strict().parse(input);
+    if (this.closed) throw Error("CAPABILITIES_CHANGED");
+    if (!this.options.leagues.includes(league)) throw Error("DIRECTORY_UNSUPPORTED");
+    const directory = await this.read(league, signal);
+    signal.throwIfAborted();
+    const def = definitions[league];
+    return this.results.put(userId, conversationId, {
+      version: "tool-result-v1",
+      context: { status: "ready", summary: `${league} provider team directory prepared as a table (${directory.data.length} entries). Rows are not in model context.`,
+        scope: `${league} provider directory; historical entries may be included`, coverage: "complete",
+        limitations: ["Active-team status is not verified", "Provider data freshness is unknown"], expiresAt: new Date(directory.expires).toISOString() },
+      payload: {kind:"table",title:`${league} team directory`, columns:["Team", "Abbreviation", "Location"],
+        rows:directory.data.map(t => [t.full_name,t.abbreviation,t.city ?? t.location ?? ""])},
+      evidence: {sourceUrl:def.url,observedAt:directory.observedAt,revision:directory.revision}
+    });
+  }
   tools(): CapabilityTool[] {
-    return [{ id: "sports:resolve-team", description: `Resolve team names, abbreviations or cities from provider directories: ${this.options.leagues.join(", ")}. Omit sport/league if unknown. Exact normalized provider aliases only; no typo inference. Clarify ambiguous candidates using issued handles. Directory support does not imply game/news support. Never ask users for provider IDs.`,
+    return [{ id: "sports:list-teams", description: "Display a provider team directory directly to the user. May include historical teams; does not establish current active membership. Table rows are not model context.",
+      inputSchema: {type:"object",additionalProperties:false,required:["league"],properties:{league:{type:"string",enum:this.leagues()}}},
+      validate: v => z.object({league:z.enum(["NBA","NFL"])}).strict().parse(v),
+      execute: async (v,u,_r,s,c) => { if (!c) throw Error("CONVERSATION_REQUIRED"); return this.list(v,u,c,s); } },
+    { id: "sports:resolve-team", description: `Resolve team names, abbreviations or cities from provider directories: ${this.options.leagues.join(", ")}. Omit sport/league if unknown. Exact normalized provider aliases only; no typo inference. Clarify ambiguous candidates using issued handles. Directory support does not imply game/news support. Never ask users for provider IDs.`,
       inputSchema: { type: "object", additionalProperties: false, required: ["query"], properties: { query: { type: "string" }, sport: { type: "string" }, league: { type: "string" } } },
       validate: v => teamLookupRequestSchema.parse(v), execute: async (v,u,_r,s,c) => { if (!c) throw new Error("CONVERSATION_REQUIRED"); return this.lookup(v,u,c,s); } },
     { id: "sports:select-team", description: "Select a previously issued team candidate after user clarification. Use the snapshotId and candidateId from this conversation's lookup result.",

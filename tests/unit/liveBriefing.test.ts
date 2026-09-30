@@ -183,7 +183,7 @@ describe("live tool capability registry", () => {
     const runtime = createLiveBriefing(example, undefined, transport(), () => Date.parse(now));
     try {
       const tools = runtime.http.tools();
-      expect(tools.map(t => t.id)).toEqual(["nfl:league:games", "nfl:league:news", "nfl:team:games", "sports:resolve-team", "sports:select-team"]);
+      expect(tools.map(t => t.id)).toEqual(["nfl:league:games", "nfl:league:news", "nfl:team:games", "sports:list-teams", "sports:resolve-team", "sports:select-team"]);
       const args = { from: "2026-09-29T00:00:00Z", to: now, timezone: "UTC", team: null };
       expect(tools[0].validate(args)).toEqual(args);
       expect(() => tools[0].validate({ ...args, url: "https://unregistered.invalid" })).toThrow();

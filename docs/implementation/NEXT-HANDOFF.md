@@ -1,5 +1,45 @@
 # Next ChatAgent handoff after 01B
 
+## Active plan: payload separation and manual topic workflows — 2026-09-30
+
+This section supersedes next-step ordering in the historical entries below.
+Team resolution and owned candidate selection are implemented. Latest completed game
+retrieval remains pending, but is no longer the immediate next implementation.
+
+The first slice below now separates model results, direct user payloads and
+evaluation records for team lists. Next add minimal topic navigation and scoped conversations, explicit reference
+attachment/manual model-thinking-review controls, general game search (including
+latest completed), specific-game details and grounded reporting. Evaluate each slice.
+
+Longer term: persistent editable profiles and semantic retrieval for relevant context,
+initially selected manually; inspect Hekate before choosing storage reuse. Semantic
+retrieval avoids predeclaring every relationship. Keep exact ownership/provenance IDs
+and confirmed settings. Automatic context assembly, profile extraction, review loops,
+background briefings and broader domains follow evidence from manual use.
+
+The [updated implementation plan](12-request-to-evidence.md) is authoritative for scope, sequencing,
+acceptance and deferred automation. Implementation status and limitations are recorded below.
+
+## Delivered slice: direct team-list payloads — 2026-09-30
+
+`tool-result-v1` separates model context from a typed user table and evidence metadata.
+The team-list tool and direct “Show teams” UI use the provider directory. Direct
+browsing calls no model; model-requested lists preserve compact metadata in history
+and render rows separately, including timeline replay. Existing tools are not all
+migrated. Scoped result handles expire; storage is process-local. Manual attachment
+and selective reference reads remain next-stage work. Directory lists may include
+historical teams and do not claim active-only membership.
+
+Evaluation recording stores separate payload hashes; answer-capture mode can retain
+redacted payload content under existing size limits. Direct browsing is outside model
+run recording. Validation: 628 unit/integration tests across 82 files, TypeScript
+build, and 11 browser tests passed. A 1,000-row canary verifies next-call exclusion.
+No new live provider/model calls were required. Next: minimal topic navigation and
+scoped conversations/reference selection, then manual controls and general game search.
+
+## Historical implementation journal
+
+
 ## Provider team resolution implemented — 2026-09-30
 
 Live capability registry now includes `sports:resolve-team` and `sports:select-team`.

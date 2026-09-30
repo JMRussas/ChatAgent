@@ -79,3 +79,24 @@ test("model-planned missing capability stays in the conversation without fabrica
   await expect(turn.locator("summary")).toContainText("Capability unavailable");
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
 });
+
+
+test("direct team browsing renders a table without invoking a model", async ({page, app}) => {
+  await page.locator("#directoryLeague").selectOption("NBA");
+  await page.getByRole("button", {name:"Show teams",exact:true}).click();
+  await expect(page.locator("#directoryPayload table")).toContainText("Harbor <Comets>");
+  await expect(page.locator("#directoryStatus")).toContainText("Rows were not sent to a model");
+  expect(app.pending.size).toBe(0);
+  await expect(page.locator(".turn")).toHaveCount(0);
+  await page.locator("#userId").fill("another-user"); await page.locator("#userId").blur();
+  await expect(page.locator("#directoryPayload table")).toHaveCount(0);
+});
+
+test("tool payload survives timeline replay and is rendered outside answer text", async ({page,app}) => {
+  app.controls.plan = {action:"retrieve",calls:[{tool:"sports:list-teams",arguments:{league:"NBA"}}]};
+  await send(page,"Show the NBA directory");
+  await expect(page.locator(".turn table")).toContainText("Harbor <Comets>");
+  await expect(page.locator(".turn .answer-content")).not.toContainText("Harbor");
+  await page.reload();
+  await expect(page.locator(".turn table")).toContainText("Harbor <Comets>");
+});

@@ -2,7 +2,7 @@ import type { ChatTimelineEvent } from "../domain/types";
 
 /** Pure snapshot projection, also embedded in the browser. No external runtime dependencies. */
 export function deriveTurns(events: ChatTimelineEvent[]) {
-  type Attempt = { id: string; phase: "fast" | "deep"; text: string; answerKind: string; state: string;
+  type Attempt = { payloadResults?: ChatTimelineEvent["payloadResults"]; id: string; phase: "fast" | "deep"; text: string; answerKind: string; state: string;
     queuedAt?: string; startedAt?: string; endedAt?: string; model?: string; provider?: string; bindingId?: string; selectionReasons?: string[]; reasoningEnabled: boolean; terminal: boolean; steps: string[] };
   type Turn = { messageId: string; userText: string; attempts: Attempt[]; routeDecision?: string; planAction?: string };
   const turns: Turn[] = [];
@@ -53,6 +53,7 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
     if (event.type === "provisional" || event.type === "refined") {
       // Full answer events are authoritative, including app-owned fallback acknowledgments.
       attempt.text = event.text;
+      attempt.payloadResults = event.payloadResults;
       attempt.answerKind = event.answerKind ?? "substantive";
       if (!event.attemptId) {
         attempt.terminal = true;
@@ -77,7 +78,7 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
     const hasDeepText = turn.attempts.some(a => a.phase === "deep" && a.text);
     const answers = turn.attempts.filter(a => a.text && !(a.answerKind === "acknowledgment" && hasDeepText))
       .sort((a, b) => (a.phase === "fast" ? 0 : 1) - (b.phase === "fast" ? 0 : 1)).map(a => ({
-      id: a.id, text: a.text, label: a.phase === "deep" && turn.attempts.some(f => f.phase === "fast" && f.text && f.answerKind !== "acknowledgment") ? "Update" : "Answer",
+      id: a.id, text: a.text, payloadResults: a.payloadResults, label: a.phase === "deep" && turn.attempts.some(f => f.phase === "fast" && f.text && f.answerKind !== "acknowledgment") ? "Update" : "Answer",
       state: a.state, model: a.model, provider: a.provider, bindingId: a.bindingId, selectionReasons: a.selectionReasons
     }));
     const phaseOutcomes = [fast, deep].filter(a => a?.terminal && a.state !== "Complete" && a.state !== "Retrying")

@@ -1,3 +1,4 @@
+import { renderToolPayloads } from "./toolPayload";
 import { documentTaskScript } from "./documentTaskPanel";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
@@ -327,6 +328,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       font-weight: 700;
     }
 
+    .tool-payload { overflow: auto; max-height: 32rem; }
+    .tool-payload th, .tool-payload td, #directoryPayload th, #directoryPayload td { padding: .4rem .7rem; text-align: left; }
     .hint {
       color: var(--muted);
       font-size: 0.86rem;
@@ -449,9 +452,18 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         </table>
       </section>
     </aside>
+    <section class="panel" id="teamDirectoryPanel" hidden>
+      <h2>Team directories</h2>
+      <p>Browse provider data directly. This does not call a model or attach the rows to chat context.</p>
+      <label>League <select id="directoryLeague"></select></label>
+      <button type="button" id="loadTeams">Show teams</button>
+      <p id="directoryStatus" role="status"></p>
+      <div id="directoryPayload" style="overflow:auto;max-height:32rem"></div>
+    </section>
   </main>
 
   <script>
+    const renderToolPayloads = ${renderToolPayloads.toString()};
     const runtimeInfo = ${runtimeModeJson};
 
     const state = {
@@ -571,13 +583,16 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             const label = document.createElement("strong"); element.appendChild(label);
             const status = document.createElement("span"); status.className = "answer-status"; element.appendChild(status);
             const content = document.createElement("div"); content.className = "answer-content"; element.appendChild(content);
-            node.answers.appendChild(element); view = { element, label, status, content }; node.answerNodes.set(answer.id, view);
+            const payload = document.createElement("div"); payload.className = "tool-payload"; element.appendChild(payload);
+            node.answers.appendChild(element); view = { element, label, status, content, payload, payloadKey: "" }; node.answerNodes.set(answer.id, view);
           }
           if (node.answers.children[answerIndex] !== view.element) node.answers.insertBefore(view.element, node.answers.children[answerIndex] ?? null);
           view.label.textContent = answer.label + (answer.model ? " · " + (answer.provider ? answer.provider + "/" : "") + answer.model : "");
           view.label.title = (answer.selectionReasons ?? []).join("; ");
           if (view.status.textContent !== answer.state) view.status.textContent = answer.provider === "mock" && answer.state === "Complete" ? "Simulation complete — facts not verified" : answer.state;
           if (view.content.textContent !== answer.text) view.content.textContent = answer.text;
+          const payloadKey = (answer.payloadResults || []).map(r => r.context.resultId).join(",");
+          if (view.payloadKey !== payloadKey) { renderToolPayloads(view.payload, answer.payloadResults || []); view.payloadKey = payloadKey; }
         }
         const current = turn.current;
         const working = !turn.active && turn.planAction === "unsupported" ? "Capability unavailable" : !turn.active && turn.planAction === "clarify" ? "Needs clarification" : !turn.active && turn.planAction === "retrieve" && turn.status === "Complete" ? "Retrieval finished — check evidence" : current?.phase === "deep" && turn.status === "Working" ? "Working on a deeper answer" : turn.status;
@@ -799,6 +814,26 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.userId = String(userIdInput.value || "").trim();
     });
 
+    fetch("/sports/team-directories").then(r => r.json()).then(data => {
+      if (!data.leagues?.length) return;
+      $("teamDirectoryPanel").hidden = false;
+      for (const league of data.leagues) { const option = document.createElement("option"); option.value = league; option.textContent = league; $("directoryLeague").appendChild(option); }
+    }).catch(() => {});
+    let directoryRequest;
+    $("loadTeams").onclick = async () => {
+      directoryRequest?.abort(); const controller = new AbortController(); directoryRequest = controller;
+      const conversationId = $("conversationId").value.trim(), userId = $("userId").value.trim();
+      $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = "Loading directory…";
+      try {
+        const response = await fetch("/sports/teams", {method:"POST", headers:{"Content-Type":"application/json"}, signal:controller.signal,
+          body:JSON.stringify({conversationId,userId,league:$("directoryLeague").value})});
+        const result = await response.json(); if (controller.signal.aborted) return;
+        if (conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) { $("directoryStatus").textContent = "Selection changed; load the directory again."; return; }
+        if (!response.ok) throw Error(result.error || "Directory unavailable");
+        renderToolPayloads($("directoryPayload"), [result]); $("directoryStatus").textContent = "Directory displayed. Rows were not sent to a model.";
+      } catch (error) { if (!controller.signal.aborted) $("directoryStatus").textContent = error.message; }
+    };
+    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { directoryRequest?.abort(); $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = ""; });
     renderDecision();
     renderThread();
     openTimelineStream();

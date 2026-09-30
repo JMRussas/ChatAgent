@@ -1,27 +1,106 @@
 # Request-to-evidence contracts and acceptance gates
 
-Status: contract foundation implemented; provider resolution, composite lookup,
-reporting, synthesis and end-to-end evaluation execution are still pending.
-This specification supersedes earlier Patriots-specific next-step ordering.
+Status: operation contracts and provider-backed NBA/NFL team resolution are implemented.
+Team-list payload/context separation and direct table delivery are now implemented.
+Topic browsing, general game search, synthesis and the end-to-end evaluation runner
+remain pending. The ordering below supersedes earlier
+latest-game-first plans. This is a plan update, not a runtime implementation claim.
 
-## Responsibility and implementation order
+## Current implementation and immediate next slice
 
-1. Define contracts, failure states and evaluation cases before lookup implementation.
-   `src/sports/operationContracts.ts` now provides name-based inputs, resolution
-   snapshots, selection validation, latest-game outcomes and an admission status vocabulary.
-2. Implement sport/league selection from configured capability metadata, plus
-   provider-backed team resolution. A missing league is not automatically the profile's
-   league. Return ambiguity when evidence cannot uniquely resolve scope. Do not infer
-   support from what the model knows about a team. Verify directory access before coding
-   against a provider endpoint; cache with versioned evidence and configurable expiry.
-3. Implement bounded latest-completed-game retrieval, internally composing resolution,
-   pagination and backward searches. Select the correct resource policy for every call.
-4. Add game-specific reporting/details and evidence-backed answer generation. Attach
-   reports by validated game/team/time evidence, not merely their presence in a league
-   feed. When only a score is available, answer that portion and state the recap gap.
-5. Execute the frozen evaluations and review stage failures before expanding the UI.
-   Independent tests accompany each slice; end-to-end evaluation is not deferred until
-   after all product behavior has been implemented.
+The live TypeScript capability planner now recognizes `tool-result-v1`: only its
+compact context enters answer text/history, while its table payload and evidence
+travel in a separate timeline field for UI rendering/replay. Legacy tools still
+return their previous text/JSON results; migration is incremental. The Python
+LangGraph experiment remains separate from the live sports application.
+
+Implemented slice: `sports:list-teams` plus direct UI directory browsing. The latter
+calls no model and does not attach data to the conversation. Model-requested lists
+render tables alongside compact result metadata. `POST /sports/results` retrieves an
+immutable result by user/conversation-scoped handle. Stores are bounded, process-local,
+expire with directory evidence and clear on reload/close. Timeline snapshots already
+delivered remain historical records; handle expiry does not erase those records.
+Existing development-server caller-supplied identity is used; this is not a new
+authentication layer. Production authentication remains a separate concern.
+
+Evaluation recording hashes payloads independently; opt-in answer capture retains
+redacted envelope content separately from model answer text under existing byte limits.
+Direct UI browsing does not create model evaluation events. Explicit attachment and
+bounded model reference reads are still pending with the topic workflow.
+
+Next executable slice: minimal topic navigation and topic-scoped conversations with
+explicit reference selection, preserving this payload/context boundary.
+Declare the directory scope honestly: current-team filtering is not established by
+NBA's historical directory. Do not label the list current-only without evidence.
+
+Separate result destinations:
+- Model context: compact status, scope, coverage, relevant limitations and a result handle.
+- User payload: typed table/card/document data delivered directly to the UI.
+- Evaluation record: execution inputs/settings, provenance and a versioned payload
+  reference sufficient to inspect the actual result without injecting it into prompts.
+
+Handles must be scoped to the authenticated user/conversation, with revision and
+expiry semantics. A later turn must not accidentally serialize payloads into model
+history. Expose bounded reference views when reasoning actually needs evidence.
+Record delivery separately from retrieval success; a produced payload is not proof
+that the client displayed it. No automatic second model call for simple display.
+
+## Near-term implementation order
+
+1. Result separation and direct team-list delivery, including follow-up context tests.
+2. Minimal topic navigation: configured sports/leagues and provider-backed teams,
+   leading to relevant data views and a topic-scoped conversation. The hierarchy is
+   a browsing aid, not a requirement to encode every semantic relationship. Existing
+   conversations retain their scope when the user browses elsewhere.
+3. Explicit reference attachment and manual run controls: supported model/thinking
+   settings, user-defined scope/retrieval bounds, review off/self/selected model,
+   and an explicit revise-from-feedback action. No automatic complexity classifier,
+   reviewer selection or revision loop. Record the effective settings per invocation.
+4. General game search and specific-game details. Latest completed is a supported
+   selection/composite over this foundation. Tools own identity resolution, pagination,
+   completion checks, date filters and bounded search under the applicable resource policy.
+5. Game-specific reporting and grounded synthesis when requested. League RSS alone
+   does not establish a game's recap. Preserve partial coverage and citation provenance.
+
+Deterministic and conversational evaluations accompany every slice. The larger
+27-case specification still needs executable fixtures and a session runner; no
+end-to-end quality score is claimed. Existing contracts remain useful and should be
+extended rather than replaced with prompt-specific operations.
+
+## Longer-term direction and memory
+
+Layer 1 manages the user while background tasks retrieve, analyze or review evidence.
+A conversation activity panel exposes topic/task/reference/model-call identities,
+actual model context, tools/cache/admission events, settings, delivery, reviews and
+available latency/usage. A separate analytics dashboard is not an initial requirement.
+
+Add editable persistent profiles for exact user-confirmed settings and preferences.
+Add semantic retrieval over saved discussions, notes and references to discover
+useful context without manually linking every related item. Start with a manual
+“Find relevant context” action and selectable results. Topic filters are optional;
+semantic similarity is relevance evidence, not proof of a favorite team or other fact.
+Retain explicit IDs for ownership, provenance and deliberate attachments.
+
+Inspect Hekate's existing vector/storage implementation before choosing reuse or a
+new dependency. LangGraph Store is a candidate cross-thread storage interface where
+LangGraph is used; LangMem is a candidate for later optional profile suggestions.
+Neither has been selected or integrated into the live TypeScript application. Do not
+make the UI depend on a Python memory service merely because the experiment uses Python.
+
+Later, evaluate automatic context selection, profile suggestions, background briefings,
+review policies and bounded revision loops. Durable multitask execution and expansion
+to email/other domains remain longer-term work. Payload separation and reference
+contracts should be domain-neutral. Automation should follow evidence from manual runs.
+
+## Review versus measurement
+
+Production self-review or independent review can improve outputs; it is part of the
+workflow being measured. Reviewers receive only the evidence needed for their task,
+which may include payload content the conversational model never saw. Record draft,
+review findings and explicit revisions. Review agreement is not factual verification.
+Compare review-off/self/cross-model and supported thinking configurations on quality,
+cost and latency; evaluate the resulting workflow independently. Service quotas,
+cancellation and resource-specific policies apply to every configuration.
 
 No runtime keyword list should recognize evaluation prompts. Team names belong in
 provider directories and test inputs. Supported scopes come from the tool registry;

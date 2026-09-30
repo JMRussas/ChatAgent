@@ -54,6 +54,7 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
   coordinator.configure(registry, config.coordinator, version);
   const http = new BriefingHttp(coordinator, config.profile);
   let directory = new TeamDirectory(apiKey, budget, config.directories, version, transport, clock);
+  http.directory = directory;
   http.additionalTools = () => directory.tools();
   http.close = () => { closed = true; directory.close(); coordinator.close(); };
   return { coordinator, http, get profile() { return structuredClone(config.profile); }, get version() { return version; },
@@ -68,6 +69,7 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
       http.setProfile(next.profile);
       directory.close();
       directory = new TeamDirectory(apiKey, budget, next.directories, nextVersion, transport, clock);
+      http.directory = directory;
       config = next; version = nextVersion;
       return { version, changed: true };
     }

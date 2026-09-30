@@ -1,3 +1,4 @@
+import { ToolResultStore } from "../../src/app/toolResult";
 import { describe, expect, it, vi } from "vitest";
 import { CapabilityChat, validateCapabilityPlan, type CapabilityTool } from "../../src/app/capabilityChat";
 import { ContextManager } from "../../src/app/contextManager";
@@ -15,6 +16,23 @@ function app(output: unknown, tools: CapabilityTool[] = []) {
   return { chat, generate, timeline };
 }
 describe("capability-based conversation", () => {
+  it("keeps user payload and evidence out of subsequent model calls", async () => {
+    const store = new ToolResultStore();
+    const result = store.put("u", "c", {version:"tool-result-v1",context:{status:"ready",summary:"Directory available",scope:"test",coverage:"complete",limitations:[],expiresAt:new Date(Date.now()+60000).toISOString()},
+      payload:{kind:"table",title:"Directory",columns:["Name"],rows:Array.from({length:1000},()=>["PAYLOAD_ONLY_CANARY"])},
+      evidence:{sourceUrl:"https://example.invalid/EVIDENCE_ONLY_CANARY",observedAt:new Date().toISOString(),revision:"v1"}});
+    const tool: CapabilityTool = {id:"test:list",description:"List",inputSchema:{},validate:v=>v,execute:async()=>result};
+    const a = app({action:"retrieve",calls:[{tool:tool.id,arguments:{}}]},[tool]);
+    await a.chat.handleUserMessage(message); await a.chat.whenIdle();
+    const event = (await a.timeline.getEvents("c")).find(e=>e.type === "refined");
+    expect(event?.payloadResults?.[0].payload?.rows).toHaveLength(1000);
+    expect(event?.text).not.toContain("PAYLOAD_ONLY_CANARY");
+    a.generate.mockResolvedValueOnce({text:JSON.stringify({action:"answer",message:"Ready"}),finishReason:"stop"});
+    await a.chat.handleUserMessage({...message,messageId:"two",text:"What did you retrieve?"});
+    const input = JSON.stringify(a.generate.mock.calls[1][0]);
+    expect(input).toContain(result.context.resultId);
+    expect(input).not.toContain("PAYLOAD_ONLY_CANARY"); expect(input).not.toContain("EVIDENCE_ONLY_CANARY");
+  });
   it("isolates tool request identities across conversations reusing a message ID", async () => {
     const ids: string[] = [], owners: string[] = [];
     const tool: CapabilityTool = { id: "test:lookup", description: "Test", inputSchema: {}, validate: value => value,

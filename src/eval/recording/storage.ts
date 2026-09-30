@@ -18,6 +18,7 @@ const eventSchema = z.object({
     resolvedModel: z.null(), modelRevision: z.null(), reasoningEnabled: z.boolean().nullable() }).strict().nullable(),
   answerKind: z.enum(["acknowledgment", "substantive"]).nullable(),
   answer: z.object({ scoredHash: hash, artifactHash: hash.nullable(), transformed: z.boolean(), text: z.string().optional() }).strict().nullable(),
+  payloads: z.array(z.object({resultId:hash,contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),text:z.string().optional()}).strict()).max(3).optional(),
   usage: z.null(), costUsd: z.null()
 }).strict();
 const artifactSchema = z.object({ schemaVersion: z.literal("chatagent-evaluation-v1"), manifest: z.object({
@@ -42,6 +43,12 @@ export function validateArtifact(value: unknown, now = Date.now(), allowExpired 
   const parents = new Map<string, string>();
   const pending = new Set<string>();
   for (const [i, event] of parsed.trace.entries()) {
+    for (const payload of event.payloads ?? []) {
+      if (parsed.manifest.capture === "metadata" && payload.text !== undefined ||
+        payload.text !== undefined && digest(payload.text) !== payload.artifactHash ||
+        !payload.transformed && payload.artifactHash !== null && payload.contentHash !== payload.artifactHash)
+        throw new Error("EVAL_ARTIFACT_INTEGRITY");
+    }
     if (event.type === "user") { pending.add(`${event.turnId}:fast`); if (event.route === "deep") pending.add(`${event.turnId}:deep`); }
     if (event.type === "terminal" && !event.retrying) pending.delete(`${event.turnId}:${event.phase}`);
     if (event.callId) {

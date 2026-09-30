@@ -79,7 +79,7 @@ describe("provider-backed team directories", () => {
     expect(await pending).toMatchObject({status:"unavailable",reason:"stale_directory"});
   });
   it("invalidates issued tools after reload/close", async () => {
-    const s = setup(); const tool = s.directory.tools()[0]; s.directory.close();
+    const s = setup(); const tool = s.directory.tools().find(t => t.id === "sports:resolve-team")!; s.directory.close();
     await expect(tool.execute({query:"Comets"},"u","r",signal(),"c")).rejects.toThrow("CAPABILITIES_CHANGED");
   });
 });

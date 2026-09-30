@@ -1,3 +1,4 @@
+import { ToolResultStore } from "../../src/app/toolResult";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -39,6 +40,20 @@ const annotations = (text = "answer") => ({ version: 2, rubricVersion: "rubric-v
   ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
 
 describe("evaluation recording", () => {
+  it("records payload hashes separately and retains content only in answers mode", async () => {
+    for (const capture of ["metadata", "answers"] as const) {
+      const recorder = await setup({capture});
+      const result = new ToolResultStore().put("u","c", {version:"tool-result-v1",context:{status:"ready",summary:"Ready",scope:"test",coverage:"complete",limitations:[],expiresAt:new Date(Date.now()+60000).toISOString()},payload:{kind:"table",title:"Directory",columns:["Name"],rows:[["PAYLOAD_CANARY"]]},evidence:{sourceUrl:"https://example.invalid",observedAt:new Date().toISOString(),revision:"v"}});
+      recorder.record("c",{type:"refined",messageId:"m",text:"Ready",createdAtIso:new Date().toISOString(),payloadResults:[result]});
+      await recorder.finish();
+      const run = await readArtifact(recorder.path);
+      expect(run.trace[0].payloads?.[0].contentHash).toBe(digest(JSON.stringify(result)));
+      const serialized = await readFile(recorder.path,"utf8");
+      if (capture === "metadata") expect(serialized).not.toContain("PAYLOAD_CANARY");
+      else expect(run.trace[0].payloads?.[0].text).toContain("PAYLOAD_CANARY");
+      expect(run.trace[0].answer?.text ?? "").not.toContain("PAYLOAD_CANARY");
+    }
+  });
   it("defaults off and rejects invalid capture/size configuration", () => {
     expect(redact('password="a secret with spaces"')).toBe("password=[REDACTED]");
     expect(recordingConfig({})).toBeUndefined();

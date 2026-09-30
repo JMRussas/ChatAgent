@@ -254,6 +254,28 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
       }
 
+      if (method === "GET" && url.pathname === "/sports/team-directories") {
+        return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [] });
+      }
+      if (method === "POST" && ["/sports/teams", "/sports/results"].includes(url.pathname)) {
+        const directory = options.briefings?.directory;
+        if (!directory) return json(res, 404, { error: "Team directories are disabled" });
+        const body = z.object({ userId:z.string().min(1).max(200), conversationId:z.string().min(1).max(200),
+          league:z.enum(["NBA","NFL"]).optional(), resultId:z.string().uuid().optional() }).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        service.claimConversation(body.conversationId, body.userId, url.pathname === "/sports/teams");
+        if (url.pathname === "/sports/results") {
+          if (!body.resultId) throw new HttpRequestError(400, "Result ID required");
+          try { return json(res, 200, directory.results.get(body.resultId, body.userId, body.conversationId)); }
+          catch { return json(res, 404, {error:"Result unavailable or expired"}); }
+        }
+        if (!body.league) throw new HttpRequestError(400, "League required");
+        const controller = new AbortController();
+        const cancel = () => controller.abort(); res.once("close", cancel);
+        try { return json(res, 200, await directory.list({league:body.league},body.userId,body.conversationId,controller.signal)); }
+        catch { return json(res, 503, {error:"Directory unavailable. No complete team list was retrieved."}); }
+        finally { res.removeListener("close", cancel); }
+      }
+
       if (method === "POST" && url.pathname === "/sports/chat") {
         if (!options.briefings) return json(res, 404, { error: "Sports retrieval is not enabled on this server." });
         try { return json(res, 202, options.briefings.startChat(requireObjectBody(await parseJsonBody(req)))); }
