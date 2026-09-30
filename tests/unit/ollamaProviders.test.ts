@@ -3,6 +3,15 @@ import { OllamaDeepProvider, OllamaFastProvider } from "../../src/providers/olla
 import { sampleContext } from "../helpers/contextFixtures";
 
 describe("ollama providers", () => {
+  it("verifies per-run thinking options without mutating the shared provider", async () => {
+    global.fetch=vi.fn(async()=>Response.json({thinking:{values:[true]}})) as typeof fetch;
+    const provider=new OllamaFastProvider("http://localhost:11434","test",0);
+    expect(await provider.thinkingOptions()).toEqual(["on"]);
+    const selected=await provider.withThinking("on");
+    expect(selected.metadata?.reasoningEnabled).toBe(true);
+    expect(provider.metadata.reasoningEnabled).toBeUndefined();
+    await expect(provider.withThinking("off")).rejects.toThrow("THINKING_CONFIG_UNSUPPORTED");
+  });
   const originalFetch = global.fetch;
 
   afterEach(() => {

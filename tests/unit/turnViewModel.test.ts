@@ -78,7 +78,7 @@ describe("turn activity projection", () => {
 function createUi(state: { events: ChatTimelineEvent[]; reconnecting: boolean }) {
   class Element {
     children: Element[] = []; parent?: Element; className = ""; textContent = ""; open = false; hidden = false; type = ""; onclick?: () => void;
-    attributes: Record<string, string> = {};
+    attributes: Record<string, string> = {}; dataset: Record<string,string> = {}; value = "";
     appendChild(child: Element) { child.parent = this; this.children.push(child); }
     insertBefore(child: Element, before: Element | null) { child.remove(); child.parent = this; this.children.splice(before ? this.children.indexOf(before) : this.children.length, 0, child); }
     replaceChildren() { this.children = []; }
@@ -87,8 +87,8 @@ function createUi(state: { events: ChatTimelineEvent[]; reconnecting: boolean })
   }
   const html = renderHomePageHtml();
   const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
-  const thread = new Element();
-  const ui = new Function("state", "thread", "document", script.slice(script.indexOf("    const deriveTurns ="), script.indexOf("    function renderTelemetry")) + "return { renderThread, updateActivityTimers, turnNodes };")(state, thread, { createElement: () => new Element() });
+  const thread = new Element(), target = new Element();
+  const ui = new Function("state", "thread", "document", "$", script.slice(script.indexOf("    const deriveTurns ="), script.indexOf("    function renderTelemetry")) + "return { renderThread, updateActivityTimers, turnNodes };")(state, thread, { createElement: () => new Element() }, () => target);
   return { ...ui, html };
 }
 

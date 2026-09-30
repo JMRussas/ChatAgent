@@ -43,6 +43,7 @@ async function runtime() {
     new ContextManager(timeline, { windowTokens: 8192, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
     () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools());
   const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),
+    runControlOptions:()=>planner.runControlOptions(),thinkingOptions:id=>planner.thinkingOptions(id),
     cancel: (conversation, message) => legacy.cancel(conversation, message), whenIdle: () => planner.whenIdle() }, new DeepWorker(queue, deep, timeline), timeline, queue);
   const server = createChatServer(service, {briefings:sports.http});
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));

@@ -73,6 +73,9 @@ export class EvaluationRecorder {
         answer: answerEvent ? { scoredHash: textHash, artifactHash: captured === undefined ? null : digest(captured),
           transformed: captured !== undefined && captured !== event.text, ...(captured === undefined ? {} : { text: captured }) } : null,
         usage: null, costUsd: null,
+        ...(event.runControls ? {runControls:{...event.runControls,
+          ...(event.runControls.bindingId ? {bindingId:redact(event.runControls.bindingId)} : {}),
+          ...(event.runControls.targetMessageId ? {targetMessageId:this.identity("message",event.runControls.targetMessageId)} : {})}} : {}),
         ...(event.selectedContext ? {selectedContext:(() => {
           const raw = JSON.stringify(event.selectedContext), captured = this.config.capture === "answers" ? redact(raw) : undefined;
           return {contentHash:digest(raw), artifactHash:captured === undefined ? null : digest(captured),

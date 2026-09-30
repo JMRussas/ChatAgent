@@ -4,6 +4,7 @@ import type { ConversationContext } from "./context";
 export type RouteDecision = "direct" | "deep" | "clarify";
 
 export interface UserMessage {
+  runControls?: import("../app/runControls").RunControls;
   /** Server-owned selection; never accepted directly from request JSON. */
   selectedContext?: ReturnType<typeof import("../app/conversationScope").scopeForModel>;
   messageId?: string;
@@ -58,6 +59,7 @@ export interface ChatTimelineEvent {
   /** UI/evaluation only; never serialize into model history. */
   payloadResults?: import("../app/toolResult").ToolResult[];
   selectedContext?: UserMessage["selectedContext"];
+  runControls?: import("../app/runControls").RunControls;
   capabilityPlan?: unknown;
   selections?: { fast: import("../routing/modelSelector").ModelSelection; deep?: import("../routing/modelSelector").ModelSelection };
   activity?: "queued" | "thinking" | "running" | "generating" | "retrying" | "failed";

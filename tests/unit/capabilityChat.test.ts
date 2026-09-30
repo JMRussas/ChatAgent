@@ -16,6 +16,25 @@ function app(output: unknown, tools: CapabilityTool[] = []) {
   return { chat, generate, timeline };
 }
 describe("capability-based conversation", () => {
+  it("manually reviews a selected answer without executing tools or replacing the draft", async () => {
+    const execute=vi.fn();const tool:CapabilityTool={id:"test:read",description:"read",inputSchema:{},validate:v=>v,execute};
+    const a=app({action:"answer",message:"Original answer"},[tool]);
+    await a.chat.handleUserMessage(message);
+    a.generate.mockResolvedValueOnce({text:JSON.stringify({action:"answer",message:"Review: needs evidence"}),finishReason:"stop"});
+    await a.chat.handleUserMessage({...message,messageId:"review",text:"Check the claims",runControls:{mode:"review",thinking:"configured",bindingId:"fixed",targetMessageId:"one"}});
+    expect(a.generate.mock.calls[1][0].context?.systemInstruction).toContain("Original answer");
+    expect(execute).not.toHaveBeenCalled();
+    expect((await a.timeline.getEvents("c")).filter(e=>e.type === "provisional").map(e=>e.text)).toEqual(["Original answer","Review: needs evidence"]);
+    a.generate.mockResolvedValueOnce({text:JSON.stringify({action:"retrieve",calls:[{tool:tool.id,arguments:{}}]}),finishReason:"stop"});
+    await expect(a.chat.handleUserMessage({...message,messageId:"bad-review",runControls:{mode:"review",thinking:"configured",targetMessageId:"one"}})).rejects.toThrow("REVIEW_PLAN_INVALID");
+    expect(execute).not.toHaveBeenCalled();
+  });
+  it("rejects unsupported manual thinking and model choices before generation", async () => {
+    const a=app({action:"answer",message:"unused"});
+    await expect(a.chat.handleUserMessage({...message,runControls:{mode:"chat",thinking:"on"}})).rejects.toThrow("THINKING_CONFIG_UNSUPPORTED");
+    await expect(a.chat.handleUserMessage({...message,messageId:"wrong-model",runControls:{mode:"chat",thinking:"configured",bindingId:"missing"}})).rejects.toThrow("MODEL_SELECTION_UNAVAILABLE");
+    expect(a.generate).not.toHaveBeenCalled();
+  });
   it("keeps user payload and evidence out of subsequent model calls", async () => {
     const store = new ToolResultStore();
     const result = store.put("u", "c", {version:"tool-result-v1",context:{status:"ready",summary:"Directory available",scope:"test",coverage:"complete",limitations:[],expiresAt:new Date(Date.now()+60000).toISOString()},

@@ -39,7 +39,7 @@ export class CatalogDispatch {
     return { ...c.binding[phase.role]?.metadata, provider: c.entry.provider, model: c.entry.model,
       bindingId: c.selection.bindingId, selection: structuredClone(c.selection), task: c.requirements.task };
   }
-  async prepare(manager: ContextManager, input: PrepareContextInput): Promise<DispatchPlan> {
+  async prepare(manager: ContextManager, input: PrepareContextInput, bindingId?: string): Promise<DispatchPlan> {
     const capture = await manager.capture(input);
     const task = input.planningInstruction ? { task: "conversation" as const, requiredCapabilities: [], inputTokens: 0, outputTokens: this.budget.fastOutputTokens } : classifyTaskRequirements({ text: input.currentUserText, routeDecision: input.routeDecision ?? "direct",
       inputTokens: 0, outputTokens: this.budget.fastOutputTokens });
@@ -50,7 +50,7 @@ export class CatalogDispatch {
         : { ...task };
       requirements.outputTokens = role === "fast" ? this.budget.fastOutputTokens : this.budget.deepOutputTokens;
       return rankModels({ catalog, registry: this.registry, observations, policy: this.policy, admission: this.admission,
-        role, requirements, nowIso: this.now().toISOString(), applicationWindow: this.budget.windowTokens,
+        role, requirements, ...(bindingId ? {onlyBindingIds:[bindingId]} : {}), nowIso: this.now().toISOString(), applicationWindow: this.budget.windowTokens,
         preview: (windowTokens, entry) => capture.preview({ ...this.budget, windowTokens,
           fastOutputTokens: requirements.outputTokens, deepOutputTokens: requirements.outputTokens },
           { ...input.trustedFacts, [`${role}Provider`]: entry.provider, [`${role}Model`]: entry.model }, task.task) });
@@ -76,7 +76,7 @@ export class CatalogDispatch {
       catch (error) { exclusions.push({ bindingId: fast.selection.bindingId, reasons: [(error as Error).message] }); continue; }
       const phase = (c: Candidate, role: "fast" | "deep", ticket: string, candidates: Candidate[]): PhaseDispatch => {
         const list = this.policy.fallbackBindingIds[role];
-        const fallbacks = list.flatMap(id => candidates.filter(v => v.selection.bindingId === id && id !== c.selection.bindingId));
+        const fallbacks = (bindingId ? [] : list).flatMap(id => candidates.filter(v => v.selection.bindingId === id && id !== c.selection.bindingId));
         const result: PhaseDispatch = { id: randomUUID(), role, candidate: c, ticket, fallbacks,
           fallbackUsed: false, context: structuredClone(context) };
         this.phases.set(result.id, result); return result;

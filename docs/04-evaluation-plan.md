@@ -1,5 +1,18 @@
 # Evaluation Plan
 
+## Manual controls increment — 2026-09-30
+
+Scope review corrections are committed as `72971f8`. Per-run model selection and
+manual text review/revision are now implemented, preserving resource admission.
+Thinking controls expose configured defaults plus explicitly verified Ollama boolean
+options; other provider overrides remain unsupported. Review is a separate turn,
+requires a selected answer, and cannot execute tools or silently rewrite the draft.
+Requested controls and effective model metadata are recorded. Validation: 637 tests,
+16 browser tests and build passed; no live quality scores claimed. Next is broader
+reference attachment/detachment and payload-review evidence, followed by game search.
+See [handoff](implementation/NEXT-HANDOFF.md) for limits and remaining work.
+
+
 ## Latest increment — 2026-09-30
 
 Review fixes committed as `1e2d60d`: versioned API payload delivery, close-race guard,

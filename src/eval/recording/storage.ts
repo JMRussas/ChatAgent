@@ -1,3 +1,4 @@
+import { runControlsSchema } from "../../app/runControls";
 import { lstat, readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -6,6 +7,7 @@ import { canonical, digest, type RunArtifact } from "./contract";
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const label = z.string().max(512);
 const eventSchema = z.object({
+  runControls:runControlsSchema.optional(),
   sequence: z.number().int().positive(), timelineSequence: z.number().int().positive().nullable(),
   elapsedMs: z.number().finite().nonnegative(), timestampIso: z.string().datetime(),
   conversationId: hash, turnId: hash, taskId: hash.nullable(), callId: hash.nullable(), parentCallId: hash,

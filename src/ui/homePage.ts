@@ -392,6 +392,15 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
       <p id="mockNotice" role="status" hidden>Mock preview: replies are simulated. Completion means the simulation finished, not that facts were retrieved or verified.</p>
       <form id="composer" class="composer">
+        <fieldset id="runControls" hidden>
+          <legend>Manual run controls</legend>
+          <label>Model <select id="runModel"><option value="">Configured routing</option></select></label>
+          <label>Thinking <select id="runThinking"><option value="configured">Configured</option></select></label>
+          <span id="thinkingStatus" role="status"></span>
+          <label>Action <select id="runMode"><option value="chat">Chat</option><option value="review">Review selected answer</option><option value="revise">Revise using my feedback</option></select></label>
+          <label>Answer <select id="runTarget"><option value="">Select a completed text answer</option></select></label>
+          <p>Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Enter review criteria or revision feedback in the prompt.</p>
+        </fieldset>
         <div class="meta-grid">
           <label>
             Conversation ID
@@ -557,6 +566,15 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
     }
     function renderThread() {
+      const targets = state.events.filter(e => ["provisional","refined"].includes(e.type) && e.processingStatus === "complete" && e.answerKind !== "acknowledgment" && !e.payloadResults?.length);
+      const unique = [...new Map(targets.map(e=>[e.messageId,e])).values()];
+      const key = unique.map(e=>e.messageId+":"+e.sequence).join(",");
+      if ($("runTarget").dataset.key !== key) {
+        const previous = $("runTarget").value; $("runTarget").replaceChildren();
+        const placeholder = document.createElement("option"); placeholder.value="";placeholder.textContent="Select a completed text answer";$("runTarget").appendChild(placeholder);
+        for (const e of unique) {const option=document.createElement("option");option.value=e.messageId;option.textContent=e.text.slice(0,100);$("runTarget").appendChild(option);}
+        $("runTarget").value=previous;$("runTarget").dataset.key=key;
+      }
       const turns = deriveTurns(state.events);
       if (state.pendingMessageId && state.events.some(e => e.type === "user" && e.messageId === state.pendingMessageId)) state.pendingUserText = "";
       if (state.pendingUserText) turns.push({ messageId: state.pendingMessageId, userText: state.pendingUserText, answers: [], attempts: [], active: true, status: "Sending", current: null });
@@ -753,6 +771,10 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         return;
       }
 
+      const runControls = $("runControls").hidden ? undefined : {
+        ...($("runModel").value ? {bindingId:$("runModel").value}:{}),thinking:$("runThinking").value,mode:$("runMode").value,
+        ...($("runMode").value !== "chat" ? {targetMessageId:$("runTarget").value}:{})};
+      if (runControls?.mode !== "chat" && runControls && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
       await refreshConversationContext();
       if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) return;
       saveConversation();
@@ -776,7 +798,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             conversationId,
             messageId,
             userId,
-            text
+            text, runControls
           })
         });
 
@@ -832,6 +854,19 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.userId = String(userIdInput.value || "").trim();
     });
 
+    fetch("/run-controls").then(r=>r.json()).then(data=>{
+      if(!data.models?.length)return;
+      $("runControls").hidden=false;
+      for(const model of data.models){const option=document.createElement("option");option.value=model.bindingId;option.textContent=model.provider+"/"+model.model;$("runModel").appendChild(option);}
+    }).catch(()=>{});
+    let thinkingRequest=0;
+    $("runModel").onchange=async()=>{
+      const version=++thinkingRequest;$("runThinking").replaceChildren(new Option("Configured","configured"));$("thinkingStatus").textContent="Checking supported settings…";
+      try{const r=await fetch("/run-controls/thinking?bindingId="+encodeURIComponent($("runModel").value));const data=await r.json();if(version!==thinkingRequest)return;
+        for(const setting of data.options || [])if(setting!=="configured")$("runThinking").appendChild(new Option(setting,setting));
+        $("thinkingStatus").textContent=data.limitation || (data.options.length===1?"Only configured thinking is available for this selection.":"Options verified by the adapter.");
+      }catch{if(version===thinkingRequest)$("thinkingStatus").textContent="Could not verify thinking options.";}
+    };
     let contextExpiryTimer, contextRequestVersion = 0;
     const showConversationContext = context => {
       clearTimeout(contextExpiryTimer);

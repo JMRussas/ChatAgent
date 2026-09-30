@@ -35,8 +35,9 @@ validation uses owned result handles and matching directory revisions. Expired
 reference fields are omitted from subsequent model inputs. This is process-local
 state with a 100-conversation cap, not durable topic/profile memory.
 
-Next executable slice: manual model/thinking/review controls and broader explicit
-reference management. Current reference attachment is limited to the chosen team
+Manual per-run model pins, verified Ollama thinking overrides and explicit text
+review/revision actions are now implemented. Next executable slice: broader explicit
+reference management, including bounded evidence for payload review. Current reference attachment is limited to the chosen team
 record at conversation creation; arbitrary payload selection and detach are pending.
 Declare the directory scope honestly: current-team filtering is not established by
 NBA's historical directory. Do not label the list current-only without evidence.

@@ -97,6 +97,20 @@ function contextMessagesFor(context: ConversationContext, role: "fast" | "deep")
 }
 
 export class OllamaFastProvider implements FastModelProvider {
+  async thinkingOptions(): Promise<("on" | "off")[]> {
+    return withGenerationDeadline("Ollama thinking options",5000,undefined,async signal => {
+      const base=this.baseUrl.replace(/\/$/,"");
+      const response=await fetch(`${base}/api/show`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:this.model}),signal});
+      if(!response.ok) throw new GenerationError("THINKING_CONFIG_UNVERIFIED",false);
+      const metadata=await response.json();
+      const values=metadata.thinking?.values;
+      return Array.isArray(values) ? (["on","off"] as const).filter(v=>values.includes(v === "on")) : [];
+    });
+  }
+  async withThinking(value: "on" | "off"): Promise<FastModelProvider> {
+    if(!(await this.thinkingOptions()).includes(value)) throw new GenerationError("THINKING_CONFIG_UNSUPPORTED",false);
+    return new OllamaFastProvider(this.baseUrl,this.model,this.temperature,this.timeoutMs,this.numPredict,value === "on");
+  }
   get metadata() { return { provider: "ollama", model: this.model, ...(this.think === undefined ? {} : { reasoningEnabled: this.think }) }; }
   constructor(
     private readonly baseUrl: string,

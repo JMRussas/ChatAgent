@@ -31,6 +31,7 @@ export function recordingConfig(env: NodeJS.ProcessEnv = process.env): RecorderC
     retentionMs: integer("EVAL_RETENTION_MS", 604800000, 1000, 2147483647), repetition: integer("EVAL_REPETITION", 1, 1, 10000), condition: condition as RecorderConfig["condition"] };
 }
 export interface RecordedEvent {
+  runControls?: import("../../app/runControls").RunControls;
   selectedContext?: { contentHash: string; artifactHash: string | null; transformed: boolean; referenceStatus: "attached" | "expired" | "not_attached"; text?: string };
   payloads?: { resultId: string; contentHash: string; artifactHash: string | null; transformed: boolean; text?: string }[];
   sequence: number; timelineSequence: number | null; elapsedMs: number; timestampIso: string;

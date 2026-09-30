@@ -65,7 +65,7 @@ export class ChatService {
   private readonly ownerUserIdByConversationId = new Map<string, string>();
 
   constructor(
-    private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & { whenIdle?: () => Promise<void> },
+    private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & { whenIdle?: () => Promise<void>; runControlOptions?: () => unknown; thinkingOptions?: (bindingId?:string) => Promise<unknown> },
     private readonly worker: DeepWorker,
     private readonly timelineStore: ConversationTimelineStore,
     private readonly queue?: TaskQueue,
@@ -73,8 +73,11 @@ export class ChatService {
     private readonly adaptiveRouting?: AdaptiveRoutingCoordinator
   ) {}
 
+  runControlOptions() { return this.orchestrator.runControlOptions?.() ?? {models:[]}; }
+  thinkingOptions(bindingId?:string) { return this.orchestrator.thinkingOptions?.(bindingId) ?? Promise.resolve({options:["configured"]}); }
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
+    if (message.runControls && !this.orchestrator.runControlOptions) throw new GenerationError("RUN_CONTROLS_UNSUPPORTED",false);
     this.claimConversation(message.conversationId, message.userId);
     const selectedContext = this.getSelectedContext(message.conversationId,message.userId);
     return this.track(() => this.orchestrator.handleUserMessage({...message,selectedContext}));

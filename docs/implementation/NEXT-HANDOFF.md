@@ -1,5 +1,33 @@
 # Next ChatAgent handoff after 01B
 
+## Manual run controls implemented — 2026-09-30
+
+The live planner UI/API accepts explicit model binding, thinking selection and action
+(chat, review, revise). Catalog model pins retain readiness/context/resource admission
+and disable fallback candidates. Fixed mode exposes only its configured model. Review
+and revision require an explicitly selected completed text answer, run as separate
+turns and reject tool-execution plans. They do not overwrite the original answer.
+Users can choose the original model or another registered conversational binding;
+there is no automatic reviewer selection or revision loop.
+
+Thinking defaults to the configured provider setting. Ollama offers boolean on/off
+only when `/api/show` explicitly advertises those values, and rechecks when applying
+the setting to a per-run provider instance. Unverified/unsupported settings fail;
+other adapters currently expose configured thinking only. No generic low/medium/high
+mapping or CLI thinking override is claimed. Selection does not bypass account budgets.
+
+Requested controls are recorded in timeline/evaluation events; actual model metadata
+records effective thinking where known. Review target IDs are hashed in recordings.
+Payload-bearing answers and targets over 8,000 characters are explicitly rejected by
+this first review path. It is a production review action, not an independent quality
+score. Model-grounded quality comparisons remain pending.
+
+Validation: 637 tests / 84 files, 16 browser tests and TypeScript build passed. No
+live model/provider calls or preview restart. Next: broader explicit reference
+management (attach/detach bounded evidence, including payload review), then general
+game search and specific-game detail views. Persistence/automation remain deferred.
+
+
 ## Scope review corrections — 2026-09-30
 
 The UI restores active conversation/user IDs from tab-scoped session storage.

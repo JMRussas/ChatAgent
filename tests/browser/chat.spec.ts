@@ -158,3 +158,18 @@ test("reference indicator refreshes when attached evidence expires", async ({pag
   await expect(page.locator("#selectedConversationContext")).toContainText("attached");
   await expect(page.locator("#selectedConversationContext")).toContainText("expired");
 });
+
+
+test("manual review targets a chosen answer and records requested controls",async({page,app})=>{
+  app.controls.plan={action:"answer",message:"Initial answer"};
+  await send(page,"Give an answer");await expect(page.locator(".answer-content")).toContainText("Initial answer");
+  await page.locator("#runModel").selectOption("fixed");
+  await expect(page.locator("#thinkingStatus")).toContainText("Only configured");
+  await page.locator("#runMode").selectOption("review");
+  await page.locator("#runTarget").selectOption({label:"Initial answer"});
+  app.controls.plan={action:"answer",message:"Review: needs additional evidence"};
+  await send(page,"Check factual support");
+  await expect(page.locator(".answer-content").last()).toContainText("Review:");
+  expect(JSON.stringify(app.controls.inputs.at(-1))).toContain('"mode":"review"');
+  expect(JSON.stringify(app.controls.inputs.at(-1))).toContain("Initial answer");
+});

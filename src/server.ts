@@ -1,3 +1,4 @@
+import { runControlsSchema } from "./app/runControls";
 import type { BriefingHttp } from "./sports/briefingHttp";
 import { CapabilityChat } from "./app/capabilityChat";
 import { loadLiveBriefingFromEnv } from "./sports/liveBriefing";
@@ -152,6 +153,7 @@ class HttpRequestError extends Error {
 }
 
 const MessageBodySchema = z.object({
+  runControls: runControlsSchema.optional(),
   messageId: z.string().uuid().optional(),
   conversationId: z.string().min(1),
   userId: z.string().min(1),
@@ -308,6 +310,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           conversationId: body.conversationId,
           userId: body.userId,
           text: body.text,
+          runControls: body.runControls,
           timestampIso: body.timestampIso ?? new Date().toISOString()
         });
 
@@ -361,6 +364,11 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
       }
 
+      if (method === "GET" && url.pathname === "/run-controls") return json(res,200,service.runControlOptions());
+      if (method === "GET" && url.pathname === "/run-controls/thinking") {
+        try { return json(res,200,await service.thinkingOptions(url.searchParams.get("bindingId") ?? undefined)); }
+        catch { return json(res,200,{options:["configured"],limitation:"Thinking options could not be verified"}); }
+      }
       if (method === "GET" && url.pathname === "/models") {
         return json(res, 200, options.modelCatalog?.() ?? { version: 1, routingMode: "fixed-fast-deep", models: [], discovered: [], unlistedSelections: [] });
       }
