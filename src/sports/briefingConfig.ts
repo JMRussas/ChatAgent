@@ -5,8 +5,8 @@ import type { SportsSource } from "./sources";
 const id = z.string().regex(/^[a-zA-Z0-9_.-]{1,120}$/);
 export const briefingProfileSchema = z.object({
   schemaVersion: z.literal("chatagent-briefing-profile-v1"), id,
-  // Other leagues need verified source/identity support, not just a new label.
-  league: z.literal("NBA"),
+  // Supported adapters define the league-specific source/identity semantics.
+  league: z.enum(["NBA", "NFL"]),
   initialLookbackHours: z.number().int().min(1).max(8760),
   maxCatchupHours: z.number().int().min(1).max(8760),
   tasks: z.array(z.object({

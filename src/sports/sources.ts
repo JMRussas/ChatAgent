@@ -7,6 +7,7 @@ export const teamIdentitySchema = z.object({ provider: id, id, name: z.string().
 const windowSchema = z.object({ fromInclusive: timestamp, toExclusive: timestamp }).strict()
   .refine(w => Date.parse(w.fromInclusive) <= Date.parse(w.toExclusive), "Reversed window");
 export const sourceQuerySchema = z.object({
+  league: z.enum(["NBA", "NFL"]).optional(),
   kind: z.enum(["games", "news", "availability"]), team: teamIdentitySchema.nullable(),
   window: windowSchema, now: timestamp, limit: z.number().int().min(1).max(100),
   maxAgeMs: z.number().int().min(0).max(7 * 24 * 60 * 60 * 1000)
@@ -89,6 +90,7 @@ export class FixtureSportsSource implements SportsSource {
   async read(input: SourceQuery, signal?: AbortSignal): Promise<SourceResult> {
     signal?.throwIfAborted();
     const query = sourceQuerySchema.parse(input), feed = this.feed;
+    if ((query.league ?? "NBA") !== "NBA") throw new Error("SPORTS_LEAGUE_MISMATCH");
     if (query.kind !== feed.kind) throw new Error("SPORTS_SOURCE_KIND_MISMATCH");
     if (query.team && !feed.supportedTeams.some(team => sameTeam(team, query.team!))) throw new Error("SPORTS_TEAM_UNRESOLVED");
     const now = Date.parse(query.now), captured = Date.parse(feed.capturedAt);

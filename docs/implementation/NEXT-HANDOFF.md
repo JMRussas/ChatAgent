@@ -1,5 +1,32 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: NFL adapter and existing-key access verified
+
+User authorized NFL using the same BALLDONTLIE account/key. Added league-specific
+NFL endpoint/date filtering/normalization in the bounded adapter, NFL namespaced team
+identities, explicit coordinator league scope and a configurable games-only NFL profile.
+NBA defaults remain compatible; NBA fixtures and adapter/team identities cannot be
+silently reused as NFL evidence. `sports:nfl -- 168` performs an explicit seven-day
+query using the server clock.
+
+One authenticated request succeeded and returned 16 normalized games. No account or
+subscription change was needed. [Access evidence](../../reports/nfl-access-check-2026-09-30.json)
+records the window/counts/limits; it contains no credentials. Coverage is still partial,
+source freshness unknown and no checkpoint advances. CLI exit 1 is intentional for
+that incomplete coverage, not an authentication failure. No live news/availability,
+UI wiring or independent factual grading is claimed.
+
+Validation: **573 tests / 75 files**, TypeScript build/type checking and diff checks
+pass. New tests cover NFL normalization/filters, cross-league rejection and profile
+planning. One live request verified access; no browser rerun was needed for this slice.
+
+Next: news ingestion and shared bounded request admission/cache before automatic
+league/team refreshes, then task UI and source-backed model follow-ups. Keep the
+combined free-tier load under five requests/minute; separate adapter instances or
+CLI processes do not currently coordinate that allowance. NFL is the active-season
+demo target, with NBA still supported. See [updated sports plan](../18-nba-briefing-demo.md).
+
+
 ## 2026-09-30: prepare BALLDONTLIE games integration
 
 User selected BALLDONTLIE preparation with no existing provider account. Added an

@@ -49,7 +49,7 @@ export function planBriefing(input: BriefingRequest, configuration: unknown) {
       sources: task.sources
     })),
     questions: profile.tasks.some(task => task.scope === "team") && !request.team
-      ? ["Which NBA team should your briefing focus on?"] : []
+      ? ["Which " + profile.league + " team should your briefing focus on?"] : []
   };
 }
 

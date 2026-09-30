@@ -119,7 +119,7 @@ export class BriefingCoordinator {
     try {
       for (const source of job.sources) {
         if (terminal(task.status)) return;
-        const query = { kind: source.kind, team: planned.team,
+        const query = { league: run.plan.league, kind: source.kind, team: planned.team,
           window: { fromInclusive: planned.window.fromInclusive, toExclusive: planned.window.toExclusive },
           now: run.plan.plannedAt, limit: source.limit, maxAgeMs: source.maxAgeMs };
         try {

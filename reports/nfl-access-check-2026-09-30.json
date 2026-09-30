@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "chatagent-nfl-access-check-v1",
+  "checkedAt": "2026-09-30T18:24:18.046Z",
+  "requestCount": 1,
+  "operation": "GET /nfl/v1/games",
+  "query": {
+    "league": "NFL",
+    "kind": "games",
+    "team": null,
+    "window": {
+      "fromInclusive": "2026-09-23T18:24:17.697Z",
+      "toExclusive": "2026-09-30T18:24:17.697Z"
+    },
+    "now": "2026-09-30T18:24:17.697Z",
+    "limit": 50,
+    "maxAgeMs": 900000
+  },
+  "source": {
+    "id": "balldontlie-nfl-games",
+    "url": "https://api.balldontlie.io/nfl/v1/games",
+    "retrievedAt": "2026-09-30T18:24:18.046Z",
+    "dataAsOf": null
+  },
+  "recordCount": 16,
+  "errorCode": null,
+  "coverage": "partial",
+  "freshness": "unknown",
+  "limitations": [
+    "UNKNOWN_FRESHNESS",
+    "PRESEASON_NOT_INCLUDED"
+  ],
+  "canAdvanceCheckpoint": false,
+  "normalizedResultSha256": "f415381f531103eb0967e72726ed99842fa4f0de538aaf5be24ae392e2b57472",
+  "resultLocation": "local /tmp/balldontlie-nfl-live.json; not a durable artifact",
+  "limits": [
+    "One authenticated read using the existing key; no subscription or account mutation.",
+    "API access and normalization verified; source accuracy not independently graded.",
+    "News, availability, pagination completion and UI integration remain separate."
+  ]
+}

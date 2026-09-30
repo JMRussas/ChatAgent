@@ -1,5 +1,43 @@
 # Personalized NBA briefing demo
 
+## 2026-09-30: NFL is the first active-season live target
+
+NBA remains supported. The user requested NFL access using the existing account.
+The [account documentation](https://www.balldontlie.io/account/) says one account
+starts with free access to NBA/NFL/MLB/EPL; per-sport paid tiers do not require separate
+accounts. A single authenticated NFL games request succeeded and normalized 16 games
+in a seven-day window. [Recorded access evidence](../reports/nfl-access-check-2026-09-30.json)
+contains timestamps, scope, counts and limitations without credentials. No account,
+subscription or key changes occurred. This corrects earlier uncertainty about whether
+the same key could access NFL.
+
+The shared bounded games adapter accepts `league: "NFL"`; it uses the documented
+`/nfl/v1/games`, `dates[]` filter and `date` timestamp field rather than NBA's fields.
+See [NFL source contract](https://nfl.balldontlie.io/#get-all-games). NFL team identities
+use `balldontlie-nfl`; NBA retains `balldontlie`. Queries carry an optional league
+(default NBA for compatibility), and coordinator queries explicitly carry the profile
+league. Cross-league adapter requests and NBA fixture reuse for NFL are rejected.
+
+```bash
+npm run sports:nfl -- 168
+npm run sports:plan -- data/nba-briefing-request.example.json data/sports/nfl-games-profile.example.json
+```
+
+The first command uses the server clock and the existing `BALLDONTLIE_API_KEY`.
+The second is an offline plan with a fixed example clock and no selected team.
+`nfl-games-profile.example.json` configures a seven-day initial lookback and two
+explicitly games-only tasks; it does not pretend games replace news/availability.
+Register an NFL-configured adapter as `nfl-games` when composing that profile.
+Do not use the NBA fixture registry for it.
+
+Existing one-page, unknown-freshness and preseason-exclusion limits remain. The live
+CLI's nonzero exit reports incomplete coverage, not failed authentication. Local
+request spacing is per adapter instance, not account-wide or shared between separate
+CLI runs. Keep combined traffic within the user's five-per-minute allowance.
+Next: news ingestion, bounded shared caching/request admission, and task UI/model
+follow-ups. No further access prerequisite is needed for the verified NFL games path.
+
+
 Decision journal — 2026-09-30. The user selected sports as the concrete workflow
 for ongoing interaction, background work, relevant memory and fresh evidence.
 This supersedes waiting for every spec 06 comparison before starting domain work.

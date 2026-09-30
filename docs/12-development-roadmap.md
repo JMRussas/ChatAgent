@@ -1,5 +1,14 @@
 # Development roadmap
 
+## 2026-09-30: NFL active-season verification
+
+Sports demo scope now includes NFL games alongside NBA. The same account/key
+successfully returned 16 NFL games in one authenticated request. League-specific
+normalization and a games-only NFL profile are implemented. This verifies access,
+not complete briefing quality. Continue with news, shared request budgeting and the
+task UI; see [the current handoff](implementation/NEXT-HANDOFF.md).
+
+
 ## 2026-09-30: active NBA briefing workflow
 
 The current direction is the [personalized NBA briefing demo](18-nba-briefing-demo.md):

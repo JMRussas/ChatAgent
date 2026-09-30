@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "chatagent-briefing-profile-v1",
+  "id": "nfl-games",
+  "league": "NFL",
+  "initialLookbackHours": 168,
+  "maxCatchupHours": 336,
+  "tasks": [
+    {
+      "id": "league-games",
+      "scope": "league",
+      "title": "NFL recent games",
+      "sources": [
+        {
+          "adapterId": "nfl-games",
+          "kind": "games",
+          "limit": 50,
+          "maxAgeMs": 900000
+        }
+      ]
+    },
+    {
+      "id": "team-games",
+      "scope": "team",
+      "title": "My NFL team games",
+      "sources": [
+        {
+          "adapterId": "nfl-games",
+          "kind": "games",
+          "limit": 50,
+          "maxAgeMs": 900000
+        }
+      ]
+    }
+  ]
+}
