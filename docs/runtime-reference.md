@@ -26,6 +26,29 @@ the profile is validated and copied at boundary construction. The default app do
 not enable this endpoint or silently load fixtures. The current UI has no briefing
 controls. See [the demo plan](18-nba-briefing-demo.md) for source and fixture setup.
 
+After editing the configured file, apply it without restarting:
+
+```bash
+curl -X POST http://localhost:3100/briefings/config/reload \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+Returns `200 {version, changed}`; invalid files return `400 SPORTS_BRIEFING_RELOAD_FAILED`
+and retain the active configuration. Without a reload-capable briefing runtime it
+returns `404 BRIEFING_RELOAD_DISABLED`. Reload requests accept no overrides and are
+serialized. Identical validated configurations do not replace sources/caches.
+New run snapshots include `configVersion`; existing jobs retain their versions,
+source instances and deadlines. Identical retries still find their original runs.
+Changed configuration replaces caches for new runs, but preserves the shared request
+history and provider cooldown. Rate/concurrency/capacity changes apply to new
+admissions immediately without cancelling active work or evicting runs. Capacity is
+still process-local and retained runs are not automatically removed.
+
+The selected file path and API key are pinned at startup; changing those, `.env`,
+or the server port still requires restart. This is an explicit local-prototype
+administration endpoint, with the same access boundary as the existing API.
+There is no file watcher or UI reload control.
+
 `POST /briefings` accepts exactly one of these JSON command shapes:
 
 ```json

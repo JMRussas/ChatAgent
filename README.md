@@ -107,6 +107,10 @@ Use the [start/status/cancel HTTP commands](docs/runtime-reference.md#optional-s
 to collect games and news. Startup performs no sports requests; the current UI has
 no briefing controls. The shared games budget allows five starts per rolling minute, including bursts.
 Further requests fail fast until capacity returns; cached reads remain available.
+After editing that configuration file, `POST /briefings/config/reload` with `{}`
+applies validated changes without restarting. New runs record the configuration
+version; existing work and service request history survive reload. The API key and
+configuration-file path still require a restart to change.
 An explicit `npm run sports:games -- 24` command prepares the BALLDONTLIE games
 path using `BALLDONTLIE_API_KEY` from local configuration. No key is bundled; partial
 coverage and unknown freshness remain visible. See the demo plan before live use.

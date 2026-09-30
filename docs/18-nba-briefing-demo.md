@@ -1,5 +1,40 @@
 # Personalized NBA briefing demo
 
+## Manual live configuration reload — 2026-09-30
+
+Added `POST /briefings/config/reload` with an empty JSON object. It rereads the
+startup-configured file only; clients cannot submit paths, keys or configuration.
+Reloads are serialized, validated before publication and return `{version, changed}`.
+Invalid edits return a safe error and retain the working configuration. Identical
+parsed configurations are no-ops. The version is a SHA-256 digest of validated
+configuration, including defaults, and is attached to new run snapshots as
+`configVersion`; credentials are excluded. Consumers/evaluations can retain this
+version with the run. This does not add automatic evaluation recording.
+
+Existing queued/running jobs retain their adapters, profiles and deadlines. Status,
+cancel and same-request retries still address old runs after reload. New runs use
+new source instances and empty caches, so feed URL changes cannot reuse old evidence.
+The same account budget survives all adapter replacements: rolling request history
+and provider cooldowns cannot reset. New rate limits constrain admissions immediately.
+Coordinator concurrency and retained-run capacity are also global admission settings:
+lowering them does not cancel active work or evict retained runs. New task deadlines
+apply only to new jobs. Increasing concurrency can release already queued work.
+
+The API key, configuration-file path, listening port and other application settings
+remain startup configuration. No `.env` reread, file watcher, UI button or automatic
+refresh was added. This endpoint follows the existing local prototype HTTP access
+boundary; it is not an authenticated production administration interface. Injected
+briefing instances have reload disabled unless explicitly supplied a reload callback.
+Closing the runtime prevents reload from reviving it.
+
+Validation: 600 tests / 78 files and TypeScript build pass; browser regression checks
+also pass (eight tests). Tests cover file reload/rollback, serialization, no-op,
+versions/retries, retained budgets/cooldowns, in-flight source isolation, shutdown,
+and HTTP rejection of client overrides. No live provider quota was consumed.
+Next: task UI and evidence-backed follow-ups; bounded delayed admission when the
+request budget is exhausted remains separate work.
+
+
 ## Live briefing composition — 2026-09-30
 
 `createLiveBriefing` now composes one shared BALLDONTLIE registry, configured RSS

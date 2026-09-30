@@ -13,8 +13,12 @@ export const sportsSourceOptionsSchema = z.object({
 export class SportsRequestBudget {
   private starts: number[] = [];
   private blockedUntil = 0;
-  constructor(private readonly limit = 5, private readonly intervalMs = 0, private readonly clock: () => number = Date.now) {
+  constructor(private limit = 5, private intervalMs = 0, private readonly clock: () => number = Date.now) {
     sportsSourceOptionsSchema.parse({ requestsPerMinute: limit, minIntervalMs: intervalMs });
+  }
+  configure(limit: number, intervalMs: number) {
+    sportsSourceOptionsSchema.parse({ requestsPerMinute: limit, minIntervalMs: intervalMs });
+    this.limit = limit; this.intervalMs = intervalMs;
   }
   reserve(): boolean {
     const now = this.clock();
@@ -94,9 +98,9 @@ export class SharedSportsSource implements SportsSource {
 
 /** Reuse this registry for all league/team tasks with the same account. */
 export function createBalldontlieSources(apiKey: string | undefined, options: z.input<typeof sportsSourceOptionsSchema> = {},
-  transport: typeof fetch = fetch, clock: () => number = Date.now): ReadonlyMap<string, SportsSource> {
+  transport: typeof fetch = fetch, clock: () => number = Date.now, sharedBudget?: SportsRequestBudget): ReadonlyMap<string, SportsSource> {
   const config = sportsSourceOptionsSchema.parse(options);
-  const budget = new SportsRequestBudget(config.requestsPerMinute, config.minIntervalMs, clock);
+  const budget = sharedBudget ?? new SportsRequestBudget(config.requestsPerMinute, config.minIntervalMs, clock);
   return new Map(["NBA", "NFL"].map(league => {
     const source = new BalldontlieGamesSource(apiKey, { league: league as "NBA" | "NFL", minRequestIntervalMs: 0 }, transport, clock);
     return [league.toLowerCase() + "-games", apiKey?.trim() ? new SharedSportsSource(source, budget, config, clock) : source];

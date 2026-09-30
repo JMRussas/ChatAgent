@@ -11,7 +11,9 @@ const commandSchema = z.discriminatedUnion("op", [
 
 /** Server-owned profile; clients cannot choose adapters, budgets or executable code. */
 export class BriefingHttp {
-  private readonly profile: z.infer<typeof briefingProfileSchema>;
+  private profile: z.infer<typeof briefingProfileSchema>;
+  reload?: () => Promise<{ version: string; changed: boolean }>;
+  setProfile(profile: unknown) { this.profile = briefingProfileSchema.parse(profile); }
   constructor(private readonly coordinator: BriefingCoordinator, profile: unknown) {
     this.profile = briefingProfileSchema.parse(profile);
   }

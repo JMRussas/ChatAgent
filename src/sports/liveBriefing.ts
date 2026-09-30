@@ -1,10 +1,12 @@
+import { createHash } from "node:crypto";
+import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { briefingProfileSchema, bindBriefingSources } from "./briefingConfig";
 import { BriefingCoordinator, briefingCoordinatorOptionsSchema } from "./briefingCoordinator";
 import { BriefingHttp } from "./briefingHttp";
 import { RssNewsSource, rssConfigSchema } from "./rssNews";
-import { createBalldontlieSources, sportsSourceOptionsSchema } from "./sharedSources";
+import { createBalldontlieSources, sportsSourceOptionsSchema, SportsRequestBudget } from "./sharedSources";
 
 export const liveBriefingConfigSchema = z.object({
   schemaVersion: z.literal("chatagent-live-briefing-v1"),
@@ -34,19 +36,53 @@ export const liveBriefingConfigSchema = z.object({
 /** One server-owned registry/account budget per runtime. Construction performs no I/O. */
 export function createLiveBriefing(configuration: unknown, apiKey?: string,
   transport: typeof fetch = fetch, clock: () => number = Date.now) {
-  const config = liveBriefingConfigSchema.parse(configuration);
-  const registry = new Map(createBalldontlieSources(apiKey, config.games, transport, clock));
-  for (const feed of config.feeds) registry.set(feed.id, new RssNewsSource(feed, transport, clock));
-  bindBriefingSources(config.profile, registry);
+  let config = liveBriefingConfigSchema.parse(configuration);
+  const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  let version = digest(config), closed = false;
+  const budget = new SportsRequestBudget(config.games.requestsPerMinute, config.games.minIntervalMs, clock);
+  const sources = (value: typeof config) => {
+    const registry = new Map(createBalldontlieSources(apiKey, value.games, transport, clock, budget));
+    for (const feed of value.feeds) registry.set(feed.id, new RssNewsSource(feed, transport, clock));
+    bindBriefingSources(value.profile, registry);
+    return registry;
+  };
+  const registry = sources(config);
   const coordinator = new BriefingCoordinator(registry, config.coordinator);
-  return { coordinator, http: new BriefingHttp(coordinator, config.profile), profile: config.profile };
+  coordinator.configure(registry, config.coordinator, version);
+  const http = new BriefingHttp(coordinator, config.profile);
+  http.close = () => { closed = true; coordinator.close(); };
+  return { coordinator, http, get profile() { return structuredClone(config.profile); }, get version() { return version; },
+    apply(configuration: unknown) {
+      if (closed) throw new Error("BRIEFING_CLOSED");
+      const next = liveBriefingConfigSchema.parse(configuration), nextVersion = digest(next);
+      if (nextVersion === version) return { version, changed: false };
+      const nextRegistry = sources(next);
+      // No await between validation and publication. Old adapters retain this same budget.
+      budget.configure(next.games.requestsPerMinute, next.games.minIntervalMs);
+      coordinator.configure(nextRegistry, next.coordinator, nextVersion);
+      http.setProfile(next.profile);
+      config = next; version = nextVersion;
+      return { version, changed: true };
+    }
+  };
 }
 
 /** Explicit opt-in. Errors omit configuration values, URLs and credentials. */
 export async function loadLiveBriefingFromEnv(env: NodeJS.ProcessEnv): Promise<BriefingHttp | undefined> {
-  const path = env.SPORTS_BRIEFING_CONFIG_PATH?.trim();
-  if (!path) return undefined;
+  const configuredPath = env.SPORTS_BRIEFING_CONFIG_PATH?.trim();
+  if (!configuredPath) return undefined;
+  const path = resolve(configuredPath);
   try {
-    return createLiveBriefing(JSON.parse(await readFile(path, "utf8")), env.BALLDONTLIE_API_KEY).http;
+    const runtime = createLiveBriefing(JSON.parse(await readFile(path, "utf8")), env.BALLDONTLIE_API_KEY);
+    let pending: Promise<unknown> = Promise.resolve();
+    runtime.http.reload = () => {
+      const attempt = pending.then(async () => {
+        try { return runtime.apply(JSON.parse(await readFile(path, "utf8"))); }
+        catch { throw new Error("SPORTS_BRIEFING_RELOAD_FAILED"); }
+      });
+      pending = attempt.catch(() => undefined);
+      return attempt;
+    };
+    return runtime.http;
   } catch { throw new Error("SPORTS_BRIEFING_CONFIG_INVALID: check the configured live briefing file"); }
 }

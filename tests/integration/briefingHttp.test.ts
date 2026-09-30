@@ -26,7 +26,8 @@ async function app(enabled = true) {
   const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue();
   const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
     new DeepWorker(queue, new MockDeepProvider(), timeline), timeline, queue);
-  const server = createChatServer(service, { briefings: enabled ? new BriefingHttp(coordinator, profile) : undefined });
+  const briefings = new BriefingHttp(coordinator, profile);
+  const server = createChatServer(service, { briefings: enabled ? briefings : undefined });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   let closed = false;
@@ -40,9 +41,21 @@ async function app(enabled = true) {
     const response = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(2000) });
     return { status: response.status, body: await response.json() };
   }
-  return { post, release, close, read, signals, coordinator, service };
+  return { post, release, close, read, signals, coordinator, service, briefings };
 }
 describe("briefing HTTP integration", () => {
+  it("reloads only the configured file and rejects client overrides with safe failures", async () => {
+    const a = await app();
+    expect((await a.post({}, "/briefings/config/reload")).status).toBe(404);
+    a.briefings.reload = vi.fn(async () => ({ version: "version", changed: true }));
+    expect((await a.post({ path: "other-file" }, "/briefings/config/reload")).status).toBe(400);
+    expect(a.briefings.reload).not.toHaveBeenCalled();
+    expect((await a.post({}, "/briefings/config/reload")).body).toEqual({ version: "version", changed: true });
+    a.briefings.reload = async () => { throw new Error("secret configuration"); };
+    const failed = await a.post({}, "/briefings/config/reload");
+    expect(failed.status).toBe(400); expect(JSON.stringify(failed.body)).not.toContain("secret");
+  });
+
   it("accepts background work promptly and answers foreground chat before source completion", async () => {
     const a = await app();
     const start = await a.post({ op: "start", userId: "user", requestId: "request", request });

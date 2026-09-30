@@ -14,6 +14,7 @@ export interface BriefingTaskState {
   checkpointCandidate: string | null;
 }
 export interface BriefingRun {
+  configVersion?: string;
   id: string; userId: string; requestId: string; plan: Plan; settled: boolean;
   tasks: BriefingTaskState[];
 }
@@ -32,8 +33,10 @@ const terminal = (status: TaskStatus) => !["queued", "running"].includes(status)
 
 /** Process-local evidence collection only. Never invokes models or writes checkpoints. */
 export class BriefingCoordinator {
-  private readonly options: z.infer<typeof briefingCoordinatorOptionsSchema>;
-  private readonly registry: ReadonlyMap<string, SportsSource>;
+  private options: z.infer<typeof briefingCoordinatorOptionsSchema>;
+  private registry: ReadonlyMap<string, SportsSource>;
+  private configVersion?: string;
+  private readonly profiles = new Map<string, unknown>();
   private readonly runs = new Map<string, BriefingRun>();
   private readonly requests = new Map<string, string>();
   private readonly jobs: Job[] = [];
@@ -51,12 +54,15 @@ export class BriefingCoordinator {
     const previous = this.requests.get(key);
     if (previous) {
       const run = this.runs.get(previous)!;
-      if (!isDeepStrictEqual(run.plan, plan)) throw new Error("BRIEFING_REQUEST_CONFLICT");
+      const retryPlan = this.configVersion !== run.configVersion
+        ? planBriefing(request, this.profiles.get(run.id)) : plan;
+      if (!isDeepStrictEqual(run.plan, retryPlan)) throw new Error("BRIEFING_REQUEST_CONFLICT");
       return structuredClone(run);
     }
     if (this.runs.size >= this.options.maxRuns) throw new Error("BRIEFING_CAPACITY");
     const bindings = bindBriefingSources(profile, this.registry);
-    const run: BriefingRun = { id: randomUUID(), userId, requestId, plan, settled: false, tasks: [] };
+    const run: BriefingRun = { id: randomUUID(), userId, requestId, plan, settled: false, tasks: [], configVersion: this.configVersion };
+    this.profiles.set(run.id, profile);
     plan.tasks.forEach((task, index) => {
       const state: BriefingTaskState = { id: randomUUID(), planTaskId: task.id,
         status: task.state === "needs-input" ? "needs-input" : "queued", results: [], errors: [], checkpointCandidate: null };
@@ -72,6 +78,12 @@ export class BriefingCoordinator {
     return structuredClone(run);
   }
   snapshot(userId: string, runId: string): BriefingRun { return structuredClone(this.owned(userId, runId)); }
+  configure(registry: ReadonlyMap<string, SportsSource>, options: z.input<typeof briefingCoordinatorOptionsSchema>, version: string) {
+    if (this.closed) throw new Error("BRIEFING_CLOSED");
+    const parsed = briefingCoordinatorOptionsSchema.parse(options);
+    this.registry = new Map(registry); this.options = parsed; this.configVersion = version;
+    this.pump();
+  }
   async wait(userId: string, runId: string): Promise<BriefingRun> {
     const run = this.owned(userId, runId);
     if (!run.settled) await new Promise<void>(resolve => {

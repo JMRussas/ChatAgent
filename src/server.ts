@@ -225,6 +225,13 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return;
       }
 
+      if (method === "POST" && url.pathname === "/briefings/config/reload") {
+        if (!options.briefings?.reload) return json(res, 404, { code: "BRIEFING_RELOAD_DISABLED" });
+        z.object({}).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        try { return json(res, 200, await options.briefings.reload()); }
+        catch { return json(res, 400, { code: "SPORTS_BRIEFING_RELOAD_FAILED", error: "Configuration unchanged; check the configured file" }); }
+      }
+
       if (method === "POST" && url.pathname === "/briefings") {
         if (!options.briefings) return json(res, 404, { code: "BRIEFINGS_DISABLED", error: "Briefings are disabled" });
         const result = options.briefings.request(requireObjectBody(await parseJsonBody(req)));

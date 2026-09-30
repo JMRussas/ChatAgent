@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import example from "../../data/sports/nfl-live-briefing.example.json";
 import { createLiveBriefing, liveBriefingConfigSchema, loadLiveBriefingFromEnv } from "../../src/sports/liveBriefing";
@@ -85,5 +88,92 @@ describe("live briefing composition", () => {
       expect(signals.every(signal => signal.aborted)).toBe(true);
       expect(run.tasks.slice(0, 2).every(task => task.status === "cancelled")).toBe(true);
     } finally { runtime.http.close(); }
+  });
+});
+
+describe("live briefing reload", () => {
+  it("reloads the pinned file, retains valid config on parse failure and cannot revive a closed runtime", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "briefing-reload-")), path = join(directory, "config.json");
+    let http: Awaited<ReturnType<typeof loadLiveBriefingFromEnv>>;
+    try {
+      await writeFile(path, JSON.stringify(example));
+      http = await loadLiveBriefingFromEnv({ SPORTS_BRIEFING_CONFIG_PATH: path });
+      const initial = await http!.reload!(); expect(initial.changed).toBe(false);
+      await writeFile(path, "invalid JSON secret");
+      await expect(http!.reload!()).rejects.toThrow("SPORTS_BRIEFING_RELOAD_FAILED");
+      await writeFile(path, JSON.stringify(example));
+      expect(await http!.reload!()).toEqual(initial);
+      const next = structuredClone(example); next.profile.id = "changed";
+      await writeFile(path, JSON.stringify(next));
+      const [first, second] = await Promise.all([http!.reload!(), http!.reload!()]);
+      expect(first.changed).toBe(true); expect(second).toEqual({ version: first.version, changed: false });
+      http!.close(); await expect(http!.reload!()).rejects.toThrow("SPORTS_BRIEFING_RELOAD_FAILED");
+    } finally { http?.close(); await rm(directory, { recursive: true, force: true }); }
+  });
+  it("versions new runs, preserves old runs and retries, and rolls back invalid configuration", async () => {
+    const runtime = createLiveBriefing(example, undefined, transport(), () => Date.parse(now));
+    try {
+      const old = runtime.coordinator.start("u", "old", request, runtime.profile);
+      await runtime.coordinator.wait("u", old.id);
+      const version = runtime.version;
+      expect(runtime.apply(example)).toEqual({ version, changed: false });
+      expect(() => runtime.apply({ ...example, games: { requestsPerMinute: 6 } })).toThrow();
+      expect(runtime.version).toBe(version);
+      const next = structuredClone(example); next.profile.tasks[1].title = "Updated news";
+      expect(runtime.apply(next).changed).toBe(true);
+      expect(runtime.version).not.toBe(version);
+      expect(runtime.coordinator.start("u", "old", request, runtime.profile).id).toBe(old.id);
+      expect(() => runtime.coordinator.start("u", "old", { ...request, timezone: "UTC" }, runtime.profile)).toThrow("BRIEFING_REQUEST_CONFLICT");
+      const fresh = runtime.coordinator.start("u", "new", request, runtime.profile);
+      expect(fresh.configVersion).toBe(runtime.version);
+      expect(fresh.plan.tasks[1].title).toBe("Updated news");
+      expect(runtime.coordinator.snapshot("u", old.id).configVersion).toBe(version);
+      await runtime.coordinator.wait("u", fresh.id);
+    } finally { runtime.http.close(); }
+  });
+  it("retains admissions across cache replacement and enforces a reduced limit immediately", async () => {
+    const read = transport(), runtime = createLiveBriefing(example, "test", read, () => Date.parse(now));
+    try {
+      const first = runtime.coordinator.start("u", "one", request, runtime.profile);
+      await runtime.coordinator.wait("u", first.id);
+      const next = structuredClone(example); next.games.requestsPerMinute = 1;
+      runtime.apply(next);
+      const second = runtime.coordinator.start("u", "two", request, runtime.profile);
+      const run = await runtime.coordinator.wait("u", second.id);
+      expect(run.tasks[0].errors).toContainEqual({ adapterId: "nfl-games", code: "SOURCE_READ_FAILED" });
+      expect(read.mock.calls.filter(([url]) => String(url).includes("api.balldontlie.io"))).toHaveLength(1);
+    } finally { runtime.http.close(); }
+  });
+  it("preserves provider cooldown when adapters are replaced", async () => {
+    const read = vi.fn<typeof fetch>(async () => new Response("", { status: 429 }));
+    const runtime = createLiveBriefing(example, "test", read, () => Date.parse(now));
+    try {
+      const first = runtime.coordinator.start("u", "one", request, runtime.profile);
+      await runtime.coordinator.wait("u", first.id);
+      runtime.apply({ ...example, games: { ...example.games, cacheTtlMs: 0 } });
+      const second = runtime.coordinator.start("u", "two", request, runtime.profile);
+      const run = await runtime.coordinator.wait("u", second.id);
+      expect(run.tasks[0].errors).toHaveLength(1);
+      expect(read.mock.calls.filter(([url]) => String(url).includes("api.balldontlie.io"))).toHaveLength(1);
+    } finally { runtime.http.close(); }
+  });
+  it("keeps an in-flight feed attached to its original configuration", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const read = vi.fn<typeof fetch>(async () => { await gate; return new Response(rss); });
+    const runtime = createLiveBriefing(example, undefined, read, () => Date.parse(now));
+    try {
+      const first = runtime.coordinator.start("u", "one", request, runtime.profile);
+      await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+      const next = structuredClone(example); next.feeds[0].url = "https://example.invalid/new-feed"; next.feeds[0].publisher = "New publisher";
+      runtime.apply(next); release();
+      const old = await runtime.coordinator.wait("u", first.id);
+      expect(old.tasks[1].results[0].evidence.source.url).toBe(example.feeds[0].url);
+      const second = runtime.coordinator.start("u", "two", request, runtime.profile);
+      const fresh = await runtime.coordinator.wait("u", second.id);
+      expect(fresh.tasks[1].results[0].evidence.source.url).toBe(next.feeds[0].url);
+      expect(fresh.tasks[1].results[0].evidence.records[0].provenance.publisher).toBe("New publisher");
+      runtime.http.close(); expect(() => runtime.apply(example)).toThrow("BRIEFING_CLOSED");
+    } finally { release(); runtime.http.close(); }
   });
 });
