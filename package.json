@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:tdd": "vitest --watch --reporter=verbose",
     "lint": "tsc -p tsconfig.json --noEmit",
+    "eval:overhead": "tsx src/eval/recording/overheadCli.ts",
     "eval:recordings": "tsx src/eval/recording/cli.ts",
     "eval:report": "tsx src/eval/generateReport.ts",
     "eval:golden": "tsx src/eval/runGoldenSet.ts",

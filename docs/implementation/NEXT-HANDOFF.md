@@ -1,5 +1,32 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: measured recorder-component overhead
+
+Added `npm run eval:overhead -- <new-report.json> metadata|answers`: a matched,
+alternating-order synthetic timeline replay using production recorder persistence.
+It retains raw pairs, source/config/workload identities, output parity hashes,
+write counts, and separate setup/feed/final-flush timings. Invalid recording/writer
+failure rejects; owned temporary artifacts are removed. It invokes no providers
+and does not change the application's recording settings.
+
+[Method and raw reports](06b-recording.md#matched-recorder-overhead-eval-06-component)
+record twenty pairs per capture mode after warmups. Each batch has twenty turns /
+250 events; median total on-minus-off overhead was **60.08 ms metadata** and
+**64.00 ms answers**, dominated by final persistence (56.07 / 60.18 ms). Feed deltas
+were 2.40 / 2.51 ms. These are local burst-replay component measurements, not live
+per-message latency, quality, or provider-cost evidence. Both conditions had identical
+normalized timeline output. EVAL-06 is not claimed complete end to end.
+
+Validation: **493 tests / 65 files**, typecheck, build and seeded simulated release
+gate pass. Four new cases cover both capture modes, real writes/parity/cleanup,
+failed storage and bounded parameters/source identity. Historical simulation reports
+remain unchanged; two new raw overhead reports preserve the measured dirty source
+identity. No live inference ran.
+
+Next: extend matched overhead to end-to-end runtime/HTTP execution and finish live
+observation-to-recorder linkage; browser and live-quality acceptance remain afterward.
+Sports remains queued after spec 06. Recording is still off locally.
+
 ## 2026-09-30: comparison execution-identity review fixes
 
 Fixed both findings in `b84f7e5`. Comparison eligibility now requires consistent,

@@ -179,6 +179,54 @@ version control before execution for an auditable declaration. The comparator do
 not itself launch or register experiments. Predeclaring every per-prompt execution
 identity deliberately makes unexpected fallback/routing fail compatibility.
 
+## Matched recorder overhead (EVAL-06 component)
+
+```bash
+npm run eval:overhead -- reports/overhead-new-run.json metadata
+npm run eval:overhead -- reports/overhead-answers-new-run.json answers
+```
+
+This explicit offline command uses production timeline storage and the recorder with
+real atomic disk writes, but replays a synthetic event fixture without providers,
+HTTP, routing or worker execution. It does not load `.env` or change recording mode
+for the application. It refuses to overwrite the output report. Temporary artifact
+directories are removed after verification; the report retains measurements/digests,
+not captured answer text. Supply a new output filename for each run.
+
+Each capture condition has two discarded warmup pairs and twenty measured pairs,
+alternating off/on and on/off. Each sample replays 20 isolated turns (250 events),
+with direct/deep phases, streamed chunks and synthetic retries. Recording-on/off
+must yield identical normalized timeline output hashes. Both use fresh timeline
+stores. Setup includes recorder construction and initial persistence; feed covers
+all timeline appends; final flush waits for queued writes. Their durations and the
+full measured lifecycle are reported separately. Directory setup, output hashing,
+artifact validation and cleanup are excluded. Writer failures or dropped/incomplete
+recordings fail the command. Source/configuration/workload digests, platform/Node,
+raw pairs, write counts and byte counts are retained.
+
+Measured locally on Windows Node on 2026-09-30 (same workspace volume):
+
+| Capture | Median feed delta, batch ms | Median final-flush delta, batch ms | Median total delta, batch ms | P95 total paired delta, batch ms |
+| --- | ---: | ---: | ---: | ---: |
+| Metadata | 2.40 | 56.07 | 60.08 | 66.85 |
+| Answers | 2.51 | 60.18 | 64.00 | 72.80 |
+
+Raw evidence: [metadata](../../reports/recorder-overhead-metadata-2026-09-30.json)
+and [answers](../../reports/recorder-overhead-answers-2026-09-30.json). These report
+changes relative to each matched off sample, including negative deltas if observed;
+P95 is the nearest-rank percentile of paired differences. No performance threshold
+or improvement claim is inferred. Callback duration (`recorderCpuMs`) is the existing
+recorder's accumulated elapsed callback timing, not process CPU accounting or the
+full recorder cost. Most overhead here accumulates in final persistence of a burst;
+a paced live workload can distribute writes differently. Do not divide these batch
+numbers into an asserted production per-message latency.
+
+These measurements cover the recorder component of EVAL-06. Matched end-to-end
+provider/HTTP workloads, concurrent deadline effects, provider/queue instrumentation
+and executed-child usage accounting where supported remain separate. No live calls,
+quality ratings or model-billing estimates are produced. Raw reports identify the
+dirty checkout/source digest used for this precommit measurement.
+
 ## Acceptance evidence and remaining work
 
 `tests/unit/evaluationRecording.test.ts` covers EVAL-01 deterministic on/off
@@ -192,7 +240,7 @@ automatic deep work, safe status endpoint and shutdown flush with mock providers
 gate pass. No live provider call or model-grader invocation was needed.
 
 These tests cover the recorder/artifact portion, not all of spec 06. Full provider/queue timing instrumentation,
-matched on/off overhead measurements (EVAL-06), model-grader calibration, honest
+end-to-end overhead measurements (EVAL-06), model-grader calibration, honest
 live report/recorder linkage and browser/live-quality comparisons remain.
 Recorder comparison contracts are implemented as described above; the historical
 453-test count in this section refers to the original 06B milestone. Existing

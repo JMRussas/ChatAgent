@@ -6,7 +6,8 @@ implemented (439 tests / 61 files, typecheck, build, simulated release gate pass
 [06B setup/evidence](06b-recording.md). Live benchmark deadline/correlation and honest observation reports are implemented
 (462 tests / 62 files; see latest handoff). Recorder comparison/annotation gates and experiment compatibility are implemented
 (480 tests / 64 files; see 06B comparison usage). Live report linkage,
-matched overhead measurement, browser gates and live quality comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
+end-to-end overhead measurement (synthetic recorder-component measurements are now
+available in 06B evidence), browser gates and live quality comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
 live answer-quality gates require separately identified provider configuration.
 
 ## Shutdown and ownership

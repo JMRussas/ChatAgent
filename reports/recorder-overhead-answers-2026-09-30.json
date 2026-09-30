@@ -1,0 +1,680 @@
+{
+  "schemaVersion": "chatagent-recorder-overhead-v1",
+  "generatedAtIso": "2026-09-30T14:37:29.684Z",
+  "mode": "synthetic",
+  "scope": "in-process timeline replay with real recorder writes; excludes inference, HTTP, startup discovery and directory cleanup",
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "code": {
+    "revision": "d2c1b858d678f877631644fb3fc70ebe106934f0",
+    "dirty": true,
+    "sourceDigest": "05dc2d8dd2d5d6cf42c714336599ea131e78d18dba9ff8aa7874171806997009"
+  },
+  "configuration": {
+    "method": "timeline-replay-v1",
+    "capture": "answers",
+    "turns": 20,
+    "maxBytes": 67108864,
+    "maxEvents": 10000,
+    "retentionMs": 3600000
+  },
+  "configurationDigest": "917352909735fb8a2ce366acfcdb4758f97a9c7f8862f3cd341842440308b62d",
+  "workloadDigest": "dc8988588c85232f1b93d1f08f158c26f9074554ab37bfd5ca5c03133295f688",
+  "eventCount": 250,
+  "warmupPairs": 2,
+  "pairs": [
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.2341000000000122,
+        "feedMs": 3.6947000000000116,
+        "flushMs": 61.38620000000003,
+        "totalMs": 66.3161,
+        "recorderCpuMs": 2.241899999999305,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.005699999999990268,
+        "feedMs": 0.7942999999999643,
+        "flushMs": 0.00029999999998153726,
+        "totalMs": 0.8007000000000062,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.228400000000022,
+        "feed": 2.9004000000000474,
+        "flush": 61.38590000000005,
+        "total": 65.5154
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.1451000000000136,
+        "feedMs": 3.43100000000004,
+        "flushMs": 58.84390000000002,
+        "totalMs": 63.4212,
+        "recorderCpuMs": 2.1084999999998786,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.005999999999971806,
+        "feedMs": 0.6132999999999811,
+        "flushMs": 0.00029999999998153726,
+        "totalMs": 0.6202999999999861,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.1391000000000417,
+        "feed": 2.817700000000059,
+        "flush": 58.84360000000004,
+        "total": 62.80090000000001
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.1088000000000306,
+        "feedMs": 3.7649999999999864,
+        "flushMs": 60.70079999999996,
+        "totalMs": 65.57580000000007,
+        "recorderCpuMs": 2.318699999999808,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.006600000000048567,
+        "feedMs": 0.6093000000000188,
+        "flushMs": 0.00029999999998153726,
+        "totalMs": 0.6169000000000437,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.102199999999982,
+        "feed": 3.1556999999999675,
+        "flush": 60.70049999999998,
+        "total": 64.95890000000003
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.1730999999999767,
+        "feedMs": 3.2946000000000595,
+        "flushMs": 58.579200000000014,
+        "totalMs": 63.04769999999996,
+        "recorderCpuMs": 1.9872999999993226,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0038000000000693035,
+        "feedMs": 0.7050999999999021,
+        "flushMs": 0.0004000000000132786,
+        "totalMs": 0.7099000000000615,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.1692999999999074,
+        "feed": 2.5895000000001573,
+        "flush": 58.5788,
+        "total": 62.3377999999999
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.2557000000000471,
+        "feedMs": 3.3700999999999794,
+        "flushMs": 59.99630000000002,
+        "totalMs": 64.62350000000004,
+        "recorderCpuMs": 2.0535000000007813,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.003400000000056025,
+        "feedMs": 0.6356000000000677,
+        "flushMs": 0.0003000000000383807,
+        "totalMs": 0.6398000000000366,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.252299999999991,
+        "feed": 2.734499999999912,
+        "flush": 59.99599999999998,
+        "total": 63.9837
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.111099999999965,
+        "feedMs": 3.259300000000053,
+        "flushMs": 59.53200000000004,
+        "totalMs": 63.90350000000001,
+        "recorderCpuMs": 1.995000000000232,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0038000000000693035,
+        "feedMs": 0.6739000000000033,
+        "flushMs": 0.0004999999999881766,
+        "totalMs": 0.6788999999999987,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.1072999999998956,
+        "feed": 2.5854000000000497,
+        "flush": 59.53150000000005,
+        "total": 63.22460000000001
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.2351999999999634,
+        "feedMs": 3.0977000000000317,
+        "flushMs": 59.41030000000001,
+        "totalMs": 63.744500000000016,
+        "recorderCpuMs": 1.897599999999784,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.003500000000030923,
+        "feedMs": 0.5955999999999904,
+        "flushMs": 0.0004999999999881766,
+        "totalMs": 0.6000999999999976,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.2316999999999325,
+        "feed": 2.5021000000000413,
+        "flush": 59.40980000000002,
+        "total": 63.14440000000002
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.1304000000000087,
+        "feedMs": 3.70799999999997,
+        "flushMs": 58.90530000000001,
+        "totalMs": 63.74470000000008,
+        "recorderCpuMs": 2.364199999999528,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.003100000000017644,
+        "feedMs": 0.6222999999999956,
+        "flushMs": 0.0004000000000132786,
+        "totalMs": 0.6264999999999645,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.127299999999991,
+        "feed": 3.0856999999999744,
+        "flush": 58.9049,
+        "total": 63.118200000000115
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.2387999999999693,
+        "feedMs": 3.04200000000003,
+        "flushMs": 60.32180000000005,
+        "totalMs": 64.60360000000003,
+        "recorderCpuMs": 1.8062000000015814,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.003500000000030923,
+        "feedMs": 0.5913000000000466,
+        "flushMs": 0.0004000000000132786,
+        "totalMs": 0.5958000000000538,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.2352999999999383,
+        "feed": 2.4506999999999834,
+        "flush": 60.32140000000004,
+        "total": 64.00779999999997
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 0.9735000000000582,
+        "feedMs": 3.0007000000000517,
+        "flushMs": 58.03480000000002,
+        "totalMs": 62.010000000000105,
+        "recorderCpuMs": 1.7540000000003602,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0041999999998552084,
+        "feedMs": 0.6286000000000058,
+        "flushMs": 0.00029999999992469384,
+        "totalMs": 0.6336999999998625,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 0.969300000000203,
+        "feed": 2.372100000000046,
+        "flush": 58.034500000000094,
+        "total": 61.37630000000024
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.1024999999999636,
+        "feedMs": 3.1310000000000855,
+        "flushMs": 60.034400000000005,
+        "totalMs": 64.26870000000008,
+        "recorderCpuMs": 1.8283000000005813,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0028999999999541615,
+        "feedMs": 0.6032000000000153,
+        "flushMs": 0.00029999999992469384,
+        "totalMs": 0.6068000000000211,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.0996000000000095,
+        "feed": 2.52780000000007,
+        "flush": 60.03410000000008,
+        "total": 63.66190000000006
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.039600000000064,
+        "feedMs": 2.966699999999946,
+        "flushMs": 70.38409999999999,
+        "totalMs": 74.39120000000003,
+        "recorderCpuMs": 1.743299999996907,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.004000000000132786,
+        "feedMs": 0.6385999999999967,
+        "flushMs": 0.0005000000001018634,
+        "totalMs": 0.643500000000131,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.0355999999999312,
+        "feed": 2.3280999999999494,
+        "flush": 70.38359999999989,
+        "total": 73.7476999999999
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.0584999999998672,
+        "feedMs": 3.5635999999999513,
+        "flushMs": 66.24810000000002,
+        "totalMs": 70.8714,
+        "recorderCpuMs": 2.0911000000010063,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0032999999998537533,
+        "feedMs": 0.5995000000000346,
+        "flushMs": 0.0004999999998744897,
+        "totalMs": 0.6037999999998647,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.0552000000000135,
+        "feed": 2.9640999999999167,
+        "flush": 66.24760000000015,
+        "total": 70.26760000000013
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.1697999999998956,
+        "feedMs": 2.9820000000001983,
+        "flushMs": 65.63930000000005,
+        "totalMs": 69.79189999999994,
+        "recorderCpuMs": 1.702599999998938,
+        "writes": 42,
+        "writtenBytes": 9912021,
+        "artifactBytes": 241729,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0037999999999556167,
+        "feedMs": 0.6106999999999516,
+        "flushMs": 0.0004999999998744897,
+        "totalMs": 0.6155999999998585,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.16599999999994,
+        "feed": 2.3713000000002467,
+        "flush": 65.63880000000017,
+        "total": 69.17630000000008
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.276700000000119,
+        "feedMs": 2.77819999999997,
+        "flushMs": 63.64949999999999,
+        "totalMs": 67.7056,
+        "recorderCpuMs": 1.6616999999987456,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0029999999999290594,
+        "feedMs": 0.6531999999999698,
+        "flushMs": 0.0008000000000265572,
+        "totalMs": 0.6571999999998752,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.27370000000019,
+        "feed": 2.125,
+        "flush": 63.64869999999996,
+        "total": 67.04840000000013
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.1186999999999898,
+        "feedMs": 2.8450000000000273,
+        "flushMs": 65.2702999999999,
+        "totalMs": 69.23479999999995,
+        "recorderCpuMs": 1.6686999999974432,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0039999999999054126,
+        "feedMs": 0.7812000000001262,
+        "flushMs": 0.0006000000000767614,
+        "totalMs": 0.7863999999999578,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.1147000000000844,
+        "feed": 2.063799999999901,
+        "flush": 65.26969999999983,
+        "total": 68.44839999999999
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.1257999999997992,
+        "feedMs": 3.075399999999945,
+        "flushMs": 62.58879999999999,
+        "totalMs": 66.79089999999997,
+        "recorderCpuMs": 1.7970000000004802,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0026000000000294676,
+        "feedMs": 0.5851999999999862,
+        "flushMs": 0.0006000000000767614,
+        "totalMs": 0.5886000000000422,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.1231999999997697,
+        "feed": 2.490199999999959,
+        "flush": 62.588199999999915,
+        "total": 66.20229999999992
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.168100000000095,
+        "feedMs": 3.0829000000001088,
+        "flushMs": 69.18769999999995,
+        "totalMs": 73.4398000000001,
+        "recorderCpuMs": 1.7702000000017506,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.004000000000132786,
+        "feedMs": 0.6323999999999614,
+        "flushMs": 0.0005000000001018634,
+        "totalMs": 0.6373000000000957,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.1640999999999622,
+        "feed": 2.4505000000001473,
+        "flush": 69.18719999999985,
+        "total": 72.80250000000001
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 1.2835999999999785,
+        "feedMs": 3.2097000000001117,
+        "flushMs": 56.052400000000034,
+        "totalMs": 60.5465999999999,
+        "recorderCpuMs": 1.8676999999993313,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0027999999999792635,
+        "feedMs": 0.5713000000000648,
+        "flushMs": 0.0004999999998744897,
+        "totalMs": 0.5749999999998181,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 1.2807999999999993,
+        "feed": 2.638400000000047,
+        "flush": 56.05190000000016,
+        "total": 59.97160000000008
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 1.0005000000001019,
+        "feedMs": 2.725400000000036,
+        "flushMs": 59.08830000000012,
+        "totalMs": 62.815000000000055,
+        "recorderCpuMs": 1.6169999999990523,
+        "writes": 42,
+        "writtenBytes": 9912062,
+        "artifactBytes": 241730,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "off": {
+        "setupMs": 0.0027000000000043656,
+        "feedMs": 0.6104000000000269,
+        "flushMs": 0.0008000000000265572,
+        "totalMs": 0.6141999999999825,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "aaf7250bd97a56f90821b6c2b6df7e703695fdbf5bb002a0b9910c48c7704c95"
+      },
+      "deltaMs": {
+        "setup": 0.9978000000000975,
+        "feed": 2.115000000000009,
+        "flush": 59.08750000000009,
+        "total": 62.20080000000007
+      }
+    }
+  ],
+  "summary": {
+    "setupDeltaMs": {
+      "min": 0.969300000000203,
+      "median": 1.1332000000000164,
+      "p95": 1.27370000000019,
+      "max": 1.2807999999999993
+    },
+    "feedDeltaMs": {
+      "min": 2.063799999999901,
+      "median": 2.5149500000000558,
+      "p95": 3.0856999999999744,
+      "max": 3.1556999999999675
+    },
+    "flushDeltaMs": {
+      "min": 56.05190000000016,
+      "median": 60.17775000000006,
+      "p95": 69.18719999999985,
+      "max": 70.38359999999989
+    },
+    "totalDeltaMs": {
+      "min": 59.97160000000008,
+      "median": 63.99574999999999,
+      "p95": 72.80250000000001,
+      "max": 73.7476999999999
+    }
+  },
+  "quality": null,
+  "usage": null,
+  "costUsd": null,
+  "liveOverheadMs": null
+}
