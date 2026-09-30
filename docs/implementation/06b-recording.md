@@ -112,6 +112,67 @@ Hash-only, redacted, expired, missing, changed or incomplete answers cannot pass
 Scored and redacted-artifact hashes are distinct. This command consumes existing
 human/code/model annotations; it does not invoke or calibrate a model grader.
 
+## Comparing recorded runs (06C)
+
+Use completed answer-capture artifacts and the exact versioned dataset:
+
+```bash
+npm run eval:recordings -- compare baseline/run.json candidate/run.json dataset.json baseline-ratings.json candidate-ratings.json [experiment.json]
+```
+
+The `chatagent-comparison-v1` JSON output separates comparison availability from
+candidate quality passing, includes per-run configuration/execution/annotation
+digests, pass/fail/unavailable counts, and a pass-rate delta only when compatible.
+Exit status is nonzero for incompatible/missing evidence or failed candidate quality.
+No model grader is invoked. A rated failure is valid comparison evidence; it does
+not become a passing quality gate. Cost and recorder-overhead deltas stay null.
+
+This initial contract requires a complete ordered dataset pass with one isolated
+conversation per prompt, distinct run IDs, valid unexpired artifacts, exact retained
+answers, known warm/cold conditions, matching repetition, code identity, capture
+policy/limits, and the same rubric and judge configuration. Mixed/unknown execution
+modes are rejected; synthetic and live evidence cannot be compared. It does not yet
+support multi-turn history experiments, aggregate repetitions, or latency statistics.
+The live HTTP observation report alone is still not comparison eligible: use recorder
+artifacts and annotations. No automatic join of those two report formats is claimed.
+
+By default configuration and actual model identities must match. A controlled
+experiment uses this strict manifest shape:
+
+```json
+{
+  "version": 1,
+  "id": "strategy-v1",
+  "createdAtIso": "2026-09-30T00:00:00.000Z",
+  "datasetDigest": "<64-character SHA-256>",
+  "baseline": {
+    "configurationDigest": "<baseline configuration SHA-256>",
+    "executionDigest": "<expected baseline execution SHA-256>"
+  },
+  "candidate": {
+    "configurationDigest": "<candidate configuration SHA-256>",
+    "executionDigest": "<expected candidate execution SHA-256>"
+  },
+  "allowedConfigurationDifferences": [["routing", "strategy"]]
+}
+```
+
+Replace the illustrative path with exact paths in the recorded configuration. The
+allowed paths must equal the actual changed leaves; arrays are atomic. Wildcards,
+ancestor exemptions, extra unused paths, changed dataset/grading/code identity, or
+unexpected execution digests do not bypass checks. Both full configuration digests
+remain in the report. `executionDigest` in `comparison.ts` hashes ordered prompts
+with sorted unique phase/model metadata; it excludes run-local IDs and retry counts.
+Use the exported helper with pilot artifacts to determine expected identities and
+save the manifest before the new experiment runs. Actual model revision remains
+unknown where the provider exposes only an alias.
+
+The manifest timestamp must precede both runs. This is a consistency check on trusted
+local files, not cryptographic proof of preregistration; preserve the manifest in
+version control before execution for an auditable declaration. The comparator does
+not itself launch or register experiments. Predeclaring every per-prompt execution
+identity deliberately makes unexpected fallback/routing fail compatibility.
+
 ## Acceptance evidence and remaining work
 
 `tests/unit/evaluationRecording.test.ts` covers EVAL-01 deterministic on/off
@@ -124,8 +185,9 @@ automatic deep work, safe status endpoint and shutdown flush with mock providers
 **453 tests across 62 files**, typecheck, build and the seeded simulated release
 gate pass. No live provider call or model-grader invocation was needed.
 
-These tests cover the recorder/artifact portion, not all of spec 06. Experiment
-manifests and cross-run compatibility, full provider/queue timing instrumentation,
+These tests cover the recorder/artifact portion, not all of spec 06. Full provider/queue timing instrumentation,
 matched on/off overhead measurements (EVAL-06), model-grader calibration, honest
-live benchmark replacement and browser/live-quality comparisons remain. Existing
+live report/recorder linkage and browser/live-quality comparisons remain.
+Recorder comparison contracts are implemented as described above; the historical
+453-test count in this section refers to the original 06B milestone. Existing
 historical benchmark reports are unchanged and are not evidence for this schema.

@@ -1,5 +1,30 @@
 # Implementation handoff
 
+## 2026-09-30: 06C recorder comparison and grading gate
+
+`eval:recordings compare` now checks full dataset coverage/content/order, isolated
+turns, code/configuration/model identity, live/synthetic mode, known run condition,
+capture policy and grading method before producing a quality comparison. It reuses
+exact-answer annotation validation; missing evidence blocks comparison, while rated
+failures remain valid evidence and fail candidate quality. Versioned experiment
+manifests pin both configuration/execution identities and permit only exact declared
+configuration differences. Timestamp checks require declarations before execution;
+trusted local files are not cryptographically attested preregistration.
+
+See [comparison usage and limitations](06b-recording.md#comparing-recorded-runs-06c).
+The standalone HTTP observation report remains ineligible without recorder evidence;
+no automatic report join or aggregate latency/repetition comparison is implemented.
+Cost and recorder overhead remain unknown. Historical simulation reports are intact.
+
+Validation: **480 tests / 64 files**, typecheck, build and seeded simulated release
+gate pass. Thirteen comparison cases cover compatible runs, exact experiment paths,
+late/stale manifests, mismatched identities, partial datasets, missing/failed ratings,
+and CLI success/nonzero outcomes. No live calls or model grading ran.
+
+Next: **06C matched recorder on/off overhead measurements (EVAL-06)**, then remaining
+live report integration, browser and live-quality acceptance. Spec 06 is still in
+progress; sports follows it. Recording remains off locally.
+
 ## 2026-09-30: live benchmark review fixes
 
 Fixed both findings in the review of `0a04daa`. Timeline polling now runs alongside
