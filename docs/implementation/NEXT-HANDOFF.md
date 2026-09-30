@@ -1,5 +1,46 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: Claude live failure diagnosis and fixes
+
+The [debugging report](../../reports/claude-debug-2026-09-30.json) preserves four
+successive run identities/configurations, including failed and intermediate evidence.
+The latest run passes **5/5 structural goldens** at the original 384/768 token
+budgets and original latency limits. Both deep calls complete; quality remains
+unrated and no source retrieval or single/dual comparison is established.
+
+Confirmed causes and changes:
+
+- One compute slot plus fail-on-contention rejected deep work while fast ran.
+  The ignored local policy now waits up to 30 seconds, keeping concurrency at one.
+  A held-provider integration test verifies serialization; live deep calls succeed.
+- Repeated usage HTTP requests hit HTTP 429, previously collapsed into unavailable.
+  Discovery, models and preflight now share a cached, single-flight inspection.
+  Original usage expiry stays at 30 seconds; reuse never renews it. A 429 backs off
+  for 30 seconds as unavailable, other unsuccessful inspections for five seconds.
+  Each model re-evaluates its relevant windows. Cancellation stops the inspection
+  when its last waiter leaves. Discovery refreshes successful evidence with ten
+  seconds remaining so the local 20-second cadence does not create an expiry gap.
+  Safe usage codes and selection exclusions are retained.
+  The original run's exact NO_ELIGIBLE_MODEL cause cannot be proved retroactively.
+- CLI final results can contain only the last assistant block. Live probing also
+  exposed automatic output-limit continuation with repeated boundary words. The
+  bridge retains public text, but now terminates the CLI child at the first streamed
+  output limit and returns the prefix as `length`. Reasoning/diagnostics are excluded.
+  A budget-derived word hint improves brevity without increasing token limits.
+
+An intermediate 5/5 run predates proper output-limit handling and is explicitly not
+accepted as final evidence. The next run correctly reported 4/5 with one truncation;
+the final brevity-adjusted run passed 5/5. The final live run preceded a cache
+cancellation and proactive-refresh refinements, covered separately by offline tests. No account
+settings changed; cached headroom remains best-effort admission, not a billing cap.
+
+Validation: **523 TypeScript tests / 67 files, 16 Python bridge tests**, typecheck,
+build and seeded simulated release gate pass. Browser checks were not rerun because
+no UI code changed. Historical simulated benchmark output is preserved.
+
+Next: exact-answer quality review and grounding/follow-up cases, then repeated
+single/dual measurements and clean-copy installation. Spec 06 remains in progress.
+
 ## 2026-09-30: live Claude golden baseline — failed
 
 Added `npm run eval:live-accept -- <new-output-directory>` for the five existing

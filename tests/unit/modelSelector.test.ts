@@ -39,6 +39,17 @@ describe("catalog selector", () => {
     if (kind === "unsupported-adapter") input.catalog.models[0].model = "unregistered";
     expect(rankModels(input).map(c => c.entry.id)).toEqual(["b"]);
   });
+  it("retains a safe discovery failure code in model-selection exclusions", () => {
+    const { input } = setup([entry("a")]);
+    input.observations[0].health = "unknown";
+    input.observations[0].lastErrorCode = "CLI_USAGE_RATE_LIMITED";
+    try { rankModels(input); throw new Error("expected rejection"); }
+    catch (error) {
+      expect(error).toMatchObject({ code: "NO_ELIGIBLE_MODEL", exclusions: [{
+        bindingId: entryBindingId(input.catalog.models[0]), reasons: ["unavailable", "CLI_USAGE_RATE_LIMITED"]
+      }] });
+    }
+  });
   it("does not use quality without matching task/environment, enough samples and freshness", () => {
     const { input } = setup();
     const good = { task: "coding" as const, sampleCount: 20, successRate: 0.9, firstUsefulResponseP95Ms: 100,

@@ -15,6 +15,7 @@ export const liveReportSchema = z.object({
     responseReceivedMs: ms.nullable(), firstAnswerObservedMs: ms.nullable(), finalObservedMs: ms.nullable(), elapsedMs: ms,
     firstUsefulAnswerMs: z.null(), outcome: z.enum(["stop", "length", "cancelled", "error", "deadline", "transport-error"]),
     retryCount: z.number().int().nonnegative(), httpStatus: z.number().int().min(100).max(599).nullable(), errorCode: z.string().nullable(),
+    selectionExclusions: z.array(z.object({ bindingId: z.string().max(512), reasons: z.array(z.string().max(80)).max(30) }).strict()).max(100).optional(),
     attempts: z.array(z.object({ attemptId: z.string().uuid(), phase: z.enum(["fast", "deep"]).nullable(), provider: z.string().nullable(),
       model: z.string().nullable(), bindingId: z.string().nullable(), bindingRevision: z.string().nullable(),
       finishReason: z.enum(["stop", "length", "cancelled", "error"]).nullable(), queueMs: z.null(), providerMs: z.null() }).strict()),

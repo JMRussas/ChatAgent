@@ -24,11 +24,14 @@ const runtime = await startServer(0), baseUrl = `http://127.0.0.1:${runtime.addr
 try {
   const deadline = Date.now() + 60000;
   let ready = false;
+  let readiness: unknown;
   while (Date.now() < deadline) {
     const view = await (await fetch(`${baseUrl}/models`, { signal: AbortSignal.timeout(5000) })).json();
+    readiness = view;
     if (view.models?.some((m: { id: string; availability: string }) => m.id === "claude-hekate-default" && m.availability === "ready")) { ready = true; break; }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
+  await writeFile(join(root, "readiness.json"), JSON.stringify(readiness, null, 2));
   if (!ready) throw new Error("LIVE_ACCEPTANCE_PROVIDER_NOT_READY");
   const report = await runLiveReport(dataset.prompts, { baseUrl, deadlineMs: 120000 });
   await writeFile(join(root, "observations.json"), JSON.stringify(report, null, 2));

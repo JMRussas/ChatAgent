@@ -198,3 +198,23 @@ it("allows at most one explicit fallback per phase", async () => {
   expect(r.calls.get("b")!.fast.createProvisionalReply).toHaveBeenCalled();
   expect(r.calls.get("c")!.fast.createProvisionalReply).not.toHaveBeenCalled();
 });
+
+it("bounded waiting lets deep work share a single compute slot with the foreground", async () => {
+  let release!: () => void, started!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const entered = new Promise<void>(resolve => { started = resolve; });
+  const r = runtime([entry("a")], { a: { fast: { createProvisionalReply: async () => {
+    started(); await held; return { text: "first", finishReason: "stop" };
+  } } } });
+  r.policy.quotaExhaustionAction = "wait"; r.policy.waitTimeoutMs = 1000;
+  r.policy.bindings.a.compute = { poolId: "shared", concurrency: 1 };
+  const foreground = r.service.submitMessage(message("Compare and design code"));
+  await entered;
+  const deep = r.service.runDeepWorkerOnce();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(r.calls.get("a")!.deep.resolveDeepTask).not.toHaveBeenCalled();
+  release(); await foreground;
+  expect((await deep)?.finalReply).toBe("a");
+  expect(r.dispatch.telemetry().attempts.map(a => a.result)).toEqual(["stop", "stop"]);
+  await r.manager.shutdown();
+});

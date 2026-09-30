@@ -91,6 +91,48 @@ class SharedProviderContract(unittest.TestCase):
             with self.assertRaisesRegex(bridge.BridgeError, "OUTPUT_TOO_LARGE"):
                 bridge.generate(self.shared, "claude", "sonnet", 4096)
 
+    def test_split_assistant_blocks_preserve_prefix_without_duplicate_result(self):
+        transcript = bridge.AnswerTranscript(self.shared)
+        for text in ("If you pa", "ste the release, I can explain it."):
+            self.assertIsNone(transcript.accept({"type": "assistant", "message": {
+                "content": [{"type": "thinking", "thinking": "private"}, {"type": "text", "text": text}]}}))
+        frame = transcript.accept({"type": "result", "subtype": "success", "result": "ste the release, I can explain it."})
+        self.assertEqual(frame, {"type": "complete", "text": "If you paste the release, I can explain it.", "finishReason": "stop"})
+
+    def test_output_limit_diagnostic_is_not_answer_or_normal_stop(self):
+        transcript = bridge.AnswerTranscript(self.shared)
+        transcript.accept({"type": "assistant", "message": {"stop_reason": "max_tokens", "content": [{"type": "text", "text": "First "}]}})
+        transcript.accept({"type": "assistant", "error": "max_output_tokens", "message": {"content": [{"type": "text", "text": "private diagnostic"}]}})
+        transcript.accept({"type": "assistant", "message": {"content": [{"type": "text", "text": "last"}]}})
+        frame = transcript.accept({"type": "result", "subtype": "success", "result": "last"})
+        self.assertEqual(frame["text"], "First last")
+        self.assertEqual(frame["finishReason"], "length")
+
+    def test_transcript_rejects_unrelated_result_or_invalidated_text(self):
+        transcript = bridge.AnswerTranscript(self.shared)
+        transcript.accept({"type": "assistant", "message": {"content": [{"type": "text", "text": "Answer"}]}})
+        for raw in ({"type": "result", "subtype": "success", "result": "Different"}, {"type": "tombstone"}):
+            with self.assertRaisesRegex(bridge.BridgeError, "CLI_MALFORMED_OUTPUT"):
+                transcript.accept(raw)
+
+    def test_usage_http_error_exposes_code_without_response_or_credentials(self):
+        import urllib.error
+        from usage import read_usage
+        errors = []
+        with patch("usage.Path.read_text", return_value='{"claudeAiOauth":{"accessToken":"secret"}}'), patch("usage.urllib.request.build_opener") as opener:
+            opener.return_value.open.side_effect = urllib.error.HTTPError("https://private", 429, "private", {}, None)
+            self.assertIsNone(read_usage(errors.append))
+        self.assertEqual(errors, ["CLI_USAGE_RATE_LIMITED"])
+
+    def test_stops_child_at_output_limit_instead_of_accepting_a_continuation(self):
+        original = subprocess.Popen
+        fixture = "import sys,json,time; sys.stdin.read(); print(json.dumps({'type':'assistant','message':{'content':[{'type':'text','text':'Retained prefix'}]}}),flush=True); print(json.dumps({'type':'stream_event','event':{'type':'message_delta','delta':{'stop_reason':'max_tokens'}}}),flush=True); time.sleep(10); print(json.dumps({'type':'result','subtype':'success','result':'tail'}),flush=True)"
+        stdin = io.StringIO(json.dumps({"context": {}, "outputBudget": 32}))
+        stdout = io.StringIO()
+        with patch.object(bridge.subprocess, "Popen", side_effect=lambda _cmd, **kw: original([sys.executable, "-c", fixture], **kw)), patch.object(sys, "stdin", stdin), patch.object(sys, "stdout", stdout):
+            bridge.generate(self.shared, "claude", "sonnet", 4096)
+        self.assertEqual(json.loads(stdout.getvalue()), {"type": "complete", "text": "Retained prefix", "finishReason": "length"})
+
     def test_usage_preserves_scoped_windows_and_ignores_breakdown(self):
         snapshot = normalize_usage({"five_hour": {"utilization": 10, "resets_at": "2026-10-01T00:00:00Z"},
             "seven_day_opus": {"utilization": 100, "resets_at": "2026-10-02T00:00:00Z"},

@@ -127,12 +127,14 @@ describe("live benchmark observations", () => {
 
   it("reports admission rejection without waiting for nonexistent terminal events", async () => {
     const fetch = vi.fn(async (url: string) => url.endsWith("/messages")
-      ? { ok: false, status: 503, json: async () => ({ code: "NO_ELIGIBLE_MODEL" }) }
+      ? { ok: false, status: 503, json: async () => ({ code: "NO_ELIGIBLE_MODEL", exclusions: [{ bindingId: "claude", reasons: ["stale", "COMPUTE_CAPACITY_EXHAUSTED", "private detail"] }] }) }
       : url.endsWith("/cancel") ? { ok: false, status: 404 }
       : { ok: true, json: async () => ({ events: [] }) });
     vi.stubGlobal("fetch", fetch);
     const [record] = await runLiveBenchmark(prompts, options);
     expect(record).toMatchObject({ outcome: "error", httpStatus: 503, errorCode: "NO_ELIGIBLE_MODEL", attempts: [], finalObservedMs: null });
+    expect(record.selectionExclusions).toEqual([{ bindingId: "claude", reasons: ["stale", "COMPUTE_CAPACITY_EXHAUSTED"] }]);
+    expect(JSON.stringify(record)).not.toContain("private detail");
     expect(record.elapsedMs).toBeLessThan(options.deadlineMs);
     expect(fetch.mock.calls.filter(([url]) => url.endsWith("/events")).length).toBeGreaterThanOrEqual(1);
   });

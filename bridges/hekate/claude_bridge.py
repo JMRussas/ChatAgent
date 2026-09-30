@@ -27,9 +27,10 @@ def load_provider(root):
     return importlib.import_module("backend.services.cli_provider")
 
 
-def build_command(shared, executable, model):
+def build_command(shared, executable, model, output_budget=None):
     config = dataclasses.replace(shared.get_provider_config("claude_code"),
         binary=executable, allowed_tools="", permission_mode="dontAsk", default_flags=[])
+    length_instruction = "" if output_budget is None else f" Use at most {max(1, output_budget // 4)} words; leave room for formatting within the token limit."
     # Shared builder owns flag mapping; bridge fixes chat policy and disables fallbacks.
     return shared.CommandBuilder(config).build(shared.ExecutionMode.SINGLE_SHOT,
         model=model, tools="", allowed_tools="", disallowed_tools="mcp__*",
@@ -38,8 +39,8 @@ def build_command(shared, executable, model):
         strict_mcp_config=True, mcp_config=['{"mcpServers":{}}'],
         settings='{"disableAllHooks":true}',
         # Existing builder omits empty setting_sources, so use its explicit extension.
-        extra_flags=["--setting-sources", "", "--max-turns", "1", "--no-chrome"],
-        system_prompt="Answer the conversation supplied as JSON on stdin. Follow its systemInstruction and the selected role instruction. Use only supplied context; do not claim to execute tools.")
+        extra_flags=["--setting-sources", "", "--max-turns", "1", "--no-chrome", "--include-partial-messages"],
+        system_prompt="Answer the conversation supplied as JSON on stdin. Follow its systemInstruction and the selected role instruction. Use only supplied context; do not claim to execute tools. Keep the entire answer within outputBudget tokens. For the fast role, use at most three short sentences. For the deep role, prioritize a concise answer to the request over exhaustive background." + length_instruction)
 
 
 def environment():
@@ -58,13 +59,15 @@ def inspect(executable):
     result = subprocess.run([executable, "auth", "status"], capture_output=True, timeout=10, env=env)
     status = json.loads(result.stdout)
     help_text = subprocess.run([executable, "--help"], capture_output=True, timeout=10, env=env, check=True).stdout.decode()
-    supported = all(flag in help_text for flag in ("--tools", "--disallowedTools", "--strict-mcp-config", "--setting-sources", "--settings", "--no-session-persistence", "--disable-slash-commands"))
+    supported = all(flag in help_text for flag in ("--tools", "--disallowedTools", "--strict-mcp-config", "--setting-sources", "--settings", "--no-session-persistence", "--disable-slash-commands", "--include-partial-messages"))
     subscription = status.get("loggedIn") is True and status.get("authMethod") == "claude.ai" and status.get("apiProvider") == "firstParty"
+    errors = []
+    usage = read_usage(errors.append) if subscription else None
     # Utilization is a fresh observation, not a token/call allowance or billing grant.
     return {"version": version, "authenticated": "yes" if subscription else "no",
             "authentication": "subscription-login" if subscription else "unknown",
             "quota": "unknown", "automation": "supported" if supported else "unsupported",
-            "usage": read_usage() if subscription else None}
+            "usage": usage, "usageErrorCode": errors[0] if errors else None}
 
 
 def normalize(shared, raw):
@@ -88,9 +91,65 @@ def normalize(shared, raw):
         if raw.get("subtype") != "success" or not event.content.strip():
             raise BridgeError("CLI_EMPTY_OUTPUT")
         return {"type": "complete", "text": event.content, "finishReason": "stop"}
-    # Assistant messages duplicate the final result; reasoning and diagnostics
-    # never become answer text. This bridge intentionally supports final-only output.
+    # Public assistant blocks are collected by AnswerTranscript; reasoning and
+    # diagnostics never become answer text. Output remains final-only.
     return None
+
+
+class AnswerTranscript:
+    """Retain public text blocks; a CLI result can contain only the final block.
+
+    Reasoning blocks and synthetic API diagnostics never enter the answer.
+    Unsupported rewrites fail closed rather than combining invalidated text.
+    """
+    def __init__(self, shared):
+        self.shared = shared
+        self.parts = []
+        self.seen = {}
+        self.limited = False
+
+    def accept(self, raw):
+        frame = normalize(self.shared, raw)
+        if raw.get("type") == "stream_event":
+            event = raw.get("event", {})
+            if event.get("type") == "message_delta" and event.get("delta", {}).get("stop_reason") in ("max_tokens", "model_context_window_exceeded"):
+                text = "".join(self.parts)
+                if not text.strip():
+                    raise BridgeError("CLI_EMPTY_OUTPUT")
+                self.limited = True
+                return {"type": "complete", "text": text, "finishReason": "length"}
+        if raw.get("type") == "tombstone":
+            raise BridgeError("CLI_MALFORMED_OUTPUT")
+        if raw.get("type") == "assistant":
+            if raw.get("error") == "max_output_tokens" or raw.get("apiError") == "max_output_tokens":
+                self.limited = True
+                return None
+            if raw.get("isApiErrorMessage") or raw.get("error"):
+                raise BridgeError("CLI_PROVIDER_ERROR")
+            message = raw.get("message", {})
+            self.limited |= message.get("stop_reason") in ("max_tokens", "model_context_window_exceeded")
+            text = "\n".join(b["text"] for b in message.get("content", [])
+                             if b.get("type") == "text" and isinstance(b.get("text"), str))
+            if text:
+                uid = raw.get("uuid")
+                if uid is not None:
+                    if uid in self.seen:
+                        if self.seen[uid] != text:
+                            raise BridgeError("CLI_MALFORMED_OUTPUT")
+                        return None
+                    self.seen[uid] = text
+                self.parts.append(text)
+        if frame:
+            text = "".join(self.parts)
+            if text:
+                # CLI 2.1.285 assigns result from the last assistant text block.
+                # Accept that suffix or the complete transcript, never unrelated text.
+                if not text.endswith(frame["text"]):
+                    raise BridgeError("CLI_MALFORMED_OUTPUT")
+                frame["text"] = text
+            if self.limited or raw.get("stop_reason") in ("max_tokens", "model_context_window_exceeded"):
+                frame["finishReason"] = "length"
+        return frame
 
 
 def generate(shared, executable, model, max_bytes):
@@ -100,11 +159,12 @@ def generate(shared, executable, model, max_bytes):
         raise BridgeError("CLI_INVALID_REQUEST")
     env = environment()
     env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(budget)
-    command = build_command(shared, executable, model)
+    command = build_command(shared, executable, model, budget)
     # Outer CliRunner owns timeout and termination of this process and descendants.
     child = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, env=env, shell=False)
     errors, frames = [], []
+    transcript = AnswerTranscript(shared)
     size = 0
     lock = threading.Lock()
 
@@ -122,11 +182,15 @@ def generate(shared, executable, model, max_bytes):
                     while b"\n" in pending:
                         line, pending = pending.split(b"\n", 1)
                         if line.strip():
-                            frame = normalize(shared, json.loads(line))
+                            frame = transcript.accept(json.loads(line))
                             if frame:
                                 frames.append(frame)
+                                if frame["finishReason"] == "length":
+                                    # Do not let the CLI silently spend more calls on continuation.
+                                    child.kill()
+                                    return
             if stdout and pending.strip():
-                frame = normalize(shared, json.loads(pending))
+                frame = transcript.accept(json.loads(pending))
                 if frame:
                     frames.append(frame)
         except BridgeError as error:
@@ -156,7 +220,7 @@ def generate(shared, executable, model, max_bytes):
             pass
     if errors:
         raise BridgeError(errors[0])
-    if code:
+    if code and not (len(frames) == 1 and frames[0]["finishReason"] == "length"):
         raise BridgeError("CLI_NONZERO_EXIT")
     if len(frames) != 1:
         raise BridgeError("CLI_EMPTY_OUTPUT" if not frames else "CLI_MALFORMED_OUTPUT")

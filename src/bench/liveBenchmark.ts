@@ -25,6 +25,7 @@ export interface LiveBenchmarkRecord {
   retryCount: number;
   httpStatus: number | null;
   errorCode: string | null;
+  selectionExclusions?: Array<{ bindingId: string; reasons: string[] }>;
   attempts: Array<{ attemptId: string; phase: string | null; provider: string | null; model: string | null;
     bindingId: string | null; bindingRevision: string | null; finishReason: string | null;
     queueMs: null; providerMs: null }>;
@@ -36,7 +37,7 @@ export interface LiveBenchmarkRecord {
 }
 
 class BenchmarkHttpError extends Error {
-  constructor(readonly status: number, readonly code: string | null) { super("BENCH_HTTP_ERROR"); }
+  constructor(readonly status: number, readonly code: string | null, readonly exclusions?: LiveBenchmarkRecord["selectionExclusions"]) { super("BENCH_HTTP_ERROR"); }
 }
 
 /** One actual server configuration. HTTP observation timings include polling/transport delay.
@@ -63,9 +64,16 @@ export async function runLiveBenchmark(prompts: BenchmarkPrompt[], options: Live
       const response = await fetch(`${baseUrl}${path}`, { signal: controller.signal,
         ...(body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) });
       if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { code?: unknown } | null;
+        const payload = await response.json().catch(() => null) as { code?: unknown; exclusions?: unknown } | null;
         const code = typeof payload?.code === "string" && /^[A-Z][A-Z0-9_]{0,79}$/.test(payload.code) ? payload.code : null;
-        throw new BenchmarkHttpError(response.status, code);
+        // Keep bounded safe identifiers/codes, never arbitrary server error text.
+        const exclusions = code === "NO_ELIGIBLE_MODEL" && Array.isArray(payload?.exclusions)
+          ? payload.exclusions.slice(0, 100).flatMap(item => {
+            if (!item || typeof item.bindingId !== "string" || !Array.isArray(item.reasons)) return [];
+            return [{ bindingId: redact(item.bindingId).slice(0, 512), reasons: item.reasons
+              .filter((r: unknown): r is string => typeof r === "string" && /^(?:[A-Z][A-Z0-9_]{0,79}|disabled|unsupported-adapter|unchecked|stale|denied|unavailable)$/.test(r)).slice(0, 30) }];
+          }) : undefined;
+        throw new BenchmarkHttpError(response.status, code, exclusions);
       }
       return await response.json() as T;
     };
@@ -84,6 +92,7 @@ export async function runLiveBenchmark(prompts: BenchmarkPrompt[], options: Live
         if (error instanceof BenchmarkHttpError) {
           record.responseReceivedMs = elapsed();
           record.httpStatus = error.status; record.errorCode = error.code;
+          if (error.exclusions) record.selectionExclusions = error.exclusions;
         }
       } finally { submissionState.settled = true; }
     })();
@@ -136,6 +145,7 @@ export async function runLiveBenchmark(prompts: BenchmarkPrompt[], options: Live
     } catch (error) {
       if (error instanceof BenchmarkHttpError) {
         record.httpStatus ??= error.status; record.errorCode ??= error.code;
+        if (error.exclusions) record.selectionExclusions = error.exclusions;
       }
       record.outcome = controller.signal.aborted || elapsed() >= deadlineMs ? "deadline"
         : record.httpStatus !== null ? "error" : "transport-error";

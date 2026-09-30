@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectHekateClaude, hekateBridgeConfig, parseBridgeEvent, claudeUsageAdmission } from "../../src/providers/cli/hekateClaude";
+import { connectHekateClaude, hekateBridgeConfig, parseBridgeEvent, claudeUsageAdmission, ClaudeInspectionCache } from "../../src/providers/cli/hekateClaude";
 import { ProviderRegistry, entryBindingId } from "../../src/providers/providerRegistry";
 import { entry, budget } from "../helpers/dispatchFixtures";
 import { cliBinding } from "../../src/providers/cli/providers";
@@ -75,4 +75,58 @@ describe("Hekate Claude bridge", () => {
     await binding.deep!.resolveDeepTask({ taskId: "t", conversationId: "c", normalizedPrompt: "hi", createdAtIso: "now", context });
     expect(requests.map(r => [r.role, r.outputBudget])).toEqual([["fast", 32], ["deep", 64]]);
   });
+});
+
+it("shares fresh account inspection without renewing its original expiry", async () => {
+  let now = Date.parse("2026-09-30T00:00:00Z"), reads = 0;
+  const cache = new ClaudeInspectionCache(async () => { reads++; return { usage: { source: "test", observedAt: new Date(now).toISOString(), windows: [], extraUsageEnabled: true } }; }, () => now);
+  const signal = new AbortController().signal;
+  const [first, joined] = await Promise.all([cache.get(signal), cache.get(signal)]);
+  expect(reads).toBe(1); expect(joined.expiresAt).toBe(first.expiresAt);
+  now += 20000;
+  expect((await cache.get(signal)).expiresAt).toBe(first.expiresAt); expect(reads).toBe(1);
+  now += 10000;
+  expect((await cache.get(signal)).expiresAt).toBe(now + 30000); expect(reads).toBe(2);
+});
+it("does not reuse expired usage and briefly backs off a rate-limited inspection", async () => {
+  let now = 100000, reads = 0;
+  const cache = new ClaudeInspectionCache(async () => { reads++; return { usageErrorCode: "CLI_USAGE_RATE_LIMITED" }; }, () => now);
+  const signal = new AbortController().signal;
+  expect((await cache.get(signal)).status.usage).toBeUndefined();
+  now += 20000; await cache.get(signal); expect(reads).toBe(1);
+  now += 10000; await cache.get(signal); expect(reads).toBe(2);
+});
+it("cancels one inspection waiter without cancelling a shared inspection", async () => {
+  let release!: (value: {}) => void;
+  const cache = new ClaudeInspectionCache(async () => new Promise(resolve => { release = resolve; }));
+  const controller = new AbortController();
+  const first = cache.get(controller.signal), second = cache.get(new AbortController().signal);
+  controller.abort(new Error("cancelled"));
+  await expect(first).rejects.toThrow("cancelled");
+  release({}); await expect(second).resolves.toHaveProperty("status");
+});
+it("cancels the inspection child when its last waiter leaves", async () => {
+  let inspectionSignal!: AbortSignal;
+  const cache = new ClaudeInspectionCache(async signal => {
+    inspectionSignal = signal;
+    return await new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+  });
+  const controller = new AbortController();
+  const waiting = cache.get(controller.signal);
+  controller.abort(new Error("shutdown"));
+  await expect(waiting).rejects.toThrow("shutdown");
+  expect(inspectionSignal.aborted).toBe(true);
+});
+it("refreshes ahead for discovery without shortening negative backoff", async () => {
+  let now = 100000, reads = 0;
+  const cache = new ClaudeInspectionCache(async () => {
+    reads++;
+    return reads === 1 ? { usage: { source: "test", observedAt: new Date(now).toISOString(), windows: [], extraUsageEnabled: true } }
+      : { usageErrorCode: "CLI_USAGE_RATE_LIMITED" };
+  }, () => now);
+  const signal = new AbortController().signal;
+  await cache.get(signal); now += 20000;
+  await cache.get(signal, 10000); expect(reads).toBe(2);
+  now += 20000;
+  await cache.get(signal, 10000); expect(reads).toBe(2);
 });

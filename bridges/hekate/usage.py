@@ -8,6 +8,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 import urllib.request
+import urllib.error
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -38,7 +39,7 @@ def normalize_usage(data):
             "windows": windows, "extraUsageEnabled": enabled if type(enabled) is bool else None}
 
 
-def read_usage():
+def read_usage(on_error=lambda code: None):
     try:
         credentials = json.loads((Path.home() / ".claude" / ".credentials.json").read_text(encoding="utf-8"))
         token = credentials.get("claudeAiOauth", {}).get("accessToken")
@@ -51,7 +52,11 @@ def read_usage():
         if len(payload) > 65536:
             return None
         return normalize_usage(json.loads(payload))
+    except urllib.error.HTTPError as error:
+        on_error("CLI_USAGE_RATE_LIMITED" if error.code == 429 else "CLI_USAGE_HTTP_ERROR")
+        return None
     except Exception:
+        on_error("CLI_USAGE_UNAVAILABLE")
         # Includes denied/expired auth, throttling, malformed responses and network
         # failures. No automatic retries and no exception payloads in diagnostics.
         return None

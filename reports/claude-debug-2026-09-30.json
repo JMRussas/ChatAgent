@@ -1,0 +1,430 @@
+{
+  "schemaVersion": "claude-debug-review-v1",
+  "date": "2026-09-30",
+  "originalBaseline": "reports/live-golden-claude-2026-09-30.json",
+  "findings": [
+    {
+      "issue": "COMPUTE_CAPACITY_EXHAUSTED",
+      "evidence": "Reproduced under fail-on-contention with one slot. Both mock integration and live bounded-wait execution complete sequentially.",
+      "fix": "Local policy now uses wait with 30000ms deadline; concurrency remains 1."
+    },
+    {
+      "issue": "Opaque model readiness failures",
+      "evidence": "Rerun returned CLI_USAGE_UNAVAILABLE; sanitized inspection identified HTTP 429 from the usage endpoint. The original NO_ELIGIBLE_MODEL lacked exclusions, so its precise cause remains unprovable.",
+      "fix": "Share one fresh account inspection across discovery/models/preflight. Original usage expiry remains capped at 30 seconds. Cache 429 as unavailable for 30 seconds; report safe diagnostic code and retain selection exclusions."
+    },
+    {
+      "issue": "Tail-only answer and hidden CLI continuation",
+      "evidence": "Installed CLI 2.1.285 assigns final result from last assistant text. Live probe observed two public assistant blocks and result equal to the second, with repeated boundary words. A second probe exposed max_tokens and returned the original prefix with finishReason length.",
+      "fix": "Retain public assistant blocks without duplicate result; consume partial stop events and terminate child at first output limit, returning length. Discard reasoning and diagnostics. Add budget-derived word target, without raising 384/768 token limits."
+    }
+  ],
+  "stages": [
+    {
+      "description": "Original fail policy; reproduced capacity rejection and CLI_USAGE_UNAVAILABLE.",
+      "runId": "39e35571-0d9c-44ed-9f8a-bb3eecd80709",
+      "artifactLocalPath": "reports/evaluations/live-golden-debug-fail-2026-09-30/39e35571-0d9c-44ed-9f8a-bb3eecd80709/run.json",
+      "expiresAt": "2026-10-07T15:13:09.578Z",
+      "code": {
+        "revision": "8cd81162a60e27c31a2f0e3fc6e3e7ba7d0ced5d",
+        "dirty": true,
+        "sourceDigest": "ae114ac46675f41d5e395a9a102f166be24039d4d312753f85faae937956bbd4"
+      },
+      "configurationDigest": "0c3a5a2da4c7dec8ceb2584dab29796ec5b338d7d1f024c7b225cf98425272f8",
+      "resourcePolicy": {
+        "allowedExecutionScopes": [
+          "managed-cloud"
+        ],
+        "allowedBillingComponents": [
+          "subscription",
+          "metered-usage"
+        ],
+        "maxIncrementalUsd": null,
+        "unknownCostAction": "allow-unpriced",
+        "quotaExhaustionAction": "fail",
+        "waitTimeoutMs": 5000,
+        "bindings": {
+          "claude-hekate-default": {
+            "facts": {
+              "executionScope": "managed-cloud",
+              "billingComponents": [
+                "subscription",
+                "metered-usage"
+              ]
+            },
+            "quotaAdmission": "adapter-preflight",
+            "maxInvocationUsd": null,
+            "quota": null,
+            "concurrency": 1
+          }
+        }
+      },
+      "results": [
+        {
+          "promptId": "direct-basic-math",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 2632.6961,
+          "finalMs": 2698.704,
+          "responseHash": "e93dff0d1076b537cd1bd659d14bb77d5fd47db13204a227cb3cd66e81dd454c"
+        },
+        {
+          "promptId": "clarify-underspecified",
+          "passed": true,
+          "failures": [],
+          "route": "clarify",
+          "outcome": "stop",
+          "fastMs": 3444.8212000000003,
+          "finalMs": 3545.4227,
+          "responseHash": "4be5d482d32e7d6f67f52df775e95fc150ae287f267b154d45b7e4a8812544ff"
+        },
+        {
+          "promptId": "direct-day-question-no-echo",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 3219.405099999999,
+          "finalMs": 3332.6722999999993,
+          "responseHash": "df4272863bcade91419fb24398624ce3fc32ce666ea854ec095911d05f554dab"
+        },
+        {
+          "promptId": "deep-latest-sourced",
+          "passed": false,
+          "failures": [
+            "Generation did not stop normally",
+            "Missing deep answer"
+          ],
+          "route": "deep",
+          "outcome": "error",
+          "fastMs": 7818.382099999999,
+          "finalMs": 7847.385900000001,
+          "responseHash": null
+        },
+        {
+          "promptId": "deep-complex-compare",
+          "passed": false,
+          "failures": [
+            "Generation did not stop normally",
+            "Missing deep answer"
+          ],
+          "route": "deep",
+          "outcome": "error",
+          "fastMs": 505.0417000000016,
+          "finalMs": 551.5483999999997,
+          "responseHash": null
+        }
+      ],
+      "terminalErrors": [
+        {
+          "promptId": "deep-latest-sourced",
+          "phase": "deep",
+          "code": "COMPUTE_CAPACITY_EXHAUSTED"
+        },
+        {
+          "promptId": "deep-complex-compare",
+          "phase": "deep",
+          "code": "COMPUTE_CAPACITY_EXHAUSTED"
+        },
+        {
+          "promptId": "deep-complex-compare",
+          "phase": "fast",
+          "code": "CLI_USAGE_UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "description": "Intermediate cached/wait run; structural 5/5 not accepted as final evidence because continuation was not yet bounded.",
+      "runId": "c3d0aa3f-7ee8-4c38-a290-55a26354e330",
+      "artifactLocalPath": "reports/evaluations/live-golden-debug-wait-2026-09-30/c3d0aa3f-7ee8-4c38-a290-55a26354e330/run.json",
+      "expiresAt": "2026-10-07T15:20:10.179Z",
+      "code": {
+        "revision": "8cd81162a60e27c31a2f0e3fc6e3e7ba7d0ced5d",
+        "dirty": true,
+        "sourceDigest": "58b444aa72e25712bc75cbbb4ce82c574b8c65d0b94038e62c90b7b7d41b03f4"
+      },
+      "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+      "resourcePolicy": {
+        "allowedExecutionScopes": [
+          "managed-cloud"
+        ],
+        "allowedBillingComponents": [
+          "subscription",
+          "metered-usage"
+        ],
+        "maxIncrementalUsd": null,
+        "unknownCostAction": "allow-unpriced",
+        "quotaExhaustionAction": "wait",
+        "waitTimeoutMs": 30000,
+        "bindings": {
+          "claude-hekate-default": {
+            "facts": {
+              "executionScope": "managed-cloud",
+              "billingComponents": [
+                "subscription",
+                "metered-usage"
+              ]
+            },
+            "quotaAdmission": "adapter-preflight",
+            "maxInvocationUsd": null,
+            "quota": null,
+            "concurrency": 1
+          }
+        }
+      },
+      "results": [
+        {
+          "promptId": "direct-basic-math",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 2323.745,
+          "finalMs": 2385.0161,
+          "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd"
+        },
+        {
+          "promptId": "clarify-underspecified",
+          "passed": true,
+          "failures": [],
+          "route": "clarify",
+          "outcome": "stop",
+          "fastMs": 2629.8489,
+          "finalMs": 2697.9254,
+          "responseHash": "19caf0812e8d4eb88d47902a5998d9d5b37894ede0b43597942f48a2b47370eb"
+        },
+        {
+          "promptId": "direct-day-question-no-echo",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 2453.6287999999995,
+          "finalMs": 2472.9687000000004,
+          "responseHash": "471052f3213422828b9d850889ee5dcba1e45ac6ef1026a1bb6df82c9305a79d"
+        },
+        {
+          "promptId": "deep-latest-sourced",
+          "passed": true,
+          "failures": [],
+          "route": "deep",
+          "outcome": "stop",
+          "fastMs": 7232.799799999999,
+          "finalMs": 13782.0253,
+          "responseHash": "d8f942b4c93deb44326670abf814f764671b68bf8d74e9dd91168ec67d0b7659"
+        },
+        {
+          "promptId": "deep-complex-compare",
+          "passed": true,
+          "failures": [],
+          "route": "deep",
+          "outcome": "stop",
+          "fastMs": 12906.950499999999,
+          "finalMs": 36675.6311,
+          "responseHash": "c237d2e83c1a55ffa2460f720b0404e063662d1244833f6a057d4c7047557361"
+        }
+      ],
+      "terminalErrors": []
+    },
+    {
+      "description": "First-limit termination enabled; 4/5 with honest deep output truncation.",
+      "runId": "6194074f-2a83-4ed7-8574-afbb44d3f50e",
+      "artifactLocalPath": "reports/evaluations/live-golden-debug-bounded-2026-09-30/6194074f-2a83-4ed7-8574-afbb44d3f50e/run.json",
+      "expiresAt": "2026-10-07T15:23:09.288Z",
+      "code": {
+        "revision": "8cd81162a60e27c31a2f0e3fc6e3e7ba7d0ced5d",
+        "dirty": true,
+        "sourceDigest": "634da2dbeee2df01522ef7f9625ba1dc0a2f1e3c91e6e0e85e8b8dd5a6a46116"
+      },
+      "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+      "resourcePolicy": {
+        "allowedExecutionScopes": [
+          "managed-cloud"
+        ],
+        "allowedBillingComponents": [
+          "subscription",
+          "metered-usage"
+        ],
+        "maxIncrementalUsd": null,
+        "unknownCostAction": "allow-unpriced",
+        "quotaExhaustionAction": "wait",
+        "waitTimeoutMs": 30000,
+        "bindings": {
+          "claude-hekate-default": {
+            "facts": {
+              "executionScope": "managed-cloud",
+              "billingComponents": [
+                "subscription",
+                "metered-usage"
+              ]
+            },
+            "quotaAdmission": "adapter-preflight",
+            "maxInvocationUsd": null,
+            "quota": null,
+            "concurrency": 1
+          }
+        }
+      },
+      "results": [
+        {
+          "promptId": "direct-basic-math",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 2235.4697,
+          "finalMs": 2281.6399,
+          "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd"
+        },
+        {
+          "promptId": "clarify-underspecified",
+          "passed": true,
+          "failures": [],
+          "route": "clarify",
+          "outcome": "stop",
+          "fastMs": 2414.5957999999996,
+          "finalMs": 2471.7746999999995,
+          "responseHash": "de78595c170bb664eb7c3af2db098d58c5afcaec6ffba71b060863a0b53e1ec1"
+        },
+        {
+          "promptId": "direct-day-question-no-echo",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 3489.983500000001,
+          "finalMs": 3549.917200000001,
+          "responseHash": "f7953cca39744abade35f577ddc6ed70a2874c063d70db949ed8ce9b526960a7"
+        },
+        {
+          "promptId": "deep-latest-sourced",
+          "passed": true,
+          "failures": [],
+          "route": "deep",
+          "outcome": "stop",
+          "fastMs": 3146.7554999999993,
+          "finalMs": 10239.904999999999,
+          "responseHash": "80565d5caebf76ea09c48c36cc58b8335f2c6c0baea7e3e0fa24fc123cf5f7dc"
+        },
+        {
+          "promptId": "deep-complex-compare",
+          "passed": false,
+          "failures": [
+            "Generation did not stop normally"
+          ],
+          "route": "deep",
+          "outcome": "length",
+          "fastMs": 4806.331099999999,
+          "finalMs": 12391.3165,
+          "responseHash": "1787dce9cb68b4dcc59b5dc46d65034fef4357654f320e6606d0c53f33156520"
+        }
+      ],
+      "terminalErrors": []
+    },
+    {
+      "description": "Budget-derived brevity hint added; 5/5 structural pass, quality unrated.",
+      "runId": "68a5ad50-dd38-4da7-a02b-8a15500812ab",
+      "artifactLocalPath": "reports/evaluations/live-golden-debug-final-2026-09-30/68a5ad50-dd38-4da7-a02b-8a15500812ab/run.json",
+      "expiresAt": "2026-10-07T15:24:18.064Z",
+      "code": {
+        "revision": "8cd81162a60e27c31a2f0e3fc6e3e7ba7d0ced5d",
+        "dirty": true,
+        "sourceDigest": "4fb4ac3d88f33b6d319b65c282b85308d43eb288d169b5d735bd86f45b5c8e18"
+      },
+      "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+      "resourcePolicy": {
+        "allowedExecutionScopes": [
+          "managed-cloud"
+        ],
+        "allowedBillingComponents": [
+          "subscription",
+          "metered-usage"
+        ],
+        "maxIncrementalUsd": null,
+        "unknownCostAction": "allow-unpriced",
+        "quotaExhaustionAction": "wait",
+        "waitTimeoutMs": 30000,
+        "bindings": {
+          "claude-hekate-default": {
+            "facts": {
+              "executionScope": "managed-cloud",
+              "billingComponents": [
+                "subscription",
+                "metered-usage"
+              ]
+            },
+            "quotaAdmission": "adapter-preflight",
+            "maxInvocationUsd": null,
+            "quota": null,
+            "concurrency": 1
+          }
+        }
+      },
+      "results": [
+        {
+          "promptId": "direct-basic-math",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 2415.3563,
+          "finalMs": 2511.4006,
+          "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd"
+        },
+        {
+          "promptId": "clarify-underspecified",
+          "passed": true,
+          "failures": [],
+          "route": "clarify",
+          "outcome": "stop",
+          "fastMs": 2431.7713,
+          "finalMs": 2489.2717,
+          "responseHash": "dc431682c405ddf32f326531d9300a5d67282464dcfd73a45cc043bc65e6d5c9"
+        },
+        {
+          "promptId": "direct-day-question-no-echo",
+          "passed": true,
+          "failures": [],
+          "route": "direct",
+          "outcome": "stop",
+          "fastMs": 2594.045799999999,
+          "finalMs": 2607.0945,
+          "responseHash": "51dd88fb4d3f7800d4d0e801268a44c311429ddd26e4008a55e7d0a1cf7d3068"
+        },
+        {
+          "promptId": "deep-latest-sourced",
+          "passed": true,
+          "failures": [],
+          "route": "deep",
+          "outcome": "stop",
+          "fastMs": 3182.4619999999995,
+          "finalMs": 8813.579200000002,
+          "responseHash": "93f5a6eee44ab25baf73d3ea4d2dcc5443241e094c8bf740b0beaecabefe3074"
+        },
+        {
+          "promptId": "deep-complex-compare",
+          "passed": true,
+          "failures": [],
+          "route": "deep",
+          "outcome": "stop",
+          "fastMs": 3302.999899999999,
+          "finalMs": 11396.657899999998,
+          "responseHash": "8e7440c2b4a87c622a5d1be95d242b4f91f853460699dba6989635768ae4b2fa"
+        }
+      ],
+      "terminalErrors": []
+    }
+  ],
+  "finalStructuralPassed": true,
+  "finalQuality": "unrated",
+  "limits": [
+    "No full factual-quality acceptance, current-source retrieval or single/dual comparison established.",
+    "The historical NO_ELIGIBLE_MODEL exclusion details cannot be recovered retroactively.",
+    "Prompt length hints are advisory; truncation remains possible and is reported explicitly.",
+    "CLI budget applies to requested output; no claim of exact billed tokens or account-wide spend control.",
+    "Raw local answer artifacts expire; committed hashes and findings do not preserve independently reviewable full answers.",
+    "Final live run preceded cache cancellation and proactive-refresh refinements, subsequently covered by offline tests."
+  ]
+}

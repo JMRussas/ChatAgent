@@ -53,22 +53,79 @@ export function parseBridgeEvent(line: string) {
     throw new GenerationError("CLI_MALFORMED_OUTPUT", false);
   return { type: "complete" as const, text: value.text, finishReason: value.finishReason as "stop" | "length" };
 }
-export function createHekateClaudeAdapter(config: HekateBridgeConfig, model: string, runner: CliRunner): CliAdapter {
+interface InspectionStatus {
+  version?: string; authenticated?: string; automation?: string;
+  usage?: CliReadiness["usage"]; usageErrorCode?: string | null;
+}
+/** One account inspection shared by discovery/models/preflight. Never extends evidence. */
+export class ClaudeInspectionCache {
+  private cached?: { status: InspectionStatus; checkedAt: number; expiresAt: number };
+  private pending?: Promise<NonNullable<ClaudeInspectionCache["cached"]>>;
+  private pendingController?: AbortController;
+  private waiters = 0;
+  constructor(private read: (signal: AbortSignal) => Promise<InspectionStatus>, private now = Date.now) {}
+  async get(signal: AbortSignal, refreshAheadMs = 0) {
+    signal.throwIfAborted();
+    const now = this.now();
+    if (!this.cached || this.cached.expiresAt <= now + (this.cached.status.usage ? refreshAheadMs : 0) || this.cached.checkedAt > now) {
+      if (!this.pending) this.pendingController = new AbortController();
+      this.pending ??= (async () => {
+        const status = await this.read(AbortSignal.any([this.pendingController!.signal, AbortSignal.timeout(25000)]));
+        const checkedAt = this.now(), observed = Date.parse(status.usage?.observedAt ?? "");
+        const validUsage = Number.isFinite(observed) && observed <= checkedAt && observed + 30000 > checkedAt;
+        const expiresAt = validUsage ? Math.min(checkedAt + 30000, observed + 30000)
+          : checkedAt + (status.usageErrorCode === "CLI_USAGE_RATE_LIMITED" ? 30000 : 5000);
+        return this.cached = { status, checkedAt, expiresAt };
+      })().finally(() => { this.pending = undefined; });
+      const pending = this.pending;
+      // Cancel the shared child only when its last waiter leaves.
+      this.waiters++;
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const finish = (failed: boolean, error?: unknown) => {
+          if (settled) return;
+          settled = true;
+          signal.removeEventListener("abort", abort);
+          this.waiters--;
+          if (signal.aborted && this.waiters === 0) this.pendingController?.abort(signal.reason);
+          if (failed) reject(error); else resolve();
+        };
+        const abort = () => finish(true, signal.reason);
+        signal.addEventListener("abort", abort, { once: true });
+        pending.then(() => finish(false), error => finish(true, error));
+        if (signal.aborted) abort();
+      });
+    }
+    signal.throwIfAborted();
+    return structuredClone(this.cached!);
+  }
+}
+function accountInspection(config: HekateBridgeConfig) {
+  const script = resolve("bridges/hekate/claude_bridge.py");
+  return new ClaudeInspectionCache(async signal => {
+    const result = await new Promise<string>((resolve, reject) => execFile(config.python,
+      [script, "inspect", "--root", config.root, "--executable", config.executable],
+      { cwd: config.workingDirectory, signal, timeout: 25000, maxBuffer: 8192, windowsHide: true },
+      (error, stdout) => error ? reject(new GenerationError("HEKATE_BRIDGE_UNAVAILABLE", false)) : resolve(stdout)));
+    return JSON.parse(result) as InspectionStatus;
+  });
+}
+export function createHekateClaudeAdapter(config: HekateBridgeConfig, model: string, runner: CliRunner, inspections = accountInspection(config)): CliAdapter {
   const script = resolve("bridges/hekate/claude_bridge.py");
   const args = [script, "generate", "--root", config.root, "--executable", config.executable,
     "--model", model, "--max-bytes", String(runner.limits.maxOutputBytes)];
   const inspect = async (profile: string, signal: AbortSignal): Promise<CliReadiness> => {
     if (profile !== "default") throw new GenerationError("CLI_PROFILE_UNSUPPORTED", false);
-    const result = await new Promise<string>((resolve, reject) => execFile(config.python,
-      [script, "inspect", "--root", config.root, "--executable", config.executable],
-      { cwd: config.workingDirectory, signal, timeout: 25000, maxBuffer: 8192, windowsHide: true },
-      (error, stdout) => error ? reject(new GenerationError(signal.aborted ? "CANCELLED" : "HEKATE_BRIDGE_UNAVAILABLE", false)) : resolve(stdout)));
-    const status = JSON.parse(result);
-    const now = new Date().toISOString();
+    const { status, checkedAt, expiresAt } = await inspections.get(signal);
+    const admission = claudeUsageAdmission(status.usage, model, config.usagePolicy);
+    const usageErrorCode = ["CLI_USAGE_RATE_LIMITED", "CLI_USAGE_HTTP_ERROR", "CLI_USAGE_UNAVAILABLE"].includes(status.usageErrorCode ?? "")
+      ? status.usageErrorCode as CliReadiness["blockedReason"] : undefined;
     return { version: typeof status.version === "string" ? status.version : null,
       authenticated: status.authenticated === "yes" ? "yes" : "no", automation: status.automation === "supported" ? "supported" : "unsupported",
       usage: status.usage ?? undefined,
-      ...claudeUsageAdmission(status.usage, model, config.usagePolicy), observedAt: now, expiresAt: new Date(Date.now() + 30000).toISOString() };
+      ...admission,
+      ...(admission.blockedReason === "CLI_USAGE_UNAVAILABLE" && usageErrorCode ? { blockedReason: usageErrorCode } : {}),
+      observedAt: new Date(checkedAt).toISOString(), expiresAt: new Date(expiresAt).toISOString() };
   };
   return runner.adapter({ id: HEKATE_CLAUDE_ID, executable: config.python, args,
     allowedWorkingRoot: config.workingDirectory, answerOnly: true, inspect,
@@ -81,6 +138,7 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
   const config = hekateBridgeConfig(env);
   if (!config) return { connections: [], bindingIds: [] };
   const runner = new CliRunner(cliLimits(env));
+  const inspections = accountInspection(config);
   const selected = catalog.models.filter(e => e.provider === "cli" && e.cli?.adapterId === HEKATE_CLAUDE_ID && e.cli.accountProfile === "default");
   const adapters = new Map<string, CliAdapter>();
   const connections: Connection[] = [];
@@ -88,7 +146,7 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
     const connection: Connection = { connectionId: connectionIdForEntry(entry), apiKind: "cli",
       resourceFacts: { executionScope: "managed-cloud", billingComponents: ["subscription", "unknown"] }, quota: {}, compute: { ownedOrRented: "unknown" } };
     if (!connections.some(c => c.connectionId === connection.connectionId)) connections.push(connection);
-    const adapter = createHekateClaudeAdapter(config, entry.model, runner);
+    const adapter = createHekateClaudeAdapter(config, entry.model, runner, inspections);
     adapters.set(entryBindingId(entry), adapter);
     if (registry && entry.enabled) {
       const allowlist = new CliAdapterRegistry(); allowlist.register(adapter);
@@ -98,6 +156,9 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
     }
   }
   return { connections, bindingIds: [...adapters.keys()], discovery: { discover: async (connection, signal) => {
+    // With the local 20s discovery interval, refresh before the 30s evidence expires.
+    // Invocation preflight still reuses all remaining validity. Negative backoff is never shortened.
+    await inspections.get(signal, 10000);
     const entries = selected.filter(e => connectionIdForEntry(e) === connection.connectionId);
     return Promise.all(entries.map(async entry => {
       const state = await adapters.get(entryBindingId(entry))!.inspect("default", signal);

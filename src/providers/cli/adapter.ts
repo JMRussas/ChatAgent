@@ -7,7 +7,7 @@ export interface CliReadiness {
   automation: "supported" | "unsupported" | "unknown";
   quota: "available" | "exhausted" | "unknown";
   resetAt?: string;
-  blockedReason?: "CLI_INCLUDED_ONLY_UNSUPPORTED" | "CLI_USAGE_UNAVAILABLE" | "CLI_USAGE_HEADROOM";
+  blockedReason?: "CLI_INCLUDED_ONLY_UNSUPPORTED" | "CLI_USAGE_UNAVAILABLE" | "CLI_USAGE_HEADROOM" | "CLI_USAGE_RATE_LIMITED" | "CLI_USAGE_HTTP_ERROR";
   usage?: { source: string; observedAt: string;
     windows: { scope: string; usedPercentage: number; resetsAt: string }[];
     extraUsageEnabled: boolean | null };

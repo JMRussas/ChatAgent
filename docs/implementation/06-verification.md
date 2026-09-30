@@ -162,6 +162,28 @@ establish factual accuracy or live-provider performance.
 
 ## Live evidence and completion
 
+### Claude debugging follow-up (2026-09-30)
+
+The [dated debugging report](../../reports/claude-debug-2026-09-30.json) retains
+failed/intermediate runs and a final **5/5 structural pass**. Capacity is serialized
+with the existing bounded-wait policy (30 seconds, one slot). Usage inspection is
+shared and cached within its original 30-second validity, with safe HTTP 429
+diagnostics and backoff. Selection exclusions now survive in optional
+`selectionExclusions` on live v2 records; older v2 files remain readable. Startup
+readiness snapshots are also saved by `eval:live-accept`.
+
+The CLI bridge now preserves earlier public answer blocks and stops its child on
+the first streamed output limit, returning `length` instead of accepting a tail-only
+continuation as complete. An intermediate run that reported 5/5 before this fix is
+not the final evidence. With honest truncation, one run scored 4/5; a budget-derived
+brevity hint then produced 5/5 without increasing token budgets or golden limits.
+Length hints remain advisory. Original failure reports are unchanged.
+
+This establishes runtime behavior for these five calls, not factual quality or
+retrieval. The latest-data answer states its lack of tools; a current-data sports
+demo still needs actual retrieval. Versioned exact-answer grading and repeated
+single/dual evaluation remain open. See the handoff for the detailed diagnosis.
+
 ### Live Claude golden baseline (2026-09-30)
 
 `npm run eval:live-accept -- reports/evaluations/<new-run-directory>` is an explicit

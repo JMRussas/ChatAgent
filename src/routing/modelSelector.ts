@@ -35,7 +35,10 @@ export function rankModels(input: SelectionInput): Candidate[] {
     const obs = input.observations.find(o => o.bindingId === bindingId);
     const reasons: string[] = [];
     const readiness = computeReadiness({ enabled: entry.enabled, adapterImplemented: !!binding?.[input.role], observation: obs, nowIso: input.nowIso });
-    if (readiness !== "ready") reasons.push(readiness);
+    if (readiness !== "ready") {
+      reasons.push(readiness);
+      if (obs?.lastErrorCode && /^[A-Z][A-Z0-9_]{0,79}$/.test(obs.lastErrorCode)) reasons.push(obs.lastErrorCode);
+    }
     if (obs && (Date.parse(obs.observedAtIso) > now || !Number.isFinite(Date.parse(obs.observedAtIso)))) reasons.push("INVALID_OBSERVATION_TIME");
     if (binding && obs && !obs.apiCompatibility.includes(binding.connection.apiKind)) reasons.push("API_INCOMPATIBLE");
     if (!entry.roles.includes(input.role) || !entry.tasks.includes(input.requirements.task)) reasons.push("ROLE_OR_TASK_UNSUPPORTED");

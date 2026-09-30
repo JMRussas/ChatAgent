@@ -36,8 +36,13 @@ potential metered usage are declared; incremental cost stays unknown, with expli
 account funding protections. No account settings were changed.
 
 `quotaAdmission: "adapter-preflight"` requires a code-owned binding capability.
-Claude checks usage immediately before every invocation under the shared CLI
-concurrency gate; percentages are never converted to invented request/token counts.
+Claude evaluates a shared cached inspection before invocation under the CLI
+concurrency gate. Discovery and all models share one in-flight account inspection;
+reusing it never extends its original 30-second usage expiry. HTTP 429 is reported
+as `CLI_USAGE_RATE_LIMITED` and cached as unavailable for 30 seconds to back off.
+Other unsuccessful inspections back off for five seconds. No per-call usage HTTP
+request is required while evidence is fresh; percentages are never converted to
+invented request/token counts.
 Configured resource evidence expires after one day and must be reviewed/renewed;
 usage evidence expires after 30 seconds. Local discovery runs every 20 seconds.
 Missing/stale evidence blocks dispatch.
@@ -129,8 +134,13 @@ changes; this work does not modify or deploy that repository.
    concurrently with a combined raw-byte limit. Existing executors are not called.
 3. **Medium: final answers can be duplicated.** The shared executor adds both
    assistant text and final result text. The bridge normalizes through Hekate but
-   publishes only one successful final result. It currently provides final-only
-   output, not token streaming. Reasoning/diagnostic frames are discarded.
+   publishes one final answer without appending the duplicated result. Live debugging
+   found that the CLI result may contain only the last public text block; the bridge
+   now preserves earlier public blocks. Partial stream events expose output limits:
+   on the first `max_tokens` stop, the bridge terminates its CLI child and returns
+   the retained prefix as `length`, preventing hidden continuation and tail-only
+   success. An empty prefix fails explicitly. Reasoning/diagnostic text is discarded;
+   output to ChatAgent remains final-only. Unsupported transcript rewrites fail closed.
 4. **High for admission: local quota estimates are not account allowance.**
    `ProviderQuotaManager` sums local `usage_log` rows against configured windows;
    it cannot account for external account usage. Authentication is not proof of
