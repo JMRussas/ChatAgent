@@ -1,5 +1,18 @@
 # Development roadmap
 
+## 2026-09-30: active NBA briefing workflow
+
+The current direction is the [personalized NBA briefing demo](18-nba-briefing-demo.md):
+league and favorite-team briefings on launch/manual start, fresh sourced evidence,
+continued foreground interaction and specific follow-ups. This supersedes older
+instructions below to defer sports until all spec 06 work completes. Apply remaining
+multitask evaluations inside the sports workflow without claiming spec 06 complete.
+First implemented slice is the offline `sports:plan` contract; next are source fixtures
+and bounded task coordination. The latest handoff is authoritative. Explicit user
+preferences and topic/thread navigation come before broad memory automation. Email
+is a later domain, not part of this implementation.
+
+
 ## 2026-09-29: spec 04 dispatch implemented
 
 Catalog-mode selection, captured-context previews, provider registry, resource

@@ -1,5 +1,14 @@
 # Multitask session evaluation
 
+## 2026-09-30 application to the sports demo
+
+The user selected [NBA briefings](18-nba-briefing-demo.md) as the concrete workflow.
+Apply the session scenarios below to league/team work and follow-up questions;
+the generic runner-first ordering is superseded by the demo's bounded source and
+coordination slices. Keep these grading, fairness and evidence requirements. This
+change does not make the sequential runner comparative or add concurrent workers.
+
+
 Status: design v1, 2026-09-30. No session comparison has run. This is the next
 spec 06 evaluation slice; the doc-agent experiment remains separate.
 

@@ -1,5 +1,18 @@
 # UI Plan
 
+## 2026-09-30 direction: topic and task workspace
+
+Plan the NBA demo around league/team topics and task-related conversations, with
+current queued/running/needs-input/complete/failed/cancelled states and unread results.
+Keep layer 1 available while work runs. Historical latency buckets belong in optional
+diagnostics, not the primary workspace. Quick follow-ups stay within their thread;
+substantial investigations may become linked tasks. See [the demo plan](18-nba-briefing-demo.md).
+This is planned, not a UI change in the current slice. Conversation indexing and
+persistence must be addressed before promising durable threads. The current UI
+already uses SSE and preserves answer phases; older polling/swap-only claims below
+are historical. No UI restart or preview change is required for the planner slice.
+
+
 Status: historical proposal, partially implemented. The current plan is
 [the development roadmap](12-development-roadmap.md). The UI, SSE timeline updates,
 automatic deep worker, provider readout, and message-correlated replies are now

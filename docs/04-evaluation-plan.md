@@ -1,5 +1,15 @@
 # Evaluation Plan
 
+## Current application: NBA briefings
+
+The [NBA demo](18-nba-briefing-demo.md) is the selected workflow for multitask
+measurement. Test useful foreground interaction during league/team work, grounded
+follow-ups, temporal ambiguity, preference overrides and partial-source failures.
+Keep the coordination and deep-quality measures below; implement them alongside
+bounded sports slices rather than an abstract benchmark first. No live comparison
+or memory accuracy claim follows from the initial offline planner.
+
+
 ## Current priority: multitask sessions (2026-09-30)
 
 Evaluate layer 1 as the ongoing user-interaction and coordination layer while deep

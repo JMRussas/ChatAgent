@@ -1,5 +1,14 @@
 # 06 — Lifecycle and honest end-to-end verification
 
+## Active application — NBA briefing demo
+
+The user selected [NBA briefings](../18-nba-briefing-demo.md) as the next concrete
+workflow. Apply remaining overlap, cancellation and coordination checks there.
+This supersedes deferring all sports work until this document's gates finish;
+quality review and fair repeated comparisons remain open. The initial planner
+provides no live-source or concurrency acceptance evidence.
+
+
 Status: in progress. 06A runtime shutdown and automatic-worker HTTP acceptance
 implemented (439 tests / 61 files, typecheck, build, simulated release gate pass).
 06B passive recorder/artifact and annotation contracts are implemented; see

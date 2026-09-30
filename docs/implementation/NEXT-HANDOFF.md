@@ -1,5 +1,30 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: NBA briefing is the active demonstration
+
+User selected launch-triggered NBA league and favorite-team briefings, with layer 1
+available for detailed follow-ups while background work proceeds. This supersedes
+the generic runner-first ordering below; apply those multitask checks within the
+sports workflow. See [scope, source investigation and decision journal](../18-nba-briefing-demo.md).
+Spec 06 remains incomplete; no historical acceptance gate is relabeled passed.
+
+Implemented first slice: deterministic `sports:plan` CLI and tested planning contract.
+It emits separate league/team tasks, asks for an unknown team, validates explicit
+clock/timezone inputs and bounds catch-up coverage. No live fetching, model calls,
+preference writes, UI change or launch integration. The user's team is not assumed.
+
+Validation: **539 tests / 69 files**, typecheck, build, example CLI execution, local
+documentation links and diff checks pass. No UI code changed; browser/live-source
+checks were not run for this offline slice.
+
+Next: normalized source/evidence contracts and fixture adapters, then a bounded
+briefing coordinator with overlap/cancellation evaluation. BALLDONTLIE is a structured
+data candidate; NBA news is a primary news source, not a verified ingestion API.
+Live access/entitlements and ingestion remain to be verified. Forum-like task threads
+replace historical latency as the planned primary workspace. Memory begins with
+explicit preferences; email is a later reuse case. Do not reactivate doc-agent work.
+
+
 ## 2026-09-30: prioritize multitask coordination evaluation
 
 User clarification: layer 1 manages ongoing interaction while deeper calls do the

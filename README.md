@@ -78,6 +78,18 @@ eight scheduled documentation tasks and runs one at a time; foreground chat uses
 its own path. Shared inference scheduling is experimental, not enabled by default.
 Conversation history remains in memory; documentation checkpoints are durable.
 
+## NBA briefing prototype
+
+The next demo is a personalized league/team briefing with background work and
+source-backed follow-ups. The first slice plans tasks offline:
+
+```bash
+npm run sports:plan -- data/nba-briefing-request.example.json
+```
+
+This fixed-time example fetches no live data and asks for a team selection. See the
+[demo plan](docs/18-nba-briefing-demo.md) for implemented scope and next steps.
+
 ## Run locally
 
 Use Node 20.19+, 22.12+, or 24+; CI is configured for Node 22.

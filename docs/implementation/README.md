@@ -1,5 +1,15 @@
 # Implementation handoff
 
+## Current direction — 2026-09-30
+
+Follow [the latest handoff](NEXT-HANDOFF.md) and the
+[NBA briefing demo](../18-nba-briefing-demo.md). Sports is now the selected concrete
+workflow for remaining multitask evaluation, superseding older sports-deferral
+instructions below. Spec 06 remains open. The offline briefing planner is the first
+slice; source fixtures and bounded coordination are next. Earlier entries are dated
+evidence, not current task ordering.
+
+
 ## 2026-09-30: Chromium browser acceptance
 
 Added dev-only Playwright, `npm run test:browser`, per-test ephemeral mock runtimes,
