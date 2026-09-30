@@ -1,5 +1,30 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: briefing HTTP integration and foreground overlap
+
+Optional `BriefingHttp` now exposes start/status/cancel via `POST /briefings`.
+A server-owned validated profile and injected adapters govern execution; requests
+cannot override configuration. Status codes distinguish disabled/not-found/conflict/
+capacity/invalid/shutdown cases. User ownership and exact-request idempotency are
+preserved. `startServer` accepts an optional briefing extension, closes it in the
+shutdown background hook and on port-bind failure; direct server close also cancels.
+
+Five real HTTP tests cover foreground chat while source work is held, cancellation
+of another queued task, correct evidence attribution, ownership/idempotency/conflict,
+capacity, strict validation, disabled routes and shutdown. This is synthetic source
+collection with mock chat, not a live task-quality comparison. The current preview
+server and UI are unchanged; the endpoint is disabled unless explicitly composed.
+
+Validation: **563 tests / 73 files**, TypeScript build/type checking and **eight
+Chromium browser tests** pass. Documentation links and diff checks pass. No live
+provider calls, account changes or preview restart were performed.
+
+Next: verified live-source integration (access, coverage and server-controlled clock),
+then task UI and source-backed model follow-ups. No automatic model retrieval, user
+preference, new subscription, live adapter or authentication is supplied here. See
+[HTTP setup and limitations](../runtime-reference.md#optional-nba-briefing-http-boundary).
+
+
 ## 2026-09-30: bounded briefing coordinator and runnable fixtures
 
 Added `BriefingCoordinator`: configured/injected sources, unique run/task IDs,

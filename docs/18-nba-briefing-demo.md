@@ -205,6 +205,29 @@ the one-active-job limit of the existing deep model worker. Then integrate verif
 live sources and the planned task UI. Current tests establish coordinator behavior,
 not live multitask quality or browser acceptance.
 
+## Implemented HTTP slice — 2026-09-30
+
+The optional `BriefingHttp` boundary supplies start/status/cancel commands at
+`POST /briefings`. Profiles and adapters are injected by server composition; requests
+cannot override them. Strict command validation rejects extra/missing fields and
+invalid IDs. Errors map to bounded HTTP codes without exposing raw provider details.
+`startServer(port, { briefings })` integrates coordinator closure into runtime shutdown
+and port-bind failure; `createChatServer` also closes it on direct server close.
+Without injection the route is disabled. The current preview/UI is unchanged.
+
+Real HTTP fixture tests hold source work active while `/messages` completes a quick
+mock response, cancel a separate queued task, and verify the remaining result keeps
+its source attribution. Further tests cover duplicate/conflicting requests, ownership,
+capacity, invalid input, disabled routes, shutdown admission and late-result suppression.
+This demonstrates foreground transport responsiveness during synthetic collection;
+it does not establish live model quality or teach the model to access briefing data.
+
+The [runtime reference](runtime-reference.md#optional-nba-briefing-http-boundary)
+describes commands, setup and limitations. Next: verify and connect live data sources
+with server-controlled operational time, then task UI and source-backed model
+follow-ups. Source access remains unconfigured; fixture clocks and user IDs are
+explicit prototype inputs, not production identity or trusted wall-clock sources.
+
 ## Next implementation and acceptance
 
 1. Implemented: normalized source/evidence contracts and fixture adapters for games, news

@@ -1,3 +1,4 @@
+import type { BriefingHttp } from "./sports/briefingHttp";
 import { startEvaluationRecording } from "./eval/recording/startup";
 import { cliLimits } from "./providers/cli/runner";
 import { digest } from "./eval/recording/contract";
@@ -115,6 +116,7 @@ interface RuntimeModeInfo {
 }
 
 interface ServerOptions {
+  briefings?: BriefingHttp;
   documentTasks?: DocumentTasks;
   // A function, not a static value: discovery observations change over the
   // process lifetime, so each request must recompute readiness from current data.
@@ -220,6 +222,12 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(renderHomePageHtml(options.runtimeMode, Boolean(options.documentTasks)));
         return;
+      }
+
+      if (method === "POST" && url.pathname === "/briefings") {
+        if (!options.briefings) return json(res, 404, { code: "BRIEFINGS_DISABLED", error: "Briefings are disabled" });
+        const result = options.briefings.request(requireObjectBody(await parseJsonBody(req)));
+        return json(res, result.status, result.body);
       }
 
       if (method === "POST" && url.pathname === "/document-tasks") {
@@ -412,7 +420,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
   const close = server.close.bind(server);
   // Node's close callback must not announce completion before internal jobs settle.
   server.close = ((callback?: (error?: Error) => void) => {
-    if (!shutdown) options.documentTasks?.close();
+    if (!shutdown) { options.documentTasks?.close(); options.briefings?.close(); }
     shutdown ??= options.shutdown?.() ?? Promise.resolve();
     close(error => { void shutdown!.then(() => callback?.(error), failure => callback?.(failure)); });
     return server;
@@ -422,7 +430,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
   } });
 }
 
-export async function startServer(port: number): Promise<RuntimeHandle> {
+export async function startServer(port: number, extensions: { briefings?: BriefingHttp } = {}): Promise<RuntimeHandle> {
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
   const summaryConfig = loadSummaryConfig();
@@ -557,7 +565,7 @@ export async function startServer(port: number): Promise<RuntimeHandle> {
 
 
   const server = createChatServer(service, {
-    documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
+    briefings: extensions.briefings, documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
     evaluationStatus: () => recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry()
@@ -566,6 +574,7 @@ export async function startServer(port: number): Promise<RuntimeHandle> {
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
       documentTasks?.close();
+      extensions.briefings?.close();
       recorder?.invalidate("EVAL_STARTUP_FAILED");
       reject(error.code === "EADDRINUSE"
         ? new Error(`Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`)
@@ -601,6 +610,7 @@ export async function startServer(port: number): Promise<RuntimeHandle> {
   }, discoveryConfig.intervalMs);
 
   const stopBackground = () => {
+    extensions.briefings?.close();
     clearInterval(timer);
     if (deepWorkerTimer) clearInterval(deepWorkerTimer);
     clearInterval(discoveryTimer);

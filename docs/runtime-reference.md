@@ -4,6 +4,51 @@ Configuration, HTTP contracts and developer commands for ChatAgent. For the curr
 project overview and measured results, start with the [README](../README.md).
 The package and some internal types retain the name ChatRuntime.
 
+## Optional NBA briefing HTTP boundary
+
+Compose `new BriefingHttp(coordinator, profile)` and supply it as
+`startServer(port, { briefings })` or `createChatServer(service, { briefings })`.
+The coordinator receives the server-owned adapter registry and execution limits;
+the profile is validated and copied at boundary construction. The default app does
+not enable this endpoint or silently load fixtures. The current UI has no briefing
+controls. See [the demo plan](18-nba-briefing-demo.md) for source and fixture setup.
+
+`POST /briefings` accepts exactly one of these JSON command shapes:
+
+```json
+{"op":"start","userId":"user-demo","requestId":"briefing-1","request":{"now":"2026-09-30T12:00:00Z","timezone":"America/New_York","team":null}}
+```
+
+```json
+{"op":"status","userId":"user-demo","runId":"<returned UUID>"}
+```
+
+```json
+{"op":"cancel","userId":"user-demo","runId":"<returned UUID>","taskId":"<optional returned task UUID>"}
+```
+
+Omit `taskId` to cancel the run. Start returns `202` with the run snapshot promptly;
+status/cancel return `200`. A duplicate user/request ID with an identical resolved
+plan returns the same run; changed inputs return `409 BRIEFING_REQUEST_CONFLICT`.
+For retries, reuse the exact request including `now`. Use a new ID for Refresh.
+Unknown or other-user runs return `404`; unknown task IDs return `404`. Capacity
+returns `429`, a closed coordinator `503`, invalid bodies/checkpoints `400`.
+Disabled briefings return `404 BRIEFINGS_DISABLED`. Shutdown rejects admission with
+`503 SHUTTING_DOWN`. Client-supplied profile/budget fields are rejected; unexpected
+configuration failures produce a safe `503 BRIEFING_UNAVAILABLE` without raw details.
+
+`userId` is a prototype ownership guard, not authenticated identity. Requests supply
+an explicit as-of clock for reproducible fixtures; a future live product boundary
+must derive its operational clock/checkpoints server-side. This endpoint returns
+structured evidence, not model-generated summaries. Results retain source identity,
+synthetic/live mode and coverage. Inspect task states; settled does not mean successful.
+
+Runtime shutdown closes briefing admission and signals cancellation in its background
+stop hook; direct server close also closes the coordinator. Noncooperative adapters
+may outlive logical cancellation, retain their execution slot and cannot publish late
+results. No durable storage, resume, automatic refresh, retrieval tool exposure to
+chat models or UI integration is implied.
+
 ## HTTP API
 
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
