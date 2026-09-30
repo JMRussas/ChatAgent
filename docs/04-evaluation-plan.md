@@ -1,5 +1,35 @@
 # Evaluation Plan
 
+## Current priority: general contracts and resource-specific policies — 2026-09-30
+
+This supersedes earlier next-step ordering and incorporates the plan review plus the
+user's resource-policy correction. Admission is selected by service/account/model
+binding and actual deployment/billing facts, not by transport labels. Data APIs,
+metered inference, local compute, cloud inference (including through Ollama) and
+subscription CLI windows have different constraints and share lifecycle mechanics.
+Reuse the existing resource-admission infrastructure; preserve usage history on reload.
+
+Order: (1) contracts and independent evaluation cases; (2) scope selection plus team
+resolution and conversation-bound candidate selection; (3) bounded latest completed
+game retrieval; (4) game-specific reporting and grounded synthesis; (5) full evaluation.
+The Patriots request is one development example, not the design specification.
+
+Step 1 is now implemented as a contract foundation: validated operation/result schemas,
+server-snapshot candidate selection guard, and a 27-scenario versioned evaluation
+specification (12 development, 15 evaluation-only). Tests check ownership, expiry,
+revision changes, scope, evidence chronology, partial coverage and completion semantics.
+These schemas are not wired into live routing yet. Evaluation source fixtures and the
+session runner are pending; no end-to-end quality scores are claimed.
+
+Next executable task: verify provider team-directory access, then implement registry
+scope selection and provider-backed name resolution against these contracts. Clarification
+must carry forward issued candidate handles; no model-invented IDs or team exceptions.
+Game-specific reporting is an explicit later capability rather than an assumed property
+of league RSS. Resource waits/retries must follow the applicable binding policy.
+
+See [contracts, resource policies and evaluation gates](implementation/12-request-to-evidence.md).
+
+
 ## Next evaluation: named team to sourced game answer — 2026-09-30
 
 Apply evaluation to the richer tool work in the [sports plan](18-nba-briefing-demo.md).

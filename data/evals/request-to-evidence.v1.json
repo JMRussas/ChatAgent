@@ -1,0 +1,385 @@
+{
+  "version": "request-to-evidence-v1",
+  "status": "specification-only",
+  "fixturePolicy": "Synthetic scenarios; fixture identifiers below are requirements, not implemented provider snapshots. No scores or outcomes are asserted as historical facts.",
+  "cases": [
+    {
+      "id": "named-team",
+      "partition": "development",
+      "turns": [
+        "What happened in the Patriots' last football game?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "league_selection",
+        "entity_resolution",
+        "latest_completed",
+        "grounding"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "unique-team-final-game"
+    },
+    {
+      "id": "abbreviation",
+      "partition": "development",
+      "turns": [
+        "How did NE do in their most recent completed NFL game?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "entity_resolution",
+        "latest_completed"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "directory-supplied-alias"
+    },
+    {
+      "id": "ambiguous-team",
+      "partition": "development",
+      "turns": [
+        "How did the Giants do?"
+      ],
+      "expectedOutcome": "clarify",
+      "criteria": [
+        "league_selection",
+        "entity_resolution"
+      ],
+      "registry": "mixed-leagues",
+      "fixture": "multiple-team-candidates"
+    },
+    {
+      "id": "candidate-followup",
+      "partition": "development",
+      "turns": [
+        "How did the Giants do?",
+        "The football team."
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "candidate_binding",
+        "context_continuity"
+      ],
+      "registry": "mixed-leagues",
+      "fixture": "multiple-team-candidates"
+    },
+    {
+      "id": "explicit-unsupported",
+      "partition": "development",
+      "turns": [
+        "What happened in the Red Sox game last night?"
+      ],
+      "expectedOutcome": "unsupported",
+      "criteria": [
+        "capability_gap",
+        "no_substitution"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "baseball-unavailable"
+    },
+    {
+      "id": "relative-date",
+      "partition": "development",
+      "turns": [
+        "Show the NFL games last night."
+      ],
+      "expectedOutcome": "clarify",
+      "criteria": [
+        "temporal_scope"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "timezone-unknown"
+    },
+    {
+      "id": "score-only",
+      "partition": "development",
+      "turns": [
+        "Tell me why the Patriots won their last game."
+      ],
+      "expectedOutcome": "partial",
+      "criteria": [
+        "answer_sufficiency",
+        "grounding"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "final-score-no-reporting"
+    },
+    {
+      "id": "api-quota",
+      "partition": "development",
+      "turns": [
+        "Find the latest completed Patriots game."
+      ],
+      "expectedOutcome": "waiting",
+      "criteria": [
+        "resource_admission",
+        "foreground_available"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "data-api-window-full-policy-wait"
+    },
+    {
+      "id": "local-compute",
+      "partition": "development",
+      "turns": [
+        "Find the latest completed Patriots game."
+      ],
+      "expectedOutcome": "waiting",
+      "criteria": [
+        "resource_admission"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "local-model-compute-full-policy-wait"
+    },
+    {
+      "id": "subscription-unknown",
+      "partition": "development",
+      "turns": [
+        "Find the latest completed Patriots game."
+      ],
+      "expectedOutcome": "unavailable",
+      "criteria": [
+        "resource_admission"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "cli-unknown-usage-policy-deny"
+    },
+    {
+      "id": "metered-budget",
+      "partition": "development",
+      "turns": [
+        "Find the latest completed Patriots game."
+      ],
+      "expectedOutcome": "unavailable",
+      "criteria": [
+        "resource_admission"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "metered-inference-spend-exhausted"
+    },
+    {
+      "id": "partial-pages",
+      "partition": "development",
+      "turns": [
+        "Find the latest completed Patriots game."
+      ],
+      "expectedOutcome": "partial",
+      "criteria": [
+        "latest_completed",
+        "grounding"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "game-found-unexhausted-pages"
+    },
+    {
+      "id": "different-team",
+      "partition": "evaluation-only",
+      "turns": [
+        "How did the Seattle Seahawks fare in their last completed game?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "entity_resolution",
+        "latest_completed",
+        "grounding"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "unique-team-final-game"
+    },
+    {
+      "id": "other-league",
+      "partition": "evaluation-only",
+      "turns": [
+        "What was the result of the Phoenix Suns most recent finished game?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "league_selection",
+        "entity_resolution",
+        "latest_completed"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "nba-team-final-game"
+    },
+    {
+      "id": "registry-extension",
+      "partition": "evaluation-only",
+      "turns": [
+        "How did the Harbor Comets do in their last match?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "league_selection",
+        "entity_resolution"
+      ],
+      "registry": "synthetic-extra-league",
+      "fixture": "fictional-team-final-game"
+    },
+    {
+      "id": "typo",
+      "partition": "evaluation-only",
+      "turns": [
+        "How did the Seatle Seahawks do in their last footbal game?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "entity_resolution",
+        "grounding"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "unique-approximate-directory-match"
+    },
+    {
+      "id": "context-switch",
+      "partition": "evaluation-only",
+      "turns": [
+        "My team is the Seahawks.",
+        "Actually, check the Suns instead."
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "league_selection",
+        "context_continuity"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "explicit-team-correction"
+    },
+    {
+      "id": "scheduled-after-final",
+      "partition": "evaluation-only",
+      "turns": [
+        "What happened in the Seahawks last completed game?"
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "latest_completed"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "newer-scheduled-and-live-games"
+    },
+    {
+      "id": "offseason-bound",
+      "partition": "evaluation-only",
+      "turns": [
+        "What was the Suns last game?"
+      ],
+      "expectedOutcome": "incomplete",
+      "criteria": [
+        "latest_completed",
+        "resource_admission"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "empty-bounded-offseason-search"
+    },
+    {
+      "id": "directory-failure",
+      "partition": "evaluation-only",
+      "turns": [
+        "How did the Suns do?"
+      ],
+      "expectedOutcome": "unavailable",
+      "criteria": [
+        "entity_resolution",
+        "capability_gap"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "team-directory-transport-failure"
+    },
+    {
+      "id": "stale-selection",
+      "partition": "evaluation-only",
+      "turns": [
+        "How did the Giants do?",
+        "The first one."
+      ],
+      "expectedOutcome": "clarify",
+      "criteria": [
+        "candidate_binding"
+      ],
+      "registry": "mixed-leagues",
+      "fixture": "expired-resolution-snapshot"
+    },
+    {
+      "id": "foreign-selection",
+      "partition": "evaluation-only",
+      "turns": [
+        "Use that candidate from the other conversation."
+      ],
+      "expectedOutcome": "clarify",
+      "criteria": [
+        "candidate_binding"
+      ],
+      "registry": "mixed-leagues",
+      "fixture": "cross-conversation-candidate"
+    },
+    {
+      "id": "ollama-cloud",
+      "partition": "evaluation-only",
+      "turns": [
+        "What was the Suns latest completed result?"
+      ],
+      "expectedOutcome": "unavailable",
+      "criteria": [
+        "resource_admission"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "ollama-managed-cloud-quota-exhausted-policy-deny"
+    },
+    {
+      "id": "cli-model-window",
+      "partition": "evaluation-only",
+      "turns": [
+        "What was the Suns latest completed result?"
+      ],
+      "expectedOutcome": "waiting",
+      "criteria": [
+        "resource_admission"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "cli-model-specific-window-full-policy-wait"
+    },
+    {
+      "id": "reporting-unrelated",
+      "partition": "evaluation-only",
+      "turns": [
+        "Explain the key moments in the Seahawks last game."
+      ],
+      "expectedOutcome": "partial",
+      "criteria": [
+        "answer_sufficiency",
+        "grounding"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "score-plus-unrelated-news"
+    },
+    {
+      "id": "cancel-wait",
+      "partition": "evaluation-only",
+      "turns": [
+        "Look up the Suns latest game.",
+        "Cancel that lookup."
+      ],
+      "expectedOutcome": "cancelled",
+      "criteria": [
+        "resource_admission",
+        "cancellation"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "quota-wait-cancelled"
+    },
+    {
+      "id": "parallel-interaction",
+      "partition": "evaluation-only",
+      "turns": [
+        "Look up the Seahawks latest game.",
+        "While that runs, explain what overtime means."
+      ],
+      "expectedOutcome": "answer",
+      "criteria": [
+        "foreground_available",
+        "context_continuity"
+      ],
+      "registry": "nfl-nba",
+      "fixture": "held-game-read-plus-independent-question"
+    }
+  ]
+}
