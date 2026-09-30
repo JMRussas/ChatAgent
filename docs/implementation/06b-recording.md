@@ -227,6 +227,53 @@ and executed-child usage accounting where supported remain separate. No live cal
 quality ratings or model-billing estimates are produced. Raw reports identify the
 dirty checkout/source digest used for this precommit measurement.
 
+## Matched HTTP runtime overhead
+
+```bash
+npm run eval:overhead -- reports/http-overhead-new.json metadata http
+npm run eval:overhead -- reports/http-overhead-answers-new.json answers http
+```
+
+The `http` condition uses an ephemeral loopback server, the production HTTP handler,
+ChatService, context preparation, orchestrator, DeepWorker, timeline and runtime
+shutdown. Providers are explicit mocks; the fixed configuration does not load local
+provider settings. Twenty isolated prompts alternate direct and deep routes; each
+deep task fails once and retries automatically. Worker/poll intervals are both 5 ms
+for this harness (not application defaults), with a five-second per-turn deadline.
+Two warmup pairs precede twenty alternating-order measured pairs per capture mode.
+
+Pair validation hashes normalized provider requests (including model-visible context),
+routes, phase/model-labelled answers and terminal/retry events. Transient IDs,
+timestamps and cross-phase scheduling are excluded. The raw report also retains
+per-prompt first-answer/final HTTP observations in each condition. Startup/binding
+and recorder initial persistence count as setup; the workload phase includes HTTP
+requests/polling and timeline evidence collection; final-flush timing includes full
+runtime shutdown and recorder persistence. Capture failures reject and still close
+the server and remove its temporary artifacts. This extends the earlier event replay;
+it does not exercise catalog discovery/dispatch, browser rendering, live providers,
+or concurrent user deadlines. It does not establish answer quality.
+
+Local 2026-09-30 results (20-turn batch deltas, recording on minus off):
+
+| Capture | Median setup ms | Median workload ms | Median shutdown ms | Median total ms | P95 total ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Metadata | 1.52 | -43.30 | 3.41 | -36.86 | 6.46 |
+| Answers (isolated rerun) | 1.42 | -18.79 | 2.84 | -14.45 | 3.76 |
+
+Raw reports: [metadata](../../reports/recorder-http-overhead-metadata-2026-09-30.json),
+[answers isolated rerun](../../reports/recorder-http-overhead-answers-isolated-2026-09-30.json).
+An [earlier answer-capture run](../../reports/recorder-http-overhead-answers-2026-09-30.json)
+is preserved as exploratory: its tail overlapped a test invocation, so it is not the
+controlled result above. No test/build suite ran alongside the isolated rerun.
+
+Negative deltas are retained, not clamped or described as recorder speedups. They
+show that paired end-to-end timings include event-loop/worker/poll scheduling and
+machine variability; these observations cannot isolate pure recorder CPU cost.
+The isolated component benchmark above measured positive recorder/persistence cost.
+No live inference overhead estimate, deadline-safety claim, performance threshold or
+statistical significance is inferred from this mock workload. Further live-provider,
+concurrency and browser acceptance remains in spec 06.
+
 ## Acceptance evidence and remaining work
 
 `tests/unit/evaluationRecording.test.ts` covers EVAL-01 deterministic on/off

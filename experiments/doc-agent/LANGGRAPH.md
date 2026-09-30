@@ -65,19 +65,39 @@ concurrent invocation isolation and propagation of cancellation. Parity compares
 nine deterministic scenarios, excluding elapsed timings and graph-only trace fields.
 This does not promise identical outputs from separate real-model invocations.
 
-## Boundaries and next step
+## Persistence boundaries (updated 2026-09-30)
 
-This is an invocation-local graph. The model and mutable retrieval instance are
-captured by its node closures. No checkpointer, durable job store, scheduler or
-interrupt/resume interface exists. A process restart loses the invocation. Adding
-a checkpointer alone would not persist retrieval counters, issued evidence and
-the corpus snapshot. Durable resumption must deliberately move or reconstruct
-those dependencies and define deadline and replay semantics first.
+The plain `--engine langgraph` command remains invocation-local by default: it
+supplies no checkpointer, so a process restart loses its progress. This is a default
+execution mode, not a limitation of LangGraph or the current graph implementation.
+
+The earlier paragraph saying no checkpoint/resume interface existed described the
+initial implementation and is now superseded. `graph_agent.py` accepts an optional
+checkpointer, thread ID, resume flag and pause-before-retrieval setting. Graph state
+now includes the source snapshot, retrieval counters/reads, issued evidence, model
+call count and elapsed-budget state. Node entry restores retrieval working state;
+retrieval updates are saved back to graph state. The model/tool objects themselves
+are reconstructed in each process rather than serialized as live Python objects.
+
+[The durable wrapper](DURABILITY.md) provides SQLite checkpoints and cross-process
+resume from confirmed retrieval pauses. [The task manager](TASKS.md) adds task IDs,
+lifecycle status and persisted cancellation. The standalone durable CLI counts
+paused time against its wall-clock deadline; managed tasks use an active-time budget.
+Both retain call/byte limits. A task killed while running is treated as uncertain
+and is refused automatic replay: a checkpoint cannot by itself establish whether
+an external model call or side effect completed before the crash.
+
+For example, after three retrieval calls a resumed task must still have only its
+remaining call allowance and the same document snapshot/evidence. Restoring only
+chat messages would risk resetting the allowance or answering from changed files.
+That is why durable state includes those dependencies, not just conversation text.
 
 Cancellation testing confirms that cancelling the graph task cancels the fake
 model await. It does not certify Ollama server-side resource release. The graph
 preserves the original evidence-selection limitations; topology is not an accuracy
-improvement. No production TypeScript or Hekate integration is included.
+improvement. Graph execution remains in Python; the later optional
+[conversation-task integration](../../docs/implementation/11-conversation-tasks.md)
+connects it to chat through the task manager. This does not add Hekate integration.
 
 References checked 2026-09-27: [official Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api).
 Model integration continues to follow the [reference guide](../../docs/14-model-reference-guide.md);

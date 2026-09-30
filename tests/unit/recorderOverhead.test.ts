@@ -35,3 +35,27 @@ it("requires bounded repetitions and source identity", async () => {
   await expect(measureRecorderOverhead({ ...config, pairs: 0 }, code)).rejects.toThrow("INVALID_OPTIONS");
   await expect(measureRecorderOverhead(config, { ...code, sourceDigest: null })).rejects.toThrow("MISSING_IDENTITY");
 });
+it.each(["metadata", "answers"] as const)("measures matched HTTP %s capture through automatic retries and shutdown", async capture => {
+  const config = { ...await options(), capture, execution: "http" as const };
+  const report = await measureRecorderOverhead(config, code);
+  expect(report.configuration.method).toBe("mock-http-runtime-v1");
+  for (const pair of report.pairs) {
+    expect(pair.on.outputDigest).toBe(pair.off.outputDigest);
+    expect(pair.on.eventCount).toBe(pair.off.eventCount);
+    expect(pair.on.observations).toHaveLength(2);
+    expect(pair.on.observations!.every(o => o.finalObservedMs !== null)).toBe(true);
+    expect(pair.on.writes).toBeGreaterThan(1);
+  }
+  expect(await readdir(config.root)).toEqual([]);
+});
+it("closes the HTTP runtime and removes temporary artifacts when persistence fails after startup", async () => {
+  const config = { ...await options(), execution: "http" as const };
+  const { writeArtifact } = await import("../../src/eval/recording/recorder");
+  let writes = 0;
+  await expect(measureRecorderOverhead(config, code, async (path, data) => {
+    if (++writes > 1) throw new Error("disk full after startup");
+    await writeArtifact(path, data);
+  })).rejects.toThrow();
+  expect(writes).toBeGreaterThan(1);
+  expect(await readdir(config.root)).toEqual([]);
+});

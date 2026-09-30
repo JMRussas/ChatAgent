@@ -1,0 +1,5603 @@
+{
+  "schemaVersion": "chatagent-recorder-overhead-v1",
+  "generatedAtIso": "2026-09-30T14:43:25.893Z",
+  "mode": "synthetic",
+  "scope": "loopback HTTP, production orchestration/context/retries/automatic worker and shutdown; mock providers; excludes discovery, catalog dispatch, live inference and directory cleanup",
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "code": {
+    "revision": "347ad7820b8c3ff4ba83a8a6669528b42866edb0",
+    "dirty": true,
+    "sourceDigest": "43c9b079d3b69708a6c39c01f283e891f2941fa3fa968e9cfdd3d6033cc5c4d7"
+  },
+  "configuration": {
+    "method": "mock-http-runtime-v1",
+    "workerIntervalMs": 5,
+    "pollIntervalMs": 5,
+    "deadlineMs": 5000,
+    "capture": "answers",
+    "turns": 20,
+    "maxBytes": 67108864,
+    "maxEvents": 10000,
+    "retentionMs": 3600000
+  },
+  "configurationDigest": "5ed344c164a3657e8572745be7f268696294608f298cecd5b762b570b6b3003d",
+  "workloadDigest": "aa679ced7bff702a3777d5113a2be3e6f9bfd7b2bcd68fa228a46eff625a1979",
+  "eventCount": 180,
+  "warmupPairs": 2,
+  "pairs": [
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.169499999999971,
+        "feedMs": 464.79179999999997,
+        "flushMs": 3.1992999999997664,
+        "totalMs": 470.1623999999997,
+        "recorderCpuMs": 4.301900000001751,
+        "writes": 42,
+        "writtenBytes": 3631464,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.295999999999822,
+            "finalObservedMs": 11.295999999999822,
+            "elapsedMs": 11.4382999999998
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.2028999999997723,
+            "finalObservedMs": 32.00540000000001,
+            "elapsedMs": 32.21109999999999
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.776100000000042,
+            "finalObservedMs": 14.776100000000042,
+            "elapsedMs": 14.868799999999737
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.675700000000234,
+            "finalObservedMs": 30.937900000000354,
+            "elapsedMs": 31.049800000000232
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.55199999999968,
+            "finalObservedMs": 15.55199999999968,
+            "elapsedMs": 15.700599999999667
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.606400000000122,
+            "finalObservedMs": 31.220200000000204,
+            "elapsedMs": 31.358299999999872
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.990599999999631,
+            "finalObservedMs": 14.990599999999631,
+            "elapsedMs": 15.157199999999648
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 17.65189999999984,
+            "finalObservedMs": 31.574299999999766,
+            "elapsedMs": 31.750499999999647
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.412900000000263,
+            "finalObservedMs": 15.412900000000263,
+            "elapsedMs": 15.559100000000399
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.18690000000015,
+            "finalObservedMs": 30.79820000000018,
+            "elapsedMs": 30.903099999999995
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.621299999999792,
+            "finalObservedMs": 14.621299999999792,
+            "elapsedMs": 14.759499999999662
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.14619999999968,
+            "finalObservedMs": 31.634999999999764,
+            "elapsedMs": 31.750099999999748
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.355099999999766,
+            "finalObservedMs": 14.355099999999766,
+            "elapsedMs": 14.472899999999754
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.489399999999932,
+            "finalObservedMs": 32.035499999999956,
+            "elapsedMs": 32.15219999999999
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 16.240499999999884,
+            "finalObservedMs": 16.240499999999884,
+            "elapsedMs": 16.479899999999816
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.165399999999863,
+            "finalObservedMs": 30.41529999999966,
+            "elapsedMs": 30.554899999999634
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.569899999999961,
+            "finalObservedMs": 15.569899999999961,
+            "elapsedMs": 15.718499999999949
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.977499999999964,
+            "finalObservedMs": 31.579999999999927,
+            "elapsedMs": 31.78710000000001
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.644800000000032,
+            "finalObservedMs": 14.644800000000032,
+            "elapsedMs": 14.81979999999976
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.57380000000012,
+            "finalObservedMs": 30.988900000000285,
+            "elapsedMs": 31.146200000000135
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.772899999999936,
+        "feedMs": 467.5436999999997,
+        "flushMs": 0.6093999999998232,
+        "totalMs": 468.9270999999999,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.157200000000103,
+            "finalObservedMs": 11.157200000000103,
+            "elapsedMs": 11.267700000000332
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.6158999999997832,
+            "finalObservedMs": 32.067299999999705,
+            "elapsedMs": 32.18119999999999
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 16.225800000000163,
+            "finalObservedMs": 16.225800000000163,
+            "elapsedMs": 16.361399999999776
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 14.6558,
+            "finalObservedMs": 30.5654999999997,
+            "elapsedMs": 30.739900000000034
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 16.25669999999991,
+            "finalObservedMs": 16.25669999999991,
+            "elapsedMs": 16.433199999999943
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.395800000000236,
+            "finalObservedMs": 30.796299999999974,
+            "elapsedMs": 30.91870000000017
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.864599999999882,
+            "finalObservedMs": 15.864599999999882,
+            "elapsedMs": 15.998599999999897
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.43080000000009,
+            "finalObservedMs": 31.923999999999978,
+            "elapsedMs": 32.03560000000016
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.899799999999686,
+            "finalObservedMs": 14.899799999999686,
+            "elapsedMs": 15.037899999999809
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 14.790199999999913,
+            "finalObservedMs": 30.902800000000298,
+            "elapsedMs": 31.087600000000293
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.753999999999905,
+            "finalObservedMs": 15.753999999999905,
+            "elapsedMs": 15.915399999999863
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.674600000000282,
+            "finalObservedMs": 30.61680000000024,
+            "elapsedMs": 30.73140000000012
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.587500000000091,
+            "finalObservedMs": 15.587500000000091,
+            "elapsedMs": 15.675499999999829
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.215499999999793,
+            "finalObservedMs": 31.96429999999964,
+            "elapsedMs": 32.13599999999997
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.644900000000234,
+            "finalObservedMs": 14.644900000000234,
+            "elapsedMs": 14.758000000000266
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.581300000000283,
+            "finalObservedMs": 32.412700000000314,
+            "elapsedMs": 32.52370000000019
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.58120000000008,
+            "finalObservedMs": 14.58120000000008,
+            "elapsedMs": 14.674099999999726
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.318900000000212,
+            "finalObservedMs": 31.284300000000258,
+            "elapsedMs": 31.42760000000044
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.915199999999913,
+            "finalObservedMs": 15.915199999999913,
+            "elapsedMs": 16.028999999999996
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.039299999999912,
+            "finalObservedMs": 30.730299999999716,
+            "elapsedMs": 30.83869999999979
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.396600000000035,
+        "feed": -2.7518999999997504,
+        "flush": 2.5898999999999432,
+        "total": 1.2352999999998246
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.4845000000000255,
+        "feedMs": 429.1650999999997,
+        "flushMs": 3.6611000000002605,
+        "totalMs": 435.31330000000025,
+        "recorderCpuMs": 5.161600000006274,
+        "writes": 42,
+        "writtenBytes": 3631270,
+        "artifactBytes": 167069,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.24519999999984,
+            "finalObservedMs": 11.24519999999984,
+            "elapsedMs": 11.4054000000001
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 3.115099999999984,
+            "finalObservedMs": 15.278400000000147,
+            "elapsedMs": 15.432900000000245
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.244899999999689,
+            "finalObservedMs": 15.244899999999689,
+            "elapsedMs": 15.335499999999683
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.22330000000011,
+            "finalObservedMs": 32.30859999999984,
+            "elapsedMs": 32.52459999999974
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.580099999999675,
+            "finalObservedMs": 14.580099999999675,
+            "elapsedMs": 14.753099999999904
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.435300000000097,
+            "finalObservedMs": 31.41930000000002,
+            "elapsedMs": 31.609699999999975
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.013899999999921,
+            "finalObservedMs": 14.013899999999921,
+            "elapsedMs": 14.161000000000058
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.442399999999907,
+            "finalObservedMs": 31.863400000000183,
+            "elapsedMs": 32.05690000000004
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.345200000000204,
+            "finalObservedMs": 14.345200000000204,
+            "elapsedMs": 14.537800000000061
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.954600000000028,
+            "finalObservedMs": 31.427999999999884,
+            "elapsedMs": 31.63169999999991
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.0317,
+            "finalObservedMs": 14.0317,
+            "elapsedMs": 14.167399999999816
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.600799999999708,
+            "finalObservedMs": 31.140899999999874,
+            "elapsedMs": 31.27749999999969
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.881199999999808,
+            "finalObservedMs": 14.881199999999808,
+            "elapsedMs": 15.089199999999892
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.459199999999782,
+            "finalObservedMs": 15.459199999999782,
+            "elapsedMs": 15.621699999999691
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.519999999999982,
+            "finalObservedMs": 14.519999999999982,
+            "elapsedMs": 14.661099999999806
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.514599999999973,
+            "finalObservedMs": 32.28869999999961,
+            "elapsedMs": 32.48239999999987
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 13.547500000000127,
+            "finalObservedMs": 13.547500000000127,
+            "elapsedMs": 13.706900000000132
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.36889999999994,
+            "finalObservedMs": 31.168100000000322,
+            "elapsedMs": 31.29840000000013
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.40039999999999,
+            "finalObservedMs": 14.40039999999999,
+            "elapsedMs": 14.523799999999937
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.34960000000001,
+            "finalObservedMs": 31.20540000000028,
+            "elapsedMs": 31.309900000000198
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 1.182800000000043,
+        "feedMs": 444.8126000000002,
+        "flushMs": 0.5731999999998152,
+        "totalMs": 446.5704999999998,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 13.960599999999886,
+            "finalObservedMs": 13.960599999999886,
+            "elapsedMs": 14.097699999999804
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.622899999999845,
+            "finalObservedMs": 30.759000000000015,
+            "elapsedMs": 30.959899999999834
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.42529999999988,
+            "finalObservedMs": 14.42529999999988,
+            "elapsedMs": 14.557099999999991
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.857500000000073,
+            "finalObservedMs": 31.50460000000021,
+            "elapsedMs": 31.721900000000005
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.58140000000003,
+            "finalObservedMs": 14.58140000000003,
+            "elapsedMs": 14.698300000000017
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.772599999999784,
+            "finalObservedMs": 30.88399999999956,
+            "elapsedMs": 31.10050000000001
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.125900000000001,
+            "finalObservedMs": 15.125900000000001,
+            "elapsedMs": 15.306499999999687
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.013300000000072,
+            "finalObservedMs": 16.013300000000072,
+            "elapsedMs": 16.26640000000043
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.925200000000132,
+            "finalObservedMs": 14.925200000000132,
+            "elapsedMs": 15.138300000000072
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 14.657999999999902,
+            "finalObservedMs": 29.760400000000118,
+            "elapsedMs": 29.986699999999928
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.920399999999972,
+            "finalObservedMs": 14.920399999999972,
+            "elapsedMs": 15.083399999999983
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.217999999999847,
+            "finalObservedMs": 30.245800000000145,
+            "elapsedMs": 30.402900000000045
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.515300000000025,
+            "finalObservedMs": 15.515300000000025,
+            "elapsedMs": 15.694700000000012
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.579400000000078,
+            "finalObservedMs": 31.059999999999945,
+            "elapsedMs": 31.22519999999986
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.179800000000341,
+            "finalObservedMs": 15.179800000000341,
+            "elapsedMs": 15.313800000000356
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 14.95679999999993,
+            "finalObservedMs": 30.32470000000012,
+            "elapsedMs": 30.491399999999885
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.628899999999703,
+            "finalObservedMs": 14.628899999999703,
+            "elapsedMs": 14.804499999999734
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.380400000000009,
+            "finalObservedMs": 31.070900000000165,
+            "elapsedMs": 31.26630000000023
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.841400000000249,
+            "finalObservedMs": 14.841400000000249,
+            "elapsedMs": 15.012100000000373
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 14.897399999999834,
+            "finalObservedMs": 30.168099999999868,
+            "elapsedMs": 30.3140999999996
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.3016999999999825,
+        "feed": -15.647500000000491,
+        "flush": 3.0879000000004453,
+        "total": -11.257199999999557
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.457300000000032,
+        "feedMs": 430.66429999999946,
+        "flushMs": 3.203799999999319,
+        "totalMs": 436.3266999999996,
+        "recorderCpuMs": 4.992999999991298,
+        "writes": 42,
+        "writtenBytes": 3631464,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 8.443600000000515,
+            "finalObservedMs": 8.443600000000515,
+            "elapsedMs": 8.575200000000223
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 3.0174999999999272,
+            "finalObservedMs": 30.188500000000204,
+            "elapsedMs": 30.31630000000041
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.235200000000077,
+            "finalObservedMs": 15.235200000000077,
+            "elapsedMs": 15.430600000000595
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.829799999999523,
+            "finalObservedMs": 31.376400000000103,
+            "elapsedMs": 31.57470000000012
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.613599999999678,
+            "finalObservedMs": 14.613599999999678,
+            "elapsedMs": 14.75799999999981
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 17.307799999999588,
+            "finalObservedMs": 32.52739999999994,
+            "elapsedMs": 32.66139999999996
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.996799999999894,
+            "finalObservedMs": 14.996799999999894,
+            "elapsedMs": 15.142300000000432
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.160100000000057,
+            "finalObservedMs": 32.49250000000029,
+            "elapsedMs": 32.63469999999961
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.00630000000001,
+            "finalObservedMs": 15.00630000000001,
+            "elapsedMs": 15.143000000000029
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.838200000000143,
+            "finalObservedMs": 31.35480000000007,
+            "elapsedMs": 31.483000000000175
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.018200000000434,
+            "finalObservedMs": 15.018200000000434,
+            "elapsedMs": 15.180500000000393
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.634500000000116,
+            "finalObservedMs": 15.634500000000116,
+            "elapsedMs": 15.801900000000387
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 7.742399999999179,
+            "finalObservedMs": 7.742399999999179,
+            "elapsedMs": 7.912299999999959
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 6.75669999999991,
+            "finalObservedMs": 22.565999999999804,
+            "elapsedMs": 22.71050000000014
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.458599999999933,
+            "finalObservedMs": 15.458599999999933,
+            "elapsedMs": 15.574599999999919
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.706699999999728,
+            "finalObservedMs": 31.280800000000454,
+            "elapsedMs": 31.385299999999916
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.571100000000115,
+            "finalObservedMs": 14.571100000000115,
+            "elapsedMs": 14.677700000000186
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.680999999999585,
+            "finalObservedMs": 32.862199999999575,
+            "elapsedMs": 33.03189999999995
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 13.069899999999507,
+            "finalObservedMs": 13.069899999999507,
+            "elapsedMs": 13.212499999999636
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.487199999999575,
+            "finalObservedMs": 32.10779999999977,
+            "elapsedMs": 32.249299999999494
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.8186999999998079,
+        "feedMs": 456.20560000000023,
+        "flushMs": 0.701799999999821,
+        "totalMs": 457.7283999999995,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.870400000000245,
+            "finalObservedMs": 10.870400000000245,
+            "elapsedMs": 11.03229999999985
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.535699999999906,
+            "finalObservedMs": 31.115099999999984,
+            "elapsedMs": 31.25380000000041
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.849900000000162,
+            "finalObservedMs": 14.849900000000162,
+            "elapsedMs": 14.994900000000598
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.425799999999981,
+            "finalObservedMs": 30.38719999999921,
+            "elapsedMs": 30.52520000000004
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.155699999999342,
+            "finalObservedMs": 15.155699999999342,
+            "elapsedMs": 15.27809999999954
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.313400000000001,
+            "finalObservedMs": 31.355500000000575,
+            "elapsedMs": 31.55079999999998
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.868199999999888,
+            "finalObservedMs": 14.868199999999888,
+            "elapsedMs": 15.009100000000217
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 14.821599999999307,
+            "finalObservedMs": 29.852199999999357,
+            "elapsedMs": 29.983799999999974
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.201700000000528,
+            "finalObservedMs": 15.201700000000528,
+            "elapsedMs": 15.301000000000386
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.146700000000237,
+            "finalObservedMs": 31.29240000000027,
+            "elapsedMs": 31.439900000000307
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.581599999999526,
+            "finalObservedMs": 14.581599999999526,
+            "elapsedMs": 14.695999999999913
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.38379999999961,
+            "finalObservedMs": 31.00630000000001,
+            "elapsedMs": 31.184400000000096
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.809799999999996,
+            "finalObservedMs": 14.809799999999996,
+            "elapsedMs": 14.949399999999514
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 14.85360000000037,
+            "finalObservedMs": 30.53360000000066,
+            "elapsedMs": 30.70930000000044
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.632800000000316,
+            "finalObservedMs": 14.632800000000316,
+            "elapsedMs": 14.821500000000015
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.600800000000163,
+            "finalObservedMs": 30.397399999999834,
+            "elapsedMs": 30.564499999999498
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.825799999999617,
+            "finalObservedMs": 14.825799999999617,
+            "elapsedMs": 14.93040000000019
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.177899999999681,
+            "finalObservedMs": 30.428100000000086,
+            "elapsedMs": 30.54910000000018
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.095699999999852,
+            "finalObservedMs": 15.095699999999852,
+            "elapsedMs": 15.202499999999418
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.051900000000387,
+            "finalObservedMs": 30.45389999999952,
+            "elapsedMs": 30.58640000000014
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.638600000000224,
+        "feed": -25.541300000000774,
+        "flush": 2.501999999999498,
+        "total": -21.40169999999989
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.632300000000214,
+        "feedMs": 426.58160000000044,
+        "flushMs": 7.421900000000278,
+        "totalMs": 436.6379999999999,
+        "recorderCpuMs": 4.756900000003952,
+        "writes": 42,
+        "writtenBytes": 3631491,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 14.790200000000368,
+            "finalObservedMs": 14.790200000000368,
+            "elapsedMs": 14.96980000000076
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.5907999999999447,
+            "finalObservedMs": 31.907999999999447,
+            "elapsedMs": 32.07769999999982
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.858100000000377,
+            "finalObservedMs": 14.858100000000377,
+            "elapsedMs": 15.01010000000042
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.19670000000042,
+            "finalObservedMs": 32.6242000000002,
+            "elapsedMs": 32.75500000000011
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.416200000000572,
+            "finalObservedMs": 14.416200000000572,
+            "elapsedMs": 14.522400000000744
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.271600000000035,
+            "finalObservedMs": 31.030799999999545,
+            "elapsedMs": 31.14559999999983
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 16.762399999999616,
+            "finalObservedMs": 16.762399999999616,
+            "elapsedMs": 16.965000000000146
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.08349999999973,
+            "finalObservedMs": 15.08349999999973,
+            "elapsedMs": 15.28439999999955
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.406399999999849,
+            "finalObservedMs": 15.406399999999849,
+            "elapsedMs": 15.541900000000169
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 18.049200000000383,
+            "finalObservedMs": 33.1191000000008,
+            "elapsedMs": 33.287500000000364
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.449500000000626,
+            "finalObservedMs": 14.449500000000626,
+            "elapsedMs": 14.574900000000525
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.90009999999984,
+            "finalObservedMs": 32.70079999999962,
+            "elapsedMs": 32.873999999999796
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.06840000000011,
+            "finalObservedMs": 15.06840000000011,
+            "elapsedMs": 15.20850000000064
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.84979999999996,
+            "finalObservedMs": 32.90819999999985,
+            "elapsedMs": 33.102200000000266
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.425999999999476,
+            "finalObservedMs": 14.425999999999476,
+            "elapsedMs": 14.648199999999633
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 14.938400000000001,
+            "finalObservedMs": 14.938400000000001,
+            "elapsedMs": 15.072000000000116
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.151199999999335,
+            "finalObservedMs": 15.151199999999335,
+            "elapsedMs": 15.317399999999907
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.789899999999761,
+            "finalObservedMs": 31.749399999999696,
+            "elapsedMs": 31.896999999999935
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.520799999999326,
+            "finalObservedMs": 14.520799999999326,
+            "elapsedMs": 14.665999999999258
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.958400000000438,
+            "finalObservedMs": 15.958400000000438,
+            "elapsedMs": 16.083599999999933
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 1.0020000000004075,
+        "feedMs": 470.3688000000002,
+        "flushMs": 0.4323000000003958,
+        "totalMs": 471.8042999999998,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.982500000000073,
+            "finalObservedMs": 11.982500000000073,
+            "elapsedMs": 12.155300000000352
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.3171999999995023,
+            "finalObservedMs": 30.576900000000023,
+            "elapsedMs": 30.712499999999636
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.926300000000083,
+            "finalObservedMs": 15.926300000000083,
+            "elapsedMs": 16.15269999999964
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 14.949500000000626,
+            "finalObservedMs": 30.607100000000173,
+            "elapsedMs": 30.782200000000557
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.51339999999982,
+            "finalObservedMs": 14.51339999999982,
+            "elapsedMs": 14.659300000000258
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.563999999999396,
+            "finalObservedMs": 32.27719999999954,
+            "elapsedMs": 32.46339999999964
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.658700000000863,
+            "finalObservedMs": 15.658700000000863,
+            "elapsedMs": 15.79450000000088
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.825600000000122,
+            "finalObservedMs": 31.582400000000234,
+            "elapsedMs": 31.716199999999844
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 16.180899999999383,
+            "finalObservedMs": 16.180899999999383,
+            "elapsedMs": 16.32719999999972
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.867099999999482,
+            "finalObservedMs": 31.22440000000006,
+            "elapsedMs": 31.40139999999974
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.67109999999957,
+            "finalObservedMs": 15.67109999999957,
+            "elapsedMs": 15.839699999999539
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.341599999999744,
+            "finalObservedMs": 31.64940000000024,
+            "elapsedMs": 31.777100000000246
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.133899999999812,
+            "finalObservedMs": 15.133899999999812,
+            "elapsedMs": 15.273200000000543
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.188099999999395,
+            "finalObservedMs": 32.79539999999997,
+            "elapsedMs": 32.96139999999923
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.455799999999726,
+            "finalObservedMs": 14.455799999999726,
+            "elapsedMs": 14.624899999999798
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.196000000000822,
+            "finalObservedMs": 31.79830000000038,
+            "elapsedMs": 32.001100000000406
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.986899999999878,
+            "finalObservedMs": 15.986899999999878,
+            "elapsedMs": 16.146600000000035
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.705600000000231,
+            "finalObservedMs": 31.519000000000233,
+            "elapsedMs": 31.67159999999967
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.968200000000252,
+            "finalObservedMs": 15.968200000000252,
+            "elapsedMs": 16.088799999999537
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.214500000000044,
+            "finalObservedMs": 30.84809999999925,
+            "elapsedMs": 30.950799999999617
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.6302999999998065,
+        "feed": -43.78719999999976,
+        "flush": 6.989599999999882,
+        "total": -35.166299999999865
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.3253999999997177,
+        "feedMs": 484.52439999999933,
+        "flushMs": 3.532799999999952,
+        "totalMs": 490.3843999999999,
+        "recorderCpuMs": 4.916900000006535,
+        "writes": 42,
+        "writtenBytes": 3631771,
+        "artifactBytes": 167084,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 23.46390000000065,
+            "finalObservedMs": 23.46390000000065,
+            "elapsedMs": 23.628200000000106
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.440400000000409,
+            "finalObservedMs": 30.701100000000224,
+            "elapsedMs": 30.841300000000047
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.549599999999373,
+            "finalObservedMs": 15.549599999999373,
+            "elapsedMs": 15.67069999999967
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.415200000000368,
+            "finalObservedMs": 30.911399999999958,
+            "elapsedMs": 31.016099999999824
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 17.055900000000292,
+            "finalObservedMs": 17.055900000000292,
+            "elapsedMs": 17.22820000000047
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.865600000000086,
+            "finalObservedMs": 31.58770000000004,
+            "elapsedMs": 31.740200000000186
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.341600000000653,
+            "finalObservedMs": 15.341600000000653,
+            "elapsedMs": 15.524200000000747
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.08690000000024,
+            "finalObservedMs": 32.09969999999976,
+            "elapsedMs": 32.23459999999977
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.188199999999597,
+            "finalObservedMs": 15.188199999999597,
+            "elapsedMs": 15.359199999999873
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.607100000000173,
+            "finalObservedMs": 32.36959999999999,
+            "elapsedMs": 32.50430000000051
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 13.96730000000025,
+            "finalObservedMs": 13.96730000000025,
+            "elapsedMs": 14.100300000000061
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 17.632900000000518,
+            "finalObservedMs": 33.84600000000046,
+            "elapsedMs": 34.01640000000043
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.105799999999363,
+            "finalObservedMs": 14.105799999999363,
+            "elapsedMs": 14.253199999999197
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.93119999999999,
+            "finalObservedMs": 30.966599999999744,
+            "elapsedMs": 31.11319999999978
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.634400000000824,
+            "finalObservedMs": 15.634400000000824,
+            "elapsedMs": 15.740200000000186
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 17.79909999999927,
+            "finalObservedMs": 34.15049999999974,
+            "elapsedMs": 34.31739999999991
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 13.63590000000022,
+            "finalObservedMs": 13.63590000000022,
+            "elapsedMs": 13.804300000000694
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.814300000000003,
+            "finalObservedMs": 33.14300000000003,
+            "elapsedMs": 33.319800000000214
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.048499999999876,
+            "finalObservedMs": 15.048499999999876,
+            "elapsedMs": 15.22190000000046
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.207500000000437,
+            "finalObservedMs": 31.308799999999792,
+            "elapsedMs": 31.446100000000115
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.9762999999993554,
+        "feedMs": 471.1788999999999,
+        "flushMs": 0.6070999999992637,
+        "totalMs": 472.7635,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.785600000000159,
+            "finalObservedMs": 11.785600000000159,
+            "elapsedMs": 11.948199999999815
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.3127999999996973,
+            "finalObservedMs": 31.21560000000045,
+            "elapsedMs": 31.36080000000038
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.114300000000185,
+            "finalObservedMs": 15.114300000000185,
+            "elapsedMs": 15.229199999999764
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.406699999999546,
+            "finalObservedMs": 31.783300000000054,
+            "elapsedMs": 31.89099999999962
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.51339999999982,
+            "finalObservedMs": 15.51339999999982,
+            "elapsedMs": 15.686399999999594
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.042999999999665,
+            "finalObservedMs": 31.95380000000023,
+            "elapsedMs": 32.09199999999964
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.478000000000065,
+            "finalObservedMs": 15.478000000000065,
+            "elapsedMs": 15.666799999999967
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 14.990499999999884,
+            "finalObservedMs": 30.470099999999547,
+            "elapsedMs": 30.611899999999878
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.720500000000357,
+            "finalObservedMs": 15.720500000000357,
+            "elapsedMs": 15.899400000000242
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.129300000000512,
+            "finalObservedMs": 31.392499999999927,
+            "elapsedMs": 31.54660000000058
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.701000000000022,
+            "finalObservedMs": 14.701000000000022,
+            "elapsedMs": 14.811200000000099
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.19000000000051,
+            "finalObservedMs": 32.54600000000028,
+            "elapsedMs": 32.653700000000754
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 16.791799999999967,
+            "finalObservedMs": 16.791799999999967,
+            "elapsedMs": 16.972200000000157
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.03729999999996,
+            "finalObservedMs": 30.614599999999882,
+            "elapsedMs": 30.75709999999981
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.881600000000617,
+            "finalObservedMs": 15.881600000000617,
+            "elapsedMs": 15.992700000000696
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.80949999999939,
+            "finalObservedMs": 30.798499999999876,
+            "elapsedMs": 30.92489999999998
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.600599999999758,
+            "finalObservedMs": 15.600599999999758,
+            "elapsedMs": 15.714100000000144
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.294399999999769,
+            "finalObservedMs": 30.83009999999922,
+            "elapsedMs": 30.94340000000011
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 16.239300000000185,
+            "finalObservedMs": 16.239300000000185,
+            "elapsedMs": 16.411399999999958
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.19640000000072,
+            "finalObservedMs": 32.57510000000002,
+            "elapsedMs": 32.758200000000215
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.3491000000003623,
+        "feed": 13.345499999999447,
+        "flush": 2.9257000000006883,
+        "total": 17.620899999999892
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.453700000000026,
+        "feedMs": 457.4965999999995,
+        "flushMs": 3.339999999999236,
+        "totalMs": 463.2926000000007,
+        "recorderCpuMs": 5.181399999997666,
+        "writes": 42,
+        "writtenBytes": 3631466,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 14.608100000000377,
+            "finalObservedMs": 14.608100000000377,
+            "elapsedMs": 14.727300000000469
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.007999999999811,
+            "finalObservedMs": 32.36200000000008,
+            "elapsedMs": 32.512299999999414
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 16.305600000000595,
+            "finalObservedMs": 16.305600000000595,
+            "elapsedMs": 16.478500000000167
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.493599999999788,
+            "finalObservedMs": 31.463700000000244,
+            "elapsedMs": 31.61779999999999
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.888800000000629,
+            "finalObservedMs": 14.888800000000629,
+            "elapsedMs": 15.042500000000473
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.907099999999446,
+            "finalObservedMs": 32.09929999999986,
+            "elapsedMs": 32.23660000000018
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.990999999999985,
+            "finalObservedMs": 15.990999999999985,
+            "elapsedMs": 16.192200000000412
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.123599999999897,
+            "finalObservedMs": 30.780300000000352,
+            "elapsedMs": 30.881100000000515
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 16.116500000000087,
+            "finalObservedMs": 16.116500000000087,
+            "elapsedMs": 16.276100000000042
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.497299999999996,
+            "finalObservedMs": 31.14930000000004,
+            "elapsedMs": 31.285299999999552
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.542099999999664,
+            "finalObservedMs": 15.542099999999664,
+            "elapsedMs": 15.654199999999946
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.51389999999992,
+            "finalObservedMs": 32.516099999999824,
+            "elapsedMs": 32.6860999999999
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.371100000000297,
+            "finalObservedMs": 14.371100000000297,
+            "elapsedMs": 14.545799999999872
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.348899999999958,
+            "finalObservedMs": 31.418799999999464,
+            "elapsedMs": 31.542599999999766
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.725800000000163,
+            "finalObservedMs": 14.725800000000163,
+            "elapsedMs": 14.852000000000771
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 17.689699999999903,
+            "finalObservedMs": 31.795199999999568,
+            "elapsedMs": 31.980899999999565
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.290099999999256,
+            "finalObservedMs": 15.290099999999256,
+            "elapsedMs": 15.474099999999453
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 14.947699999999713,
+            "finalObservedMs": 14.947699999999713,
+            "elapsedMs": 15.085900000000038
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.172300000000178,
+            "finalObservedMs": 15.172300000000178,
+            "elapsedMs": 15.299200000000383
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.419600000000173,
+            "finalObservedMs": 31.73620000000028,
+            "elapsedMs": 31.942799999999806
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.8692999999993845,
+        "feedMs": 464.7605999999996,
+        "flushMs": 0.5216000000000349,
+        "totalMs": 466.15290000000005,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 15.948199999999815,
+            "finalObservedMs": 15.948199999999815,
+            "elapsedMs": 16.104699999999866
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.0504000000000815,
+            "finalObservedMs": 32.606300000000374,
+            "elapsedMs": 32.74409999999989
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.173200000000179,
+            "finalObservedMs": 14.173200000000179,
+            "elapsedMs": 14.277000000000044
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.956000000000131,
+            "finalObservedMs": 31.084600000000137,
+            "elapsedMs": 31.235900000000584
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 16.352499999999964,
+            "finalObservedMs": 16.352499999999964,
+            "elapsedMs": 16.51130000000012
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.1854000000003,
+            "finalObservedMs": 30.26339999999982,
+            "elapsedMs": 30.41150000000016
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.541900000000169,
+            "finalObservedMs": 15.541900000000169,
+            "elapsedMs": 15.704400000000533
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.146299999999428,
+            "finalObservedMs": 30.57219999999961,
+            "elapsedMs": 30.762499999999818
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.938700000000608,
+            "finalObservedMs": 14.938700000000608,
+            "elapsedMs": 15.101599999999962
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.659500000000662,
+            "finalObservedMs": 30.540899999999965,
+            "elapsedMs": 30.707500000000437
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.803100000000086,
+            "finalObservedMs": 14.803100000000086,
+            "elapsedMs": 14.917100000000573
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.96639999999934,
+            "finalObservedMs": 31.16529999999966,
+            "elapsedMs": 31.312399999999798
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.044599999999264,
+            "finalObservedMs": 15.044599999999264,
+            "elapsedMs": 15.311999999999898
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.079999999999927,
+            "finalObservedMs": 30.402600000000348,
+            "elapsedMs": 30.561800000000403
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.483799999999974,
+            "finalObservedMs": 14.483799999999974,
+            "elapsedMs": 14.609300000000076
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.417999999999665,
+            "finalObservedMs": 30.69470000000001,
+            "elapsedMs": 30.809400000000096
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.97309999999925,
+            "finalObservedMs": 14.97309999999925,
+            "elapsedMs": 15.08469999999943
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.34229999999934,
+            "finalObservedMs": 30.615899999999783,
+            "elapsedMs": 30.750199999999495
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.060499999999593,
+            "finalObservedMs": 15.060499999999593,
+            "elapsedMs": 15.199299999999312
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.646200000000135,
+            "finalObservedMs": 31.19080000000031,
+            "elapsedMs": 31.383100000000013
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.5844000000006417,
+        "feed": -7.264000000000124,
+        "flush": 2.818399999999201,
+        "total": -2.86029999999937
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.657599999998638,
+        "feedMs": 469.28589999999895,
+        "flushMs": 5.718900000001668,
+        "totalMs": 477.66379999999845,
+        "recorderCpuMs": 4.822099999984857,
+        "writes": 42,
+        "writtenBytes": 3631767,
+        "artifactBytes": 167084,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 23.637500000000728,
+            "finalObservedMs": 23.637500000000728,
+            "elapsedMs": 23.81370000000061
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.529899999999543,
+            "finalObservedMs": 30.343199999999342,
+            "elapsedMs": 30.547300000000178
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.845400000000154,
+            "finalObservedMs": 14.845400000000154,
+            "elapsedMs": 14.96559999999954
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.16899999999987,
+            "finalObservedMs": 31.060699999999997,
+            "elapsedMs": 31.20980000000054
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.371399999999994,
+            "finalObservedMs": 14.371399999999994,
+            "elapsedMs": 14.507599999999002
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.569799999999304,
+            "finalObservedMs": 31.126399999999194,
+            "elapsedMs": 31.327799999999115
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.206000000000131,
+            "finalObservedMs": 14.206000000000131,
+            "elapsedMs": 14.33849999999984
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.394500000000335,
+            "finalObservedMs": 31.04820000000109,
+            "elapsedMs": 31.17200000000048
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.34650000000147,
+            "finalObservedMs": 14.34650000000147,
+            "elapsedMs": 14.44419999999991
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.890300000000934,
+            "finalObservedMs": 31.830300000001444,
+            "elapsedMs": 32.03809999999976
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 13.96849999999904,
+            "finalObservedMs": 13.96849999999904,
+            "elapsedMs": 14.08599999999933
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.061999999999898,
+            "finalObservedMs": 31.754300000000512,
+            "elapsedMs": 31.94419999999991
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 13.260700000000725,
+            "finalObservedMs": 13.260700000000725,
+            "elapsedMs": 13.405900000001566
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.550300000000789,
+            "finalObservedMs": 31.043400000000474,
+            "elapsedMs": 31.201900000000023
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.618899999999485,
+            "finalObservedMs": 14.618899999999485,
+            "elapsedMs": 14.760599999999613
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.910499999999956,
+            "finalObservedMs": 31.333699999999226,
+            "elapsedMs": 31.500200000000405
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.503900000001522,
+            "finalObservedMs": 14.503900000001522,
+            "elapsedMs": 14.686100000000806
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.88510000000133,
+            "finalObservedMs": 31.713999999999942,
+            "elapsedMs": 31.842800000000352
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.640699999999924,
+            "finalObservedMs": 14.640699999999924,
+            "elapsedMs": 14.915199999999459
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.303800000001502,
+            "finalObservedMs": 31.01640000000043,
+            "elapsedMs": 31.19640000000072
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.7465000000001965,
+        "feedMs": 442.52790000000095,
+        "flushMs": 0.6791999999986729,
+        "totalMs": 443.95560000000114,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.072000000000116,
+            "finalObservedMs": 11.072000000000116,
+            "elapsedMs": 11.253900000000613
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 5.074500000000626,
+            "finalObservedMs": 15.147700000000441,
+            "elapsedMs": 15.30370000000039
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.559500000000298,
+            "finalObservedMs": 14.559500000000298,
+            "elapsedMs": 14.678899999999885
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.417300000000068,
+            "finalObservedMs": 30.552999999999884,
+            "elapsedMs": 30.68489999999929
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.599300000000767,
+            "finalObservedMs": 15.599300000000767,
+            "elapsedMs": 15.779900000000453
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.168800000000374,
+            "finalObservedMs": 30.11830000000009,
+            "elapsedMs": 30.26810000000023
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.564099999999598,
+            "finalObservedMs": 15.564099999999598,
+            "elapsedMs": 15.76550000000043
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 14.972899999999754,
+            "finalObservedMs": 30.36740000000009,
+            "elapsedMs": 30.493900000000394
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.292000000000371,
+            "finalObservedMs": 15.292000000000371,
+            "elapsedMs": 15.41400000000067
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.643999999999323,
+            "finalObservedMs": 31.10399999999936,
+            "elapsedMs": 31.243799999999283
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.566399999999703,
+            "finalObservedMs": 15.566399999999703,
+            "elapsedMs": 15.754699999999502
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.394199999999728,
+            "finalObservedMs": 30.331099999999424,
+            "elapsedMs": 30.482899999999972
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.190099999999802,
+            "finalObservedMs": 15.190099999999802,
+            "elapsedMs": 15.337800000000243
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.547499999999673,
+            "finalObservedMs": 30.90009999999984,
+            "elapsedMs": 31.130299999999806
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.920600000000377,
+            "finalObservedMs": 14.920600000000377,
+            "elapsedMs": 15.134800000000723
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.175699999999779,
+            "finalObservedMs": 30.0595000000003,
+            "elapsedMs": 30.217200000000048
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.362699999999677,
+            "finalObservedMs": 15.362699999999677,
+            "elapsedMs": 15.547199999999975
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 14.744800000000396,
+            "finalObservedMs": 29.823899999999412,
+            "elapsedMs": 29.99409999999989
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.747800000001007,
+            "finalObservedMs": 14.747800000001007,
+            "elapsedMs": 14.855000000001382
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.996900000000096,
+            "finalObservedMs": 31.499700000000303,
+            "elapsedMs": 31.6929999999993
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.9110999999984415,
+        "feed": 26.757999999997992,
+        "flush": 5.039700000002995,
+        "total": 33.708199999997305
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.1497999999992317,
+        "feedMs": 459.66030000000137,
+        "flushMs": 3.403100000001359,
+        "totalMs": 465.21520000000055,
+        "recorderCpuMs": 4.771099999990838,
+        "writes": 42,
+        "writtenBytes": 3631467,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 12.262300000000323,
+            "finalObservedMs": 12.262300000000323,
+            "elapsedMs": 12.381400000000212
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.8482999999996537,
+            "finalObservedMs": 31.198099999999613,
+            "elapsedMs": 31.349200000000565
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.93159999999989,
+            "finalObservedMs": 14.93159999999989,
+            "elapsedMs": 15.053400000000693
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.988599999998769,
+            "finalObservedMs": 31.13379999999961,
+            "elapsedMs": 31.27639999999883
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.359800000000178,
+            "finalObservedMs": 15.359800000000178,
+            "elapsedMs": 15.527799999999843
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.409999999999854,
+            "finalObservedMs": 31.161799999999857,
+            "elapsedMs": 31.33389999999963
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.017900000000736,
+            "finalObservedMs": 15.017900000000736,
+            "elapsedMs": 15.224500000000262
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.283300000000963,
+            "finalObservedMs": 31.17740000000049,
+            "elapsedMs": 31.373600000000806
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.28650000000016,
+            "finalObservedMs": 14.28650000000016,
+            "elapsedMs": 14.4403999999995
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.459400000001551,
+            "finalObservedMs": 31.358000000000175,
+            "elapsedMs": 31.48790000000008
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.719699999999648,
+            "finalObservedMs": 14.719699999999648,
+            "elapsedMs": 14.864300000001094
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.706200000000536,
+            "finalObservedMs": 30.95930000000044,
+            "elapsedMs": 31.10200000000077
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.061299999999392,
+            "finalObservedMs": 14.061299999999392,
+            "elapsedMs": 14.24749999999949
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.713299999999435,
+            "finalObservedMs": 30.88420000000042,
+            "elapsedMs": 31.066100000000006
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.031999999999243,
+            "finalObservedMs": 14.031999999999243,
+            "elapsedMs": 14.175900000000183
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.640599999998813,
+            "finalObservedMs": 31.74029999999948,
+            "elapsedMs": 31.909999999999854
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.069899999998597,
+            "finalObservedMs": 14.069899999998597,
+            "elapsedMs": 14.222399999998743
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.935199999999895,
+            "finalObservedMs": 31.15819999999985,
+            "elapsedMs": 31.3137999999999
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.476000000000568,
+            "finalObservedMs": 14.476000000000568,
+            "elapsedMs": 14.639800000000832
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.18709999999919,
+            "finalObservedMs": 30.95589999999902,
+            "elapsedMs": 31.245100000000093
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.9228999999995722,
+        "feedMs": 446.9336000000003,
+        "flushMs": 0.48800000000119326,
+        "totalMs": 448.34560000000056,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 15.554900000000998,
+            "finalObservedMs": 15.554900000000998,
+            "elapsedMs": 15.680700000000797
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.6576999999997497,
+            "finalObservedMs": 31.306300000000192,
+            "elapsedMs": 31.466099999999642
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.013899999999921,
+            "finalObservedMs": 15.013899999999921,
+            "elapsedMs": 15.14469999999892
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.22990000000027,
+            "finalObservedMs": 30.93080000000009,
+            "elapsedMs": 31.079599999999118
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 6.448599999999715,
+            "finalObservedMs": 6.448599999999715,
+            "elapsedMs": 6.61449999999968
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 6.766100000000733,
+            "finalObservedMs": 24.197100000001228,
+            "elapsedMs": 24.40310000000136
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.538800000000265,
+            "finalObservedMs": 14.538800000000265,
+            "elapsedMs": 14.691199999999299
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.719100000000253,
+            "finalObservedMs": 30.854700000001685,
+            "elapsedMs": 31.02430000000095
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.126299999999901,
+            "finalObservedMs": 15.126299999999901,
+            "elapsedMs": 15.248899999998685
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.767899999998917,
+            "finalObservedMs": 30.985599999999977,
+            "elapsedMs": 31.15099999999984
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.968899999999849,
+            "finalObservedMs": 14.968899999999849,
+            "elapsedMs": 15.140400000000227
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.233799999999974,
+            "finalObservedMs": 30.671800000000076,
+            "elapsedMs": 30.87669999999889
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 13.908799999999246,
+            "finalObservedMs": 13.908799999999246,
+            "elapsedMs": 14.047300000000178
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.329799999999523,
+            "finalObservedMs": 31.33889999999883,
+            "elapsedMs": 31.513999999999214
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.682999999999083,
+            "finalObservedMs": 14.682999999999083,
+            "elapsedMs": 14.80199999999968
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.402599999999438,
+            "finalObservedMs": 30.908699999999953,
+            "elapsedMs": 31.035499999999956
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.837499999999636,
+            "finalObservedMs": 14.837499999999636,
+            "elapsedMs": 14.942300000000614
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.098899999999048,
+            "finalObservedMs": 30.747599999998783,
+            "elapsedMs": 30.899199999999837
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.034999999999854,
+            "finalObservedMs": 15.034999999999854,
+            "elapsedMs": 15.149899999998524
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.470499999999447,
+            "finalObservedMs": 30.381499999999505,
+            "elapsedMs": 30.52259999999842
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.2268999999996595,
+        "feed": 12.726700000001074,
+        "flush": 2.915100000000166,
+        "total": 16.86959999999999
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.650100000000748,
+        "feedMs": 440.78930000000037,
+        "flushMs": 3.1242999999994936,
+        "totalMs": 446.5651999999991,
+        "recorderCpuMs": 5.231400000007852,
+        "writes": 42,
+        "writtenBytes": 3631468,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 8.460900000000038,
+            "finalObservedMs": 8.460900000000038,
+            "elapsedMs": 8.562699999998586
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.8806000000004133,
+            "finalObservedMs": 32.239700000000084,
+            "elapsedMs": 32.42569999999978
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.517799999999625,
+            "finalObservedMs": 14.517799999999625,
+            "elapsedMs": 14.658899999998539
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.339799999999741,
+            "finalObservedMs": 30.800600000000486,
+            "elapsedMs": 30.96429999999964
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 13.523600000000442,
+            "finalObservedMs": 13.523600000000442,
+            "elapsedMs": 13.666799999999057
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.41189999999915,
+            "finalObservedMs": 31.27850000000035,
+            "elapsedMs": 31.411700000000565
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.90940000000046,
+            "finalObservedMs": 14.90940000000046,
+            "elapsedMs": 15.077100000000428
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 14.766200000000026,
+            "finalObservedMs": 29.829999999999927,
+            "elapsedMs": 29.958599999999933
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.790800000000672,
+            "finalObservedMs": 14.790800000000672,
+            "elapsedMs": 14.98070000000007
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.65389999999934,
+            "finalObservedMs": 31.26639999999861,
+            "elapsedMs": 31.42949999999837
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.190400000001318,
+            "finalObservedMs": 14.190400000001318,
+            "elapsedMs": 14.364000000001397
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.666699999999764,
+            "finalObservedMs": 31.758700000000317,
+            "elapsedMs": 31.92360000000008
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 13.907199999999648,
+            "finalObservedMs": 13.907199999999648,
+            "elapsedMs": 14.271600000000035
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.188600000001315,
+            "finalObservedMs": 31.459500000000844,
+            "elapsedMs": 31.615200000000186
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 16.06630000000041,
+            "finalObservedMs": 16.06630000000041,
+            "elapsedMs": 16.273699999999735
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 13.933899999999994,
+            "finalObservedMs": 13.933899999999994,
+            "elapsedMs": 14.077099999998609
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.691899999999805,
+            "finalObservedMs": 14.691899999999805,
+            "elapsedMs": 14.830700000000434
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.763100000000122,
+            "finalObservedMs": 32.01540000000023,
+            "elapsedMs": 32.175499999999374
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.43499999999949,
+            "finalObservedMs": 15.43499999999949,
+            "elapsedMs": 15.574299999998402
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.952800000000934,
+            "finalObservedMs": 30.945700000000215,
+            "elapsedMs": 31.215299999999843
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.8948999999993248,
+        "feedMs": 456.5660000000007,
+        "flushMs": 0.5518000000010943,
+        "totalMs": 458.0142999999989,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.067900000000009,
+            "finalObservedMs": 10.067900000000009,
+            "elapsedMs": 10.214899999999034
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.844600000000355,
+            "finalObservedMs": 30.460699999999633,
+            "elapsedMs": 30.582899999999427
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.816399999999703,
+            "finalObservedMs": 15.816399999999703,
+            "elapsedMs": 16.050100000000384
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 14.514299999998912,
+            "finalObservedMs": 30.020300000000134,
+            "elapsedMs": 30.151499999999942
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.696600000001126,
+            "finalObservedMs": 15.696600000001126,
+            "elapsedMs": 15.895900000001348
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.045899999999165,
+            "finalObservedMs": 30.48819999999978,
+            "elapsedMs": 30.64799999999923
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.968000000000757,
+            "finalObservedMs": 14.968000000000757,
+            "elapsedMs": 15.15309999999954
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.100000000000364,
+            "finalObservedMs": 30.294299999999566,
+            "elapsedMs": 30.42710000000079
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.169400000000678,
+            "finalObservedMs": 15.169400000000678,
+            "elapsedMs": 15.278599999999642
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.04570000000058,
+            "finalObservedMs": 31.274999999999636,
+            "elapsedMs": 31.454999999999927
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.893299999999726,
+            "finalObservedMs": 14.893299999999726,
+            "elapsedMs": 15.167600000000675
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.154899999999543,
+            "finalObservedMs": 30.153000000000247,
+            "elapsedMs": 30.303400000000693
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.85399999999936,
+            "finalObservedMs": 14.85399999999936,
+            "elapsedMs": 14.996800000000803
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.376200000000608,
+            "finalObservedMs": 30.63709999999992,
+            "elapsedMs": 30.734800000000178
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.628099999999904,
+            "finalObservedMs": 15.628099999999904,
+            "elapsedMs": 15.76300000000083
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.269400000001042,
+            "finalObservedMs": 30.418100000000777,
+            "elapsedMs": 30.50300000000061
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.950399999999718,
+            "finalObservedMs": 14.950399999999718,
+            "elapsedMs": 15.030399999999645
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.434400000000096,
+            "finalObservedMs": 30.91270000000077,
+            "elapsedMs": 31.07250000000022
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.23569999999927,
+            "finalObservedMs": 15.23569999999927,
+            "elapsedMs": 15.425099999998565
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 14.651400000000649,
+            "finalObservedMs": 30.52440000000024,
+            "elapsedMs": 30.67710000000079
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.7552000000014232,
+        "feed": -15.776700000000346,
+        "flush": 2.5724999999983993,
+        "total": -11.449099999999817
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.772000000000844,
+        "feedMs": 441.15720000000147,
+        "flushMs": 3.244700000001103,
+        "totalMs": 447.1753000000008,
+        "recorderCpuMs": 5.472599999988233,
+        "writes": 42,
+        "writtenBytes": 3631467,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 14.90389999999934,
+            "finalObservedMs": 14.90389999999934,
+            "elapsedMs": 15.079400000000533
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.3135000000002037,
+            "finalObservedMs": 31.482500000000073,
+            "elapsedMs": 31.64090000000033
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.859599999999773,
+            "finalObservedMs": 15.859599999999773,
+            "elapsedMs": 16.044700000000375
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.615600000000995,
+            "finalObservedMs": 31.194799999999304,
+            "elapsedMs": 31.356400000000576
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.8145999999997,
+            "finalObservedMs": 15.8145999999997,
+            "elapsedMs": 15.98070000000007
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.48029999999926,
+            "finalObservedMs": 32.112999999999374,
+            "elapsedMs": 32.35649999999987
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.632499999999709,
+            "finalObservedMs": 15.632499999999709,
+            "elapsedMs": 15.776200000000244
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.623900000000503,
+            "finalObservedMs": 30.527400000000853,
+            "elapsedMs": 30.685499999999593
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.422499999998763,
+            "finalObservedMs": 14.422499999998763,
+            "elapsedMs": 14.572299999999814
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.854800000000978,
+            "finalObservedMs": 30.591599999999744,
+            "elapsedMs": 30.766100000000733
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 16.419700000000375,
+            "finalObservedMs": 16.419700000000375,
+            "elapsedMs": 16.593700000001263
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 7.462900000000445,
+            "finalObservedMs": 17.364799999999377,
+            "elapsedMs": 17.56999999999971
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 13.927400000000489,
+            "finalObservedMs": 13.927400000000489,
+            "elapsedMs": 14.127699999999095
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.235399999999572,
+            "finalObservedMs": 15.235399999999572,
+            "elapsedMs": 15.420000000000073
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.459099999998216,
+            "finalObservedMs": 14.459099999998216,
+            "elapsedMs": 14.599499999998443
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.34740000000056,
+            "finalObservedMs": 33.40059999999903,
+            "elapsedMs": 33.649499999999534
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.643800000001647,
+            "finalObservedMs": 14.643800000001647,
+            "elapsedMs": 14.80790000000161
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.898600000000442,
+            "finalObservedMs": 32.002700000000914,
+            "elapsedMs": 32.173500000000786
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.6916999999994,
+            "finalObservedMs": 14.6916999999994,
+            "elapsedMs": 14.871799999998984
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.21179999999913,
+            "finalObservedMs": 31.483000000000175,
+            "elapsedMs": 31.671399999999267
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.91990000000078,
+        "feedMs": 468.2361000000001,
+        "flushMs": 0.566899999999805,
+        "totalMs": 469.72440000000097,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.509500000000116,
+            "finalObservedMs": 11.509500000000116,
+            "elapsedMs": 11.683100000000195
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.7190000000009604,
+            "finalObservedMs": 30.990900000000693,
+            "elapsedMs": 31.1237000000001
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.905099999999948,
+            "finalObservedMs": 14.905099999999948,
+            "elapsedMs": 15.028000000000247
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.202400000000125,
+            "finalObservedMs": 30.730400000000373,
+            "elapsedMs": 30.90389999999934
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 16.1216000000004,
+            "finalObservedMs": 16.1216000000004,
+            "elapsedMs": 16.25510000000031
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.78189999999995,
+            "finalObservedMs": 31.960900000000038,
+            "elapsedMs": 32.11729999999989
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.282499999999345,
+            "finalObservedMs": 15.282499999999345,
+            "elapsedMs": 15.469099999998434
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.223699999998644,
+            "finalObservedMs": 32.243499999998676,
+            "elapsedMs": 32.406699999999546
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.394399999999223,
+            "finalObservedMs": 14.394399999999223,
+            "elapsedMs": 14.518799999999828
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.846600000000763,
+            "finalObservedMs": 31.633499999999913,
+            "elapsedMs": 31.788699999999153
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.616799999999785,
+            "finalObservedMs": 14.616799999999785,
+            "elapsedMs": 14.761000000000422
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 14.896600000000035,
+            "finalObservedMs": 31.299300000000585,
+            "elapsedMs": 31.44629999999961
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.971800000001167,
+            "finalObservedMs": 14.971800000001167,
+            "elapsedMs": 15.108299999999872
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.253700000001118,
+            "finalObservedMs": 31.421300000001793,
+            "elapsedMs": 31.561500000001615
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.473000000001775,
+            "finalObservedMs": 15.473000000001775,
+            "elapsedMs": 15.650700000000143
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.582699999999022,
+            "finalObservedMs": 31.83729999999923,
+            "elapsedMs": 31.99659999999858
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.84060000000136,
+            "finalObservedMs": 15.84060000000136,
+            "elapsedMs": 15.969600000000355
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.741299999999683,
+            "finalObservedMs": 31.21479999999974,
+            "elapsedMs": 31.41899999999987
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.798099999999977,
+            "finalObservedMs": 15.798099999999977,
+            "elapsedMs": 15.917600000000675
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.600800000000163,
+            "finalObservedMs": 31.72819999999956,
+            "elapsedMs": 31.86490000000049
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.852100000000064,
+        "feed": -27.07889999999861,
+        "flush": 2.677800000001298,
+        "total": -22.54910000000018
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.06289999999899,
+        "feedMs": 460.89820000000145,
+        "flushMs": 3.7102000000013504,
+        "totalMs": 466.6731,
+        "recorderCpuMs": 5.196700000002238,
+        "writes": 42,
+        "writtenBytes": 3631467,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 9.315699999999197,
+            "finalObservedMs": 9.315699999999197,
+            "elapsedMs": 9.450199999999313
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.893500000000131,
+            "finalObservedMs": 31.264999999999418,
+            "elapsedMs": 31.373099999998885
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.03440000000046,
+            "finalObservedMs": 15.03440000000046,
+            "elapsedMs": 15.130400000000009
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.125099999999293,
+            "finalObservedMs": 33.29569999999876,
+            "elapsedMs": 33.52439999999842
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.000299999999697,
+            "finalObservedMs": 15.000299999999697,
+            "elapsedMs": 15.116299999999683
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.723300000001473,
+            "finalObservedMs": 31.061900000000605,
+            "elapsedMs": 31.189100000001417
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.579900000000634,
+            "finalObservedMs": 15.579900000000634,
+            "elapsedMs": 15.769600000001446
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.136200000000827,
+            "finalObservedMs": 30.4275000000016,
+            "elapsedMs": 30.562700000000405
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.78360000000066,
+            "finalObservedMs": 14.78360000000066,
+            "elapsedMs": 14.863400000000183
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.549699999999575,
+            "finalObservedMs": 31.792999999999665,
+            "elapsedMs": 31.97689999999966
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 13.744399999999587,
+            "finalObservedMs": 13.744399999999587,
+            "elapsedMs": 13.874099999999089
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.884100000001126,
+            "finalObservedMs": 32.02770000000055,
+            "elapsedMs": 32.20139999999992
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.430099999999584,
+            "finalObservedMs": 14.430099999999584,
+            "elapsedMs": 14.602000000000771
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.837100000000646,
+            "finalObservedMs": 30.98990000000049,
+            "elapsedMs": 31.220500000001266
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.093300000000454,
+            "finalObservedMs": 14.093300000000454,
+            "elapsedMs": 14.197700000000623
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.593699999999444,
+            "finalObservedMs": 31.217399999999543,
+            "elapsedMs": 31.334399999999732
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.818900000000212,
+            "finalObservedMs": 14.818900000000212,
+            "elapsedMs": 14.986700000001292
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.79529999999977,
+            "finalObservedMs": 31.811900000000605,
+            "elapsedMs": 32.16829999999936
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 13.89390000000094,
+            "finalObservedMs": 13.89390000000094,
+            "elapsedMs": 14.078199999999924
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.100899999999456,
+            "finalObservedMs": 31.58849999999984,
+            "elapsedMs": 31.775700000000143
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.7780999999995402,
+        "feedMs": 467.5769,
+        "flushMs": 0.6603999999988446,
+        "totalMs": 469.0173999999988,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.673699999999371,
+            "finalObservedMs": 10.673699999999371,
+            "elapsedMs": 10.79949999999917
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.3901000000005297,
+            "finalObservedMs": 30.55580000000009,
+            "elapsedMs": 30.700300000000425
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.989299999999275,
+            "finalObservedMs": 14.989299999999275,
+            "elapsedMs": 15.106799999999566
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.160099999999147,
+            "finalObservedMs": 29.91139999999905,
+            "elapsedMs": 30.070200000000114
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.38260000000082,
+            "finalObservedMs": 15.38260000000082,
+            "elapsedMs": 15.551300000000992
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.49880000000121,
+            "finalObservedMs": 32.47440000000097,
+            "elapsedMs": 32.666300000000774
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.925400000000081,
+            "finalObservedMs": 14.925400000000081,
+            "elapsedMs": 15.110599999999977
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.533400000000256,
+            "finalObservedMs": 31.539999999999054,
+            "elapsedMs": 31.762299999998504
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.679200000000492,
+            "finalObservedMs": 15.679200000000492,
+            "elapsedMs": 15.879499999999098
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.549600000000282,
+            "finalObservedMs": 32.6836000000003,
+            "elapsedMs": 32.86440000000039
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.863400000000183,
+            "finalObservedMs": 15.863400000000183,
+            "elapsedMs": 15.994000000000597
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.320299999999406,
+            "finalObservedMs": 31.922199999999066,
+            "elapsedMs": 32.10369999999966
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.736300000000483,
+            "finalObservedMs": 14.736300000000483,
+            "elapsedMs": 14.884000000000015
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.29949999999917,
+            "finalObservedMs": 32.69030000000021,
+            "elapsedMs": 32.819799999999304
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.858000000000175,
+            "finalObservedMs": 14.858000000000175,
+            "elapsedMs": 15.027900000000955
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.339999999998327,
+            "finalObservedMs": 30.886999999998807,
+            "elapsedMs": 31.10109999999986
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 16.11290000000008,
+            "finalObservedMs": 16.11290000000008,
+            "elapsedMs": 16.27390000000014
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 14.895899999999529,
+            "finalObservedMs": 30.597999999999956,
+            "elapsedMs": 30.758499999999913
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.918400000000474,
+            "finalObservedMs": 15.918400000000474,
+            "elapsedMs": 16.085800000000745
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.96440000000075,
+            "finalObservedMs": 30.76140000000123,
+            "elapsedMs": 30.90360000000146
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.28479999999945,
+        "feed": -6.678699999998571,
+        "flush": 3.049800000002506,
+        "total": -2.3442999999988388
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.1481000000003405,
+        "feedMs": 429.58569999999963,
+        "flushMs": 4.129699999999502,
+        "totalMs": 435.8654000000006,
+        "recorderCpuMs": 5.178700000002209,
+        "writes": 42,
+        "writtenBytes": 3631481,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 12.702499999999418,
+            "finalObservedMs": 12.702499999999418,
+            "elapsedMs": 12.838799999999537
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.170700000000579,
+            "finalObservedMs": 31.198099999999613,
+            "elapsedMs": 31.345499999999447
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.49200000000019,
+            "finalObservedMs": 14.49200000000019,
+            "elapsedMs": 14.644500000000335
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.069400000000314,
+            "finalObservedMs": 30.98700000000099,
+            "elapsedMs": 31.177700000000186
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.406000000000859,
+            "finalObservedMs": 14.406000000000859,
+            "elapsedMs": 14.540899999999965
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.59059999999954,
+            "finalObservedMs": 31.046399999999267,
+            "elapsedMs": 31.16660000000047
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.809499999999389,
+            "finalObservedMs": 14.809499999999389,
+            "elapsedMs": 14.920399999999063
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.819100000000617,
+            "finalObservedMs": 31.997699999999895,
+            "elapsedMs": 32.16560000000027
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.244399999999587,
+            "finalObservedMs": 14.244399999999587,
+            "elapsedMs": 14.392899999998917
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.09609999999884,
+            "finalObservedMs": 31.512899999999718,
+            "elapsedMs": 31.68329999999878
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.255100000000311,
+            "finalObservedMs": 14.255100000000311,
+            "elapsedMs": 14.405099999999948
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.869199999999182,
+            "finalObservedMs": 30.913399999999456,
+            "elapsedMs": 31.044199999998455
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 8.075700000001234,
+            "finalObservedMs": 8.075700000001234,
+            "elapsedMs": 8.255800000000818
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 22.87800000000061,
+            "finalObservedMs": 22.87800000000061,
+            "elapsedMs": 23.052200000000084
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.483799999999974,
+            "finalObservedMs": 14.483799999999974,
+            "elapsedMs": 14.644000000000233
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.794300000001385,
+            "finalObservedMs": 30.691900000001624,
+            "elapsedMs": 30.81370000000061
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.501800000000003,
+            "finalObservedMs": 14.501800000000003,
+            "elapsedMs": 14.625200000000405
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.0637999999999,
+            "finalObservedMs": 31.778699999998935,
+            "elapsedMs": 31.904099999999744
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.06460000000152,
+            "finalObservedMs": 15.06460000000152,
+            "elapsedMs": 15.224299999999857
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.354699999999866,
+            "finalObservedMs": 15.354699999999866,
+            "elapsedMs": 15.514800000000832
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.8099000000001979,
+        "feedMs": 460.9847000000009,
+        "flushMs": 0.5797000000002299,
+        "totalMs": 462.3760000000002,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 15.206500000000233,
+            "finalObservedMs": 15.206500000000233,
+            "elapsedMs": 15.342800000000352
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.214299999999639,
+            "finalObservedMs": 30.63379999999961,
+            "elapsedMs": 30.788899999999558
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.18409999999858,
+            "finalObservedMs": 15.18409999999858,
+            "elapsedMs": 15.291799999999057
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.42580000000089,
+            "finalObservedMs": 31.554200000000492,
+            "elapsedMs": 31.75550000000112
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.644000000000233,
+            "finalObservedMs": 14.644000000000233,
+            "elapsedMs": 14.784099999998944
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.193499999999403,
+            "finalObservedMs": 31.039099999999962,
+            "elapsedMs": 31.2479000000003
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.498499999999694,
+            "finalObservedMs": 14.498499999999694,
+            "elapsedMs": 14.615799999999581
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.850699999999051,
+            "finalObservedMs": 30.835299999998824,
+            "elapsedMs": 30.973699999998644
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.51089999999931,
+            "finalObservedMs": 15.51089999999931,
+            "elapsedMs": 15.688899999999194
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.071099999999205,
+            "finalObservedMs": 29.886399999999412,
+            "elapsedMs": 30.02640000000065
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.006799999999203,
+            "finalObservedMs": 15.006799999999203,
+            "elapsedMs": 15.175199999999677
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.479400000000169,
+            "finalObservedMs": 30.16280000000006,
+            "elapsedMs": 30.33520000000135
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.120499999999083,
+            "finalObservedMs": 15.120499999999083,
+            "elapsedMs": 15.246900000000096
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.643799999999828,
+            "finalObservedMs": 30.742299999999886,
+            "elapsedMs": 30.891599999999016
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.800000000001091,
+            "finalObservedMs": 14.800000000001091,
+            "elapsedMs": 14.949400000001333
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.253999999998996,
+            "finalObservedMs": 30.05749999999898,
+            "elapsedMs": 30.21429999999964
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.22479999999996,
+            "finalObservedMs": 15.22479999999996,
+            "elapsedMs": 15.371499999999287
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.546800000000076,
+            "finalObservedMs": 30.584600000000137,
+            "elapsedMs": 30.71650000000045
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.296699999998964,
+            "finalObservedMs": 15.296699999998964,
+            "elapsedMs": 15.482899999999063
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.109499999998661,
+            "finalObservedMs": 30.53399999999965,
+            "elapsedMs": 30.74529999999868
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.3382000000001426,
+        "feed": -31.39900000000125,
+        "flush": 3.5499999999992724,
+        "total": -26.510599999999613
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.2467999999989843,
+        "feedMs": 457.2451999999994,
+        "flushMs": 3.2710000000006403,
+        "totalMs": 462.7644,
+        "recorderCpuMs": 4.727800000020579,
+        "writes": 42,
+        "writtenBytes": 3631461,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.366800000001604,
+            "finalObservedMs": 10.366800000001604,
+            "elapsedMs": 10.52940000000126
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.422500000000582,
+            "finalObservedMs": 30.988000000001193,
+            "elapsedMs": 31.13850000000093
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.129300000000512,
+            "finalObservedMs": 14.129300000000512,
+            "elapsedMs": 14.233900000001086
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.35189999999966,
+            "finalObservedMs": 31.863799999999173,
+            "elapsedMs": 32.04069999999956
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.158499999999549,
+            "finalObservedMs": 14.158499999999549,
+            "elapsedMs": 14.281300000000556
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.236299999998664,
+            "finalObservedMs": 31.3125,
+            "elapsedMs": 31.518999999998414
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.213999999999942,
+            "finalObservedMs": 14.213999999999942,
+            "elapsedMs": 14.340099999999438
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.073300000000017,
+            "finalObservedMs": 30.671700000000783,
+            "elapsedMs": 30.776700000000346
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.831000000000131,
+            "finalObservedMs": 14.831000000000131,
+            "elapsedMs": 14.946099999999205
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.240700000000288,
+            "finalObservedMs": 31.09770000000026,
+            "elapsedMs": 31.24079999999958
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.361100000000079,
+            "finalObservedMs": 14.361100000000079,
+            "elapsedMs": 14.483099999999467
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.038500000000568,
+            "finalObservedMs": 31.790999999999258,
+            "elapsedMs": 32.046800000000076
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.485999999998967,
+            "finalObservedMs": 14.485999999998967,
+            "elapsedMs": 14.606799999999566
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.69340000000011,
+            "finalObservedMs": 32.38459999999941,
+            "elapsedMs": 32.54199999999946
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 13.950299999998606,
+            "finalObservedMs": 13.950299999998606,
+            "elapsedMs": 14.07049999999981
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.937300000001414,
+            "finalObservedMs": 31.690200000000914,
+            "elapsedMs": 31.853100000000268
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 13.83809999999903,
+            "finalObservedMs": 13.83809999999903,
+            "elapsedMs": 13.982899999999063
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.911200000000463,
+            "finalObservedMs": 31.199600000001737,
+            "elapsedMs": 31.338999999999942
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.192300000000614,
+            "finalObservedMs": 14.192300000000614,
+            "elapsedMs": 14.302400000000489
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.861500000000888,
+            "finalObservedMs": 31.684300000000803,
+            "elapsedMs": 31.82300000000032
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.7895000000007713,
+        "feedMs": 455.59569999999985,
+        "flushMs": 0.6183000000000902,
+        "totalMs": 457.005000000001,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.162200000000666,
+            "finalObservedMs": 10.162200000000666,
+            "elapsedMs": 10.272000000000844
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.4462000000003172,
+            "finalObservedMs": 30.865999999999985,
+            "elapsedMs": 30.998199999999997
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.08599999999933,
+            "finalObservedMs": 15.08599999999933,
+            "elapsedMs": 15.199899999999616
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.654899999999543,
+            "finalObservedMs": 31.41359999999986,
+            "elapsedMs": 31.613499999999476
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.346999999999753,
+            "finalObservedMs": 14.346999999999753,
+            "elapsedMs": 14.47309999999925
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.214900000000853,
+            "finalObservedMs": 31.128500000000713,
+            "elapsedMs": 31.31080000000111
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.7528999999995,
+            "finalObservedMs": 14.7528999999995,
+            "elapsedMs": 14.89390000000094
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.13800000000083,
+            "finalObservedMs": 30.58549999999923,
+            "elapsedMs": 30.717500000000655
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.451099999998405,
+            "finalObservedMs": 14.451099999998405,
+            "elapsedMs": 14.562299999999595
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.412400000001071,
+            "finalObservedMs": 30.333800000000338,
+            "elapsedMs": 30.453700000000026
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.223700000000463,
+            "finalObservedMs": 15.223700000000463,
+            "elapsedMs": 15.3125
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.421699999998964,
+            "finalObservedMs": 31.305899999999383,
+            "elapsedMs": 31.48149999999987
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.859800000000178,
+            "finalObservedMs": 14.859800000000178,
+            "elapsedMs": 14.990299999999479
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.06919999999991,
+            "finalObservedMs": 31.108299999999872,
+            "elapsedMs": 31.247599999998783
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.55029999999897,
+            "finalObservedMs": 14.55029999999897,
+            "elapsedMs": 14.666599999998652
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.389900000000125,
+            "finalObservedMs": 31.0020999999997,
+            "elapsedMs": 31.138300000000527
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.164200000001074,
+            "finalObservedMs": 15.164200000001074,
+            "elapsedMs": 15.364900000000489
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.464099999999235,
+            "finalObservedMs": 30.397899999999936,
+            "elapsedMs": 30.519999999998618
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.859699999999066,
+            "finalObservedMs": 14.859699999999066,
+            "elapsedMs": 14.951900000000023
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.049399999999878,
+            "finalObservedMs": 30.30370000000039,
+            "elapsedMs": 30.42579999999907
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.457299999998213,
+        "feed": 1.6494999999995343,
+        "flush": 2.65270000000055,
+        "total": 5.759399999999005
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.061700000000201,
+        "feedMs": 463.7696999999989,
+        "flushMs": 3.3646000000007916,
+        "totalMs": 469.1980000000003,
+        "recorderCpuMs": 4.622299999999086,
+        "writes": 42,
+        "writtenBytes": 3631468,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.293300000001182,
+            "finalObservedMs": 10.293300000001182,
+            "elapsedMs": 10.425100000000384
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.0055999999985943,
+            "finalObservedMs": 30.90809999999874,
+            "elapsedMs": 31.006599999998798
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.959500000000844,
+            "finalObservedMs": 14.959500000000844,
+            "elapsedMs": 15.064900000001217
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.400400000000445,
+            "finalObservedMs": 31.970799999999144,
+            "elapsedMs": 32.120999999999185
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.195600000000923,
+            "finalObservedMs": 14.195600000000923,
+            "elapsedMs": 14.33179999999993
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.90219999999863,
+            "finalObservedMs": 31.5078999999987,
+            "elapsedMs": 31.709799999998722
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.09400000000096,
+            "finalObservedMs": 14.09400000000096,
+            "elapsedMs": 14.230400000000373
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.011100000001534,
+            "finalObservedMs": 31.062400000000707,
+            "elapsedMs": 31.21140000000014
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.839100000001054,
+            "finalObservedMs": 14.839100000001054,
+            "elapsedMs": 14.980000000001382
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.774500000001353,
+            "finalObservedMs": 32.00960000000123,
+            "elapsedMs": 32.141600000000835
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.118099999999686,
+            "finalObservedMs": 15.118099999999686,
+            "elapsedMs": 15.27049999999872
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.476599999999962,
+            "finalObservedMs": 32.637399999999616,
+            "elapsedMs": 32.8166999999994
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.467899999999645,
+            "finalObservedMs": 14.467899999999645,
+            "elapsedMs": 14.604099999998652
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.18420000000151,
+            "finalObservedMs": 32.97360000000117,
+            "elapsedMs": 33.108900000001086
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.842400000001362,
+            "finalObservedMs": 14.842400000001362,
+            "elapsedMs": 15.047300000000178
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.972499999999854,
+            "finalObservedMs": 32.669200000000274,
+            "elapsedMs": 32.84990000000107
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.192700000001423,
+            "finalObservedMs": 14.192700000001423,
+            "elapsedMs": 14.372800000001007
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.377999999998792,
+            "finalObservedMs": 31.61999999999898,
+            "elapsedMs": 31.77889999999934
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 13.971700000000055,
+            "finalObservedMs": 13.971700000000055,
+            "elapsedMs": 14.129000000000815
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.261200000000827,
+            "finalObservedMs": 31.17189999999937,
+            "elapsedMs": 31.289099999999962
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.9193999999988591,
+        "feedMs": 469.3698999999997,
+        "flushMs": 0.47410000000127184,
+        "totalMs": 470.7646000000004,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 19.170799999999872,
+            "finalObservedMs": 19.170799999999872,
+            "elapsedMs": 19.350400000001173
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.223500000000058,
+            "finalObservedMs": 31.70929999999862,
+            "elapsedMs": 31.938500000000204
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.341300000000047,
+            "finalObservedMs": 15.341300000000047,
+            "elapsedMs": 15.469900000000052
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.509299999999712,
+            "finalObservedMs": 32.08779999999933,
+            "elapsedMs": 32.298500000000786
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.382700000000114,
+            "finalObservedMs": 14.382700000000114,
+            "elapsedMs": 14.50550000000112
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.443499999999403,
+            "finalObservedMs": 31.625899999999092,
+            "elapsedMs": 31.776299999999537
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 16.228399999999965,
+            "finalObservedMs": 16.228399999999965,
+            "elapsedMs": 16.33809999999903
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.40729999999894,
+            "finalObservedMs": 31.15979999999945,
+            "elapsedMs": 31.293799999999464
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.649199999999837,
+            "finalObservedMs": 14.649199999999837,
+            "elapsedMs": 14.742100000001301
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.61699999999837,
+            "finalObservedMs": 30.77299999999923,
+            "elapsedMs": 30.951199999999517
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.15190000000075,
+            "finalObservedMs": 15.15190000000075,
+            "elapsedMs": 15.264400000000023
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.313700000000608,
+            "finalObservedMs": 30.525100000000748,
+            "elapsedMs": 30.66780000000108
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.981200000000172,
+            "finalObservedMs": 14.981200000000172,
+            "elapsedMs": 15.147699999999531
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.502800000000207,
+            "finalObservedMs": 30.718699999999444,
+            "elapsedMs": 30.9390999999996
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.12539999999899,
+            "finalObservedMs": 15.12539999999899,
+            "elapsedMs": 15.280899999999747
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 14.749700000000303,
+            "finalObservedMs": 29.998899999998685,
+            "elapsedMs": 30.118499999998676
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.152000000000044,
+            "finalObservedMs": 15.152000000000044,
+            "elapsedMs": 15.251599999999598
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.9958000000006,
+            "finalObservedMs": 31.29780000000028,
+            "elapsedMs": 31.48739999999998
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.851200000000972,
+            "finalObservedMs": 14.851200000000972,
+            "elapsedMs": 15.02980000000025
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.157999999999447,
+            "finalObservedMs": 30.289599999998245,
+            "elapsedMs": 30.446999999998297
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.1423000000013417,
+        "feed": -5.600200000000768,
+        "flush": 2.89049999999952,
+        "total": -1.5666000000001077
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.0843999999997322,
+        "feedMs": 457.5063000000009,
+        "flushMs": 3.385099999999511,
+        "totalMs": 462.97780000000057,
+        "recorderCpuMs": 4.919499999999971,
+        "writes": 42,
+        "writtenBytes": 3631469,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 9.527599999999438,
+            "finalObservedMs": 9.527599999999438,
+            "elapsedMs": 9.666699999999764
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.5552999999999884,
+            "finalObservedMs": 31.277200000000448,
+            "elapsedMs": 31.414199999999255
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.08639999999832,
+            "finalObservedMs": 15.08639999999832,
+            "elapsedMs": 15.251800000000003
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.927400000000489,
+            "finalObservedMs": 31.711300000000847,
+            "elapsedMs": 31.88760000000002
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.396199999999226,
+            "finalObservedMs": 14.396199999999226,
+            "elapsedMs": 14.543299999999363
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.38090000000011,
+            "finalObservedMs": 30.568599999998696,
+            "elapsedMs": 30.84399999999914
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.515000000001237,
+            "finalObservedMs": 14.515000000001237,
+            "elapsedMs": 14.621000000001004
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 16.522299999998722,
+            "finalObservedMs": 31.504399999999805,
+            "elapsedMs": 31.601599999999962
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.565300000000207,
+            "finalObservedMs": 14.565300000000207,
+            "elapsedMs": 14.670500000000175
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.521600000000035,
+            "finalObservedMs": 31.73580000000038,
+            "elapsedMs": 31.888499999999112
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.068600000000515,
+            "finalObservedMs": 14.068600000000515,
+            "elapsedMs": 14.163899999999558
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.33969999999863,
+            "finalObservedMs": 31.461699999999837,
+            "elapsedMs": 31.6283999999996
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.445799999999508,
+            "finalObservedMs": 14.445799999999508,
+            "elapsedMs": 14.63969999999972
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.302700000000186,
+            "finalObservedMs": 31.2492000000002,
+            "elapsedMs": 31.37750000000051
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.97439999999915,
+            "finalObservedMs": 14.97439999999915,
+            "elapsedMs": 15.145300000000134
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.236399999999776,
+            "finalObservedMs": 32.01339999999982,
+            "elapsedMs": 32.21609999999964
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 13.63799999999901,
+            "finalObservedMs": 13.63799999999901,
+            "elapsedMs": 13.772999999999229
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.195799999999508,
+            "finalObservedMs": 30.854599999998754,
+            "elapsedMs": 30.98610000000008
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.295799999999872,
+            "finalObservedMs": 14.295799999999872,
+            "elapsedMs": 14.414099999999962
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.515699999999924,
+            "finalObservedMs": 31.69170000000122,
+            "elapsedMs": 31.840299999999843
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.7268000000003667,
+        "feedMs": 457.1738999999998,
+        "flushMs": 0.5314999999991414,
+        "totalMs": 458.4333000000006,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.720100000000457,
+            "finalObservedMs": 10.720100000000457,
+            "elapsedMs": 10.826300000000629
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.1093999999993684,
+            "finalObservedMs": 30.57049999999981,
+            "elapsedMs": 30.70429999999942
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.838700000000244,
+            "finalObservedMs": 15.838700000000244,
+            "elapsedMs": 16.002700000000914
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 14.510399999999208,
+            "finalObservedMs": 30.071599999999307,
+            "elapsedMs": 30.212999999999738
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.24120000000039,
+            "finalObservedMs": 15.24120000000039,
+            "elapsedMs": 15.39600000000064
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.439300000000003,
+            "finalObservedMs": 29.883499999999913,
+            "elapsedMs": 30.005699999999706
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.909900000000562,
+            "finalObservedMs": 14.909900000000562,
+            "elapsedMs": 15.055700000000797
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.313400000000911,
+            "finalObservedMs": 30.323100000001432,
+            "elapsedMs": 30.44670000000042
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.206899999999223,
+            "finalObservedMs": 15.206899999999223,
+            "elapsedMs": 15.28060000000005
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.250700000000506,
+            "finalObservedMs": 30.837900000000445,
+            "elapsedMs": 31.01220000000103
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.91320000000087,
+            "finalObservedMs": 14.91320000000087,
+            "elapsedMs": 15.07930000000124
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.756799999999203,
+            "finalObservedMs": 30.99579999999878,
+            "elapsedMs": 31.137399999999616
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.824300000000221,
+            "finalObservedMs": 14.824300000000221,
+            "elapsedMs": 14.930699999998978
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.285499999999956,
+            "finalObservedMs": 30.85240000000158,
+            "elapsedMs": 30.98199999999997
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.217099999999846,
+            "finalObservedMs": 15.217099999999846,
+            "elapsedMs": 15.32799999999952
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.122600000000602,
+            "finalObservedMs": 30.379899999999907,
+            "elapsedMs": 30.514600000000428
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.158199999999852,
+            "finalObservedMs": 15.158199999999852,
+            "elapsedMs": 15.257200000000012
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.213400000000547,
+            "finalObservedMs": 31.710000000000946,
+            "elapsedMs": 31.893099999999322
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.988600000000588,
+            "finalObservedMs": 14.988600000000588,
+            "elapsedMs": 15.190899999999601
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.167199999999866,
+            "finalObservedMs": 30.59610000000066,
+            "elapsedMs": 30.77020000000084
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.3575999999993655,
+        "feed": 0.3324000000011438,
+        "flush": 2.8536000000003696,
+        "total": 4.544499999999971
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.182700000001205,
+        "feedMs": 444.21730000000025,
+        "flushMs": 3.0477000000028056,
+        "totalMs": 449.4488000000001,
+        "recorderCpuMs": 4.464199999982156,
+        "writes": 42,
+        "writtenBytes": 3631466,
+        "artifactBytes": 167075,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 14.9403999999995,
+            "finalObservedMs": 14.9403999999995,
+            "elapsedMs": 15.044700000000375
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.1952999999994063,
+            "finalObservedMs": 31.352100000000064,
+            "elapsedMs": 31.527399999999034
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.602300000000469,
+            "finalObservedMs": 14.602300000000469,
+            "elapsedMs": 14.752599999999802
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.462900000000445,
+            "finalObservedMs": 30.52640000000065,
+            "elapsedMs": 30.688099999999395
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.484300000000076,
+            "finalObservedMs": 14.484300000000076,
+            "elapsedMs": 14.649899999998524
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.35150000000067,
+            "finalObservedMs": 30.346299999999246,
+            "elapsedMs": 30.483799999999974
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.073300000000017,
+            "finalObservedMs": 15.073300000000017,
+            "elapsedMs": 15.229699999999866
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 14.924800000000687,
+            "finalObservedMs": 30.123100000000704,
+            "elapsedMs": 30.23739999999998
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.765600000000632,
+            "finalObservedMs": 14.765600000000632,
+            "elapsedMs": 14.863299999999072
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.123799999997573,
+            "finalObservedMs": 31.037099999997736,
+            "elapsedMs": 31.140199999998003
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.202400000001944,
+            "finalObservedMs": 15.202400000001944,
+            "elapsedMs": 15.366500000000087
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.957900000001246,
+            "finalObservedMs": 31.223300000001473,
+            "elapsedMs": 31.384900000000926
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.491399999998976,
+            "finalObservedMs": 14.491399999998976,
+            "elapsedMs": 14.684199999999691
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.217499999998836,
+            "finalObservedMs": 15.217499999998836,
+            "elapsedMs": 15.348699999998644
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.46639999999752,
+            "finalObservedMs": 14.46639999999752,
+            "elapsedMs": 14.559300000000803
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.543099999998958,
+            "finalObservedMs": 32.17659999999887,
+            "elapsedMs": 32.350900000001275
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 13.165999999997439,
+            "finalObservedMs": 13.165999999997439,
+            "elapsedMs": 13.30319999999847
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.676500000001397,
+            "finalObservedMs": 31.38000000000102,
+            "elapsedMs": 31.496399999999994
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.067399999999907,
+            "finalObservedMs": 14.067399999999907,
+            "elapsedMs": 14.166799999999057
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.9474999999984,
+            "finalObservedMs": 31.7670999999973,
+            "elapsedMs": 31.898199999999633
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.9894000000022061,
+        "feedMs": 461.09639999999854,
+        "flushMs": 0.6358999999974912,
+        "totalMs": 462.7230000000018,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 15.766500000001543,
+            "finalObservedMs": 15.766500000001543,
+            "elapsedMs": 15.87880000000223
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.5401999999994587,
+            "finalObservedMs": 30.73279999999795,
+            "elapsedMs": 30.863900000000285
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.16700000000128,
+            "finalObservedMs": 15.16700000000128,
+            "elapsedMs": 15.253199999999197
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.220900000000256,
+            "finalObservedMs": 30.3308999999972,
+            "elapsedMs": 30.42109999999957
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 15.425699999999779,
+            "finalObservedMs": 15.425699999999779,
+            "elapsedMs": 15.515999999999622
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.7654999999977,
+            "finalObservedMs": 30.49579999999696,
+            "elapsedMs": 30.6320999999989
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.216899999999441,
+            "finalObservedMs": 15.216899999999441,
+            "elapsedMs": 15.319400000000314
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.634900000000926,
+            "finalObservedMs": 30.415799999998853,
+            "elapsedMs": 30.53979999999865
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.630499999999302,
+            "finalObservedMs": 14.630499999999302,
+            "elapsedMs": 14.747199999997974
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.268199999998615,
+            "finalObservedMs": 30.98990000000049,
+            "elapsedMs": 31.124700000000303
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.075700000001234,
+            "finalObservedMs": 15.075700000001234,
+            "elapsedMs": 15.212200000001758
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.857199999998556,
+            "finalObservedMs": 30.949899999999616,
+            "elapsedMs": 31.09349999999904
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.841499999998632,
+            "finalObservedMs": 14.841499999998632,
+            "elapsedMs": 14.94800000000032
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.025399999998626,
+            "finalObservedMs": 30.286700000000565,
+            "elapsedMs": 30.377599999999802
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.25539999999819,
+            "finalObservedMs": 15.25539999999819,
+            "elapsedMs": 15.408100000000559
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.182799999998679,
+            "finalObservedMs": 31.3862999999983,
+            "elapsedMs": 31.550099999996746
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.338500000001659,
+            "finalObservedMs": 15.338500000001659,
+            "elapsedMs": 15.544400000002497
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.314300000001822,
+            "finalObservedMs": 30.341199999998935,
+            "elapsedMs": 30.537499999998545
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.871800000000803,
+            "finalObservedMs": 14.871800000000803,
+            "elapsedMs": 15.031100000000151
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.098300000001473,
+            "finalObservedMs": 29.987800000002608,
+            "elapsedMs": 30.1053000000029
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.1932999999989988,
+        "feed": -16.87909999999829,
+        "flush": 2.4118000000053144,
+        "total": -13.274200000001656
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.3333999999995285,
+        "feedMs": 440.27319999999963,
+        "flushMs": 3.401899999997113,
+        "totalMs": 446.0106999999989,
+        "recorderCpuMs": 4.865899999986141,
+        "writes": 42,
+        "writtenBytes": 3635744,
+        "artifactBytes": 167069,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 9.534899999998743,
+            "finalObservedMs": 9.534899999998743,
+            "elapsedMs": 9.654199999997218
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.597799999999552,
+            "finalObservedMs": 9.769499999998516,
+            "elapsedMs": 9.951900000000023
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 20.393599999999424,
+            "finalObservedMs": 20.393599999999424,
+            "elapsedMs": 20.5596000000005
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.96440000000075,
+            "finalObservedMs": 31.033300000002782,
+            "elapsedMs": 31.170500000000175
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.62749999999869,
+            "finalObservedMs": 14.62749999999869,
+            "elapsedMs": 14.769000000000233
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.554799999998068,
+            "finalObservedMs": 31.725399999999354,
+            "elapsedMs": 31.884600000001228
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.273399999998219,
+            "finalObservedMs": 14.273399999998219,
+            "elapsedMs": 14.410799999997835
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.590299999999843,
+            "finalObservedMs": 30.833800000000338,
+            "elapsedMs": 30.962999999999738
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.077799999999115,
+            "finalObservedMs": 14.077799999999115,
+            "elapsedMs": 14.18869999999879
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.305899999999383,
+            "finalObservedMs": 31.1349999999984,
+            "elapsedMs": 31.27339999999822
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.89010000000053,
+            "finalObservedMs": 14.89010000000053,
+            "elapsedMs": 15.077700000001641
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.930799999998271,
+            "finalObservedMs": 30.91009999999733,
+            "elapsedMs": 31.058999999997468
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.645899999999529,
+            "finalObservedMs": 14.645899999999529,
+            "elapsedMs": 14.820599999999104
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.527900000000955,
+            "finalObservedMs": 30.496899999998277,
+            "elapsedMs": 30.6278999999995
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.954200000000128,
+            "finalObservedMs": 14.954200000000128,
+            "elapsedMs": 15.085199999997712
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.60649999999805,
+            "finalObservedMs": 31.43999999999869,
+            "elapsedMs": 31.598599999997532
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 13.890299999999115,
+            "finalObservedMs": 13.890299999999115,
+            "elapsedMs": 14.024199999999837
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.723500000000058,
+            "finalObservedMs": 31.634900000000926,
+            "elapsedMs": 31.775499999999738
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.36279999999897,
+            "finalObservedMs": 14.36279999999897,
+            "elapsedMs": 14.482299999999668
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 16.906199999997625,
+            "finalObservedMs": 31.651599999997416,
+            "elapsedMs": 31.78440000000046
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.8764000000010128,
+        "feedMs": 456.58430000000226,
+        "flushMs": 0.538300000000163,
+        "totalMs": 458.0008000000016,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 10.375700000000506,
+            "finalObservedMs": 10.375700000000506,
+            "elapsedMs": 10.476000000002387
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.120999999999185,
+            "finalObservedMs": 31.07140000000072,
+            "elapsedMs": 31.200700000001234
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.18250000000262,
+            "finalObservedMs": 15.18250000000262,
+            "elapsedMs": 15.287600000003295
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.64849999999933,
+            "finalObservedMs": 31.20209999999861,
+            "elapsedMs": 31.38850000000093
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.674800000000687,
+            "finalObservedMs": 14.674800000000687,
+            "elapsedMs": 14.834999999999127
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.528700000002573,
+            "finalObservedMs": 30.577300000000832,
+            "elapsedMs": 30.817800000000716
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.90350000000035,
+            "finalObservedMs": 14.90350000000035,
+            "elapsedMs": 15.015599999998813
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.374600000002829,
+            "finalObservedMs": 30.83770000000004,
+            "elapsedMs": 31.016999999999825
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.16189999999915,
+            "finalObservedMs": 15.16189999999915,
+            "elapsedMs": 15.325300000000425
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 14.869699999999284,
+            "finalObservedMs": 29.98649999999907,
+            "elapsedMs": 30.12489999999889
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.115200000000186,
+            "finalObservedMs": 15.115200000000186,
+            "elapsedMs": 15.203799999999319
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.29660000000149,
+            "finalObservedMs": 31.04650000000038,
+            "elapsedMs": 31.16820000000007
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.554299999999785,
+            "finalObservedMs": 15.554299999999785,
+            "elapsedMs": 15.725000000002183
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.008200000000215,
+            "finalObservedMs": 30.46519999999873,
+            "elapsedMs": 30.612599999996746
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.84009999999762,
+            "finalObservedMs": 14.84009999999762,
+            "elapsedMs": 14.953499999999622
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.182299999996758,
+            "finalObservedMs": 30.515299999999115,
+            "elapsedMs": 30.675499999997555
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.287899999999354,
+            "finalObservedMs": 15.287899999999354,
+            "elapsedMs": 15.384799999999814
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 14.920500000000175,
+            "finalObservedMs": 29.747400000000198,
+            "elapsedMs": 29.863499999999476
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 15.076100000002043,
+            "finalObservedMs": 15.076100000002043,
+            "elapsedMs": 15.182000000000698
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.703199999999924,
+            "finalObservedMs": 31.10949999999866,
+            "elapsedMs": 31.28229999999894
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.4569999999985157,
+        "feed": -16.311100000002625,
+        "flush": 2.86359999999695,
+        "total": -11.990100000002712
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.2501000000011118,
+        "feedMs": 463.63880000000063,
+        "flushMs": 3.4111999999986438,
+        "totalMs": 469.3017,
+        "recorderCpuMs": 4.8848999999972875,
+        "writes": 42,
+        "writtenBytes": 3631471,
+        "artifactBytes": 167076,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 15.587500000001455,
+            "finalObservedMs": 15.587500000001455,
+            "elapsedMs": 15.716400000001158
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.8448999999964144,
+            "finalObservedMs": 31.602499999997235,
+            "elapsedMs": 31.74499999999898
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.636000000002241,
+            "finalObservedMs": 14.636000000002241,
+            "elapsedMs": 14.760700000002544
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.01889999999912,
+            "finalObservedMs": 30.90519999999742,
+            "elapsedMs": 31.020300000000134
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.826900000000023,
+            "finalObservedMs": 14.826900000000023,
+            "elapsedMs": 14.93960000000152
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.549300000002404,
+            "finalObservedMs": 30.762000000002445,
+            "elapsedMs": 30.854999999999563
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.085199999997712,
+            "finalObservedMs": 15.085199999997712,
+            "elapsedMs": 15.212800000001153
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.984599999999773,
+            "finalObservedMs": 31.024499999999534,
+            "elapsedMs": 31.200299999996787
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.667700000001787,
+            "finalObservedMs": 14.667700000001787,
+            "elapsedMs": 14.822000000000116
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.030500000000757,
+            "finalObservedMs": 31.99529999999868,
+            "elapsedMs": 32.170099999999366
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.24949999999808,
+            "finalObservedMs": 14.24949999999808,
+            "elapsedMs": 14.418900000000576
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.567699999999604,
+            "finalObservedMs": 30.80949999999939,
+            "elapsedMs": 30.927800000001298
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.16070000000036,
+            "finalObservedMs": 15.16070000000036,
+            "elapsedMs": 15.297299999998359
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.84690000000046,
+            "finalObservedMs": 31.81920000000173,
+            "elapsedMs": 32.125700000000506
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 13.221600000000763,
+            "finalObservedMs": 13.221600000000763,
+            "elapsedMs": 13.34270000000106
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.230500000001484,
+            "finalObservedMs": 31.920900000000984,
+            "elapsedMs": 32.08970000000045
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.414400000001478,
+            "finalObservedMs": 14.414400000001478,
+            "elapsedMs": 14.615499999999884
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.56749999999738,
+            "finalObservedMs": 31.31499999999869,
+            "elapsedMs": 31.479999999999563
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.29490000000078,
+            "finalObservedMs": 14.29490000000078,
+            "elapsedMs": 14.424699999999575
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.53570000000036,
+            "finalObservedMs": 31.171399999999267,
+            "elapsedMs": 31.302200000001903
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.7803999999996449,
+        "feedMs": 462.1453999999976,
+        "flushMs": 0.6703000000015891,
+        "totalMs": 463.59739999999874,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 16.498899999998685,
+            "finalObservedMs": 16.498899999998685,
+            "elapsedMs": 16.62749999999869
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.1186000000016065,
+            "finalObservedMs": 31.000299999999697,
+            "elapsedMs": 31.158699999999953
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.04910000000018,
+            "finalObservedMs": 15.04910000000018,
+            "elapsedMs": 15.209300000002258
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.13799999999901,
+            "finalObservedMs": 30.762800000000425,
+            "elapsedMs": 31.0128999999979
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.455999999998312,
+            "finalObservedMs": 14.455999999998312,
+            "elapsedMs": 14.60189999999784
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.658400000000256,
+            "finalObservedMs": 30.809299999997165,
+            "elapsedMs": 30.97729999999865
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.992699999998877,
+            "finalObservedMs": 14.992699999998877,
+            "elapsedMs": 15.1320999999989
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.475099999999657,
+            "finalObservedMs": 30.764400000000023,
+            "elapsedMs": 30.895799999998417
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.970799999999144,
+            "finalObservedMs": 14.970799999999144,
+            "elapsedMs": 15.102100000000064
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.809300000000803,
+            "finalObservedMs": 30.49630000000252,
+            "elapsedMs": 30.714200000002165
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.392200000002049,
+            "finalObservedMs": 15.392200000002049,
+            "elapsedMs": 15.565300000002026
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.296200000000681,
+            "finalObservedMs": 30.756000000001222,
+            "elapsedMs": 30.937000000001717
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.755300000000716,
+            "finalObservedMs": 14.755300000000716,
+            "elapsedMs": 14.881199999999808
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.672600000001694,
+            "finalObservedMs": 30.363799999999173,
+            "elapsedMs": 30.505799999999
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.547699999999168,
+            "finalObservedMs": 14.547699999999168,
+            "elapsedMs": 14.652500000000146
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.489900000000489,
+            "finalObservedMs": 30.877199999998993,
+            "elapsedMs": 31.001499999998487
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.44629999999961,
+            "finalObservedMs": 14.44629999999961,
+            "elapsedMs": 14.535299999999552
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 16.12829999999667,
+            "finalObservedMs": 31.766399999996793,
+            "elapsedMs": 31.94159999999829
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.645500000002357,
+            "finalObservedMs": 14.645500000002357,
+            "elapsedMs": 14.794600000001083
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.22190000000046,
+            "finalObservedMs": 30.89300000000003,
+            "elapsedMs": 31.038100000001577
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.4697000000014668,
+        "feed": 1.493400000003021,
+        "flush": 2.7408999999970547,
+        "total": 5.70430000000124
+      }
+    },
+    {
+      "order": "off-on",
+      "on": {
+        "setupMs": 2.214700000000448,
+        "feedMs": 438.2423999999992,
+        "flushMs": 3.3954999999987194,
+        "totalMs": 443.85359999999855,
+        "recorderCpuMs": 4.5090000000091095,
+        "writes": 42,
+        "writtenBytes": 3631280,
+        "artifactBytes": 167070,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 9.351800000000367,
+            "finalObservedMs": 9.351800000000367,
+            "elapsedMs": 9.519800000001851
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.401799999999639,
+            "finalObservedMs": 15.409800000001269,
+            "elapsedMs": 15.54200000000128
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.486799999998766,
+            "finalObservedMs": 14.486799999998766,
+            "elapsedMs": 14.581399999999121
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.234099999997852,
+            "finalObservedMs": 31.031599999998434,
+            "elapsedMs": 31.152099999999336
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.993099999999686,
+            "finalObservedMs": 14.993099999999686,
+            "elapsedMs": 15.160200000002078
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 14.877599999999802,
+            "finalObservedMs": 30.422500000000582,
+            "elapsedMs": 30.590700000000652
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.696400000000722,
+            "finalObservedMs": 14.696400000000722,
+            "elapsedMs": 14.873899999998685
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.632799999999406,
+            "finalObservedMs": 30.39129999999932,
+            "elapsedMs": 30.556399999997666
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.236799999998766,
+            "finalObservedMs": 14.236799999998766,
+            "elapsedMs": 14.420799999999872
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.650700000001962,
+            "finalObservedMs": 30.545200000000477,
+            "elapsedMs": 30.66570000000138
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.368000000002212,
+            "finalObservedMs": 15.368000000002212,
+            "elapsedMs": 15.548999999999069
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 14.79819999999745,
+            "finalObservedMs": 30.177499999997963,
+            "elapsedMs": 30.300599999998667
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.28399999999965,
+            "finalObservedMs": 14.28399999999965,
+            "elapsedMs": 14.374899999998888
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.359200000002602,
+            "finalObservedMs": 31.051400000000285,
+            "elapsedMs": 31.162599999999657
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.579799999999523,
+            "finalObservedMs": 14.579799999999523,
+            "elapsedMs": 14.663899999999558
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 16.009799999999814,
+            "finalObservedMs": 31.50510000000213,
+            "elapsedMs": 31.62710000000152
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.214899999999034,
+            "finalObservedMs": 14.214899999999034,
+            "elapsedMs": 14.326499999999214
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.857299999999668,
+            "finalObservedMs": 31.26669999999649,
+            "elapsedMs": 31.380099999998492
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.522899999999936,
+            "finalObservedMs": 14.522899999999936,
+            "elapsedMs": 14.647399999998015
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.948099999997794,
+            "finalObservedMs": 31.850500000000466,
+            "elapsedMs": 32.00500000000102
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.8251999999993131,
+        "feedMs": 440.53559999999925,
+        "flushMs": 0.707300000001851,
+        "totalMs": 442.0695999999989,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 11.087200000001758,
+            "finalObservedMs": 11.087200000001758,
+            "elapsedMs": 11.200000000000728
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 1.6889000000010128,
+            "finalObservedMs": 30.96979999999894,
+            "elapsedMs": 31.147000000000844
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.112999999997555,
+            "finalObservedMs": 14.112999999997555,
+            "elapsedMs": 14.237299999997049
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.753399999997782,
+            "finalObservedMs": 31.28979999999865,
+            "elapsedMs": 31.430099999997765
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.94550000000163,
+            "finalObservedMs": 14.94550000000163,
+            "elapsedMs": 15.113600000000588
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 14.906700000003184,
+            "finalObservedMs": 29.70390000000043,
+            "elapsedMs": 29.83060000000114
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.820199999998295,
+            "finalObservedMs": 14.820199999998295,
+            "elapsedMs": 14.933799999998882
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.315200000000914,
+            "finalObservedMs": 31.056499999998778,
+            "elapsedMs": 31.194400000000314
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.439299999998184,
+            "finalObservedMs": 15.439299999998184,
+            "elapsedMs": 15.594300000000658
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.341400000001158,
+            "finalObservedMs": 15.341400000001158,
+            "elapsedMs": 15.49210000000312
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.967400000001362,
+            "finalObservedMs": 14.967400000001362,
+            "elapsedMs": 15.120699999999488
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.447199999998702,
+            "finalObservedMs": 30.959599999998318,
+            "elapsedMs": 31.10019999999713
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.095300000000861,
+            "finalObservedMs": 15.095300000000861,
+            "elapsedMs": 15.206700000002456
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.090999999996711,
+            "finalObservedMs": 30.6333999999988,
+            "elapsedMs": 30.81659999999829
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.573100000001432,
+            "finalObservedMs": 14.573100000001432,
+            "elapsedMs": 14.715799999998126
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.711500000001251,
+            "finalObservedMs": 30.761399999999412,
+            "elapsedMs": 30.936499999999796
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 15.088499999998021,
+            "finalObservedMs": 15.088499999998021,
+            "elapsedMs": 15.26469999999972
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.34100000000035,
+            "finalObservedMs": 30.627700000000914,
+            "elapsedMs": 30.818200000001525
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.704399999998714,
+            "finalObservedMs": 14.704399999998714,
+            "elapsedMs": 14.88010000000213
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.411499999998341,
+            "finalObservedMs": 30.125599999999395,
+            "elapsedMs": 30.320700000000215
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.389500000001135,
+        "feed": -2.29320000000007,
+        "flush": 2.6881999999968684,
+        "total": 1.7839999999996508
+      }
+    },
+    {
+      "order": "on-off",
+      "on": {
+        "setupMs": 2.3081999999994878,
+        "feedMs": 445.3657999999996,
+        "flushMs": 3.662799999998242,
+        "totalMs": 451.33899999999994,
+        "recorderCpuMs": 4.602099999981874,
+        "writes": 42,
+        "writtenBytes": 3631274,
+        "artifactBytes": 167069,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 14.109300000000076,
+            "finalObservedMs": 14.109300000000076,
+            "elapsedMs": 14.24789999999848
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.5825999999979103,
+            "finalObservedMs": 15.253099999998085,
+            "elapsedMs": 15.448300000000017
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 14.5795999999973,
+            "finalObservedMs": 14.5795999999973,
+            "elapsedMs": 14.713999999999942
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 15.088800000001356,
+            "finalObservedMs": 30.476300000002084,
+            "elapsedMs": 30.582099999999627
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.808199999999488,
+            "finalObservedMs": 14.808199999999488,
+            "elapsedMs": 14.93489999999656
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 16.016500000001543,
+            "finalObservedMs": 31.414700000001176,
+            "elapsedMs": 31.563500000000204
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 14.785399999997026,
+            "finalObservedMs": 14.785399999997026,
+            "elapsedMs": 14.966899999999441
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 15.937099999999191,
+            "finalObservedMs": 31.368399999999383,
+            "elapsedMs": 31.51759999999922
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 14.2016999999978,
+            "finalObservedMs": 14.2016999999978,
+            "elapsedMs": 14.341899999999441
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 15.926900000002206,
+            "finalObservedMs": 31.49250000000029,
+            "elapsedMs": 31.625
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 14.659799999997631,
+            "finalObservedMs": 14.659799999997631,
+            "elapsedMs": 14.800400000000081
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 15.637699999999313,
+            "finalObservedMs": 31.256000000001222,
+            "elapsedMs": 31.41949999999997
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 14.402600000001257,
+            "finalObservedMs": 14.402600000001257,
+            "elapsedMs": 14.571200000002136
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 15.43699999999808,
+            "finalObservedMs": 30.98029999999926,
+            "elapsedMs": 31.142899999998917
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 14.472200000000157,
+            "finalObservedMs": 14.472200000000157,
+            "elapsedMs": 14.638299999998708
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.927700000000186,
+            "finalObservedMs": 31.202100000002247,
+            "elapsedMs": 31.33510000000024
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.184300000000803,
+            "finalObservedMs": 14.184300000000803,
+            "elapsedMs": 14.368800000000192
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.83270000000266,
+            "finalObservedMs": 32.00630000000092,
+            "elapsedMs": 32.1875
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.20679999999993,
+            "finalObservedMs": 14.20679999999993,
+            "elapsedMs": 14.380600000000413
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.97570000000269,
+            "finalObservedMs": 31.23660000000018,
+            "elapsedMs": 31.357600000003004
+          }
+        ]
+      },
+      "off": {
+        "setupMs": 0.7891000000017812,
+        "feedMs": 456.75640000000203,
+        "flushMs": 0.5940000000009604,
+        "totalMs": 458.14140000000043,
+        "recorderCpuMs": 0,
+        "writes": 0,
+        "writtenBytes": 0,
+        "artifactBytes": 0,
+        "outputDigest": "8bd50dea7e701e0c8855e4af4e65ba827621eb1ef6641f7477ee27d75e1588d1",
+        "eventCount": 180,
+        "observations": [
+          {
+            "promptId": "p0",
+            "firstAnswerObservedMs": 17.400399999998626,
+            "finalObservedMs": 17.400399999998626,
+            "elapsedMs": 17.534599999999045
+          },
+          {
+            "promptId": "p1",
+            "firstAnswerObservedMs": 2.166000000001077,
+            "finalObservedMs": 30.980500000001484,
+            "elapsedMs": 31.14390000000276
+          },
+          {
+            "promptId": "p2",
+            "firstAnswerObservedMs": 15.120899999998073,
+            "finalObservedMs": 15.120899999998073,
+            "elapsedMs": 15.246499999997468
+          },
+          {
+            "promptId": "p3",
+            "firstAnswerObservedMs": 16.078099999998813,
+            "finalObservedMs": 31.324399999997695,
+            "elapsedMs": 31.497299999999086
+          },
+          {
+            "promptId": "p4",
+            "firstAnswerObservedMs": 14.90179999999964,
+            "finalObservedMs": 14.90179999999964,
+            "elapsedMs": 15.035900000002584
+          },
+          {
+            "promptId": "p5",
+            "firstAnswerObservedMs": 15.289700000001176,
+            "finalObservedMs": 31.682300000000396,
+            "elapsedMs": 31.854699999999866
+          },
+          {
+            "promptId": "p6",
+            "firstAnswerObservedMs": 15.763899999998102,
+            "finalObservedMs": 15.763899999998102,
+            "elapsedMs": 15.873399999996764
+          },
+          {
+            "promptId": "p7",
+            "firstAnswerObservedMs": 14.953799999999319,
+            "finalObservedMs": 30.262399999999616,
+            "elapsedMs": 30.37750000000233
+          },
+          {
+            "promptId": "p8",
+            "firstAnswerObservedMs": 15.362199999999575,
+            "finalObservedMs": 15.362199999999575,
+            "elapsedMs": 15.465899999999237
+          },
+          {
+            "promptId": "p9",
+            "firstAnswerObservedMs": 16.020000000000437,
+            "finalObservedMs": 32.73090000000229,
+            "elapsedMs": 32.91489999999976
+          },
+          {
+            "promptId": "p10",
+            "firstAnswerObservedMs": 15.607299999999668,
+            "finalObservedMs": 15.607299999999668,
+            "elapsedMs": 15.697400000000926
+          },
+          {
+            "promptId": "p11",
+            "firstAnswerObservedMs": 16.197299999999814,
+            "finalObservedMs": 30.76599999999962,
+            "elapsedMs": 30.885600000001432
+          },
+          {
+            "promptId": "p12",
+            "firstAnswerObservedMs": 15.128100000001723,
+            "finalObservedMs": 15.128100000001723,
+            "elapsedMs": 15.213299999999435
+          },
+          {
+            "promptId": "p13",
+            "firstAnswerObservedMs": 16.160899999998946,
+            "finalObservedMs": 32.42039999999906,
+            "elapsedMs": 32.55169999999998
+          },
+          {
+            "promptId": "p14",
+            "firstAnswerObservedMs": 15.59059999999954,
+            "finalObservedMs": 15.59059999999954,
+            "elapsedMs": 15.751799999998184
+          },
+          {
+            "promptId": "p15",
+            "firstAnswerObservedMs": 15.10399999999936,
+            "finalObservedMs": 31.03989999999976,
+            "elapsedMs": 31.208299999998417
+          },
+          {
+            "promptId": "p16",
+            "firstAnswerObservedMs": 14.931300000000192,
+            "finalObservedMs": 14.931300000000192,
+            "elapsedMs": 15.062699999998586
+          },
+          {
+            "promptId": "p17",
+            "firstAnswerObservedMs": 15.853100000000268,
+            "finalObservedMs": 15.853100000000268,
+            "elapsedMs": 16.02520000000004
+          },
+          {
+            "promptId": "p18",
+            "firstAnswerObservedMs": 14.809900000000198,
+            "finalObservedMs": 14.809900000000198,
+            "elapsedMs": 14.948800000001938
+          },
+          {
+            "promptId": "p19",
+            "firstAnswerObservedMs": 15.643699999996898,
+            "finalObservedMs": 31.16820000000007,
+            "elapsedMs": 31.359099999997852
+          }
+        ]
+      },
+      "deltaMs": {
+        "setup": 1.5190999999977066,
+        "feed": -11.39060000000245,
+        "flush": 3.0687999999972817,
+        "total": -6.802400000000489
+      }
+    }
+  ],
+  "summary": {
+    "setupDeltaMs": {
+      "min": 1.1423000000013417,
+      "median": 1.4267999999992753,
+      "p95": 1.852100000000064,
+      "max": 1.9110999999984415
+    },
+    "feedDeltaMs": {
+      "min": -43.78719999999976,
+      "median": -6.971349999999347,
+      "p95": 13.345499999999447,
+      "max": 26.757999999997992
+    },
+    "flushDeltaMs": {
+      "min": 2.4118000000053144,
+      "median": 2.8585999999986598,
+      "p95": 5.039700000002995,
+      "max": 6.989599999999882
+    },
+    "totalDeltaMs": {
+      "min": -35.166299999999865,
+      "median": -2.6022999999991043,
+      "p95": 17.620899999999892,
+      "max": 33.708199999997305
+    }
+  },
+  "quality": null,
+  "usage": null,
+  "costUsd": null,
+  "liveOverheadMs": null
+}

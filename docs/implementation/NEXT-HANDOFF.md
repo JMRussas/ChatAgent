@@ -1,5 +1,35 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: matched mock HTTP runtime overhead
+
+The overhead command now accepts `http` after the capture mode. It measures a
+fresh loopback runtime through real HTTP submission, context preparation, fixed mock
+providers, automatic deep retries, timeline polling and shutdown/persistence. Pairs
+must preserve normalized provider requests, routes, retries, model-labelled answers
+and terminal outcomes. No local/live provider configuration is selected.
+
+[HTTP method and raw evidence](06b-recording.md#matched-http-runtime-overhead) preserve
+20 pairs per capture mode with warmups and alternating order. Median total batch
+deltas were -36.86 ms metadata and -14.45 ms answers in the isolated rerun; shutdown
+deltas were positive (3.41 / 2.84 ms). Negative workload deltas reflect scheduling
+and measurement variability and are not evidence that recording makes inference
+faster. An earlier answer run overlapping a test invocation is retained explicitly
+as exploratory. All measurements are synthetic; no live capacity was consumed.
+
+Validation: **496 tests / 65 files**, typecheck, build and seeded simulated release
+gate pass. Added HTTP parity/persistence cases for both capture modes and failure
+cleanup after server startup. The original recorder-component reports remain intact.
+
+Also clarified the selected `experiments/doc-agent/LANGGRAPH.md` paragraph: the
+plain graph command defaults to no persistence, while the current graph supports
+the SQLite durable wrapper's checkpoint/resume hooks. Confirmed pauses survive
+restart; uncertain mid-execution crashes are still refused. No Python runtime
+behavior changed and the experimental track remains parked.
+
+Next: live-observation/recorder report linkage, then browser and live-quality
+acceptance. EVAL-06 still has live/concurrent deadline and supported usage-accounting
+limits; spec 06 is not complete. Recording remains off locally.
+
 ## 2026-09-30: measured recorder-component overhead
 
 Added `npm run eval:overhead -- <new-report.json> metadata|answers`: a matched,

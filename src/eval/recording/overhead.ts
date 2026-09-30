@@ -5,9 +5,10 @@ import type { ChatTimelineEvent } from "../../domain/types";
 import { InMemoryConversationTimelineStore } from "../../app/timelineStore";
 import { canonical, digest, type RunArtifact } from "./contract";
 import { EvaluationRecorder, writeArtifact, type ArtifactWriter } from "./recorder";
+import { startHttpOverhead } from "./httpOverhead";
 import { validateArtifact } from "./storage";
 
-export interface OverheadOptions { root: string; pairs: number; warmupPairs: number; turns: number; capture: "metadata" | "answers" }
+export interface OverheadOptions { root: string; pairs: number; warmupPairs: number; turns: number; capture: "metadata" | "answers"; execution?: "timeline" | "http" }
 export function overheadWorkload(turns: number) {
   const dataset = { version: "recorder-overhead-v1", prompts: Array.from({ length: turns }, (_, i) => ({ id: `p${i}`, text: `Synthetic prompt ${i}` })) };
   const events: Array<{ conversation: string; event: ChatTimelineEvent }> = [];
@@ -44,12 +45,18 @@ export async function measureRecorderOverhead(options: OverheadOptions, code: Ru
   }
   if (!["metadata", "answers"].includes(options.capture) || !code.revision || !code.sourceDigest || code.dirty === null) throw new Error("EVAL_OVERHEAD_MISSING_IDENTITY");
   const workload = overheadWorkload(options.turns);
-  const configuration = { method: "timeline-replay-v1", capture: options.capture, turns: options.turns,
+  const execution = options.execution ?? "timeline";
+  if (!["timeline", "http"].includes(execution)) throw new Error("EVAL_OVERHEAD_INVALID_OPTIONS");
+  if (execution === "http") workload.dataset = { version: "recorder-http-overhead-v1", prompts: workload.dataset.prompts.map((p, i) => ({ ...p,
+    text: i % 2 ? `Compare and design code for a complex distributed system case ${i} with detailed tradeoffs and cite sources` : `Explain event loops for application case ${i}` })) };
+  const configuration = { method: execution === "http" ? "mock-http-runtime-v1" : "timeline-replay-v1",
+    ...(execution === "http" ? { workerIntervalMs: 5, pollIntervalMs: 5, deadlineMs: 5000 } : {}), capture: options.capture, turns: options.turns,
     maxBytes: 67108864, maxEvents: 10000, retentionMs: 3600000 };
   const run = async (enabled: boolean) => {
     // Directory creation/deletion and verification are excluded equally from both conditions.
     const root = await mkdtemp(join(options.root, "recorder-overhead-"));
     let recorder: EvaluationRecorder | undefined;
+    let http: Awaited<ReturnType<typeof startHttpOverhead>> | undefined;
     let writes = 0, writtenBytes = 0;
     try {
       const start = performance.now();
@@ -60,25 +67,30 @@ export async function measureRecorderOverhead(options: OverheadOptions, code: Ru
         await recorder.flush();
       }
       const timeline = new InMemoryConversationTimelineStore(recorder?.record);
+      if (execution === "http") http = await startHttpOverhead(timeline, workload.dataset, async () => { await recorder?.finish(); });
       const setupMs = performance.now() - start;
       const feedStart = performance.now();
-      for (const { conversation, event } of workload.events) await timeline.appendEvent(conversation, event);
+      const httpResult = http ? await http.run() : undefined;
+      if (!http) for (const { conversation, event } of workload.events) await timeline.appendEvent(conversation, event);
       const feedMs = performance.now() - feedStart;
       const flushStart = performance.now();
-      await recorder?.finish();
+      if (http) await http.close();
+      else await recorder?.finish();
       const flushMs = performance.now() - flushStart;
       const totalMs = performance.now() - start;
       let recorderCpuMs = 0, artifactBytes = 0;
       if (recorder) {
         const serialized = await readFile(recorder.path, "utf8");
         const artifact = validateArtifact(JSON.parse(serialized));
-        if (artifact.manifest.status !== "complete" || artifact.manifest.droppedEvents || artifact.trace.length !== workload.events.length) throw new Error("EVAL_OVERHEAD_INVALID_RECORDING");
+        if (artifact.manifest.status !== "complete" || artifact.manifest.droppedEvents || artifact.trace.length !== (httpResult?.eventCount ?? workload.events.length)) throw new Error("EVAL_OVERHEAD_INVALID_RECORDING");
         recorderCpuMs = artifact.summary.recorderCpuMs; artifactBytes = Buffer.byteLength(serialized);
       }
       const output = [];
-      for (let i = 0; i < options.turns; i++) output.push((await timeline.getEvents(`c${i}`)).map(({ eventId: _, ...event }) => event));
-      return { setupMs, feedMs, flushMs, totalMs, recorderCpuMs, writes, writtenBytes, artifactBytes, outputDigest: digest(canonical(output)) };
+      if (!http) for (let i = 0; i < options.turns; i++) output.push((await timeline.getEvents(`c${i}`)).map(({ eventId: _, ...event }) => event));
+      return { setupMs, feedMs, flushMs, totalMs, recorderCpuMs, writes, writtenBytes, artifactBytes, outputDigest: digest(canonical(httpResult?.output ?? output)),
+        eventCount: httpResult?.eventCount ?? workload.events.length, observations: httpResult?.observations ?? null };
     } finally {
+      await http?.close().catch(() => undefined);
       await recorder?.finish().catch(() => undefined);
       await rm(root, { recursive: true, force: true });
     }
@@ -94,10 +106,11 @@ export async function measureRecorderOverhead(options: OverheadOptions, code: Ru
       deltaMs: { setup: on.setupMs - off.setupMs, feed: on.feedMs - off.feedMs, flush: on.flushMs - off.flushMs, total: on.totalMs - off.totalMs } });
   }
   return { schemaVersion: "chatagent-recorder-overhead-v1", generatedAtIso: new Date().toISOString(), mode: "synthetic",
-    scope: "in-process timeline replay with real recorder writes; excludes inference, HTTP, startup discovery and directory cleanup",
+    scope: execution === "http" ? "loopback HTTP, production orchestration/context/retries/automatic worker and shutdown; mock providers; excludes discovery, catalog dispatch, live inference and directory cleanup"
+      : "in-process timeline replay with real recorder writes; excludes inference, HTTP, startup discovery and directory cleanup",
     environment: { node: process.version, platform: process.platform, architecture: process.arch }, code,
-    configuration, configurationDigest: digest(canonical(configuration)), workloadDigest: digest(canonical(workload)),
-    eventCount: workload.events.length, warmupPairs: options.warmupPairs, pairs,
+    configuration, configurationDigest: digest(canonical(configuration)), workloadDigest: digest(canonical(execution === "http" ? workload.dataset : workload)),
+    eventCount: pairs[0].on.eventCount, warmupPairs: options.warmupPairs, pairs,
     summary: { setupDeltaMs: distribution(pairs.map(p => p.deltaMs.setup)), feedDeltaMs: distribution(pairs.map(p => p.deltaMs.feed)),
       flushDeltaMs: distribution(pairs.map(p => p.deltaMs.flush)), totalDeltaMs: distribution(pairs.map(p => p.deltaMs.total)) },
     quality: null, usage: null, costUsd: null, liveOverheadMs: null };
