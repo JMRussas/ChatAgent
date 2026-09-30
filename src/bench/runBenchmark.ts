@@ -11,7 +11,7 @@ import {
   type BenchmarkProfile,
   type BenchmarkPrompt
 } from "./benchmarkCore";
-import { runLiveBenchmark } from "./liveBenchmark";
+import { runLiveReport } from "./liveReport";
 
 const BenchmarkPromptSchema = z.object({
   id: z.string().min(1),
@@ -92,22 +92,19 @@ function digestJson(value: unknown): string {
 async function main() {
   const promptsPath = process.env.BENCH_PROMPTS_PATH ?? "data/benchmark-prompts.json";
   const mode = normalizeBenchmarkMode(process.env.BENCH_MODE);
-  const jsonOutPath = process.env.BENCH_JSON_OUT ?? (mode === "live" ? "reports/live-benchmark-v1.json" : "reports/benchmark-summary.json");
-  const mdOutPath = process.env.BENCH_MD_OUT ?? (mode === "live" ? "reports/live-benchmark-v1.md" : "reports/benchmark-summary.md");
+  const jsonOutPath = process.env.BENCH_JSON_OUT ?? (mode === "live" ? "reports/live-benchmark-v2.json" : "reports/benchmark-summary.json");
+  const mdOutPath = process.env.BENCH_MD_OUT ?? (mode === "live" ? "reports/live-benchmark-v2.md" : "reports/benchmark-summary.md");
   const baseUrl = process.env.BENCH_BASE_URL ?? "http://localhost:3100";
   const simulationSeed = process.env.BENCH_SIM_SEED ?? "default-v1";
 
   const prompts = await readPrompts(promptsPath);
   if (mode === "live") {
-    const records = await runLiveBenchmark(prompts, { baseUrl, deadlineMs: Number(process.env.BENCH_DEADLINE_MS ?? 120000) });
-    const report = { schemaVersion: "chatagent-live-benchmark-v1", mode: "live",
-      generatedAtIso: new Date().toISOString(), promptsDigestSha256: digestJson(prompts),
-      requestedPromptCount: prompts.length, executedPromptCount: records.length,
-      configurationDigest: null, qualityMethod: "unrated", comparisonEligible: false, records };
+    const report = await runLiveReport(prompts, { baseUrl, deadlineMs: Number(process.env.BENCH_DEADLINE_MS ?? 120000) });
+    const records = report.records;
     await mkdir(dirname(jsonOutPath), { recursive: true });
     await mkdir(dirname(mdOutPath), { recursive: true });
     await writeFile(jsonOutPath, JSON.stringify(report, null, 2), "utf8");
-    await writeFile(mdOutPath, `# Live benchmark observations\n\n${records.length} turns; ${records.filter(r => r.outcome === "stop").length} stopped normally.\n\nQuality, usage and cost are unknown. Configuration compatibility and grading are pending; this report cannot pass a quality or comparison gate. Timings are client observations, not provider execution durations.\n`, "utf8");
+    await writeFile(mdOutPath, `# Live benchmark observations\n\n${records.length} turns; ${records.filter(r => r.outcome === "stop").length} stopped normally.\n\nQuality, usage and cost are unknown. Use eval:recordings link-live with the completed recorder artifact, dataset and annotations to validate evidence and grade exact answers; this observation report alone cannot pass a quality or comparison gate. Timings are client observations, not provider execution durations.\n`, "utf8");
     console.log(`Live benchmark report written to ${jsonOutPath}`);
     if (records.some(r => r.outcome !== "stop")) process.exitCode = 1;
     return;

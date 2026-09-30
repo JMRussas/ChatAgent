@@ -274,6 +274,49 @@ No live inference overhead estimate, deadline-safety claim, performance threshol
 statistical significance is inferred from this mock workload. Further live-provider,
 concurrency and browser acceptance remains in spec 06.
 
+## Linking HTTP observations to recorder evidence
+
+Live benchmark CLI runs now write `chatagent-live-benchmark-v2` observations to
+`reports/live-benchmark-v2.json` by default. The runner checks `/telemetry/evaluation`
+before and after the batch: only the same healthy, active recorder ID is eligible
+for linking. Recording disabled, unreachable status, changed run IDs, failure or
+dropped events produce a null recorder ID. The benchmark still reports observations,
+but those observations cannot be linked as complete evaluation evidence.
+
+Start a dedicated runtime with `EVAL_RECORDING=true`, `EVAL_CAPTURE=answers`, and
+`EVAL_DATASET_PATH` set to a versioned dataset. The benchmark's prompt array must
+match that dataset's `prompts`, in order. Run only this benchmark in the recorder
+session. After the benchmark, shut down the server cleanly to finalize `run.json`.
+Prepare the versioned exact-answer annotations, then run:
+
+```bash
+npm run eval:recordings -- link-live reports/live-benchmark-v2.json reports/evaluations/RUN_ID/run.json dataset.json annotations.json
+```
+
+The `chatagent-linked-benchmark-v1` result includes digests of both input artifacts,
+actual configuration/code/dataset identity, the exact-answer grading result, and
+per-prompt HTTP observation timings. Linking reconstructs the recorder's hashed
+conversation, turn and call IDs from the raw benchmark IDs and the recorder run ID.
+It requires one complete ordered dataset pass, matching prompt hashes, full attempt
+coverage, model/binding/revision identities, retry counts, completed phase outcomes,
+answer hashes and consistent live/synthetic labels. It rejects unrelated artifacts
+even if their answers happen to have identical text. The runtime can use mocks; the
+report's evidence mode remains synthetic in that case.
+
+HTTP observation times and annotated `firstUsefulRecorderMs` have different clocks
+and origins and are not substituted for each other. Linking is a consistency check
+on trusted local evidence, not signed attestation or proof of clock accuracy.
+Deadline/transport-incomplete observations do not become successful linked runs.
+Missing or failed ratings result in nonzero exit status even when identity linking
+succeeds. Incompatible evidence also exits nonzero. Output goes to stdout for saving.
+
+Cross-run compatibility is still checked with `eval:recordings compare` on the
+original recorder artifacts and annotations (plus an experiment manifest where
+needed). Linking alone does not establish compatibility, statistical significance,
+or a latency/quality improvement. The legacy simulation comparator rejects raw
+v1/v2 live and linked reports. Historical v1 observations lack the required run/turn
+linkage; keep them as history rather than retrofitting a guessed recorder identity.
+
 ## Acceptance evidence and remaining work
 
 `tests/unit/evaluationRecording.test.ts` covers EVAL-01 deterministic on/off
@@ -288,7 +331,8 @@ gate pass. No live provider call or model-grader invocation was needed.
 
 These tests cover the recorder/artifact portion, not all of spec 06. Full provider/queue timing instrumentation,
 end-to-end overhead measurements (EVAL-06), model-grader calibration, honest
-live report/recorder linkage and browser/live-quality comparisons remain.
+live-provider acceptance and browser/live-quality comparisons remain.
+HTTP observation/recorder linkage is implemented as described above.
 Recorder comparison contracts are implemented as described above; the historical
 453-test count in this section refers to the original 06B milestone. Existing
 historical benchmark reports are unchanged and are not evidence for this schema.

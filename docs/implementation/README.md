@@ -1,5 +1,31 @@
 # Implementation handoff
 
+## 2026-09-30: HTTP observation / recorder linkage
+
+The live benchmark CLI now emits `chatagent-live-benchmark-v2` with raw conversation
+IDs and a recorder run ID only when the same healthy recording brackets the batch.
+`eval:recordings link-live <report> <run> <dataset> <annotations>` verifies hashed
+turn/call correlation, full dataset coverage, model/binding identities, retries,
+terminal outcomes and exact answer hashes before attaching grades and actual
+configuration/code identity. HTTP observations and recorder useful-answer timing
+remain separately labelled. Missing/failed grades cannot pass quality; mismatched
+artifacts fail explicitly. Historical v1 reports cannot be retroactively linked.
+
+[Setup and boundaries](06b-recording.md#linking-http-observations-to-recorder-evidence)
+explain dedicated recorder sessions and clean shutdown before linking. Cross-run
+comparisons still use original recorder artifacts and the existing compatibility
+and experiment gate; a linked report does not bypass it.
+
+Validation: **513 tests / 66 files**, typecheck, build and seeded simulated release
+gate pass. Sixteen unit/CLI cases cover identity/schema/mismatch/grade/status rules;
+a real loopback HTTP test covers direct/deep mock execution, bracketed run identity,
+shutdown persistence and linked exact-answer grades. No live provider calls.
+
+Next: **browser acceptance** (streaming, overlap, cancel/error, reconnect and
+accessibility), then explicitly configured live-quality acceptance and remaining
+live/concurrent measurement limits. Spec 06 remains in progress; sports follows it.
+Recording remains off locally.
+
 ## 2026-09-30: matched mock HTTP runtime overhead
 
 The overhead command now accepts `http` after the capture mode. It measures a

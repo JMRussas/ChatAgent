@@ -13,6 +13,7 @@ export interface LiveBenchmarkRecord {
   evidenceMode: "live" | "synthetic" | "mixed" | "unknown";
   promptId: string;
   messageId: string;
+  conversationId: string;
   routeDecision: RouteDecision | null;
   requestStartedAtIso: string;
   responseReceivedMs: number | null;
@@ -53,7 +54,7 @@ export async function runLiveBenchmark(prompts: BenchmarkPrompt[], options: Live
     const started = performance.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), deadlineMs);
-    const record: LiveBenchmarkRecord = { evidenceMode: "unknown", promptId: prompt.id, messageId, routeDecision: null,
+    const record: LiveBenchmarkRecord = { evidenceMode: "unknown", promptId: prompt.id, messageId, conversationId, routeDecision: null,
       requestStartedAtIso: new Date().toISOString(), responseReceivedMs: null, firstAnswerObservedMs: null,
       finalObservedMs: null, elapsedMs: 0, firstUsefulAnswerMs: null, outcome: "deadline", retryCount: 0, httpStatus: null, errorCode: null,
       attempts: [], responseHash: null, quality: null, usage: null, costUsd: null, cancellation: "not-requested" };

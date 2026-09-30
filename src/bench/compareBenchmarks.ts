@@ -5,7 +5,7 @@ import { compareBenchmarkFiles, normalizeThresholds, renderCompareMarkdown, type
 async function readSummary(path: string): Promise<BenchmarkSummaryFile> {
   const raw = await readFile(path, "utf8");
   const value = JSON.parse(raw);
-  if (value.schemaVersion === "chatagent-live-benchmark-v1") {
+  if (["chatagent-live-benchmark-v1", "chatagent-live-benchmark-v2", "chatagent-linked-benchmark-v1"].includes(value.schemaVersion)) {
     throw new Error("Live observation reports are not comparison eligible: configuration compatibility and quality evidence are required.");
   }
   return value as BenchmarkSummaryFile;

@@ -5,7 +5,8 @@ implemented (439 tests / 61 files, typecheck, build, simulated release gate pass
 06B passive recorder/artifact and annotation contracts are implemented; see
 [06B setup/evidence](06b-recording.md). Live benchmark deadline/correlation and honest observation reports are implemented
 (462 tests / 62 files; see latest handoff). Recorder comparison/annotation gates and experiment compatibility are implemented
-(480 tests / 64 files; see 06B comparison usage). Live report linkage,
+(see 06B comparison usage). HTTP observation/recorder linkage is implemented
+(513 tests / 66 files, typecheck/build/simulated release pass). Remaining:
 live/concurrent overhead acceptance (synthetic recorder-component and mock HTTP
 measurements are available in 06B evidence), browser gates and live quality comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
 live answer-quality gates require separately identified provider configuration.
