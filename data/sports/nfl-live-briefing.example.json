@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "chatagent-live-briefing-v1",
+  "profile": {
+    "schemaVersion": "chatagent-briefing-profile-v1",
+    "id": "nfl-live-briefing",
+    "league": "NFL",
+    "initialLookbackHours": 168,
+    "maxCatchupHours": 336,
+    "tasks": [
+      {
+        "id": "league-games",
+        "scope": "league",
+        "title": "NFL recent games",
+        "sources": [
+          {
+            "adapterId": "nfl-games",
+            "kind": "games",
+            "limit": 50,
+            "maxAgeMs": 900000
+          }
+        ]
+      },
+      {
+        "id": "league-news",
+        "scope": "league",
+        "title": "NFL recent news",
+        "sources": [
+          {
+            "adapterId": "espn-nfl-news",
+            "kind": "news",
+            "limit": 25,
+            "maxAgeMs": 3600000
+          }
+        ]
+      },
+      {
+        "id": "team-games",
+        "scope": "team",
+        "title": "My NFL team games",
+        "sources": [
+          {
+            "adapterId": "nfl-games",
+            "kind": "games",
+            "limit": 50,
+            "maxAgeMs": 900000
+          }
+        ]
+      }
+    ]
+  },
+  "feeds": [
+    {
+      "id": "espn-nfl-news",
+      "publisher": "ESPN",
+      "league": "NFL",
+      "url": "https://www.espn.com/espn/rss/nfl/news",
+      "team": null,
+      "timeoutMs": 10000,
+      "maxBytes": 1000000,
+      "maxItems": 100
+    }
+  ],
+  "games": {
+    "requestsPerMinute": 5,
+    "minIntervalMs": 0,
+    "cacheTtlMs": 15000,
+    "maxPendingReads": 4,
+    "maxCacheEntries": 20
+  },
+  "coordinator": {
+    "maxConcurrentTasks": 2,
+    "taskTimeoutMs": 30000,
+    "maxRuns": 20
+  }
+}

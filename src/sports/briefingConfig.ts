@@ -1,5 +1,5 @@
 import { z } from "zod";
-import example from "../../data/sports/nba-profile.example.json";
+import example from "../../data/sports/nba-profile.example.json" with { type: "json" };
 import type { SportsSource } from "./sources";
 
 const id = z.string().regex(/^[a-zA-Z0-9_.-]{1,120}$/);

@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { sourceQuerySchema, type SourceQuery, type SourceResult, type SportsSource } from "./sources";
 import { BalldontlieGamesSource } from "./balldontlie";
-const optionsSchema = z.object({
+export const sportsSourceOptionsSchema = z.object({
   requestsPerMinute: z.number().int().min(1).max(5).default(5),
-  minIntervalMs: z.number().int().min(12000).max(60000).default(12000),
+  minIntervalMs: z.number().int().min(0).max(60000).default(0),
   cacheTtlMs: z.number().int().min(0).max(60000).default(15000),
   maxPendingReads: z.number().int().min(1).max(20).default(4),
   maxCacheEntries: z.number().int().min(1).max(100).default(20)
@@ -13,12 +13,12 @@ const optionsSchema = z.object({
 export class SportsRequestBudget {
   private starts: number[] = [];
   private blockedUntil = 0;
-  constructor(private readonly limit = 5, private readonly intervalMs = 12000, private readonly clock: () => number = Date.now) {
-    optionsSchema.parse({ requestsPerMinute: limit, minIntervalMs: intervalMs });
+  constructor(private readonly limit = 5, private readonly intervalMs = 0, private readonly clock: () => number = Date.now) {
+    sportsSourceOptionsSchema.parse({ requestsPerMinute: limit, minIntervalMs: intervalMs });
   }
   reserve(): boolean {
     const now = this.clock();
-    this.starts = this.starts.filter(time => now - time <= 60000);
+    this.starts = this.starts.filter(time => now - time < 60000);
     if (now < this.blockedUntil || this.starts.length >= this.limit || this.starts.length && now - this.starts.at(-1)! < this.intervalMs) return false;
     this.starts.push(now); return true;
   }
@@ -28,12 +28,12 @@ interface Pending { controller: AbortController; waiters: number; promise: Promi
 
 /** Cache only exact evidence scopes. Team subsets are not inferred from incomplete league pages. */
 export class SharedSportsSource implements SportsSource {
-  private readonly config: z.infer<typeof optionsSchema>;
+  private readonly config: z.infer<typeof sportsSourceOptionsSchema>;
   private readonly cache = new Map<string, { result: SourceResult; expires: number }>();
   private readonly pending = new Map<string, Pending>();
   constructor(private readonly source: SportsSource, private readonly budget: SportsRequestBudget,
-    options: z.input<typeof optionsSchema> = {}, private readonly clock: () => number = Date.now) {
-    this.config = optionsSchema.parse(options);
+    options: z.input<typeof sportsSourceOptionsSchema> = {}, private readonly clock: () => number = Date.now) {
+    this.config = sportsSourceOptionsSchema.parse(options);
   }
   async read(input: SourceQuery, signal?: AbortSignal): Promise<SourceResult> {
     signal?.throwIfAborted();
@@ -93,9 +93,9 @@ export class SharedSportsSource implements SportsSource {
 }
 
 /** Reuse this registry for all league/team tasks with the same account. */
-export function createBalldontlieSources(apiKey: string | undefined, options: z.input<typeof optionsSchema> = {},
+export function createBalldontlieSources(apiKey: string | undefined, options: z.input<typeof sportsSourceOptionsSchema> = {},
   transport: typeof fetch = fetch, clock: () => number = Date.now): ReadonlyMap<string, SportsSource> {
-  const config = optionsSchema.parse(options);
+  const config = sportsSourceOptionsSchema.parse(options);
   const budget = new SportsRequestBudget(config.requestsPerMinute, config.minIntervalMs, clock);
   return new Map(["NBA", "NFL"].map(league => {
     const source = new BalldontlieGamesSource(apiKey, { league: league as "NBA" | "NFL", minRequestIntervalMs: 0 }, transport, clock);

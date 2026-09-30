@@ -1,5 +1,43 @@
 # Personalized NBA briefing demo
 
+## Live briefing composition — 2026-09-30
+
+`createLiveBriefing` now composes one shared BALLDONTLIE registry, configured RSS
+feeds, the coordinator and HTTP boundary. Opt in with
+`SPORTS_BRIEFING_CONFIG_PATH=data/sports/nfl-live-briefing.example.json`; restart the
+server to load it. No live setting was added to the user's `.env` and the existing
+preview was not restarted. Startup validates configuration without fetching data.
+The key remains separate in `BALLDONTLIE_API_KEY`. Missing credentials do not disable
+news. Explicit dependency injection takes precedence over environment configuration.
+
+The example has independent league-games, league-news and team-games tasks. An
+unknown team needs input; ESPN league news is never presented as team-specific news.
+Source IDs/kinds/leagues/scopes and games catch-up limits are validated before work.
+Task limits and shared budget/cache settings are configurable within existing caps.
+RSS requests do not consume the BALLDONTLIE budget. Feed caching is not yet wired.
+
+Per user correction, the default games budget now permits bursts of up to five starts
+in a rolling 60-second window. There is no mandatory 12-second spacing; optional
+`minIntervalMs` defaults to zero. Each reservation expires at 60 seconds. The same
+budget covers NBA/NFL and league/team requests; RSS uses no game reservations.
+The sixth request is rejected until capacity returns, while cache hits remain usable.
+Provider 429 cooldown is unchanged. The coordinator currently reports rejected
+admission as `SOURCE_READ_FAILED`; bounded delayed retry remains future work.
+Historical entries below describe the superseded spacing policy.
+
+Validation: 594 tests / 78 files, eight browser tests and TypeScript build pass. New composition tests
+cover attributed evidence, idempotency, absent credentials, shared budget behavior,
+invalid mappings, opt-in loading and cancellation. No live network/model requests
+were needed. Existing HTTP tests cover foreground interaction while tasks run.
+The endpoint still uses prototype user IDs and caller-supplied as-of timestamps;
+operational server clocks/authentication remain production-boundary work.
+
+Next: task UI with explicit start/status/cancel, evidence links and partial/failure
+states; source-backed model follow-ups and bounded delayed admission when the budget is full remain
+separate work. No automatic refresh, durable state, ranking or team-news inference
+is implemented by this composition.
+
+
 ## RSS news ingestion — 2026-09-30
 
 Adapted the forex application's configurable RSS ingestion pattern into TypeScript's

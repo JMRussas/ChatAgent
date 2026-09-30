@@ -1,4 +1,5 @@
 import type { BriefingHttp } from "./sports/briefingHttp";
+import { loadLiveBriefingFromEnv } from "./sports/liveBriefing";
 import { startEvaluationRecording } from "./eval/recording/startup";
 import { cliLimits } from "./providers/cli/runner";
 import { digest } from "./eval/recording/contract";
@@ -431,6 +432,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 }
 
 export async function startServer(port: number, extensions: { briefings?: BriefingHttp } = {}): Promise<RuntimeHandle> {
+  const briefings = extensions.briefings ?? await loadLiveBriefingFromEnv(process.env);
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
   const summaryConfig = loadSummaryConfig();
@@ -565,7 +567,7 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
 
 
   const server = createChatServer(service, {
-    briefings: extensions.briefings, documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
+    briefings, documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
     evaluationStatus: () => recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry()
@@ -574,7 +576,7 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
       documentTasks?.close();
-      extensions.briefings?.close();
+      briefings?.close();
       recorder?.invalidate("EVAL_STARTUP_FAILED");
       reject(error.code === "EADDRINUSE"
         ? new Error(`Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`)
@@ -610,7 +612,7 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
   }, discoveryConfig.intervalMs);
 
   const stopBackground = () => {
-    extensions.briefings?.close();
+    briefings?.close();
     clearInterval(timer);
     if (deepWorkerTimer) clearInterval(deepWorkerTimer);
     clearInterval(discoveryTimer);

@@ -4,6 +4,20 @@ import { FixtureSportsSource, type SourceQuery, type SportsSource } from "../../
 import games from "../../data/sports/games.fixture.json";
 const query: SourceQuery = { kind: "games", team: null, now: games.capturedAt, window: games.window, limit: 10, maxAgeMs: 1000 };
 describe("shared sports admission and cache", () => {
+  it("allows five simultaneous starts, rejects the sixth, and expires reservations individually", () => {
+    let now = 0;
+    const budget = new SportsRequestBudget(5, 0, () => now);
+    expect(budget.reserve()).toBe(true);
+    now = 10000;
+    for (let i = 0; i < 4; i++) expect(budget.reserve()).toBe(true);
+    expect(budget.reserve()).toBe(false);
+    now = 59999; expect(budget.reserve()).toBe(false);
+    now = 60000; expect(budget.reserve()).toBe(true);
+    expect(budget.reserve()).toBe(false);
+    now = 70000;
+    for (let i = 0; i < 4; i++) expect(budget.reserve()).toBe(true);
+    expect(budget.reserve()).toBe(false);
+  });
   it("enforces spacing and the rolling minute across source instances", async () => {
     let now = Date.parse(games.capturedAt);
     const clock = () => now, budget = new SportsRequestBudget(5, 12000, clock);
@@ -11,7 +25,7 @@ describe("shared sports admission and cache", () => {
     const second = new SharedSportsSource(new FixtureSportsSource(games), budget, { cacheTtlMs: 0 }, clock);
     await first.read(query); await expect(second.read(query)).rejects.toThrow("SPORTS_SHARED_RATE_LIMIT");
     for (let i = 0; i < 4; i++) { now += 12000; await second.read(query); }
-    now += 12000; await expect(first.read(query)).rejects.toThrow("SPORTS_SHARED_RATE_LIMIT");
+    now += 11999; await expect(first.read(query)).rejects.toThrow("SPORTS_SHARED_RATE_LIMIT");
     now++; await first.read(query);
   });
   it("reuses evidence without refreshing timestamps or leaking consumer mutation", async () => {
@@ -60,8 +74,13 @@ describe("shared sports admission and cache", () => {
     const transport = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ data: [], meta: { next_cursor: null } })));
     const registry = createBalldontlieSources("test-key", {}, transport);
     await registry.get("nba-games")!.read(query);
-    await expect(registry.get("nfl-games")!.read({ ...query, league: "NFL" })).rejects.toThrow("SPORTS_SHARED_RATE_LIMIT");
-    await expect(registry.get("nba-games")!.read({ ...query, team: games.supportedTeams[0] })).rejects.toThrow("SPORTS_SHARED_RATE_LIMIT");
-    expect(transport).toHaveBeenCalledTimes(1);
+    await registry.get("nfl-games")!.read({ ...query, league: "NFL" });
+    await registry.get("nba-games")!.read({ ...query, team: { provider: "balldontlie", id: "1", name: "Test team" } });
+    await registry.get("nba-games")!.read({ ...query, limit: 11 });
+    await registry.get("nfl-games")!.read({ ...query, league: "NFL", limit: 12 });
+    await expect(registry.get("nba-games")!.read({ ...query, limit: 13 })).rejects.toThrow("SPORTS_SHARED_RATE_LIMIT");
+    // Exact cache hits still work when new network requests are exhausted.
+    await registry.get("nba-games")!.read(query);
+    expect(transport).toHaveBeenCalledTimes(5);
   });
 });

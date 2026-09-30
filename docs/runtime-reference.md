@@ -4,10 +4,23 @@ Configuration, HTTP contracts and developer commands for ChatAgent. For the curr
 project overview and measured results, start with the [README](../README.md).
 The package and some internal types retain the name ChatRuntime.
 
-## Optional NBA briefing HTTP boundary
+## Optional sports briefing HTTP boundary
 
 Compose `new BriefingHttp(coordinator, profile)` and supply it as
 `startServer(port, { briefings })` or `createChatServer(service, { briefings })`.
+Alternatively, set `SPORTS_BRIEFING_CONFIG_PATH=data/sports/nfl-live-briefing.example.json`
+in local configuration and start the server normally. `startServer` loads that file;
+explicit injection takes precedence. `createChatServer` remains injection-only.
+The file contains a profile, RSS feeds, shared games budget/cache settings and
+coordinator limits. It never contains the API key; games use `BALLDONTLIE_API_KEY`.
+The default games budget allows five starts per rolling minute with no mandatory
+spacing; `minIntervalMs` optionally adds spacing. Excess requests fail fast and a
+provider 429 imposes cooldown. RSS does not consume this budget. Cache hits/coalesced
+reads do not reserve extra starts. Budgets are shared within one runtime, not across
+processes or other applications using the same key.
+Invalid configuration fails startup with a safe error. Startup performs no sports
+fetches; only explicit start commands do. Missing games credentials leave news usable.
+
 The coordinator receives the server-owned adapter registry and execution limits;
 the profile is validated and copied at boundary construction. The default app does
 not enable this endpoint or silently load fixtures. The current UI has no briefing

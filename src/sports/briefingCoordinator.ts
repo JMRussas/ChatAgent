@@ -22,7 +22,7 @@ interface Job {
   sources: ReturnType<typeof bindBriefingSources>[number]["sources"];
   controller: AbortController; timer?: ReturnType<typeof setTimeout>;
 }
-const optionsSchema = z.object({
+export const briefingCoordinatorOptionsSchema = z.object({
   maxConcurrentTasks: z.number().int().min(1).max(10).default(2),
   taskTimeoutMs: z.number().int().min(1).max(300000).default(30000),
   maxRuns: z.number().int().min(1).max(100).default(20)
@@ -32,7 +32,7 @@ const terminal = (status: TaskStatus) => !["queued", "running"].includes(status)
 
 /** Process-local evidence collection only. Never invokes models or writes checkpoints. */
 export class BriefingCoordinator {
-  private readonly options: z.infer<typeof optionsSchema>;
+  private readonly options: z.infer<typeof briefingCoordinatorOptionsSchema>;
   private readonly registry: ReadonlyMap<string, SportsSource>;
   private readonly runs = new Map<string, BriefingRun>();
   private readonly requests = new Map<string, string>();
@@ -40,8 +40,8 @@ export class BriefingCoordinator {
   private readonly waiters = new Map<string, (() => void)[]>();
   private active = 0;
   private closed = false;
-  constructor(registry: ReadonlyMap<string, SportsSource>, options: z.input<typeof optionsSchema> = {}) {
-    this.registry = new Map(registry); this.options = optionsSchema.parse(options);
+  constructor(registry: ReadonlyMap<string, SportsSource>, options: z.input<typeof briefingCoordinatorOptionsSchema> = {}) {
+    this.registry = new Map(registry); this.options = briefingCoordinatorOptionsSchema.parse(options);
   }
   start(userId: string, requestId: string, request: BriefingRequest, configuration: unknown): BriefingRun {
     if (this.closed) throw new Error("BRIEFING_CLOSED");

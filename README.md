@@ -101,6 +101,12 @@ For a public RSS news read, use
 Feed scope and fetch bounds are configurable. Articles preserve publisher attribution
 and original links; RSS coverage/freshness remain partial/unknown, so exit 1 is expected.
 This command does not use BALLDONTLIE quota.
+To enable live background briefings, set
+`SPORTS_BRIEFING_CONFIG_PATH=data/sports/nfl-live-briefing.example.json` and restart.
+Use the [start/status/cancel HTTP commands](docs/runtime-reference.md#optional-sports-briefing-http-boundary)
+to collect games and news. Startup performs no sports requests; the current UI has
+no briefing controls. The shared games budget allows five starts per rolling minute, including bursts.
+Further requests fail fast until capacity returns; cached reads remain available.
 An explicit `npm run sports:games -- 24` command prepares the BALLDONTLIE games
 path using `BALLDONTLIE_API_KEY` from local configuration. No key is bundled; partial
 coverage and unknown freshness remain visible. See the demo plan before live use.
