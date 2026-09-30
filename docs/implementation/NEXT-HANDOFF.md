@@ -1,5 +1,29 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: prioritize multitask coordination evaluation
+
+User clarification: layer 1 manages ongoing interaction while deeper calls do the
+substantive work. The next task supersedes the streaming-model selection step below.
+[Session design v1](../17-multitask-evaluation.md) defines six five-message sessions,
+separate coordination/deep-quality measures, fair baseline conditions, arrival
+schedules, evidence requirements and implementation order. It is a design, not a
+live experiment or evidence that these capabilities already pass.
+
+Source inspection confirms the current deep worker runs one job at a time and the
+live benchmark waits for each turn to finish. Frozen task snapshots do not imply
+automatic in-flight revisions. Endpoint cancellation does not imply natural-language
+cancellation. Existing browser overlap checks are useful fixtures, not full session
+quality evidence. Multiple active deep calls and out-of-order deep completion remain
+unsupported; track those separately from interaction during queued work.
+
+Next bounded implementation: versioned session action schema and deterministic HTTP
+runner for MT-01 (quick interaction while A is held active) and endpoint-driven MT-03
+(targeted cancellation with A unaffected). Use provider barriers, task identities,
+bounded deadlines/cleanup and explicit unmet-trigger outcomes. Preserve current
+sequential and isolated comparison contracts. No live model selection is required
+for this slice. Add broader scenarios, phase grading and session comparison support
+before preregistering live conditions. Spec 06 remains in progress.
+
 ## 2026-09-30: clean-copy installation verified
 
 A fresh independent clone of `afc1733`, with no copied local configuration or

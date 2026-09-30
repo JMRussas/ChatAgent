@@ -268,11 +268,18 @@ safe environment details. Keep existing failing golden reports as historical fil
 write new timestamped reports. Failure is evidence to fix, not permission to weaken
 assertions. Do not claim unsupported factual accuracy or retrieval.
 
-Compare identical prompts against one streaming model and the dual-path setup.
-Use at least 30 prompts with at least 10 deep-eligible cases, three repetitions,
-identical history snapshots, recorded warm/cold condition and versioned annotations.
-Report latency distributions and failure/quality counts; do not promise improvement
-before measuring it. A valid finding that dual-path does not help is acceptable.
+The next comparison is session-based: layer 1 maintains interaction while deep
+work proceeds. Follow the [multitask session design](../17-multitask-evaluation.md)
+and implement its deterministic overlapping-action runner before selecting live
+models. The six seed sessions contain 30 user messages and at least 12 deep-eligible
+tasks; freeze exact fixtures before live execution. Run three repetitions per
+supported condition with matching initial history and user-arrival schedules,
+recorded warm/cold conditions and separate coordination/deep-work grades. Include
+a background-capable single-agent baseline before claiming layered specialization
+helps. Single-answer streaming latency is secondary. Existing sequential scenario
+linking does not establish session comparison support. Multiple active deep workers
+and automatic task revision are capability gaps, not assumed runtime features.
+Report failures, unsupported cases and tradeoffs without assuming improvement.
 
 Run `npm ci` in a clean copy, common release/build checks and browser checks. Report
 code-gate results separately from live results. If cloud/CLI credentials or browser

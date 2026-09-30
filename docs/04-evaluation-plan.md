@@ -1,5 +1,20 @@
 # Evaluation Plan
 
+## Current priority: multitask sessions (2026-09-30)
+
+Evaluate layer 1 as the ongoing user-interaction and coordination layer while deep
+calls perform substantive work. The next slice is the
+[multitask session design](17-multitask-evaluation.md): overlapping requests, task
+status, corrections, cancellation, isolation and results arriving during continued
+interaction. Grade coordination separately from substantive task quality. Single-
+answer latency and the original prompt dataset below remain supporting measures.
+
+Implement a deterministic session runner first. Current live scenario execution is
+sequential and the deep worker runs one job at a time; neither establishes multiple
+active deep calls. A blocking baseline measures concurrency benefits, while a
+background-capable single agent is needed to assess layered specialization fairly.
+The new design is not yet an executed or preregistered live experiment.
+
 ## Dataset shape
 
 Build a seed set of 60 prompts split evenly:
