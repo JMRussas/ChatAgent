@@ -12,7 +12,7 @@ export const sourceQuerySchema = z.object({
   window: windowSchema, now: timestamp, limit: z.number().int().min(1).max(100),
   maxAgeMs: z.number().int().min(0).max(7 * 24 * 60 * 60 * 1000)
 }).strict();
-const provenance = z.object({ sourceId: id, url, updatedAt: timestamp.nullable() }).strict();
+const provenance = z.object({ sourceId: id, publisher: z.string().trim().min(1).max(200).optional(), url, updatedAt: timestamp.nullable() }).strict();
 const common = { id, provenance };
 export const sportsRecordSchema = z.discriminatedUnion("kind", [
   z.object({ ...common, kind: z.literal("games"), startsAt: timestamp,
@@ -22,7 +22,7 @@ export const sportsRecordSchema = z.discriminatedUnion("kind", [
   }).strict(),
   z.object({ ...common, kind: z.literal("news"), publishedAt: timestamp,
     teams: z.array(teamIdentitySchema).max(30), headline: z.string().trim().min(1).max(500),
-    summary: z.string().trim().min(1).max(4000)
+    summary: z.string().trim().max(4000)
   }).strict(),
   z.object({ ...common, kind: z.literal("availability"), reportedAt: timestamp,
     team: teamIdentitySchema, playerId: id, playerName: id,

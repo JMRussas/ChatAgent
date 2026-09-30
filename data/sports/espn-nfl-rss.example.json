@@ -1,0 +1,10 @@
+{
+  "id": "espn-nfl-news",
+  "publisher": "ESPN",
+  "league": "NFL",
+  "url": "https://www.espn.com/espn/rss/nfl/news",
+  "team": null,
+  "timeoutMs": 10000,
+  "maxBytes": 1000000,
+  "maxItems": 100
+}

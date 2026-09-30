@@ -10,6 +10,7 @@
     "sports:fixture": "tsx src/sports/fixtureCli.ts",
     "sports:games": "tsx src/sports/gamesCli.ts",
     "sports:nfl": "tsx src/sports/gamesCli.ts nfl",
+    "sports:news": "tsx src/sports/newsCli.ts",
     "cli:claude:accept": "tsx src/providers/cli/acceptClaude.ts",
     "cli:claude:inspect": "tsx src/providers/cli/inspectClaude.ts",
     "dev": "tsx src/index.ts",
@@ -34,6 +35,7 @@
     "@aws-sdk/client-bedrock": "^3.1142.0",
     "@aws-sdk/client-bedrock-runtime": "^3.882.0",
     "dotenv": "^18.0.4",
+    "fast-xml-parser": "^5.11.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {

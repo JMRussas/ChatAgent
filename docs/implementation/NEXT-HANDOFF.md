@@ -1,5 +1,24 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: configurable RSS news source
+
+Added `RssNewsSource` and `sports:news` with an ESPN NFL example. Reused forex's RSS
+normalization/deduplication/window-filtering pattern without changing that repository.
+Publisher attribution and original links are preserved. Missing dates remain unknown;
+errors stay distinct from empty feeds. RSS timezone abbreviations have explicit offsets.
+Bounded fetch/XML parsing, league/team scope checks and cancellation are tested.
+
+One final live read returned 12 articles, with future-dated entries excluded and
+flagged. Three public RSS requests total; no sports API quota consumed. Results are
+partial/unknown and cannot advance checkpoints; CLI exit 1 is expected. No ranking,
+team inference, automatic refresh or UI integration is claimed. Validation: 587 tests
+/ 77 files and TypeScript build pass. See [source details](../18-nba-briefing-demo.md).
+
+Next: compose games and news into an injected live registry/profile, preserving the
+shared BALLDONTLIE budget. Then task UI and evidence-backed follow-ups. RSS cache and
+refresh policy remain to be wired; default HTTP activation is still opt-in.
+
+
 ## 2026-09-30: shared sports admission/cache
 
 Added `createBalldontlieSources`: NBA/NFL adapters share a conservative five-per-minute

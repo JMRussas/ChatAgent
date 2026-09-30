@@ -95,7 +95,12 @@ configurable. This fixed-time example fetches no live data and asks for a team s
 fictional evidence through the coordinator; this does not fetch live NBA data.
 NFL is also supported via `npm run sports:nfl -- 168` and the configurable
 `data/sports/nfl-games-profile.example.json`. Existing-key NFL access was verified
-with one request; news and UI integration remain separate.
+with one request; live briefing/UI integration remains separate.
+For a public RSS news read, use
+`npm run sports:news -- data/sports/espn-nfl-rss.example.json 24`.
+Feed scope and fetch bounds are configurable. Articles preserve publisher attribution
+and original links; RSS coverage/freshness remain partial/unknown, so exit 1 is expected.
+This command does not use BALLDONTLIE quota.
 An explicit `npm run sports:games -- 24` command prepares the BALLDONTLIE games
 path using `BALLDONTLIE_API_KEY` from local configuration. No key is bundled; partial
 coverage and unknown freshness remain visible. See the demo plan before live use.

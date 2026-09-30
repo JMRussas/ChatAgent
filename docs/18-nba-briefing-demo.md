@@ -1,5 +1,43 @@
 # Personalized NBA briefing demo
 
+## RSS news ingestion — 2026-09-30
+
+Adapted the forex application's configurable RSS ingestion pattern into TypeScript's
+`RssNewsSource`, using the existing sports evidence contract. The forex repository
+is unchanged. Reused article normalization, URL deduplication and time-window
+filtering; did not copy currency classification, database coupling, missing-date
+fallbacks or neutral-on-error behavior.
+
+Run `npm run sports:news -- data/sports/espn-nfl-rss.example.json 24` explicitly.
+Feed URL, publisher, league, optional provider-qualified team, timeout, body size
+and item limits are configurable. Configuration is server-owned, not user-supplied
+URL fetching. RSS 2.0 is supported; Atom is not. No full article scraping or model
+classification is performed. Preserve publisher attribution and original links;
+see [ESPN RSS information](https://www.espn.com/espn/news/story?id=3437834).
+
+Missing publication dates stay unknown and are excluded from bounded windows.
+Explicit RSS timezone abbreviations use their stated offsets, including EST versus
+EDT; the adapter does not guess that a publisher meant a different timezone.
+Future-dated entries are excluded and disclosed. Empty successful feeds remain
+distinct from unavailable/invalid feeds. Excerpts may be empty, and source content
+must be treated as untrusted evidence by downstream models/renderers.
+
+RSS cannot establish exhaustive window coverage or source freshness: results remain
+partial/unknown, never advance checkpoints, and the CLI intentionally exits 1.
+League feeds cannot answer team-scoped requests unless explicitly configured for
+that team. Retrieval is bounded and abortable; redirects and XML entity declarations
+are rejected. Shared caching, scheduling and retries are not wired for RSS yet.
+
+Live verification at 2026-09-30T18:45:37.892Z returned 12 articles in the previous
+24 hours, with future publication times disclosed. Three public feed requests were
+used during debugging/verification; no BALLDONTLIE quota or model calls were used.
+Validation: 587 tests / 77 files and TypeScript build pass.
+
+Next: compose the games/news adapters into a live briefing registry and profile,
+then expose task progress and evidence in the UI. Team relevance and significant-news
+ranking remain separate work; this adapter does not claim either.
+
+
 ## Shared request admission and cache — 2026-09-30
 
 `createBalldontlieSources(key, options)` returns `nba-games` and `nfl-games` adapters
