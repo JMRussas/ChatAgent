@@ -89,9 +89,41 @@ under a unique briefing run ID.
 No network fetching, worker scheduling, persistent writes, model calls or UI launch
 hook is introduced by this slice. It is the testable entry contract for the demo.
 
+## Implemented source slice — 2026-09-30
+
+`src/sports/sources.ts` defines validated game, news and availability evidence,
+bounded queries and an asynchronous source interface with cancellation support.
+`FixtureSportsSource` reads the three explicitly fictional datasets in `data/sports/`.
+No NBA news or real game results are represented by these fixtures. Team selection
+uses a provider-qualified identity and an explicit supported-team catalog; unknown
+identities fail instead of producing a misleading empty result.
+
+Results keep coverage (complete/partial/unavailable) separate from freshness
+(fresh/stale/unknown). Complete describes only the configured source and query.
+Unknown source update times stay null; fixture replay retains the original capture
+time. Freshness uses the source's explicit data-as-of time and the caller's age
+budget, not a new timestamp assigned at read time. Result limits and uncovered
+windows mark coverage partial. Checkpoint eligibility additionally requires fresh,
+complete evidence covering the requested end bound; this adapter never writes a
+checkpoint. Failed sources have an error and no records. A covered empty result
+is distinct from unavailable or incomplete evidence; none establishes that nothing
+happened across the league.
+
+Window semantics are explicit: games by scheduled start, news by publication and
+availability by report timestamp, inclusive start/exclusive end. This does not yet
+resolve historical revisions, delayed reports, latest availability snapshots or
+upcoming games; live adapters must define those behaviors before claiming complete
+briefings. Scores retain game status, final games require scores, and pregame/
+postponed/cancelled fixtures cannot carry scores. Provider boundaries validate data;
+returned records are copied to prevent consumer mutation of stored evidence.
+
+Next is the bounded coordinator below, using these fixtures before live integration.
+The UI and active preview server are unchanged. No model or external source calls
+were needed for this slice.
+
 ## Next implementation and acceptance
 
-1. Add normalized source/evidence contracts and fixture adapters for games, news
+1. Implemented: normalized source/evidence contracts and fixture adapters for games, news
    and availability. Exercise current, stale, empty, partial and failed coverage;
    confirm source-backed results and no unsupported “nothing happened” claims.
 2. Add a bounded briefing coordinator with unique run/task identities, cancellation,

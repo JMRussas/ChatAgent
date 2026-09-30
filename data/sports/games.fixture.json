@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "chatagent-sports-fixture-v1",
+  "mode": "synthetic",
+  "sourceId": "fixture-nba",
+  "sourceUrl": "https://example.invalid/nba",
+  "supportedTeams": [
+    {
+      "provider": "fixture",
+      "id": "harbor",
+      "name": "Fictional Harbor"
+    },
+    {
+      "provider": "fixture",
+      "id": "mountain",
+      "name": "Fictional Mountain"
+    }
+  ],
+  "capturedAt": "2026-09-30T12:00:00Z",
+  "dataAsOf": "2026-09-30T12:00:00Z",
+  "window": {
+    "fromInclusive": "2026-09-29T12:00:00Z",
+    "toExclusive": "2026-09-30T12:00:00Z"
+  },
+  "coverage": "complete",
+  "errorCode": null,
+  "kind": "games",
+  "records": [
+    {
+      "id": "game-1",
+      "provenance": {
+        "sourceId": "fixture-nba",
+        "url": "https://example.invalid/nba/game-1",
+        "updatedAt": null
+      },
+      "kind": "games",
+      "startsAt": "2026-09-29T23:00:00Z",
+      "home": {
+        "provider": "fixture",
+        "id": "harbor",
+        "name": "Fictional Harbor"
+      },
+      "away": {
+        "provider": "fixture",
+        "id": "mountain",
+        "name": "Fictional Mountain"
+      },
+      "status": "final",
+      "score": {
+        "home": 101,
+        "away": 98
+      }
+    }
+  ]
+}

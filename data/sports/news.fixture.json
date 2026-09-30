@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "chatagent-sports-fixture-v1",
+  "mode": "synthetic",
+  "sourceId": "fixture-nba",
+  "sourceUrl": "https://example.invalid/nba",
+  "supportedTeams": [
+    {
+      "provider": "fixture",
+      "id": "harbor",
+      "name": "Fictional Harbor"
+    },
+    {
+      "provider": "fixture",
+      "id": "mountain",
+      "name": "Fictional Mountain"
+    }
+  ],
+  "capturedAt": "2026-09-30T12:00:00Z",
+  "dataAsOf": "2026-09-30T12:00:00Z",
+  "window": {
+    "fromInclusive": "2026-09-29T12:00:00Z",
+    "toExclusive": "2026-09-30T12:00:00Z"
+  },
+  "coverage": "complete",
+  "errorCode": null,
+  "kind": "news",
+  "records": [
+    {
+      "id": "news-1",
+      "provenance": {
+        "sourceId": "fixture-nba",
+        "url": "https://example.invalid/nba/news-1",
+        "updatedAt": null
+      },
+      "kind": "news",
+      "publishedAt": "2026-09-30T10:00:00Z",
+      "teams": [
+        {
+          "provider": "fixture",
+          "id": "harbor",
+          "name": "Fictional Harbor"
+        }
+      ],
+      "headline": "Fictional Harbor announce a practice session",
+      "summary": "Synthetic test evidence: Harbor scheduled a practice session. This is not real NBA reporting."
+    }
+  ]
+}

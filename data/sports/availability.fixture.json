@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "chatagent-sports-fixture-v1",
+  "mode": "synthetic",
+  "sourceId": "fixture-nba",
+  "sourceUrl": "https://example.invalid/nba",
+  "supportedTeams": [
+    {
+      "provider": "fixture",
+      "id": "harbor",
+      "name": "Fictional Harbor"
+    },
+    {
+      "provider": "fixture",
+      "id": "mountain",
+      "name": "Fictional Mountain"
+    }
+  ],
+  "capturedAt": "2026-09-30T12:00:00Z",
+  "dataAsOf": "2026-09-30T12:00:00Z",
+  "window": {
+    "fromInclusive": "2026-09-29T12:00:00Z",
+    "toExclusive": "2026-09-30T12:00:00Z"
+  },
+  "coverage": "complete",
+  "errorCode": null,
+  "kind": "availability",
+  "records": [
+    {
+      "id": "availability-1",
+      "provenance": {
+        "sourceId": "fixture-nba",
+        "url": "https://example.invalid/nba/availability-1",
+        "updatedAt": null
+      },
+      "kind": "availability",
+      "reportedAt": "2026-09-30T11:00:00Z",
+      "team": {
+        "provider": "fixture",
+        "id": "harbor",
+        "name": "Fictional Harbor"
+      },
+      "playerId": "player-1",
+      "playerName": "Fictional Player",
+      "status": "questionable",
+      "detail": "Synthetic availability report; no return date supplied."
+    }
+  ]
+}

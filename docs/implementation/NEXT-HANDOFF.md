@@ -1,5 +1,27 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: normalized sports evidence and fixture adapters
+
+Added `src/sports/sources.ts` and three explicitly fictional datasets in `data/sports/`.
+Games, news and availability have source URLs/IDs, timestamped coverage, stable
+identities and operation-specific records. Reads validate team/time/limit scope,
+preserve unknown update times and reject unsupported identities. Replaying fixtures
+does not refresh evidence. Coverage and freshness remain separate; failed, partial,
+stale, unknown or insufficiently current evidence cannot advance checkpoints.
+Results preserve live versus final scores and support pre-aborted cancellation.
+
+Validation: **547 tests / 70 files** and TypeScript build/type checking pass. Eight
+new source tests cover identity/time filtering, evidence age, empty/partial/failure
+coverage, checkpoint bounds, score semantics, cancellation and mutation isolation.
+No browser or live-source acceptance was run for this offline slice.
+
+Next bounded task: briefing coordinator with unique run/task IDs, bounded cancellation,
+duplicate-start handling and independent league/team results. Use these adapters in
+fixture tests, including a quick foreground interaction while background work is
+held. No live-source connection, model call, UI change or multiple-worker capability
+is implied by this slice. See [source semantics and limits](../18-nba-briefing-demo.md).
+
+
 ## 2026-09-30: NBA briefing is the active demonstration
 
 User selected launch-triggered NBA league and favorite-team briefings, with layer 1
