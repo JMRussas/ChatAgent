@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "grounding-followup-review-v1",
+  "scenarioDigest": "c5d5582c35ed7208a676e35da3aa13943c618f2b6ca8f4718aa30c6ed02d11a3",
+  "failedBaseline": {
+    "runId": "926a93b2-c854-40a8-b426-6ea79e6e8c2d",
+    "code": {
+      "revision": "12187a61393a244705af81f14230804505f7102c",
+      "dirty": true,
+      "sourceDigest": "8deb0ac2ec41c7e1f35a5e71a0c0fa7315b0d663262bc5e916eb180875223c1f"
+    },
+    "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+    "expiresAt": "2026-10-07T15:39:15.648Z",
+    "requestedTurns": 10,
+    "executedTurns": 6,
+    "recordedTurns": 5,
+    "unrunTurns": 4,
+    "failure": {
+      "promptId": "conflict-pressure",
+      "errorCode": "NO_ELIGIBLE_MODEL",
+      "selectionExclusions": [
+        {
+          "bindingId": "[\"cli-hekate-claude-default\",\"cli\",\"sonnet\",\"default\"]",
+          "reasons": [
+            "stale"
+          ]
+        },
+        {
+          "bindingId": "[\"default-mock\",\"mock\",\"mock-v1\",null]",
+          "reasons": [
+            "LIMIT_UNKNOWN",
+            "RESOURCE_FACTS_UNKNOWN_OR_STALE"
+          ]
+        },
+        {
+          "bindingId": "[\"default-ollama\",\"ollama-chat\",\"qwen3:8b\",null]",
+          "reasons": [
+            "LIMIT_UNKNOWN",
+            "RESOURCE_FACTS_UNKNOWN_OR_STALE"
+          ]
+        },
+        {
+          "bindingId": "[\"default-ollama\",\"ollama-chat\",\"qwen2.5-coder:14b\",null]",
+          "reasons": [
+            "unsupported-adapter",
+            "ROLE_OR_TASK_UNSUPPORTED",
+            "LIMIT_UNKNOWN",
+            "RESOURCE_FACTS_UNKNOWN_OR_STALE"
+          ]
+        }
+      ]
+    },
+    "finding": "Discovery tick occurred just outside the early-refresh threshold; cached evidence expired before the following tick. Renew successful inspections on each discovery tick; invocation checks still use cached evidence."
+  },
+  "rerun": {
+    "runId": "09985f53-37e2-4599-a4da-00c3ca4afad4",
+    "code": {
+      "revision": "12187a61393a244705af81f14230804505f7102c",
+      "dirty": true,
+      "sourceDigest": "60b4c8f5409a8f476ee5c6fadad108c919e20d0c1ff008758a668b8d9f931425"
+    },
+    "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+    "expiresAt": "2026-10-07T15:41:15.257Z",
+    "runtimePassed": 10,
+    "groundednessPassed": 10,
+    "taskCompletionPassed": 8,
+    "taskCompletionFailed": 2,
+    "qualityPassed": false,
+    "linkedReport": "reports/grounding-followup-linked-2026-09-30.json"
+  },
+  "limits": [
+    "Assistant review, not independent human calibration.",
+    "Only final required-phase answers are graded; provisional wording is not comprehensively graded.",
+    "Ten synthetic-evidence turns are not a retrieval evaluation or broad hallucination-rate estimate.",
+    "Raw answer evidence retains its original expiry; hashes cannot reproduce review after expiry."
+  ]
+}

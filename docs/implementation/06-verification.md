@@ -162,6 +162,20 @@ establish factual accuracy or live-provider performance.
 
 ## Live evidence and completion
 
+### Grounding and follow-up evidence (2026-09-30)
+
+The [scenario suite](../../data/grounding-followup-scenarios.json) now exercises
+five two-turn conversations through the real HTTP runtime and local Claude bridge.
+See [execution and linking](06b-recording.md#grounding-and-follow-up-scenarios) and
+the [dated evidence](../../reports/grounding-followup-review-2026-09-30.json).
+The initial failed batch exposed and led to a fix for discovery refresh timing.
+The retained rerun completes 10/10 turns; assistant review of final answers grades
+10/10 groundedness and 8/10 task completion. Two deliberately unanswerable turns
+remain task failures, so overall quality is not marked passed. This exercises
+supplied evidence and conversation history, not real retrieval or a complete
+acceptance matrix for spec 01. Independent calibration and repeated single/dual
+measurements remain unrun.
+
 ### Claude debugging follow-up (2026-09-30)
 
 Subsequent [v2 quality review](../../reports/claude-quality-linked-2026-09-30.json)

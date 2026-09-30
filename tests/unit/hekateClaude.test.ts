@@ -130,3 +130,15 @@ it("refreshes ahead for discovery without shortening negative backoff", async ()
   now += 20000;
   await cache.get(signal, 10000); expect(reads).toBe(2);
 });
+it("discovery refreshes despite startup skew while invocation checks reuse fresh evidence", async () => {
+  let now = 1000, reads = 0;
+  const cache = new ClaudeInspectionCache(async () => {
+    reads++; return { usage: { source: "test", observedAt: new Date(now).toISOString(), windows: [], extraUsageEnabled: true } };
+  }, () => now);
+  const signal = new AbortController().signal;
+  const first = await cache.get(signal); now += 19000;
+  expect((await cache.get(signal)).expiresAt).toBe(first.expiresAt);
+  expect(reads).toBe(1);
+  expect((await cache.get(signal, 30000)).expiresAt).toBe(now + 30000);
+  expect(reads).toBe(2);
+});

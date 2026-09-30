@@ -156,9 +156,10 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
     }
   }
   return { connections, bindingIds: [...adapters.keys()], discovery: { discover: async (connection, signal) => {
-    // With the local 20s discovery interval, refresh before the 30s evidence expires.
-    // Invocation preflight still reuses all remaining validity. Negative backoff is never shortened.
-    await inspections.get(signal, 10000);
+    // Discovery renews successful evidence on its configured cadence, even when
+    // startup timing puts a tick just outside an early-refresh threshold.
+    // Invocation preflight reuses remaining validity; negative backoff is never shortened.
+    await inspections.get(signal, 30000);
     const entries = selected.filter(e => connectionIdForEntry(e) === connection.connectionId);
     return Promise.all(entries.map(async entry => {
       const state = await adapters.get(entryBindingId(entry))!.inspect("default", signal);

@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { readArtifact, pruneExpired, recordingEvidenceValid } from "./storage";
-import { linkLiveRecording } from "./linkLive";
+import { linkLiveRecording, linkScenarioRecording } from "./linkLive";
 import { compareRecordings } from "./comparison";
 import { scoreRecording } from "./annotations";
 try {
   const [command, path, annotations] = process.argv.slice(2);
-  if (command === "link-live") {
+  if (command === "link-live" || command === "link-scenarios") {
     const [, report, artifact, dataset, ratings] = process.argv.slice(2);
     if (!report || !artifact || !dataset || !ratings) throw new Error("Missing link inputs");
     const json = async (file: string) => JSON.parse(await readFile(file, "utf8"));
-    const result = linkLiveRecording(await json(report), await readArtifact(artifact), await json(dataset), await json(ratings));
+    const result = (command === "link-scenarios" ? linkScenarioRecording : linkLiveRecording)(await json(report), await readArtifact(artifact), await json(dataset), await json(ratings));
     console.log(JSON.stringify(result, null, 2)); if (!result.qualityPassed) process.exitCode = 1;
   } else if (command === "compare") {
     const [, baseline, candidate, dataset, baselineRatings, candidateRatings, experiment] = process.argv.slice(2);

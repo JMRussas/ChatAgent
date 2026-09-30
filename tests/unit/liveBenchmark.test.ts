@@ -154,3 +154,18 @@ describe("live benchmark observations", () => {
   });
 
 });
+
+it("stops a scenario batch after a failed turn instead of contaminating its follow-up", async () => {
+  server("direct", [[{ type: "terminal", phase: "fast", attemptId: "a", finishReason: "length" }]]);
+  const records = await runLiveBenchmark([...prompts, { id: "two", text: "Follow up" }], {
+    ...options, conversationGroups: ["scenario", "scenario"]
+  });
+  expect(records).toHaveLength(1);
+  expect(records[0].outcome).toBe("length");
+});
+it("rejects malformed conversation plans before submitting anything", async () => {
+  const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+  for (const conversationGroups of [[], [""], ["has spaces"], ["one", "two"]])
+    await expect(runLiveBenchmark(prompts, { ...options, conversationGroups })).rejects.toThrow("Invalid conversation groups");
+  expect(fetch).not.toHaveBeenCalled();
+});

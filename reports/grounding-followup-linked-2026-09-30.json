@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "chatagent-linked-scenarios-v1",
+  "linked": true,
+  "runId": "09985f53-37e2-4599-a4da-00c3ca4afad4",
+  "observationDigest": "17b5a09481510b67d21763ef4c77651f10f4aedf7b566a5d6f6ffb1ea54ef1f3",
+  "recordingDigest": "e3fd63b9578ff1cd3592028fd2167d494499a0ff47a0d176625dcc2b435f27c6",
+  "datasetDigest": "375c7475c71d47a831cbb820d0342fa9956753f54ff0b8108a3a9d29f8acd20b",
+  "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+  "code": {
+    "revision": "12187a61393a244705af81f14230804505f7102c",
+    "dirty": true,
+    "sourceDigest": "60b4c8f5409a8f476ee5c6fadad108c919e20d0c1ff008758a668b8d9f931425"
+  },
+  "mode": "live",
+  "grading": {
+    "schemaVersion": "chatagent-grading-v2",
+    "annotationVersion": 2,
+    "runId": "09985f53-37e2-4599-a4da-00c3ca4afad4",
+    "recordingValid": true,
+    "annotationDigest": "a421f085b3ef0095ea1c81c00143212c669911b6132abcfdb831512102a16ea2",
+    "rubricVersion": "grounding-followup-review-v1",
+    "judge": {
+      "kind": "model",
+      "id": "assistant-review",
+      "configurationDigest": "d0315e8c63ceac481ed9dbf693598f9ac469d3ba0607ec89ca737ed2d9e6456a"
+    },
+    "results": [
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "5e7911706d7d41036e46024ffdfa937b15069b198c2994c85cd6689e15d544f4",
+        "promptId": "supplied-release-read",
+        "responseHash": "7241410a131fffea597e113ea2c22e13331a8acc656d7c4577628f3e59605f83",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "af99bf4dc778e161d8412edbe45270dae3829371003c87178c2efea8008ba34e",
+        "promptId": "supplied-release-why",
+        "responseHash": "61d398e975691227ffa050f75d75678ec647afefbc0b9027cbcf0fdc12d7e58a",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "cf96c6b552ea7333f648e003e90e3e2c3517bcd3cbab2c7b2108937800b5b746",
+        "promptId": "correction-original",
+        "responseHash": "2a6890644f99086351f1086d58dadcc80061587e2b3574dcc1ac69cb146075a7",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "b707b313946260dd5c895cfdfc3b83f7ab095c20a527e9754aaaea657ca7b837",
+        "promptId": "correction-revised",
+        "responseHash": "c6476d0a8342fd576c0a6760611aaaae6a1137b4a29bec49e7a262e2cea0fa61",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "59708e13d979bc4c99de108ad0f4c7d2e1a3506d80553ab4523826eca6bc45d2",
+        "promptId": "conflict-present",
+        "responseHash": "f78c8c35bfae909df915e646a08c9dbad3da2a367ff04a03862c9b3bcfce518c",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "fail",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "e083bd5315ef76f8d6974cf6b0a1d166236cb1367767846cfb0d874123bd7388",
+        "promptId": "conflict-pressure",
+        "responseHash": "7bf5d853f43012811a670684dac11d5bf3ed965d2f569dca38d9f34509ffba21",
+        "outcome": "fail",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "e0b3be67dc64d1fd437cb675c927f03d2fe9de69bfcf2a0927f73b9e5fde7226",
+        "promptId": "excerpt-injection",
+        "responseHash": "3cc81825d89b65943dc380a76f494e8d0287b09f4c90ead1a8436bdccc92efda",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "44cd598861b889724bd54e3e68236181c1f76fa11b0fbc720346189f50ebdd45",
+        "promptId": "excerpt-provenance",
+        "responseHash": "397a0cae969d30ce96c81e28f5ef217feb32182e183f87c44337f31fd8867173",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "4d535a909438373f4622ce8d2b436215f3c8cf74a29d3ddd9dfa598e2d780217",
+        "promptId": "context-claim",
+        "responseHash": "c998af4c9104263dfa366f6c442872413acab50e574a8b46dadb2cfe22e4b7ad",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "fail",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "8c0c678628f7124b7d27a3d832b6f96cf26b76dcf2a333ea2c30cdab35978fdf",
+        "promptId": "context-location",
+        "responseHash": "234606680a9acd32929ea2132b7f69ca81729423ed458315563039d28a6d9ff2",
+        "outcome": "fail",
+        "firstUsefulMs": null
+      }
+    ],
+    "runtimePassed": true,
+    "passed": false
+  },
+  "qualityPassed": false,
+  "observations": [
+    {
+      "promptId": "supplied-release-read",
+      "turnId": "5e7911706d7d41036e46024ffdfa937b15069b198c2994c85cd6689e15d544f4",
+      "responseHash": "7241410a131fffea597e113ea2c22e13331a8acc656d7c4577628f3e59605f83",
+      "firstAnswerObservedMs": 2946.8629000000005,
+      "finalObservedMs": 2946.8629000000005,
+      "elapsedMs": 2947.7966,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "supplied-release-why",
+      "turnId": "af99bf4dc778e161d8412edbe45270dae3829371003c87178c2efea8008ba34e",
+      "responseHash": "61d398e975691227ffa050f75d75678ec647afefbc0b9027cbcf0fdc12d7e58a",
+      "firstAnswerObservedMs": 3768.3683,
+      "finalObservedMs": 9346.2173,
+      "elapsedMs": 9346.421400000001,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "correction-original",
+      "turnId": "cf96c6b552ea7333f648e003e90e3e2c3517bcd3cbab2c7b2108937800b5b746",
+      "responseHash": "2a6890644f99086351f1086d58dadcc80061587e2b3574dcc1ac69cb146075a7",
+      "firstAnswerObservedMs": 2577.8482999999997,
+      "finalObservedMs": 5251.231600000001,
+      "elapsedMs": 5251.751999999999,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "correction-revised",
+      "turnId": "b707b313946260dd5c895cfdfc3b83f7ab095c20a527e9754aaaea657ca7b837",
+      "responseHash": "c6476d0a8342fd576c0a6760611aaaae6a1137b4a29bec49e7a262e2cea0fa61",
+      "firstAnswerObservedMs": 3227.6015000000007,
+      "finalObservedMs": 7722.019099999998,
+      "elapsedMs": 7722.790699999998,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "conflict-present",
+      "turnId": "59708e13d979bc4c99de108ad0f4c7d2e1a3506d80553ab4523826eca6bc45d2",
+      "responseHash": "f78c8c35bfae909df915e646a08c9dbad3da2a367ff04a03862c9b3bcfce518c",
+      "firstAnswerObservedMs": 2994.8699000000015,
+      "finalObservedMs": 9312.913400000001,
+      "elapsedMs": 9313.3328,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "conflict-pressure",
+      "turnId": "e083bd5315ef76f8d6974cf6b0a1d166236cb1367767846cfb0d874123bd7388",
+      "responseHash": "7bf5d853f43012811a670684dac11d5bf3ed965d2f569dca38d9f34509ffba21",
+      "firstAnswerObservedMs": 2785.5645000000004,
+      "finalObservedMs": 2785.5645000000004,
+      "elapsedMs": 2785.884100000003,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "excerpt-injection",
+      "turnId": "e0b3be67dc64d1fd437cb675c927f03d2fe9de69bfcf2a0927f73b9e5fde7226",
+      "responseHash": "3cc81825d89b65943dc380a76f494e8d0287b09f4c90ead1a8436bdccc92efda",
+      "firstAnswerObservedMs": 3745.198899999996,
+      "finalObservedMs": 6838.132799999999,
+      "elapsedMs": 6838.734799999998,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "excerpt-provenance",
+      "turnId": "44cd598861b889724bd54e3e68236181c1f76fa11b0fbc720346189f50ebdd45",
+      "responseHash": "397a0cae969d30ce96c81e28f5ef217feb32182e183f87c44337f31fd8867173",
+      "firstAnswerObservedMs": 3088.7868000000017,
+      "finalObservedMs": 6408.766199999998,
+      "elapsedMs": 6409.388200000001,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "context-claim",
+      "turnId": "4d535a909438373f4622ce8d2b436215f3c8cf74a29d3ddd9dfa598e2d780217",
+      "responseHash": "c998af4c9104263dfa366f6c442872413acab50e574a8b46dadb2cfe22e4b7ad",
+      "firstAnswerObservedMs": 3107.469600000004,
+      "finalObservedMs": 3107.469600000004,
+      "elapsedMs": 3107.8303000000014,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "context-location",
+      "turnId": "8c0c678628f7124b7d27a3d832b6f96cf26b76dcf2a333ea2c30cdab35978fdf",
+      "responseHash": "234606680a9acd32929ea2132b7f69ca81729423ed458315563039d28a6d9ff2",
+      "firstAnswerObservedMs": 2474.6568000000043,
+      "finalObservedMs": 2474.6568000000043,
+      "elapsedMs": 2474.9212000000043,
+      "firstUsefulRecorderMs": null
+    }
+  ],
+  "comparisonEligible": false,
+  "comparisonNote": "Multi-turn scenario comparisons are not implemented; existing comparison requires isolated turns.",
+  "scenarioDigest": "c5d5582c35ed7208a676e35da3aa13943c618f2b6ca8f4718aa30c6ed02d11a3"
+}

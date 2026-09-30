@@ -1,10 +1,11 @@
 import { liveReportSchema } from "../../bench/liveReport";
 import { canonical, datasetSchema, digest } from "./contract";
 import { recordingEvidenceValid, validateArtifact } from "./storage";
+import { scenarioDataset } from "../scenarios";
 import { scoreRecording } from "./annotations";
 
 /** Join immutable, completed recording evidence to independently observed HTTP timings. */
-export function linkLiveRecording(reportValue: unknown, artifactValue: unknown, datasetValue: unknown, annotationsValue: unknown, now = Date.now()) {
+function linkRecording(reportValue: unknown, artifactValue: unknown, datasetValue: unknown, annotationsValue: unknown, now: number, groups?: string[]) {
   const report = liveReportSchema.parse(reportValue), run = validateArtifact(artifactValue, now), dataset = datasetSchema.parse(datasetValue);
   const require = (condition: unknown, code: string) => { if (!condition) throw new Error(code); };
   require(recordingEvidenceValid(run) && report.recorderRunId === run.manifest.runId, "EVAL_LINK_RUN_MISMATCH");
@@ -13,8 +14,17 @@ export function linkLiveRecording(reportValue: unknown, artifactValue: unknown, 
   const turns = run.trace.filter(e => e.type === "user");
   require(turns.length === dataset.prompts.length && report.records.length === turns.length &&
     report.requestedPromptCount === turns.length && report.executedPromptCount === turns.length, "EVAL_LINK_COVERAGE_MISMATCH");
-  require(new Set(report.records.map(r => r.conversationId)).size === turns.length &&
-    new Set(turns.map(t => t.turnId)).size === turns.length, "EVAL_LINK_DUPLICATE_TURN");
+  require(new Set(turns.map(t => t.turnId)).size === turns.length, "EVAL_LINK_DUPLICATE_TURN");
+  if (groups) {
+    require(groups.length === turns.length, "EVAL_LINK_COVERAGE_MISMATCH");
+    const groupToConversation = new Map<string, string>(), conversationToGroup = new Map<string, string>();
+    report.records.forEach((record, i) => {
+      const group = groups[i], conversation = record.conversationId;
+      require((!groupToConversation.has(group) || groupToConversation.get(group) === conversation) &&
+        (!conversationToGroup.has(conversation) || conversationToGroup.get(conversation) === group), "EVAL_LINK_CONVERSATION_GROUP_MISMATCH");
+      groupToConversation.set(group, conversation); conversationToGroup.set(conversation, group);
+    });
+  } else require(new Set(report.records.map(r => r.conversationId)).size === turns.length, "EVAL_LINK_DUPLICATE_TURN");
   const identity = (kind: string, value: string) => digest(`${run.manifest.runId}:${kind}:${value}`);
   for (const [i, record] of report.records.entries()) {
     const turn = turns[i], prompt = dataset.prompts[i];
@@ -57,4 +67,15 @@ export function linkLiveRecording(reportValue: unknown, artifactValue: unknown, 
       firstAnswerObservedMs: r.firstAnswerObservedMs, finalObservedMs: r.finalObservedMs, elapsedMs: r.elapsedMs,
       firstUsefulRecorderMs: grading.results[i].firstUsefulMs })),
     comparisonEligible: false, comparisonNote: "Compare the original recordings with eval:recordings compare; linking does not establish cross-run compatibility." };
+}
+
+export function linkLiveRecording(report: unknown, artifact: unknown, dataset: unknown, annotations: unknown, now = Date.now()) {
+  return linkRecording(report, artifact, dataset, annotations, now);
+}
+/** Scenario linking validates exact grouping; it does not relax isolated-run comparison rules. */
+export function linkScenarioRecording(report: unknown, artifact: unknown, plan: unknown, annotations: unknown, now = Date.now()) {
+  const { suite, dataset, conversationGroups } = scenarioDataset(plan);
+  return { ...linkRecording(report, artifact, dataset, annotations, now, conversationGroups),
+    schemaVersion: "chatagent-linked-scenarios-v1", scenarioDigest: digest(canonical(suite)),
+    comparisonNote: "Multi-turn scenario comparisons are not implemented; existing comparison requires isolated turns." };
 }

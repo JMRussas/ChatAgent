@@ -8,6 +8,8 @@ export interface LiveBenchmarkOptions {
   baseUrl: string;
   deadlineMs?: number;
   pollIntervalMs?: number;
+  /** Equal labels share a fresh conversation within this batch only. */
+  conversationGroups?: readonly string[];
 }
 export interface LiveBenchmarkRecord {
   evidenceMode: "live" | "synthetic" | "mixed" | "unknown";
@@ -48,10 +50,15 @@ export async function runLiveBenchmark(prompts: BenchmarkPrompt[], options: Live
   for (const value of [deadlineMs, pollMs]) {
     if (!Number.isSafeInteger(value) || value <= 0 || value > 2147483647) throw new Error("Invalid benchmark timing");
   }
+  if (options.conversationGroups && (options.conversationGroups.length !== prompts.length ||
+    options.conversationGroups.some(g => !/^[a-zA-Z0-9_.-]{1,120}$/.test(g)))) throw new Error("Invalid conversation groups");
+  const conversations = new Map<string, string>();
   const baseUrl = options.baseUrl.replace(/\/$/, "");
   const records: LiveBenchmarkRecord[] = [];
-  for (const prompt of prompts) {
-    const conversationId = `bench-${randomUUID()}`, messageId = randomUUID();
+  for (const [index, prompt] of prompts.entries()) {
+    const group = options.conversationGroups?.[index];
+    const conversationId = group && conversations.get(group) || `bench-${randomUUID()}`, messageId = randomUUID();
+    if (group) conversations.set(group, conversationId);
     const started = performance.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), deadlineMs);
@@ -166,7 +173,7 @@ export async function runLiveBenchmark(prompts: BenchmarkPrompt[], options: Live
     }
     records.push(record);
     // Do not pile new requests onto a server whose previous turn could still be running.
-    if (record.cancellation === "unconfirmed") break;
+    if (record.cancellation === "unconfirmed" || options.conversationGroups && record.outcome !== "stop") break;
   }
   return records;
 }

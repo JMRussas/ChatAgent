@@ -1,5 +1,45 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: evidence-grounding and follow-up scenarios
+
+Added a versioned five-scenario/ten-turn suite with explicit expected grounding and
+completion behavior: supplied fictional evidence and temporal limits, corrections,
+conflicting sources, instructions inside quoted evidence, and hypothetical location
+claims. `eval:live-accept -- <new-directory> --scenarios` runs each scenario in a
+fresh conversation and its follow-ups sequentially. Rubrics never enter model input.
+`eval:recordings link-scenarios` validates full ordered coverage, answer identities
+and exact conversation grouping; existing isolated comparison rules remain strict.
+
+[Live evidence and review](../../reports/grounding-followup-review-2026-09-30.json):
+the first batch stopped after five successful turns when the sixth was rejected
+as `NO_ELIGIBLE_MODEL` with a stale Claude observation; four turns were unrun.
+This exposed startup-clock skew in early refresh: a discovery tick could occur just
+outside the ten-second refresh threshold. Discovery now renews successful evidence
+on each configured tick (20 seconds locally), while per-invocation checks still
+reuse the cache and negative backoff remains intact. A skew regression test covers
+the gap. Original failed evidence is retained, not overwritten.
+
+The rerun completed **10/10 runtime turns**. Exact final-answer assistant review
+graded **10/10 groundedness, 8/10 task completion**. Two intentionally unanswerable
+requests remain completion failures: an official winner from conflicting excerpts,
+and a verified actual host location. Honest limitations are not relabeled successful
+tasks. [Linked grades](../../reports/grounding-followup-linked-2026-09-30.json)
+therefore retain `qualityPassed: false`, and the CLI exits nonzero as intended.
+These are synthetic evidence cases reviewed by the assistant, not a retrieval test,
+independent human calibration or a broad hallucination-rate estimate. Only final
+required-phase answers are graded; provisional quality is not comprehensively scored.
+
+Validation: **535 TypeScript tests / 68 files**, typecheck, build and seeded simulated
+release checks pass. Real HTTP tests verify history delivery, scenario isolation,
+and refusal of split/merged groups. Failed turns stop dependent scenario execution.
+No account settings or Python/UI code changed. Artifact expiry remains seven days.
+
+Next: clean-copy installation/release verification, then choose supported streaming
+conditions for preregistered repeated single/dual measurements. Independent factual
+review of the earlier platform comparison also remains open. Claude's current
+final-only bridge cannot establish a streaming comparison. Spec 06 is not complete;
+current-data retrieval and the sports demo remain subsequent work.
+
 ## 2026-09-30: separate runtime, grounding and task-completion grades
 
 Added v2 annotations requiring explicit groundedness and taskCompletion alongside

@@ -44,7 +44,10 @@ Other unsuccessful inspections back off for five seconds. No per-call usage HTTP
 request is required while evidence is fresh; percentages are never converted to
 invented request/token counts.
 Configured resource evidence expires after one day and must be reviewed/renewed;
-usage evidence expires after 30 seconds. Local discovery runs every 20 seconds.
+usage evidence expires after 30 seconds. Local discovery runs every 20 seconds
+and refreshes successful inspection evidence on each discovery tick; it does not
+reuse a nearly expired snapshot based on an assumed alignment of those clocks.
+Invocation checks still reuse valid cached evidence. Negative backoff is preserved.
 Missing/stale evidence blocks dispatch.
 
 Live checks are explicit commands, excluded from offline tests:

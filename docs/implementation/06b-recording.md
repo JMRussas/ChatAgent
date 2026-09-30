@@ -383,3 +383,49 @@ HTTP observation/recorder linkage is implemented as described above.
 Recorder comparison contracts are implemented as described above; the historical
 453-test count in this section refers to the original 06B milestone. Existing
 historical benchmark reports are unchanged and are not evidence for this schema.
+
+## Grounding and follow-up scenarios
+
+`data/grounding-followup-scenarios.json` is a versioned five-scenario, ten-turn
+suite. Each case declares expected grounding and task-completion behavior separately
+from the prompt. All economic figures are explicitly fictional supplied evidence;
+they are not retrieved facts. Cases cover source attribution and temporal limits,
+corrections, conflicting evidence, instructions inside quoted text, and hypothetical
+claims that must not become verified runtime facts.
+
+Run explicitly against the configured local Claude catalog binding:
+
+```sh
+npm run eval:live-accept -- reports/evaluations/<new-directory> --scenarios
+```
+
+An optional filename after `--scenarios` selects another validated scenario plan.
+Each scenario receives a fresh random conversation; its turns execute sequentially,
+with prior completed answers in history. Expected outcomes never enter model inputs.
+The ordinary benchmark still creates one fresh conversation per prompt. A scenario
+batch stops at the first non-stop outcome or unconfirmed cancellation; remaining
+cases are unrun, not discarded from the requested dataset. Coverage diagnostics,
+HTTP observations and the recorder are retained, and incomplete coverage cannot
+produce a linked result. Runtime results do not assert model quality or the original
+golden suite's route/latency thresholds.
+
+The scenario plan is copied into the output directory before execution. Review each
+exact final answer using v2 annotations, then bind the results to that plan:
+
+```sh
+npm run eval:recordings -- link-scenarios <observations.json> <run.json> <scenario-plan.json> <annotations.json>
+```
+
+This emits `chatagent-linked-scenarios-v1`, binds the scenario digest, and verifies
+ordered full turn coverage, exact answer/call identities, and a one-to-one mapping
+from scenario IDs to actual conversations. Splitting a scenario across conversations
+or merging unrelated scenarios fails. Ordinary `link-live` still rejects repeated
+conversation IDs. Existing cross-run comparison still requires isolated turns;
+scenario-history comparisons are not implemented or claimed.
+
+Two cases intentionally lack the evidence needed to fulfill the requested task:
+selecting an official winner from conflicting excerpts, and identifying the actual
+host location. Honest noncompletion should pass groundedness but fail taskCompletion.
+That failure is expected coverage of a limitation, not permission to relabel the
+user's task as completed. Overall quality acceptance remains false when such cases
+are included, even if all expected grounded behaviors are demonstrated.
