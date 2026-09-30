@@ -1,3 +1,4 @@
+import { sportsChatScript } from "./sportsChat";
 import { documentTaskScript } from "./documentTaskPanel";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
@@ -387,6 +388,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         <div class="sub">Watch provisional replies upgrade to refined replies as deep processing completes.</div>
       </header>
 
+      <p id="mockNotice" role="status" hidden>Mock preview: replies are simulated. Completion means the simulation finished, not that facts were retrieved or verified.</p>
       <form id="composer" class="composer">
         <div class="meta-grid">
           <label>
@@ -407,6 +409,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       </form>
 
       ${documentTasks ? '<section aria-label="Documentation tasks"><h2>Documentation tasks</h2><p id="documentTaskStatus" role="status"></p><div id="documentTasks" aria-live="polite"></div></section>' : ""}
+      <section id="sportsQuestions" aria-label="Sports questions" aria-live="polite"></section>
       <div id="thread" class="thread" aria-live="polite"></div>
       <footer id="status" class="status">Ready.</footer>
     </section>
@@ -575,12 +578,12 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           if (node.answers.children[answerIndex] !== view.element) node.answers.insertBefore(view.element, node.answers.children[answerIndex] ?? null);
           view.label.textContent = answer.label + (answer.model ? " · " + (answer.provider ? answer.provider + "/" : "") + answer.model : "");
           view.label.title = (answer.selectionReasons ?? []).join("; ");
-          if (view.status.textContent !== answer.state) view.status.textContent = answer.state;
+          if (view.status.textContent !== answer.state) view.status.textContent = answer.provider === "mock" && answer.state === "Complete" ? "Simulation complete — facts not verified" : answer.state;
           if (view.content.textContent !== answer.text) view.content.textContent = answer.text;
         }
         const current = turn.current;
         const working = current?.phase === "deep" && turn.status === "Working" ? "Working on a deeper answer" : turn.status;
-        const label = working + (current?.model ? " · " + (current.provider ? current.provider + "/" : "") + current.model : "") + (current?.reasoningEnabled ? " · Reasoning enabled" : "");
+        const label = (current?.provider === "mock" && working === "Complete" ? "Simulation complete — facts not verified" : working) + (current?.model ? " · " + (current.provider ? current.provider + "/" : "") + current.model : "") + (current?.reasoningEnabled ? " · Reasoning enabled" : "");
         if (node.summaryLabel.textContent !== label) node.summaryLabel.textContent = label;
         node.spinner.hidden = !turn.active;
         if (node.wasActive && !turn.active && turn.status === "Complete") node.details.open = false;
@@ -609,6 +612,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
 
       const mode = String(state.runtimeInfo?.mode ?? "unknown");
+      $("mockNotice").hidden = !(mode === "mock" || state.runtimeInfo?.fastProvider === "mock" || state.runtimeInfo?.deepProvider === "mock");
       $("runtimeMode").textContent = mode === "live" ? "LIVE" : mode === "mock" ? "MOCK" : "UNKNOWN";
 
       const fastLabel = state.runtimeInfo?.fastProvider && state.runtimeInfo?.fastModel
@@ -710,6 +714,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
     }
 
+    ${sportsChatScript}
     composer.addEventListener("submit", async (event) => {
       event.preventDefault();
       const conversationId = String(conversationIdInput.value || "").trim();
@@ -753,6 +758,13 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
         const payload = await res.json();
         if (conversationId !== state.conversationId) return;
+        if (payload.sports) {
+          state.pendingUserText = ""; state.pendingUserSentAtMs = 0; state.pendingMessageId = null;
+          renderThread(); promptInput.value = "";
+          showSportsQuestion(text, payload.sports, conversationId, userId);
+          setStatus(payload.sports.state === "unsupported" ? "No sports lookup performed." : "Sports request needs confirmation.");
+          return;
+        }
         state.routeDecision = payload?.fastResponse?.analysis?.routeDecision ?? null;
         state.confidence = Number(payload?.fastResponse?.analysis?.confidence ?? NaN);
         state.confidence = Number.isFinite(state.confidence) ? state.confidence : null;

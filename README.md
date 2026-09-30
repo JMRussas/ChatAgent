@@ -105,7 +105,7 @@ To enable live background briefings, set
 `SPORTS_BRIEFING_CONFIG_PATH=data/sports/nfl-live-briefing.example.json` and restart.
 Use the [start/status/cancel HTTP commands](docs/runtime-reference.md#optional-sports-briefing-http-boundary)
 to collect games and news. Startup performs no sports requests; the current UI has
-no briefing controls. The shared games budget allows five starts per rolling minute, including bursts.
+an explicit evidence form for recognized sports questions. The shared games budget allows five starts per rolling minute, including bursts.
 Further requests fail fast until capacity returns; cached reads remain available.
 After editing that configuration file, `POST /briefings/config/reload` with `{}`
 applies validated changes without restarting. New runs record the configuration

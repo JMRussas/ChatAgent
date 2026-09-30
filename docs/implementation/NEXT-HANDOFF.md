@@ -1,5 +1,39 @@
 # Next ChatAgent handoff after 01B
 
+## Sports chat safeguard and capability-planning direction — 2026-09-30
+
+Recognized sports questions now bypass mock/model completion. MLB/Sox requests explain
+that no baseball source is connected and identify unresolved team/date context.
+Configured NFL/NBA requests display an explicit evidence form: league, operation,
+optional provider-qualified team, ISO timestamp window and timezone. Confirming calls
+`POST /sports/chat`, collecting only the matching configured task scope/source kind;
+status/cancel reuse `/briefings`. Source records, links, coverage and errors are shown
+without claiming a generated recap. Other chat remains usable during retrieval.
+Mock completed turns are labeled simulation complete/facts not verified, with a
+runtime notice when mock providers are configured.
+
+This is a deliberately limited keyword safeguard, not general natural-language
+routing, team resolution or conversational clarification memory. Unrecognized intents
+still use the normal model path. Sports cards currently live only in browser memory,
+are separate from the durable conversation timeline and disappear on page reload.
+Users must provide explicit ISO timestamps; “last night” is not silently resolved.
+No live model or generic search tool was connected by this change.
+
+User direction: avoid a bespoke workflow for every topic. Next architectural step is
+capability-based planning: describe tool inputs, supported scope, freshness and limits;
+let the model propose work; validate scope, budgets and available tools before running.
+Distinguish executable requests, actionable clarification, and missing capabilities.
+Use generic web retrieval only when a suitable tool is actually configured, and retain
+source evidence. Missing capabilities must not turn into unsupported factual answers.
+Then present those plans/tasks and follow-up evidence in the topic-oriented UI.
+
+Validation: full existing 600-test suite plus the new HTTP scenario passed (601 tests
+across those runs); TypeScript build and ten browser tests pass. Tests cover the Sox
+unsupported response, confirmed evidence retrieval, league mismatch, disabled sources,
+mock completion labels and continued composer availability. No live sports API/model
+calls were needed.
+
+
 ## Manual live configuration reload — 2026-09-30
 
 Added `POST /briefings/config/reload` with an empty JSON object. It rereads the

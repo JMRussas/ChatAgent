@@ -13,7 +13,7 @@ test("direct draft streams with progress, then completes without a spinner", asy
   app.pending.get("fast:Explain event loops")!.finish();
   await expect(turn.locator(".answer-content")).toHaveText("Final: Explain event loops");
   await expect(turn.locator(".assistant")).toHaveAttribute("aria-busy", "false");
-  await expect(turn.locator("summary")).toContainText("Complete");
+  await expect(turn.locator("summary")).toContainText("Simulation complete — facts not verified");
   await expect(turn.locator(".activity-spinner")).toBeHidden(); expect(errors).toEqual([]);
 });
 test("deep queue, selected model and late chunks stay with their own overlapping turn", async ({ page, app }) => {
@@ -69,4 +69,29 @@ test("SSE reconnect restores exact text and clears connection status", async ({ 
   await expect(page.getByText("Live updates reconnecting", { exact: true })).toHaveCount(0);
   app.pending.get("fast:Explain reconnect behavior")!.finish();
   await expect(page.locator(".answer-content")).toHaveText("Final: Explain reconnect behavior");
+});
+
+test("Sox question reports unsupported retrieval without creating a simulated answer", async ({ page, app }) => {
+  await send(page, "What happened in the Sox game last night?");
+  const panel = page.getByRole("region", { name: "Sports questions" });
+  await expect(panel).toContainText("No MLB/baseball source is connected");
+  await expect(panel).toContainText("Boston Red Sox or Chicago White Sox");
+  expect(app.pending.size).toBe(0);
+  await expect(page.locator(".turn")).toHaveCount(0);
+});
+
+test("confirmed sports scope renders source evidence and keeps chat available", async ({ page }) => {
+  await page.route("**/messages", route => route.fulfill({ json: { sports: { state: "needs-input", message: "Confirm scope", capabilities: { league: "NFL", maxWindowHours: 336 } } } }));
+  await page.route("**/sports/chat", async route => {
+    const body = route.request().postDataJSON();
+    expect(body.league).toBe("NFL"); expect(body.request.team).toBeNull();
+    await route.fulfill({ json: { id: "test-run", settled: true, tasks: [{ planTaskId: "league-games", status: "partial", errors: [], results: [{ evidence: { mode: "synthetic", coverage: "partial", freshness: "unknown", limitations: ["TEST_EVIDENCE"], records: [{ headline: "Test evidence", provenance: { url: "https://example.invalid/story" } }] } }] }] } });
+  });
+  await send(page, "Show NFL games");
+  await page.getByLabel("From, inclusive").fill("2026-09-29T00:00:00-04:00");
+  await page.getByLabel("To, exclusive").fill("2026-09-30T00:00:00-04:00");
+  await page.getByRole("button", { name: "Retrieve evidence" }).click();
+  await expect(page.getByRole("region", { name: "Sports questions" })).toContainText("partial coverage");
+  await expect(page.getByRole("link", { name: "Open original source" })).toHaveAttribute("href", "https://example.invalid/story");
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
 });

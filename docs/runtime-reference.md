@@ -23,8 +23,7 @@ fetches; only explicit start commands do. Missing games credentials leave news u
 
 The coordinator receives the server-owned adapter registry and execution limits;
 the profile is validated and copied at boundary construction. The default app does
-not enable this endpoint or silently load fixtures. The current UI has no briefing
-controls. See [the demo plan](18-nba-briefing-demo.md) for source and fixture setup.
+not enable this endpoint or silently load fixtures. The chat UI offers a scope-confirmation form for recognized sports questions. See [the demo plan](18-nba-briefing-demo.md) for source and fixture setup.
 
 After editing the configured file, apply it without restarting:
 
@@ -564,3 +563,18 @@ Effective output limits are resolved once at startup. For an Ollama role, an exp
 `OLLAMA_*_NUM_PREDICT` is used both in its request and in context reservation.
 Applicable overrides must be positive integers; invalid or input-exhausting values
 fail startup. Azure/Bedrock roles ignore Ollama overrides.
+
+## Sports chat evidence confirmation
+
+Recognized sports intents on `POST /messages` can return `{sports: {state, message,
+capabilities}}` instead of a model submission. `state` is `unsupported` or `needs-input`.
+No timeline/model completion is emitted for this response. Recognition is currently
+a bounded keyword safeguard, not a general planner.
+
+`POST /sports/chat` accepts `{userId, requestId, league, kind, request}`. `league` must
+match the server profile and `kind` is games/news. `request` uses the briefing request
+schema, with an explicit past `now` (exclusive end) and `lastSuccessful` timestamp
+(inclusive start) for the selected league/team scope. Windows must be nonempty and
+within the configured catch-up cap. Only matching task/source kinds are executed.
+The returned run supports normal briefing status/cancel commands. This endpoint
+returns evidence, not a narrative answer. User IDs retain the prototype access boundary.

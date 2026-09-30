@@ -11,6 +11,22 @@ const commandSchema = z.discriminatedUnion("op", [
 
 /** Server-owned profile; clients cannot choose adapters, budgets or executable code. */
 export class BriefingHttp {
+  chatCapabilities() { return { league: this.profile.league, maxWindowHours: this.profile.maxCatchupHours }; }
+  startChat(value: unknown) {
+    const input = z.object({ userId, requestId: userId,
+      kind: z.enum(["games", "news"]), league: z.enum(["NBA", "NFL"]),
+      request: briefingRequestSchema
+    }).strict().parse(value);
+    if (input.league !== this.profile.league) throw new Error("SPORTS_LEAGUE_UNAVAILABLE");
+    const request = briefingRequestSchema.parse(input.request);
+    const from = request.lastSuccessful[request.team ? "team" : "league"];
+    if (!from || Date.parse(request.now) > Date.now() || Date.parse(from) >= Date.parse(request.now) ||
+      Date.parse(request.now) - Date.parse(from) > this.profile.maxCatchupHours * 3600000) throw new Error("SPORTS_WINDOW_INVALID");
+    const tasks = this.profile.tasks.filter(task => task.scope === (request.team ? "team" : "league"))
+      .map(task => ({ ...task, sources: task.sources.filter(source => source.kind === input.kind) })).filter(task => task.sources.length);
+    if (!tasks.length) throw new Error("SPORTS_SOURCE_UNAVAILABLE");
+    return this.coordinator.start(input.userId, input.requestId, request, { ...this.profile, tasks });
+  }
   private profile: z.infer<typeof briefingProfileSchema>;
   reload?: () => Promise<{ version: string; changed: boolean }>;
   setProfile(profile: unknown) { this.profile = briefingProfileSchema.parse(profile); }

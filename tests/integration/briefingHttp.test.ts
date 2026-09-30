@@ -44,6 +44,26 @@ async function app(enabled = true) {
   return { post, release, close, read, signals, coordinator, service, briefings };
 }
 describe("briefing HTTP integration", () => {
+  it("keeps unsupported sports out of model completion and retrieves confirmed supported scope", async () => {
+    const a = await app();
+    const message = { conversationId: "sports-chat", userId: "u", text: "What happened in the Sox game last night?" };
+    const unsupported = await a.post(message, "/messages");
+    expect(unsupported.body.sports.state).toBe("unsupported");
+    expect((await a.service.getTimeline("sports-chat"))).toEqual([]);
+    const clarify = await a.post({ ...message, text: "Show NBA games" }, "/messages");
+    expect(clarify.body.sports.state).toBe("needs-input");
+    expect(a.read).not.toHaveBeenCalled();
+    const body = { userId: "u", requestId: "sports-1", league: "NBA", kind: "games", request: { ...request, team: null, lastSuccessful: { league: games.window.fromInclusive, team: games.window.fromInclusive } } };
+    const started = await a.post(body, "/sports/chat");
+    expect(started.status).toBe(202); expect(started.body.tasks).toHaveLength(1);
+    a.release();
+    const finished = await a.coordinator.wait("u", started.body.id);
+    expect(finished.tasks[0].results[0].evidence.records.length).toBeGreaterThan(0);
+    expect((await a.post({ ...body, league: "NFL" }, "/sports/chat")).status).toBe(400);
+    const off = await app(false);
+    expect((await off.post({ ...message, text: "Show NBA games" }, "/messages")).body.sports.state).toBe("unsupported");
+  });
+
   it("reloads only the configured file and rejects client overrides with safe failures", async () => {
     const a = await app();
     expect((await a.post({}, "/briefings/config/reload")).status).toBe(404);

@@ -1,4 +1,5 @@
 import type { BriefingHttp } from "./sports/briefingHttp";
+import { sportsChatIntent } from "./sports/chat";
 import { loadLiveBriefingFromEnv } from "./sports/liveBriefing";
 import { startEvaluationRecording } from "./eval/recording/startup";
 import { cliLimits } from "./providers/cli/runner";
@@ -253,10 +254,33 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
       }
 
+      if (method === "POST" && url.pathname === "/sports/chat") {
+        if (!options.briefings) return json(res, 404, { error: "Sports retrieval is not enabled on this server." });
+        try { return json(res, 202, options.briefings.startChat(requireObjectBody(await parseJsonBody(req)))); }
+        catch (error) {
+          if (error instanceof z.ZodError) throw error;
+          return json(res, 400, { error: "Cannot start this scope. Check the configured league, source, team ID and date window." });
+        }
+      }
+
       if (method === "POST" && url.pathname === "/messages") {
         const raw = requireObjectBody(await parseJsonBody(req));
         rejectUnsupportedInputs(raw);
         const body = MessageBodySchema.parse(raw);
+        const intent = sportsChatIntent(body.text);
+        if (intent) {
+          const capabilities = options.briefings?.chatCapabilities();
+          const unavailable = intent.unsupported || !capabilities || (intent.league && intent.league !== capabilities.league);
+          return json(res, 200, { sports: {
+            state: unavailable ? "unsupported" : "needs-input",
+            message: intent.unsupported
+              ? "No MLB/baseball source is connected. I have not looked up a game. Sox can mean Boston Red Sox or Chicago White Sox; an answer also needs the date and timezone."
+              : !capabilities ? "Sports retrieval is not enabled on this server. No game data was retrieved."
+              : unavailable ? "That league is not configured for retrieval on this server. No game data was retrieved."
+              : "Confirm the league, team and date window below. Team names are not resolved automatically. This retrieves source evidence; it does not generate a game recap.",
+            capabilities: unavailable ? null : capabilities
+          } });
+        }
 
         const response = await service.submitMessage({
           messageId: body.messageId,
