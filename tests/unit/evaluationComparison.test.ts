@@ -10,8 +10,8 @@ import { compareRecordings, configurationDifferences, executionDigest } from "..
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 const dataset = { version: "test-v1", prompts: [{ id: "p", text: "Question" }] };
-const ratings = () => ({ version: 1, rubricVersion: "v1", judge: { kind: "human", id: "reviewer", configurationDigest: digest("judge") },
-  ratings: [{ promptId: "p", responseHash: digest("Answer"), correctness: "pass", relevance: "pass", unsupportedClaims: "no" }] });
+const ratings = () => ({ version: 2, rubricVersion: "v1", judge: { kind: "human", id: "reviewer", configurationDigest: digest("judge") },
+  ratings: [{ promptId: "p", responseHash: digest("Answer"), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "chatagent-comparison-")); roots.push(root);
   const recorder = new EvaluationRecorder({ root, capture: "answers", maxBytes: 100000, maxEvents: 100, retentionMs: 60000, repetition: 1, condition: "cold" },
@@ -160,4 +160,13 @@ it("preserves repeated same-model retry attempts in the digest", async () => {
   b.trace.splice(1, 0, failed); resequence(b);
   expect(executionDigest(a)).not.toBe(executionDigest(b));
   expect(compare(a, b).available).toBe(false);
+});
+
+it("keeps an incompletely reviewed failure out of comparative quality rates", async () => {
+  const { a, b } = await fixture(), review = ratings();
+  review.ratings[0].taskCompletion = "fail"; review.ratings[0].correctness = "unrated";
+  const result = compareRecordings(a, b, dataset, ratings(), review);
+  expect(result).toMatchObject({ available: false, candidateQualityPassed: false, passRateDelta: null });
+  expect(result.issues).toContain("candidate: required exact-answer grading unavailable");
+  expect(result.runs[1].counts.fail).toBe(1);
 });

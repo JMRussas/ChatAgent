@@ -90,7 +90,7 @@ export function compareRecordings(baselineValue: unknown, candidateValue: unknow
     if (modes.size !== 1 || !modes.has(run.summary.mode)) issues.push(`${label}: unknown, mixed or inconsistent execution mode`);
     if (!executionEvidence(run).valid) issues.push(`${label}: missing or inconsistent call execution identity`);
     if (run.manifest.condition === "unknown") issues.push(`${label}: unknown warm/cold condition`);
-    if (grades[i].results.some(r => r.outcome === "unavailable")) issues.push(`${label}: required exact-answer grading unavailable`);
+    if (grades[i].results.some(r => !r.gradingComplete || r.outcome === "unavailable")) issues.push(`${label}: required exact-answer grading unavailable`);
   }
   const [a, b] = runs;
   if (a.manifest.runId === b.manifest.runId) issues.push("distinct runs required");
@@ -98,7 +98,7 @@ export function compareRecordings(baselineValue: unknown, candidateValue: unknow
     if (!equal(a.manifest[key], b.manifest[key])) issues.push(`${key} mismatch`);
   }
   if (a.summary.mode !== b.summary.mode) issues.push("execution mode mismatch");
-  if (!equal({ rubric: annotations[0].rubricVersion, judge: annotations[0].judge }, { rubric: annotations[1].rubricVersion, judge: annotations[1].judge }))
+  if (!equal({ version: annotations[0].version, rubric: annotations[0].rubricVersion, judge: annotations[0].judge }, { version: annotations[1].version, rubric: annotations[1].rubricVersion, judge: annotations[1].judge }))
     issues.push("quality method mismatch");
   const differences = configurationDifferences(a.manifest.configuration, b.manifest.configuration);
   const executions = runs.map(executionDigest);

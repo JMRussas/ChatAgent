@@ -35,8 +35,8 @@ function turn(recorder: EvaluationRecorder, text = "answer") {
   recorder.record("c", { ...base, type: "provisional", text, answerKind: "substantive" });
   recorder.record("c", { ...base, type: "terminal", text, finishReason: "stop" });
 }
-const annotations = (text = "answer") => ({ version: 1, rubricVersion: "rubric-v1", judge: { kind: "human", id: "reviewer", configurationDigest: digest("human-v1") },
-  ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no" }] });
+const annotations = (text = "answer") => ({ version: 2, rubricVersion: "rubric-v1", judge: { kind: "human", id: "reviewer", configurationDigest: digest("human-v1") },
+  ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
 
 describe("evaluation recording", () => {
   it("defaults off and rejects invalid capture/size configuration", () => {
@@ -184,4 +184,36 @@ describe("evaluation recording", () => {
     }
     expect(results[1]).toEqual(results[0]);
   });
+});
+
+it("separates an honest limitation from task completion", async () => {
+  const recorder = await setup({ capture: "answers" });
+  const text = "I cannot fetch current figures because no retrieval tool is available.";
+  turn(recorder, text); await recorder.finish();
+  const review = annotations(text); review.ratings[0].taskCompletion = "fail";
+  const grade = scoreRecording(await readArtifact(recorder.path), review);
+  expect(grade).toMatchObject({ runtimePassed: true, passed: false, results: [{
+    runtimeOutcome: "stop", correctness: "pass", relevance: "pass", groundedness: "pass", taskCompletion: "fail", outcome: "fail"
+  }] });
+});
+it("does not upgrade legacy reviews into task-completion evidence", async () => {
+  const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
+  const { groundedness, taskCompletion, ...legacyRating } = annotations().ratings[0];
+  const grade = scoreRecording(await readArtifact(recorder.path), { ...annotations(), version: 1, ratings: [legacyRating] });
+  expect(grade).toMatchObject({ annotationVersion: 1, runtimePassed: true, passed: false,
+    results: [{ groundedness: "unavailable", taskCompletion: "unavailable", outcome: "unavailable" }] });
+});
+it("requires groundedness even when an answer completes the requested format", async () => {
+  const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
+  const review = annotations(); review.ratings[0].groundedness = "fail"; review.ratings[0].unsupportedClaims = "yes";
+  expect(scoreRecording(await readArtifact(recorder.path), review)).toMatchObject({ passed: false,
+    results: [{ groundedness: "fail", taskCompletion: "pass", outcome: "fail" }] });
+});
+it("keeps absent quality ratings unavailable and rejects missing v2 dimensions", async () => {
+  const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
+  const run = await readArtifact(recorder.path), review = annotations();
+  review.ratings[0].taskCompletion = "unrated";
+  expect(scoreRecording(run, review)).toMatchObject({ passed: false, results: [{ taskCompletion: "unavailable", outcome: "unavailable" }] });
+  const { taskCompletion, ...incomplete } = review.ratings[0];
+  expect(() => scoreRecording(run, { ...review, ratings: [incomplete] })).toThrow();
 });

@@ -83,8 +83,8 @@ Annotations are versioned separately:
 
 ```json
 {
-  "version": 1,
-  "rubricVersion": "grounding-v1",
+  "version": 2,
+  "rubricVersion": "grounding-and-completion-v2",
   "judge": {
     "kind": "human",
     "id": "reviewer-1",
@@ -96,13 +96,16 @@ Annotations are versioned separately:
     "correctness": "pass",
     "relevance": "pass",
     "unsupportedClaims": "no",
+    "groundedness": "pass",
+    "taskCompletion": "pass",
     "firstUsefulEventSequence": 3
   }]
 }
 ```
 
-Correctness/relevance accept pass, fail or unrated; unsupportedClaims accepts yes,
-no or unrated. First-useful sequence is optional and refers to this run's trace
+Correctness, relevance, groundedness and taskCompletion accept pass, fail or
+unrated; unsupportedClaims accepts yes, no or unrated. Optional rationale explains
+a review (up to 2,000 characters). First-useful sequence is optional and refers to this run's trace
 sequence, for an answer/delta of the same scored attempt. It is an annotation,
 not a claim that an acknowledgment is useful. Deep turns require the deep answer.
 
@@ -111,6 +114,50 @@ successful terminal event, all required ratings, and valid recording evidence.
 Hash-only, redacted, expired, missing, changed or incomplete answers cannot pass.
 Scored and redacted-artifact hashes are distinct. This command consumes existing
 human/code/model annotations; it does not invoke or calibrate a model grader.
+
+### Separate execution, grounding and task completion (grading v2)
+
+`chatagent-grading-v2` reports each dimension independently. `runtimeOutcome` and
+`runtimePassed` mean normal termination of all required fast/deep phases for the
+recorded turns; they do not check latency limits, expected routing or full dataset
+coverage. Use structural goldens and `link-live` for those separate checks.
+
+Groundedness asks whether the answer accurately represents its evidence and tool
+access. Task completion asks whether the user's requested deliverable was supplied.
+An honest inability to fetch the latest data can pass groundedness and fail task
+completion. A plausible complete answer can still fail groundedness or correctness.
+A caveat alone does not validate factual claims.
+
+A known failed quality dimension produces `outcome: fail`, even when another
+rating is unavailable. Otherwise incomplete grading produces `unavailable`, never
+pass. `gradingComplete` separately records whether all required annotations and
+useful-event references are valid. Cross-run comparison requires complete grading
+on both sides; a known failure cannot hide missing factual review. Overall
+`passed`/linked `qualityPassed` requires all dimensions to pass, no unsupported
+claims, valid evidence and normal execution.
+
+Version 1 annotations remain readable, but groundedness/taskCompletion become
+unavailable and cannot produce a new quality pass. Do not mechanically add pass
+fields to historical reviews; review exact retained answers against a versioned
+rubric. Existing saved reports retain their historical schema and meaning.
+
+The [live golden rubric](../../data/live-golden-quality-rubric-v2.json),
+[exact-answer annotations](../../reports/claude-quality-annotations-2026-09-30.json)
+and [linked review](../../reports/claude-quality-linked-2026-09-30.json) illustrate
+this distinction. Judge configuration identity is the SHA256 of the rubric file's
+UTF-8 bytes. This is assistant review, not independently calibrated human grading.
+The five-case live run passes runtime/structural checks, but its new quality review
+has three passes, one task-completion failure (inflation), and one unavailable
+factual review (platform comparison). The inflation answer's domain correctness
+and unsupported-claim review also remain unavailable; its known completion failure
+still makes the outcome fail. No source was retrieved after the fact and represented
+as evidence available to the agent. The linked command correctly exits nonzero.
+
+Raw evidence is local to run `68a5ad50-dd38-4da7-a02b-8a15500812ab` under
+`reports/evaluations/live-golden-debug-final-2026-09-30/` and expires under the
+original seven-day retention policy. Committed hashes and ratings alone cannot
+reproduce exact-answer review after expiry. Full quality acceptance, follow-up
+cases and repeated comparisons remain open.
 
 ## Comparing recorded runs (06C)
 

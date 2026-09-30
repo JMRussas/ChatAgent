@@ -32,8 +32,8 @@ async function fixture() {
   const report = { schemaVersion: "chatagent-live-benchmark-v2", mode: "live", generatedAtIso: base.createdAtIso,
     recorderRunId: recorder.runId as string | null, promptsDigestSha256: digest(JSON.stringify(dataset.prompts)), requestedPromptCount: 1, executedPromptCount: 1,
     configurationDigest: null, qualityMethod: "unrated", comparisonEligible: false, records: [record] };
-  const annotations = { version: 1, rubricVersion: "v1", judge: { kind: "human", id: "test", configurationDigest: digest("judge") },
-    ratings: [{ promptId: "p", responseHash: digest("Answer"), correctness: "pass", relevance: "pass", unsupportedClaims: "no" }] };
+  const annotations = { version: 2, rubricVersion: "v1", judge: { kind: "human", id: "test", configurationDigest: digest("judge") },
+    ratings: [{ promptId: "p", responseHash: digest("Answer"), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] };
   return { root, artifact, report, dataset, annotations };
 }
 it("links exact recorded answers and keeps HTTP and recorder timings separate", async () => {
@@ -77,4 +77,10 @@ it.each(["same", "changed", "disabled"])("captures recorder identity only for a 
   }));
   const report = await runLiveReport(f.dataset.prompts, { baseUrl: "http://fixture", pollIntervalMs: 1 });
   expect(report.recorderRunId).toBe(condition === "same" ? f.artifact.manifest.runId : null);
+});
+
+it("retains runtime success while a linked task-completion grade fails", async () => {
+  const f = await fixture(); f.annotations.ratings[0].taskCompletion = "fail";
+  expect(linkLiveRecording(f.report, f.artifact, f.dataset, f.annotations)).toMatchObject({ linked: true, qualityPassed: false,
+    grading: { runtimePassed: true, results: [{ taskCompletion: "fail", groundedness: "pass", outcome: "fail" }] } });
 });

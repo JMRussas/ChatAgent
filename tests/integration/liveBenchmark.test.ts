@@ -47,8 +47,8 @@ it("links a bracketed HTTP benchmark to its completed recorder and exact-answer 
     expect(report.recorderRunId).toBe(recorder.runId);
     await handle.shutdown();
     const artifact = JSON.parse(await readFile(recorder.path, "utf8"));
-    const annotations = { version: 1, rubricVersion: "test", judge: { kind: "code", id: "fixture", configurationDigest: digest("fixture") },
-      ratings: dataset.prompts.map(p => ({ promptId: p.id, responseHash: digest("a"), correctness: "pass", relevance: "pass", unsupportedClaims: "no" })) };
+    const annotations = { version: 2, rubricVersion: "test", judge: { kind: "code", id: "fixture", configurationDigest: digest("fixture") },
+      ratings: dataset.prompts.map(p => ({ promptId: p.id, responseHash: digest("a"), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" })) };
     const linked = linkLiveRecording(report, artifact, dataset, annotations);
     expect(linked).toMatchObject({ linked: true, qualityPassed: true, mode: "synthetic" });
     expect(linked.observations).toHaveLength(2);

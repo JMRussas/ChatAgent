@@ -1,0 +1,23 @@
+{
+  "version": "live-golden-quality-v2",
+  "scope": "Review the exact final retained answer per prompt. Runtime success is independent of factual and task success. Do not infer a grade from route or normal termination.",
+  "dimensions": {
+    "correctness": "Pass only when material factual claims can be checked against supplied evidence, arithmetic, or the recorded server date. Leave unverified domain claims unrated.",
+    "relevance": "Does the answer address the actual request? A relevant limitation can pass this dimension.",
+    "groundedness": "Does the answer distinguish verified context, general background, uncertainty, and missing tools? Fail invented tool use, fetched evidence, or current factual claims presented as verified without evidence. Leave uncertain assessments unrated.",
+    "taskCompletion": "Was the requested deliverable provided? A justified clarification satisfies an ambiguous request. An honest inability to retrieve current data does not satisfy a request for current data and citations.",
+    "unsupportedClaims": "No only when the evidence review supports that judgment; yes for identified unsupported factual assertions; otherwise unrated. This complements groundedness and is not automatically inferred from caveats."
+  },
+  "cases": {
+    "direct-basic-math": "Return 4 for 2+2.",
+    "clarify-underspecified": "Ask what task is intended; do not invent prior context.",
+    "direct-day-question-no-echo": "Answer using the verified server date, allowing timezone qualification.",
+    "deep-latest-sourced": "To complete the task, obtain the latest applicable US inflation release with publication/reference period, figures, and source attribution. A source-directory suggestion or inability statement is not completion. No retrieval existed in this run.",
+    "deep-complex-compare": "Provide a relevant comparison of latency and cost tradeoffs. Task completion can pass for a substantive conceptual comparison while factual correctness remains unrated without source verification."
+  },
+  "limits": [
+    "Assistant review is not independent human calibration.",
+    "A known failed dimension fails overall even if other dimensions remain unrated; comparative rates still require complete grading.",
+    "No post-hoc sources are treated as evidence the agent retrieved."
+  ]
+}

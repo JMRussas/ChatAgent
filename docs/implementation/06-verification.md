@@ -164,6 +164,11 @@ establish factual accuracy or live-provider performance.
 
 ### Claude debugging follow-up (2026-09-30)
 
+Subsequent [v2 quality review](../../reports/claude-quality-linked-2026-09-30.json)
+of the same final answers reports **3 pass, 1 fail, 1 unavailable**, independently
+of the 5/5 runtime/structural result. Inflation fails task completion; domain factual
+verification is incomplete. See [grading contract](06b-recording.md#separate-execution-grounding-and-task-completion-grading-v2).
+
 The [dated debugging report](../../reports/claude-debug-2026-09-30.json) retains
 failed/intermediate runs and a final **5/5 structural pass**. Capacity is serialized
 with the existing bounded-wait policy (30 seconds, one slot). Usage inspection is

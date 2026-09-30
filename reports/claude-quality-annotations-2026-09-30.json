@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "rubricVersion": "live-golden-quality-v2",
+  "judge": {
+    "kind": "model",
+    "id": "assistant-review",
+    "configurationDigest": "29a881cc5501bffa76cd1f58d613646cd9625ce702ce3e6e2f2f0db93e8e0cfa"
+  },
+  "ratings": [
+    {
+      "promptId": "direct-basic-math",
+      "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd",
+      "correctness": "pass",
+      "relevance": "pass",
+      "unsupportedClaims": "no",
+      "groundedness": "pass",
+      "taskCompletion": "pass",
+      "rationale": "Exact answer states 2 + 2 = 4."
+    },
+    {
+      "promptId": "clarify-underspecified",
+      "responseHash": "dc431682c405ddf32f326531d9300a5d67282464dcfd73a45cc043bc65e6d5c9",
+      "correctness": "pass",
+      "relevance": "pass",
+      "unsupportedClaims": "no",
+      "groundedness": "pass",
+      "taskCompletion": "pass",
+      "rationale": "Requests missing task context without inventing a previous task."
+    },
+    {
+      "promptId": "direct-day-question-no-echo",
+      "responseHash": "51dd88fb4d3f7800d4d0e801268a44c311429ddd26e4008a55e7d0a1cf7d3068",
+      "correctness": "pass",
+      "relevance": "pass",
+      "unsupportedClaims": "no",
+      "groundedness": "pass",
+      "taskCompletion": "pass",
+      "rationale": "Matches the recorded Wednesday, September 30, 2026 server date and qualifies local timezone."
+    },
+    {
+      "promptId": "deep-latest-sourced",
+      "responseHash": "93f5a6eee44ab25baf73d3ea4d2dcc5443241e094c8bf740b0beaecabefe3074",
+      "correctness": "unrated",
+      "relevance": "pass",
+      "unsupportedClaims": "unrated",
+      "groundedness": "pass",
+      "taskCompletion": "fail",
+      "rationale": "Explicitly states no retrieval or supplied sources and qualifies the expected release schedule. No latest figure, retrieved release or real citation is supplied: task completion fails. Domain/source-directory claims were not independently verified, so correctness and unsupported-claim assessment remain unrated."
+    },
+    {
+      "promptId": "deep-complex-compare",
+      "responseHash": "8e7440c2b4a87c622a5d1be95d242b4f91f853460699dba6989635768ae4b2fa",
+      "correctness": "unrated",
+      "relevance": "pass",
+      "unsupportedClaims": "unrated",
+      "groundedness": "unrated",
+      "taskCompletion": "pass",
+      "rationale": "Provides latency/cost comparison and decision considerations with a no-live-data caveat. Current vendor capabilities, price implications and performance claims were not independently verified; correctness, groundedness and unsupported-claim assessment remain unrated."
+    }
+  ]
+}

@@ -3,11 +3,18 @@ import { validateArtifact, recordingEvidenceValid } from "./storage";
 import { digest, canonical, redact } from "./contract";
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const rating = z.enum(["pass", "fail", "unrated"]);
-export const annotationsSchema = z.object({ version: z.literal(1), rubricVersion: z.string().min(1),
-  judge: z.object({ kind: z.enum(["human", "code", "model"]), id: z.string().min(1), configurationDigest: hash }).strict(),
-  ratings: z.array(z.object({ promptId: z.string(), responseHash: hash, correctness: rating, relevance: rating,
-    unsupportedClaims: z.enum(["yes", "no", "unrated"]), firstUsefulEventSequence: z.number().int().positive().optional() }).strict())
-}).strict().superRefine((value, ctx) => {
+const common = {
+  rubricVersion: z.string().min(1),
+  judge: z.object({ kind: z.enum(["human", "code", "model"]), id: z.string().min(1), configurationDigest: hash }).strict()
+};
+const legacyRating = z.object({ promptId: z.string(), responseHash: hash, correctness: rating, relevance: rating,
+  unsupportedClaims: z.enum(["yes", "no", "unrated"]), firstUsefulEventSequence: z.number().int().positive().optional() }).strict();
+export const annotationsSchema = z.discriminatedUnion("version", [
+  z.object({ ...common, version: z.literal(1), ratings: z.array(legacyRating) }).strict(),
+  z.object({ ...common, version: z.literal(2), ratings: z.array(legacyRating.extend({
+    groundedness: rating, taskCompletion: rating, rationale: z.string().max(2000).optional()
+  }).strict()) }).strict()
+]).superRefine((value, ctx) => {
   const keys = value.ratings.map(r => JSON.stringify([r.promptId, r.responseHash]));
   if (new Set(keys).size !== keys.length) ctx.addIssue({ code: "custom", message: "Duplicate annotation key" });
 });
@@ -21,13 +28,28 @@ export function scoreRecording(value: unknown, annotations: unknown, now = Date.
     const annotation = answer && grading.ratings.find(r => r.promptId === turn.promptId && r.responseHash === answer.answer!.scoredHash);
     const useful = annotation?.firstUsefulEventSequence === undefined ? null : events.find(e => e.sequence === annotation.firstUsefulEventSequence);
     const usefulValid = annotation?.firstUsefulEventSequence === undefined || useful && useful.callId === answer?.callId && useful.elapsedMs >= turn.elapsedMs && useful.elapsedMs <= (terminal?.elapsedMs ?? -1) && ["delta", "provisional", "refined"].includes(useful.type);
-    const rated = reviewable && annotation && usefulValid && annotation.correctness !== "unrated" && annotation.relevance !== "unrated" && annotation.unsupportedClaims !== "unrated";
-    return { turnId: turn.turnId, promptId: turn.promptId, responseHash: answer?.answer?.scoredHash ?? null,
-      outcome: !rated || terminal?.finishReason !== "stop" ? "unavailable" : annotation.correctness === "pass" && annotation.relevance === "pass" && annotation.unsupportedClaims === "no" ? "pass" : "fail",
+    const finalReviewable = reviewable && terminal?.finishReason === "stop";
+    const dimension = (value: unknown) =>
+      finalReviewable && (value === "pass" || value === "fail") ? value : "unavailable";
+    const groundedness = dimension(annotation && "groundedness" in annotation ? annotation.groundedness : undefined);
+    const taskCompletion = dimension(annotation && "taskCompletion" in annotation ? annotation.taskCompletion : undefined);
+    const requiredPhases = turn.route === "deep" ? ["fast", "deep"] : ["fast"];
+    const terminals = requiredPhases.map(phase => [...events].reverse().find(e => e.phase === phase && e.type === "terminal" && !e.retrying));
+    const runtimeOutcome = terminals.some(t => !t) ? "unavailable" : terminals.some(t => t!.finishReason === "error") ? "error"
+      : terminals.some(t => t!.finishReason === "cancelled") ? "cancelled" : terminals.some(t => t!.finishReason === "length") ? "length"
+      : terminals.every(t => t!.finishReason === "stop") ? "stop" : "unavailable";
+    const rated = finalReviewable && groundedness !== "unavailable" && taskCompletion !== "unavailable" && annotation && usefulValid && annotation.correctness !== "unrated" && annotation.relevance !== "unrated" && annotation.unsupportedClaims !== "unrated";
+    const knownFailure = finalReviewable && annotation && (annotation.correctness === "fail" || annotation.relevance === "fail" ||
+      annotation.unsupportedClaims === "yes" || groundedness === "fail" || taskCompletion === "fail");
+    return { runtimeOutcome, groundedness, taskCompletion, gradingComplete: Boolean(rated),
+      correctness: dimension(annotation?.correctness), relevance: dimension(annotation?.relevance),
+      turnId: turn.turnId, promptId: turn.promptId, responseHash: answer?.answer?.scoredHash ?? null,
+      outcome: runtimeOutcome !== "stop" ? "unavailable" : knownFailure ? "fail" : rated ? "pass" : "unavailable",
       firstUsefulMs: rated && useful ? useful.elapsedMs - turn.elapsedMs : null };
   });
   const recordingValid = recordingEvidenceValid(run);
-  return { schemaVersion: "chatagent-grading-v1", runId: run.manifest.runId, recordingValid,
+  return { schemaVersion: "chatagent-grading-v2", annotationVersion: grading.version, runId: run.manifest.runId, recordingValid,
     annotationDigest: digest(canonical(grading)), rubricVersion: redact(grading.rubricVersion), judge: { ...grading.judge, id: redact(grading.judge.id) }, results,
+    runtimePassed: recordingValid && results.length > 0 && results.every(r => r.runtimeOutcome === "stop"),
     passed: recordingValid && results.length > 0 && results.every(r => r.outcome === "pass") };
 }

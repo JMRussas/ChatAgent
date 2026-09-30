@@ -1,5 +1,35 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: separate runtime, grounding and task-completion grades
+
+Added v2 annotations requiring explicit groundedness and taskCompletion alongside
+correctness, relevance and unsupportedClaims. Grading reports execution and quality
+separately; an honest limitation can pass groundedness while failing completion.
+Known failures remain failures even if other dimensions are unrated; comparisons
+still require complete grading. Legacy v1 annotations are readable but cannot gain
+an inferred completion pass. Linked reports propagate the stricter quality gate.
+
+Applied the [versioned rubric](../../data/live-golden-quality-rubric-v2.json) to the
+saved five-case Claude run, with exact answer hashes and assistant-review identity.
+[Linked results](../../reports/claude-quality-linked-2026-09-30.json): **runtime 5/5;
+quality 3 pass, 1 fail, 1 unavailable**. Inflation fails task completion because no
+current figures or retrieved sources were supplied. Its factual review and the
+platform comparison's factual review are incomplete; no current-source accuracy is
+claimed. These are assistant judgments, not independently calibrated human grades.
+The CLI exits nonzero as intended. No new provider calls or account changes.
+
+Validation: **529 TypeScript tests / 67 files**, typecheck, build and seeded
+simulated release checks pass. Regression cases cover honest noncompletion,
+unsupported answers, legacy migration, missing ratings, linked quality rejection,
+and incomplete factual grading in comparisons. No UI or Python changes.
+
+[Contract and migration](06b-recording.md#separate-execution-grounding-and-task-completion-grading-v2)
+explain the axes, legacy handling, evidence expiry and limits. Historical live reports
+remain unchanged. Next: follow-up grounding cases with explicit supplied evidence
+and expected outcomes, plus independent factual review where needed; then repeated
+single/dual experiments and clean-copy verification. Source retrieval remains a
+separate implementation prerequisite for current-data task success and the sports demo.
+
 ## 2026-09-30: Claude live failure diagnosis and fixes
 
 The [debugging report](../../reports/claude-debug-2026-09-30.json) preserves four

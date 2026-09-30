@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "chatagent-linked-benchmark-v1",
+  "linked": true,
+  "runId": "68a5ad50-dd38-4da7-a02b-8a15500812ab",
+  "observationDigest": "113741999af4b85ff1a2e09a4fd9b75d1a1ecb7bd82552a0d12127f536590c9f",
+  "recordingDigest": "66f538e76b3016d2135a52500b551fccbcd7a0d9ac48d42dac1a4daddeda92ac",
+  "datasetDigest": "63fc536130dd2844d7b9b864805728f3f0bc80d8ff1a0b81cfaed2dbbe95795e",
+  "configurationDigest": "540b085c16cf2fee3c7bb09250af3ac0df11eac658dc721baa773177f3f23f09",
+  "code": {
+    "revision": "8cd81162a60e27c31a2f0e3fc6e3e7ba7d0ced5d",
+    "dirty": true,
+    "sourceDigest": "4fb4ac3d88f33b6d319b65c282b85308d43eb288d169b5d735bd86f45b5c8e18"
+  },
+  "mode": "live",
+  "grading": {
+    "schemaVersion": "chatagent-grading-v2",
+    "annotationVersion": 2,
+    "runId": "68a5ad50-dd38-4da7-a02b-8a15500812ab",
+    "recordingValid": true,
+    "annotationDigest": "ebf928e27467194eb09279b7acce1f83b4c70ef3042e5c3a73fa8b816ff97fef",
+    "rubricVersion": "live-golden-quality-v2",
+    "judge": {
+      "kind": "model",
+      "id": "assistant-review",
+      "configurationDigest": "29a881cc5501bffa76cd1f58d613646cd9625ce702ce3e6e2f2f0db93e8e0cfa"
+    },
+    "results": [
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "0b74495dfb0ed80f392b4765c72f96ee1c503df49cb372d515ce47a60e56902d",
+        "promptId": "direct-basic-math",
+        "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "fcaf36e8c81c094f2d378e2c7efbf4fbd64bf3de73d1b245136ce2418bc1e47b",
+        "promptId": "clarify-underspecified",
+        "responseHash": "dc431682c405ddf32f326531d9300a5d67282464dcfd73a45cc043bc65e6d5c9",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "pass",
+        "gradingComplete": true,
+        "correctness": "pass",
+        "relevance": "pass",
+        "turnId": "7894bc0496ba81437815463db881b4b81206bb9f0db8786aeb28230635951408",
+        "promptId": "direct-day-question-no-echo",
+        "responseHash": "51dd88fb4d3f7800d4d0e801268a44c311429ddd26e4008a55e7d0a1cf7d3068",
+        "outcome": "pass",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "pass",
+        "taskCompletion": "fail",
+        "gradingComplete": false,
+        "correctness": "unavailable",
+        "relevance": "pass",
+        "turnId": "e0dc3746d0d318686a97abc1ecef965e2a0719c6477a5f1e47c00aea3280ab7c",
+        "promptId": "deep-latest-sourced",
+        "responseHash": "93f5a6eee44ab25baf73d3ea4d2dcc5443241e094c8bf740b0beaecabefe3074",
+        "outcome": "fail",
+        "firstUsefulMs": null
+      },
+      {
+        "runtimeOutcome": "stop",
+        "groundedness": "unavailable",
+        "taskCompletion": "pass",
+        "gradingComplete": false,
+        "correctness": "unavailable",
+        "relevance": "pass",
+        "turnId": "d10433d276bfac860db327f373e752465480c4261c1558a2b18187596edf22ac",
+        "promptId": "deep-complex-compare",
+        "responseHash": "8e7440c2b4a87c622a5d1be95d242b4f91f853460699dba6989635768ae4b2fa",
+        "outcome": "unavailable",
+        "firstUsefulMs": null
+      }
+    ],
+    "runtimePassed": true,
+    "passed": false
+  },
+  "qualityPassed": false,
+  "observations": [
+    {
+      "promptId": "direct-basic-math",
+      "turnId": "0b74495dfb0ed80f392b4765c72f96ee1c503df49cb372d515ce47a60e56902d",
+      "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd",
+      "firstAnswerObservedMs": 2511.4006,
+      "finalObservedMs": 2511.4006,
+      "elapsedMs": 2512.6481,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "clarify-underspecified",
+      "turnId": "fcaf36e8c81c094f2d378e2c7efbf4fbd64bf3de73d1b245136ce2418bc1e47b",
+      "responseHash": "dc431682c405ddf32f326531d9300a5d67282464dcfd73a45cc043bc65e6d5c9",
+      "firstAnswerObservedMs": 2489.2717,
+      "finalObservedMs": 2489.2717,
+      "elapsedMs": 2489.5620000000004,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "direct-day-question-no-echo",
+      "turnId": "7894bc0496ba81437815463db881b4b81206bb9f0db8786aeb28230635951408",
+      "responseHash": "51dd88fb4d3f7800d4d0e801268a44c311429ddd26e4008a55e7d0a1cf7d3068",
+      "firstAnswerObservedMs": 2607.0945,
+      "finalObservedMs": 2607.0945,
+      "elapsedMs": 2607.4538000000002,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "deep-latest-sourced",
+      "turnId": "e0dc3746d0d318686a97abc1ecef965e2a0719c6477a5f1e47c00aea3280ab7c",
+      "responseHash": "93f5a6eee44ab25baf73d3ea4d2dcc5443241e094c8bf740b0beaecabefe3074",
+      "firstAnswerObservedMs": 3222.4323000000004,
+      "finalObservedMs": 8813.579200000002,
+      "elapsedMs": 8814.1127,
+      "firstUsefulRecorderMs": null
+    },
+    {
+      "promptId": "deep-complex-compare",
+      "turnId": "d10433d276bfac860db327f373e752465480c4261c1558a2b18187596edf22ac",
+      "responseHash": "8e7440c2b4a87c622a5d1be95d242b4f91f853460699dba6989635768ae4b2fa",
+      "firstAnswerObservedMs": 3329.9523999999983,
+      "finalObservedMs": 11396.657899999998,
+      "elapsedMs": 11397.899999999998,
+      "firstUsefulRecorderMs": null
+    }
+  ],
+  "comparisonEligible": false,
+  "comparisonNote": "Compare the original recordings with eval:recordings compare; linking does not establish cross-run compatibility."
+}
