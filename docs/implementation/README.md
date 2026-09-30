@@ -1,5 +1,25 @@
 # Implementation handoff
 
+## 2026-09-30: comparison execution-identity review fixes
+
+Fixed both findings in `b84f7e5`. Comparison eligibility now requires consistent,
+nonempty provider/model identity for each call, an identified terminal for every
+attempt and every required phase, and matching identity on the final scored answer.
+A fast model can no longer stand in for unknown deep execution. The `execution-v2`
+digest retains per-phase attempt order, retry/outcome information, and final-answer
+attribution. Swapping failed and successful models, or adding same-model retries,
+changes the digest; run-local IDs and cross-phase scheduling do not.
+
+Old set-based execution digests are intentionally incompatible. Regenerate expected
+identities from pilot artifacts and preregister a new manifest before new runs; do
+not rewrite historical evidence. Comparison setup documents this transition.
+
+Validation: **489 tests / 64 files**, typecheck, build and seeded simulated release
+gate pass. Nine new regression cases cover missing fast/deep identity, missing or
+conflicting scored-call metadata, reversed fallback attribution, repeated retries,
+and equivalent runs with different call IDs/interleaving. No live provider calls.
+Next remains matched recorder on/off overhead measurement (EVAL-06).
+
 ## 2026-09-30: 06C recorder comparison and grading gate
 
 `eval:recordings compare` now checks full dataset coverage/content/order, isolated

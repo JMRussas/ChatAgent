@@ -161,8 +161,14 @@ Replace the illustrative path with exact paths in the recorded configuration. Th
 allowed paths must equal the actual changed leaves; arrays are atomic. Wildcards,
 ancestor exemptions, extra unused paths, changed dataset/grading/code identity, or
 unexpected execution digests do not bypass checks. Both full configuration digests
-remain in the report. `executionDigest` in `comparison.ts` hashes ordered prompts
-with sorted unique phase/model metadata; it excludes run-local IDs and retry counts.
+remain in the report. `executionDigest` in `comparison.ts` now hashes the `execution-v2` payload: ordered prompts and routes, phase-local
+attempt order, model identity, terminal outcome/retry flag, and the attempt associated
+with each phase's final answer. It excludes run-local IDs, timestamps and cross-phase
+interleaving; repeated same-model retries remain distinct. Old set-based execution
+digests will not match; regenerate expected identities from pilots and preregister a
+new manifest before collecting new runs. Each required phase and every attempt must
+have consistent nonempty provider/model identity and exactly one identified terminal.
+The scored answer must carry matching identity and belong to the final attempt.
 Use the exported helper with pilot artifacts to determine expected identities and
 save the manifest before the new experiment runs. Actual model revision remains
 unknown where the provider exposes only an alias.

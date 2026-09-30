@@ -99,3 +99,65 @@ it("comparison CLI succeeds with complete grades and fails with missing ratings"
   await writeFile(paths[4], JSON.stringify({ ...ratings(), ratings: [] }));
   await expect(promisify(execFile)(process.execPath, command)).rejects.toMatchObject({ code: 1 });
 });
+
+function resequence(run: RunArtifact) {
+  run.trace.forEach((e, i) => { e.sequence = i + 1; });
+  run.summary.eventCount = run.trace.length;
+}
+function deepTurn(run: RunArtifact) {
+  const fastTerminal = structuredClone(run.trace[2]);
+  run.trace[0].route = "deep"; run.trace[0].model = null; run.trace[0].phase = null; run.trace[0].callId = null;
+  for (const e of run.trace.slice(1)) {
+    e.phase = "deep"; e.callId = digest("deep-call");
+    if (e.type === "provisional") e.type = "refined";
+  }
+  run.trace.splice(1, 0, fastTerminal); resequence(run);
+}
+it.each(["fast", "deep"] as const)("rejects missing %s call identity even when the other phase has metadata", async phase => {
+  const { a, b } = await fixture();
+  for (const run of [a, b]) {
+    deepTurn(run);
+    run.trace.filter(e => e.phase === phase).forEach(e => { e.model = null; });
+  }
+  expect(compare(a, b)).toMatchObject({ available: false, candidateQualityPassed: false });
+  expect(compare(a, b).issues).toContain("candidate: missing or inconsistent call execution identity");
+});
+it.each(["answer", "terminal", "conflicting", "empty"])("rejects %s model identity gaps within the scored call", async kind => {
+  const { a, b } = await fixture();
+  if (kind === "answer") b.trace[1].model = null;
+  if (kind === "terminal") b.trace[2].model = null;
+  if (kind === "conflicting") b.trace[2].model!.model = "different-model";
+  if (kind === "empty") for (const e of b.trace) if (e.model) e.model.model = "";
+  expect(compare(a, b).candidateQualityPassed).toBe(false);
+});
+it("distinguishes which fallback model failed and which produced the graded answer", async () => {
+  const { a, b } = await fixture();
+  for (const [i, run] of [a, b].entries()) {
+    run.trace[0].model = null; run.trace[0].callId = null; run.trace[0].phase = null;
+    const failed = structuredClone(run.trace[2]);
+    failed.callId = digest("failed-call"); failed.retrying = true; failed.finishReason = "error";
+    failed.model!.model = i === 0 ? "model-A" : "model-B";
+    for (const e of run.trace.slice(1)) e.model!.model = i === 0 ? "model-B" : "model-A";
+    run.trace.splice(1, 0, failed); resequence(run);
+  }
+  expect(executionDigest(a)).not.toBe(executionDigest(b));
+  expect(compare(a, b).issues).toContain("execution identity mismatch: experiment required");
+  const manifest = { ...experiment(a, b), allowedConfigurationDifferences: [] };
+  expect(compare(a, b, manifest).available).toBe(true);
+});
+it("ignores run-local IDs and fast/deep interleaving while preserving phase execution", async () => {
+  const { a, b } = await fixture();
+  deepTurn(a); deepTurn(b);
+  const fastTerminal = b.trace.splice(1, 1)[0]; b.trace.push(fastTerminal);
+  for (const event of b.trace) if (event.callId) event.callId = digest(`other:${event.callId}`);
+  resequence(b);
+  expect(executionDigest(a)).toBe(executionDigest(b));
+  expect(compare(a, b).available).toBe(true);
+});
+it("preserves repeated same-model retry attempts in the digest", async () => {
+  const { a, b } = await fixture();
+  const failed = structuredClone(b.trace[2]); failed.callId = digest("retry-call"); failed.retrying = true; failed.finishReason = "error";
+  b.trace.splice(1, 0, failed); resequence(b);
+  expect(executionDigest(a)).not.toBe(executionDigest(b));
+  expect(compare(a, b).available).toBe(false);
+});

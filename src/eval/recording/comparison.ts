@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonical, datasetSchema, digest, type RunArtifact } from "./contract";
+import { canonical, datasetSchema, digest, type RunArtifact, type RecordedEvent } from "./contract";
 import { annotationsSchema, scoreRecording } from "./annotations";
 import { recordingEvidenceValid, validateArtifact } from "./storage";
 
@@ -22,12 +22,51 @@ export function configurationDifferences(a: unknown, b: unknown, path: string[] 
   });
   return [path];
 }
-/** Ordered actual model selections per prompt/phase, excluding run-local attempt IDs. */
+/** Correlate identities to calls, preserving retry order within each independent phase. */
+function executionEvidence(run: RunArtifact) {
+  let valid = true;
+  const identified = (model: RecordedEvent["model"]) => !!model?.provider.trim() && !!model.model.trim();
+  const turns = run.trace.filter(e => e.type === "user").map(turn => {
+    const events = run.trace.filter(e => e.turnId === turn.turnId && e.type !== "user");
+    const required = turn.route === "deep" ? ["fast", "deep"] : ["fast"];
+    if (!turn.route) valid = false;
+    for (const event of events) {
+      if (!event.callId || !event.phase) valid = false;
+    }
+    const phases = (["fast", "deep"] as const).map(phase => {
+      const phaseEvents = events.filter(e => e.phase === phase);
+      const ids = [...new Set(phaseEvents.flatMap(e => e.callId ? [e.callId] : []))];
+      const attempts = ids.map(callId => {
+        const call = events.filter(e => e.callId === callId);
+        const models = call.flatMap(e => e.model ? [e.model] : []);
+        const model = models[0] ?? null;
+        const terminals = call.filter(e => e.type === "terminal");
+        const terminal = terminals[0];
+        if (call.some(e => e.phase !== phase) || !identified(model) ||
+          models.some(m => canonical(m) !== canonical(model)) || terminals.length !== 1 ||
+          !identified(terminal?.model ?? null)) valid = false;
+        return { model, finishReason: terminal?.finishReason ?? null, retrying: terminal?.retrying ?? null };
+      });
+      if (required.includes(phase) && !attempts.length) valid = false;
+      if (attempts.some((attempt, i) => i < attempts.length - 1 ? attempt.retrying !== true : attempt.retrying !== false)) valid = false;
+      const answer = [...phaseEvents].reverse().find(e => e.answer);
+      const answerAttempt = answer?.callId ? ids.indexOf(answer.callId) : -1;
+      if (phase === (turn.route === "deep" ? "deep" : "fast") && answer && (answerAttempt < 0 || !identified(answer.model) ||
+        canonical(answer.model) !== canonical(attempts[answerAttempt]?.model))) valid = false;
+      // The graded answer must belong to the final attempt, not an earlier successful call.
+      if (phase === (turn.route === "deep" ? "deep" : "fast") && (!answer || answerAttempt !== attempts.length - 1)) valid = false;
+      return { phase, attempts, answerAttempt: answer ? answerAttempt : null };
+    });
+    return { promptId: turn.promptId, route: turn.route, phases };
+  });
+  return { valid, turns };
+}
+
+/** v2 binds phase-local attempt order/outcomes and final answers to model identities.
+ * Run-local IDs, timestamps and cross-phase scheduling do not affect the digest.
+ */
 export function executionDigest(run: RunArtifact): string {
-  return digest(canonical(run.trace.filter(e => e.type === "user").map(turn => {
-    const models = run.trace.filter(e => e.turnId === turn.turnId && e.model).map(e => ({ phase: e.phase, ...e.model! }));
-    return { promptId: turn.promptId, models: [...new Map(models.map(model => [canonical(model), model])).entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, model]) => model) };
-  })));
+  return digest(canonical({ version: "execution-v2", turns: executionEvidence(run).turns }));
 }
 
 export function compareRecordings(baselineValue: unknown, candidateValue: unknown, datasetValue: unknown,
@@ -49,7 +88,7 @@ export function compareRecordings(baselineValue: unknown, candidateValue: unknow
       issues.push(`${label}: expected one isolated turn per dataset prompt in dataset order`);
     const modes = new Set(run.trace.flatMap(e => e.model ? [e.model.provider === "mock" ? "synthetic" : "live"] : []));
     if (modes.size !== 1 || !modes.has(run.summary.mode)) issues.push(`${label}: unknown, mixed or inconsistent execution mode`);
-    if (turns.some(t => !run.trace.some(e => e.turnId === t.turnId && e.model))) issues.push(`${label}: missing execution identity`);
+    if (!executionEvidence(run).valid) issues.push(`${label}: missing or inconsistent call execution identity`);
     if (run.manifest.condition === "unknown") issues.push(`${label}: unknown warm/cold condition`);
     if (grades[i].results.some(r => r.outcome === "unavailable")) issues.push(`${label}: required exact-answer grading unavailable`);
   }
