@@ -23,7 +23,7 @@ fetches; only explicit start commands do. Missing games credentials leave news u
 
 The coordinator receives the server-owned adapter registry and execution limits;
 the profile is validated and copied at boundary construction. The default app does
-not enable this endpoint or silently load fixtures. The chat UI offers a scope-confirmation form for recognized sports questions. See [the demo plan](18-nba-briefing-demo.md) for source and fixture setup.
+not enable this endpoint or silently load fixtures. Live chat discovers the configured sources through its capability registry. See [the demo plan](18-nba-briefing-demo.md) for source and fixture setup.
 
 After editing the configured file, apply it without restarting:
 
@@ -564,17 +564,25 @@ Effective output limits are resolved once at startup. For an Ollama role, an exp
 Applicable overrides must be positive integers; invalid or input-exhausting values
 fail startup. Azure/Bedrock roles ignore Ollama overrides.
 
-## Sports chat evidence confirmation
+## Capability-planned live chat
 
-Recognized sports intents on `POST /messages` can return `{sports: {state, message,
-capabilities}}` instead of a model submission. `state` is `unsupported` or `needs-input`.
-No timeline/model completion is emitted for this response. Recognition is currently
-a bounded keyword safeguard, not a general planner.
+Live startup uses `CapabilityChat` on both message APIs. The model sees bounded
+conversation history and current registered tool descriptions/schemas. It returns
+answer, clarify, unsupported or retrieve. The complete plan is validated before any
+of up to three independent read-only calls starts. Unknown tools, invalid arguments
+and malformed JSON fail without executing calls. A truncated plan returns
+`CAPABILITY_PLAN_TRUNCATED`; increase the configured fast output allowance if needed.
+Plans are stored as `capabilityPlan` on answer events, internal JSON deltas are hidden,
+and confidence is null. Background tool results appear as refined timeline events
+with source evidence and limitations. Cancellation and shutdown signal active reads.
 
-`POST /sports/chat` accepts `{userId, requestId, league, kind, request}`. `league` must
-match the server profile and `kind` is games/news. `request` uses the briefing request
-schema, with an explicit past `now` (exclusive end) and `lastSuccessful` timestamp
-(inclusive start) for the selected league/team scope. Windows must be nonempty and
-within the configured catch-up cap. Only matching task/source kinds are executed.
-The returned run supports normal briefing status/cancel commands. This endpoint
-returns evidence, not a narrative answer. User IDs retain the prototype access boundary.
+The current registry comes from the briefing profile; no generic search or email tool
+is installed. Configuration reload invalidates previously captured tool snapshots.
+The planner bypasses heuristic routing and derived summary memory; original recent
+turns remain available. Fixed mock-only startup keeps the legacy test/demo behavior.
+
+The manual `POST /sports/chat` endpoint remains available for explicit scope requests:
+`{userId, requestId, league, kind, request}`. League must match the profile and kind is
+games/news. The request uses the briefing schema with explicit exclusive end `now`
+and inclusive `lastSuccessful` timestamps. The model-planning path does not depend
+on this endpoint or a sports-specific UI. User IDs remain prototype ownership guards.

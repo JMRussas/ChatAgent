@@ -71,27 +71,11 @@ test("SSE reconnect restores exact text and clears connection status", async ({ 
   await expect(page.locator(".answer-content")).toHaveText("Final: Explain reconnect behavior");
 });
 
-test("Red Sox question reports missing retrieval without redundant team clarification", async ({ page, app }) => {
+test("model-planned missing capability stays in the conversation without fabricated completion", async ({ page, app }) => {
+  app.controls.plan = { action: "unsupported", message: "No baseball evidence tool is available.", missingCapability: "baseball results" };
   await send(page, "What happened in the Red Sox game last night?");
-  const panel = page.getByRole("region", { name: "Sports questions" });
-  await expect(panel).toContainText("no MLB/baseball data source or general web-search tool is connected");
-  await expect(panel).not.toContainText("White Sox");
-  expect(app.pending.size).toBe(0);
-  await expect(page.locator(".turn")).toHaveCount(0);
-});
-
-test("confirmed sports scope renders source evidence and keeps chat available", async ({ page }) => {
-  await page.route("**/messages", route => route.fulfill({ json: { sports: { state: "needs-input", message: "Confirm scope", capabilities: { league: "NFL", maxWindowHours: 336 } } } }));
-  await page.route("**/sports/chat", async route => {
-    const body = route.request().postDataJSON();
-    expect(body.league).toBe("NFL"); expect(body.request.team).toBeNull();
-    await route.fulfill({ json: { id: "test-run", settled: true, tasks: [{ planTaskId: "league-games", status: "partial", errors: [], results: [{ evidence: { mode: "synthetic", coverage: "partial", freshness: "unknown", limitations: ["TEST_EVIDENCE"], records: [{ headline: "Test evidence", provenance: { url: "https://example.invalid/story" } }] } }] }] } });
-  });
-  await send(page, "Show NFL games");
-  await page.getByLabel("From, inclusive").fill("2026-09-29T00:00:00-04:00");
-  await page.getByLabel("To, exclusive").fill("2026-09-30T00:00:00-04:00");
-  await page.getByRole("button", { name: "Retrieve evidence" }).click();
-  await expect(page.getByRole("region", { name: "Sports questions" })).toContainText("partial coverage");
-  await expect(page.getByRole("link", { name: "Open original source" })).toHaveAttribute("href", "https://example.invalid/story");
+  const turn = page.locator(".turn").first();
+  await expect(turn.locator(".answer-content")).toHaveText("No baseball evidence tool is available.");
+  await expect(turn.locator("summary")).toContainText("Capability unavailable");
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
 });

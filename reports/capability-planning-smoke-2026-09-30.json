@@ -1,0 +1,39 @@
+{
+  "kind": "capability-planning-live-smoke",
+  "recordedAt": "2026-09-30T19:58:10.523576+00:00",
+  "model": "ollama/qwen3:8b",
+  "cases": [
+    {
+      "request": "Red Sox game last night",
+      "outcome": "unsupported",
+      "reason": "NFL tools only"
+    },
+    {
+      "request": "newest email sender",
+      "outcome": "unsupported",
+      "reason": "no email tool"
+    },
+    {
+      "request": "NFL games last night",
+      "outcome": "clarify",
+      "question": "timezone"
+    },
+    {
+      "request": "NFL league games 2026-09-29T00:00:00Z to 2026-09-30T00:00:00Z",
+      "initialOutcome": "plan truncated; no tool execution",
+      "retryOutputTokens": 1024,
+      "outcome": "retrieve",
+      "tool": "nfl:league:games",
+      "records": 1,
+      "coverage": "partial",
+      "freshness": "unknown"
+    }
+  ],
+  "liveModelCalls": 6,
+  "sportsProviderRequests": 1,
+  "limitations": [
+    "Smoke checks only, not a factual-quality benchmark",
+    "No general web search or MLB source",
+    "Independent bounded reads only; no dependent tool chain"
+  ]
+}

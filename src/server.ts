@@ -1,5 +1,5 @@
 import type { BriefingHttp } from "./sports/briefingHttp";
-import { sportsChatIntent } from "./sports/chat";
+import { CapabilityChat } from "./app/capabilityChat";
 import { loadLiveBriefingFromEnv } from "./sports/liveBriefing";
 import { startEvaluationRecording } from "./eval/recording/startup";
 import { cliLimits } from "./providers/cli/runner";
@@ -267,21 +267,6 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const raw = requireObjectBody(await parseJsonBody(req));
         rejectUnsupportedInputs(raw);
         const body = MessageBodySchema.parse(raw);
-        const intent = sportsChatIntent(body.text);
-        if (intent) {
-          const capabilities = options.briefings?.chatCapabilities();
-          const unavailable = intent.unsupported || !capabilities || (intent.league && intent.league !== capabilities.league);
-          return json(res, 200, { sports: {
-            state: unavailable ? "unsupported" : "needs-input",
-            message: intent.unsupported
-              ? "I can’t verify that game result because no MLB/baseball data source or general web-search tool is connected to this chat. I haven’t looked it up."
-              : !capabilities ? "Sports retrieval is not enabled on this server. No game data was retrieved."
-              : unavailable ? "That league is not configured for retrieval on this server. No game data was retrieved."
-              : "Confirm the league, team and date window below. Team names are not resolved automatically. This retrieves source evidence; it does not generate a game recap.",
-            capabilities: unavailable ? null : capabilities
-          } });
-        }
-
         const response = await service.submitMessage({
           messageId: body.messageId,
           conversationId: body.conversationId,
@@ -428,6 +413,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
       if (error instanceof ModelSelectionError) return json(res, 503, { error: error.message, code: error.code, exclusions: error.exclusions });
       if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
+      if (error instanceof GenerationError && error.code === "CAPABILITY_PLAN_TRUNCATED") return json(res, 502, { code: error.code, error: "Planning output reached its token limit. Increase the fast-model output allowance or use a model that can plan within the configured budget." });
       if (error instanceof GenerationError) return json(res, error.code === "SHUTTING_DOWN" ? 503 : error.code === "CONTEXT_TOO_LARGE" ? 413 : error.code === "CAPABILITY_UNSUPPORTED" ? 400 : 502, { error: "Generation failed", code: error.code });
       if (error instanceof HttpRequestError) {
         return json(res, error.statusCode, { error: error.message });
@@ -574,7 +560,9 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
     deepModel: config.deep.model,
     generatedAtIso: new Date().toISOString()
   });
-  const orchestrator = new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider, dispatch);
+  const orchestrator = config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
+    ? new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider)
+    : new CapabilityChat(providers.fastProvider, queue, timeline, contextManager, trustedFactsProvider, () => briefings?.tools() ?? [], dispatch);
   const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting, dispatch);
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 

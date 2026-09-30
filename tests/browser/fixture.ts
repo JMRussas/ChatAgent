@@ -1,3 +1,5 @@
+import { CapabilityChat } from "../../src/app/capabilityChat";
+import { ContextManager } from "../../src/app/contextManager";
 import { test as base, expect } from "@playwright/test";
 import { createChatServer } from "../../src/server";
 import { createRuntimeHandle } from "../../src/app/runtimeHandle";
@@ -9,7 +11,7 @@ import { GenerationError, type GenerationControl, type GenerationResult } from "
 
 async function runtime() {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
-  const controls = { worker: true };
+  const controls: { worker: boolean; plan: unknown | null } = { worker: true, plan: null };
   async function generate(phase: string, text: string, control?: GenerationControl): Promise<GenerationResult> {
     if (phase === "fast") await control?.onDelta(`Draft: ${text}`);
     if (phase === "fast" && text.includes("cite")) return { text: `Draft: ${text}`, finishReason: "stop" };
@@ -32,7 +34,12 @@ async function runtime() {
     return { taskId: task.taskId, finalReply: result.text, finishReason: result.finishReason, confidence: 1, citations: [], totalLatencyMs: 0 };
   } };
   const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue();
-  const service = new ChatService(new ChatOrchestrator(fast, queue, timeline), new DeepWorker(queue, deep, timeline), timeline, queue);
+  const legacy = new ChatOrchestrator(fast, queue, timeline);
+  const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async () => ({ text: JSON.stringify(controls.plan), finishReason: "stop" }) }, queue, timeline,
+    new ContextManager(timeline, { windowTokens: 8192, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
+    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => []);
+  const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),
+    cancel: (conversation, message) => legacy.cancel(conversation, message), whenIdle: () => planner.whenIdle() }, new DeepWorker(queue, deep, timeline), timeline, queue);
   const server = createChatServer(service);
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   let workerError: unknown;

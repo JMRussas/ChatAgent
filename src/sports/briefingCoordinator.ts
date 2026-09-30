@@ -33,6 +33,7 @@ const terminal = (status: TaskStatus) => !["queued", "running"].includes(status)
 
 /** Process-local evidence collection only. Never invokes models or writes checkpoints. */
 export class BriefingCoordinator {
+  get version() { return this.configVersion; }
   private options: z.infer<typeof briefingCoordinatorOptionsSchema>;
   private registry: ReadonlyMap<string, SportsSource>;
   private configVersion?: string;

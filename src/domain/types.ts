@@ -16,7 +16,7 @@ export interface FastAnalysis {
   needsExternalData: boolean;
   needsClarification: boolean;
   routeDecision: RouteDecision;
-  confidence: number;
+  confidence: number | null;
   reasons: string[];
 }
 
@@ -53,6 +53,7 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  capabilityPlan?: unknown;
   selections?: { fast: import("../routing/modelSelector").ModelSelection; deep?: import("../routing/modelSelector").ModelSelection };
   activity?: "queued" | "thinking" | "running" | "generating" | "retrying" | "failed";
   phase?: "fast" | "deep";

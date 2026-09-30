@@ -1,5 +1,56 @@
 # Next ChatAgent handoff after 01B
 
+## Model capability planning replaces live keyword routing — 2026-09-30
+
+Live `startServer` chat now uses `CapabilityChat` through the shared ChatService,
+including `/messages` and protocol-v1 submission. Fixed mock-only startup retains the
+legacy pipeline for compatibility; old router/classifier modules and their tests remain.
+Removed `sports/chat.ts`, canned topic interception and the sports-only confirmation
+card. All live requests go to a model with conversation history and an injected tool
+registry. Clarification and unavailable responses stay in the ordinary timeline.
+
+The model chooses strict JSON: answer, clarify, unsupported (with missing capability),
+or retrieve with at most three independent read-only calls. Registered tools expose
+scope/input schemas/limits. Validate the whole plan and every tool argument before
+executing any call. No keyword routing, adaptive complexity classification, task regex
+selection or fabricated confidence runs on this live path. The planner itself selects
+an eligible conversation model through the normal catalog admission path when enabled.
+Confidence is null. Raw plan deltas never render as answers; the validated plan is
+stored with its user-facing timeline event. Truncated/malformed plans fail explicitly
+without tool execution or a fallback answer.
+
+Retrieval runs in background generation attempts, supports cancellation, and allows
+another turn before completion. Results retain source data, coverage, freshness and
+errors. Display is bounded to 60,000 characters with an explicit truncation notice.
+The current result is evidence, not an automatically synthesized narrative. Generic
+executor tests also exercise a non-sports tool; only configured sports tools are
+currently registered by the application. Registry snapshots become unusable after a
+briefing configuration reload rather than silently running under changed source settings.
+
+Planning uses bounded original conversation history and active tasks. Derived summary
+memory is deliberately bypassed on this path so the old keyword-based correction and
+constraint-conflict rules do not influence planning. This sacrifices older compressed
+context until semantic memory handling is designed. Existing heuristic modules are
+still used by the legacy/mock pipeline and have not been deleted repository-wide.
+Deep model reasoning delegation, dependent tool chains, semantic team-ID resolution,
+general web search and authoritative factual grading remain unimplemented.
+
+Live Qwen3:8b checks: Red Sox and email requests selected unsupported; an NFL relative-date
+request asked for timezone; an explicit UTC NFL query selected `nfl:league:games` and
+returned one game with partial coverage/unknown freshness. The initial retrieval plan
+hit the configured fast output limit; no tool executed. Raising the launch's
+`OLLAMA_FAST_NUM_PREDICT` to 1024 allowed it to complete. One diagnostic model call
+confirmed truncation. The preview remains live Ollama/fixed routing (Claude usage
+inspection is unavailable); `.env` was not modified. Six live model calls and one
+BALLDONTLIE request were used for these checks. These are smoke checks, not a quality
+benchmark. See `reports/capability-planning-smoke-2026-09-30.json`.
+
+Validation: 608 tests / 79 files, nine browser tests and TypeScript build pass.
+Next: review/evaluate plan correctness across paraphrases, unavailable capabilities,
+ambiguous context and misleading history; then add general retrieval and dependent
+workflows through the same registry. Do not add topic-specific routing keyword lists.
+
+
 ## Sports chat safeguard and capability-planning direction — 2026-09-30
 
 Recognized sports questions now bypass mock/model completion. MLB/Sox requests explain

@@ -15,6 +15,7 @@ export interface PrepareContextInput {
   currentUserText: string;
   trustedFacts: TrustedRuntimeFacts;
   routeDecision?: "direct" | "clarify" | "deep";
+  planningInstruction?: string;
 }
 export interface ContextMemoryOptions {
   config?: SummaryConfig;
@@ -69,13 +70,13 @@ export class ContextManager {
     const events = structuredClone(await this.timelineStore.getEvents(input.conversationId));
     const snapshot = this.sources.capture(input.conversationId, events);
     const stored = this.config.mode === "off" ? null : this.summaries.get(input.conversationId);
-    const memory = stored && this.valid(stored, events, snapshot) && !isCorrection(input.currentUserText) ? structuredClone(stored) : null;
+    const memory = !capturedInput.planningInstruction && stored && this.valid(stored, events, snapshot) && !isCorrection(input.currentUserText) ? structuredClone(stored) : null;
     const capturedAtIso = new Date().toISOString();
     const baseFor = (budget: ContextBudget, facts = capturedInput.trustedFacts, taskIntent?: string) => ({
       conversationId: capturedInput.conversationId, events,
       currentMessageId: capturedInput.currentMessageId, currentUserText: capturedInput.currentUserText,
-      capturedAtIso, systemInstruction: buildSystemInstruction(facts),
-      roleInstructions: { ...roleInstructionsForRoute(capturedInput.routeDecision ?? "direct"),
+      capturedAtIso, systemInstruction: capturedInput.planningInstruction ?? buildSystemInstruction(facts),
+      roleInstructions: capturedInput.planningInstruction ? { fast: "Return the required plan JSON only.", deep: "Use only supplied evidence." } : { ...roleInstructionsForRoute(capturedInput.routeDecision ?? "direct"),
         fast: roleInstructionsForRoute(capturedInput.routeDecision ?? "direct").fast + (taskIntent ? `\nTask intent: ${taskIntent}. No tool execution is available.` : "") },
       budget, memory, summaryMaxTokens: this.config.maxTokens
     });
@@ -93,7 +94,7 @@ export class ContextManager {
         return context;
       },
       schedule: (budget: ContextBudget = this.budget, facts = capturedInput.trustedFacts, taskIntent?: string) => {
-        if (scheduled) return;
+        if (scheduled || capturedInput.planningInstruction) return;
         scheduled = true;
         const mandatory = buildContext({ ...baseFor(budget, facts, taskIntent), events: [], memory: null });
         if (!(mandatory instanceof ContextBudgetError)) {

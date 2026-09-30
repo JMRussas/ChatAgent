@@ -177,3 +177,22 @@ describe("live briefing reload", () => {
     } finally { release(); runtime.http.close(); }
   });
 });
+
+describe("live tool capability registry", () => {
+  it("advertises only configured scopes and validates operation arguments", async () => {
+    const runtime = createLiveBriefing(example, undefined, transport(), () => Date.parse(now));
+    try {
+      const tools = runtime.http.tools();
+      expect(tools.map(t => t.id)).toEqual(["nfl:league:games", "nfl:league:news", "nfl:team:games"]);
+      const args = { from: "2026-09-29T00:00:00Z", to: now, timezone: "UTC", team: null };
+      expect(tools[0].validate(args)).toEqual(args);
+      expect(() => tools[0].validate({ ...args, url: "https://unregistered.invalid" })).toThrow();
+      expect(() => tools[0].validate({ ...args, to: "2999-01-01T00:00:00Z" })).toThrow();
+      expect(() => tools[2].validate({ ...args, team: { provider: "balldontlie", id: "1", name: "Wrong league" } })).toThrow();
+      const result = await tools[1].execute(args, "u", "tool-read", new AbortController().signal) as { tasks: { results: unknown[] }[] };
+      expect(result.tasks).toHaveLength(1); expect(result.tasks[0].results).toHaveLength(1);
+      runtime.apply({ ...example, profile: { ...example.profile, id: "changed" } });
+      await expect(tools[1].execute(args, "u", "stale-plan", new AbortController().signal)).rejects.toThrow("CAPABILITIES_CHANGED");
+    } finally { runtime.http.close(); }
+  });
+});

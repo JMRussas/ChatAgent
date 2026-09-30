@@ -35,6 +35,7 @@ export class ChatService {
   }
   async whenIdle(): Promise<void> {
     while (this.inFlight.size) await Promise.allSettled([...this.inFlight]);
+    await this.orchestrator.whenIdle?.();
     if (this.queue) await generationLifecycle(this.queue).flushClosingWrites();
   }
   async cancelRemaining(): Promise<void> {
@@ -49,7 +50,7 @@ export class ChatService {
   private readonly ownerUserIdByConversationId = new Map<string, string>();
 
   constructor(
-    private readonly orchestrator: ChatOrchestrator,
+    private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & { whenIdle?: () => Promise<void> },
     private readonly worker: DeepWorker,
     private readonly timelineStore: ConversationTimelineStore,
     private readonly queue?: TaskQueue,

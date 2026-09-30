@@ -2,6 +2,7 @@ import { z } from "zod";
 import { BriefingCoordinator } from "./briefingCoordinator";
 import { briefingProfileSchema } from "./briefingConfig";
 import { briefingRequestSchema } from "./briefingPlan";
+import type { CapabilityTool } from "../app/capabilityChat";
 const userId = z.string().trim().min(1).max(200);
 const commandSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("start"), userId, requestId: z.string().trim().min(1).max(200), request: briefingRequestSchema }).strict(),
@@ -11,6 +12,45 @@ const commandSchema = z.discriminatedUnion("op", [
 
 /** Server-owned profile; clients cannot choose adapters, budgets or executable code. */
 export class BriefingHttp {
+  tools(): CapabilityTool[] {
+    const profile = structuredClone(this.profile);
+    const version = this.coordinator.version;
+    const combinations = new Map(profile.tasks.flatMap(task => task.sources.map(source =>
+      [`${task.scope}:${source.kind}`, { scope: task.scope, kind: source.kind }] as const)));
+    return [...combinations].filter(([, value]) => value.kind !== "availability").map(([id, { scope, kind }]) => {
+      const schema = z.object({ from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }),
+        timezone: briefingRequestSchema.shape.timezone,
+        team: scope === "team" ? briefingRequestSchema.shape.team.removeDefault().unwrap() : z.null()
+      }).strict();
+      const validate = (value: unknown) => {
+        const args = schema.parse(value);
+        if (Date.parse(args.to) > Date.now() || Date.parse(args.from) >= Date.parse(args.to) ||
+          Date.parse(args.to) - Date.parse(args.from) > profile.maxCatchupHours * 3600000) throw new Error("INVALID_WINDOW");
+        if (args.team && (args.team.provider !== (profile.league === "NFL" ? "balldontlie-nfl" : "balldontlie") || !/^[1-9][0-9]*$/.test(args.team.id))) throw new Error("INVALID_TEAM");
+        return args;
+      };
+      return { id: `${profile.league.toLowerCase()}:${id}`, description: `Read ${profile.league} ${scope} ${kind} evidence. Maximum window ${profile.maxCatchupHours} hours. Coverage may be partial and freshness unknown. No team-ID lookup, web search or other leagues. Team scope requires an explicitly supplied provider ID; never guess one.`,
+        inputSchema: { type: "object", additionalProperties: false, required: ["from", "to", "timezone", "team"], properties: {
+          from: { type: "string", description: "Inclusive ISO timestamp with timezone" }, to: { type: "string", description: "Exclusive ISO timestamp with timezone; no later than now" },
+          timezone: { type: "string", description: "IANA timezone" }, team: scope === "team" ? { type: "object", required: ["provider", "id", "name"], properties: {
+            provider: { const: profile.league === "NFL" ? "balldontlie-nfl" : "balldontlie" }, id: { type: "string" }, name: { type: "string" }
+          }, additionalProperties: false } : { type: "null" }
+        } }, validate,
+        execute: async (value, userId, requestId, signal) => {
+          if (version !== this.coordinator.version) throw new Error("CAPABILITIES_CHANGED");
+          signal.throwIfAborted(); const args = validate(value);
+          const tasks = profile.tasks.filter(task => task.scope === scope).map(task => ({ ...task, sources: task.sources.filter(source => source.kind === kind) })).filter(task => task.sources.length);
+          const run = this.coordinator.start(userId, requestId, { now: args.to, timezone: args.timezone, team: args.team,
+            lastSuccessful: { league: args.from, team: args.from } }, { ...profile, tasks });
+          const abort = () => { this.coordinator.cancel(userId, run.id); };
+          signal.addEventListener("abort", abort, { once: true });
+          if (signal.aborted) abort();
+          try { return await this.coordinator.wait(userId, run.id); }
+          finally { signal.removeEventListener("abort", abort); }
+        }
+      };
+    });
+  }
   chatCapabilities() { return { league: this.profile.league, maxWindowHours: this.profile.maxCatchupHours }; }
   startChat(value: unknown) {
     const input = z.object({ userId, requestId: userId,

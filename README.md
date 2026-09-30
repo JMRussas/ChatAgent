@@ -104,8 +104,8 @@ This command does not use BALLDONTLIE quota.
 To enable live background briefings, set
 `SPORTS_BRIEFING_CONFIG_PATH=data/sports/nfl-live-briefing.example.json` and restart.
 Use the [start/status/cancel HTTP commands](docs/runtime-reference.md#optional-sports-briefing-http-boundary)
-to collect games and news. Startup performs no sports requests; the current UI has
-an explicit evidence form for recognized sports questions. The shared games budget allows five starts per rolling minute, including bursts.
+to collect games and news. Startup performs no sports requests; live chat uses a model-produced plan and the configured tool registry to
+clarify requests, report missing capabilities or collect background evidence. The shared games budget allows five starts per rolling minute, including bursts.
 Further requests fail fast until capacity returns; cached reads remain available.
 After editing that configuration file, `POST /briefings/config/reload` with `{}`
 applies validated changes without restarting. New runs record the configuration
@@ -162,3 +162,9 @@ this overview; the [current roadmap](docs/12-development-roadmap.md) tracks sequ
 - [Durability and fail-closed recovery](experiments/doc-agent/DURABILITY.md)
 - [Conversation context and memory evidence](docs/implementation/01b-evidence.md)
 - [CI workflow](.github/workflows/verify.yml): TypeScript checks and simulated regression gates; live Ollama and Python evaluations run separately.
+
+Live chat planning uses strict validated JSON and bounded original conversation history.
+The default mock-only demo retains the legacy simulated pipeline. Low output-token
+limits can truncate plans; increase `CHAT_FAST_MAX_OUTPUT_TOKENS` (or the overriding
+`OLLAMA_FAST_NUM_PREDICT`) if `CAPABILITY_PLAN_TRUNCATED` occurs. The live Ollama smoke
+check used 1024 output tokens. No generic web search or MLB adapter is connected.

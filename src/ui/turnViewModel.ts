@@ -4,7 +4,7 @@ import type { ChatTimelineEvent } from "../domain/types";
 export function deriveTurns(events: ChatTimelineEvent[]) {
   type Attempt = { id: string; phase: "fast" | "deep"; text: string; answerKind: string; state: string;
     queuedAt?: string; startedAt?: string; endedAt?: string; model?: string; provider?: string; bindingId?: string; selectionReasons?: string[]; reasoningEnabled: boolean; terminal: boolean; steps: string[] };
-  type Turn = { messageId: string; userText: string; attempts: Attempt[]; routeDecision?: string };
+  type Turn = { messageId: string; userText: string; attempts: Attempt[]; routeDecision?: string; planAction?: string };
   const turns: Turn[] = [];
   const seen = new Set<string | number>();
   for (const event of events) {
@@ -18,6 +18,7 @@ export function deriveTurns(events: ChatTimelineEvent[]) {
     const turn = turns.find(t => t.messageId === event.messageId);
     if (!turn) continue;
     turn.routeDecision = event.routeDecision ?? turn.routeDecision;
+    if (event.capabilityPlan && typeof event.capabilityPlan === "object" && "action" in event.capabilityPlan) turn.planAction = String(event.capabilityPlan.action);
     const phase = event.phase ?? (event.type === "refined" || event.type === "activity" ? "deep" : "fast");
     const id = event.attemptId ?? phase;
     let attempt = turn.attempts.find(a => a.id === id);

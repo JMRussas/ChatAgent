@@ -41,7 +41,7 @@ export class CatalogDispatch {
   }
   async prepare(manager: ContextManager, input: PrepareContextInput): Promise<DispatchPlan> {
     const capture = await manager.capture(input);
-    const task = classifyTaskRequirements({ text: input.currentUserText, routeDecision: input.routeDecision ?? "direct",
+    const task = input.planningInstruction ? { task: "conversation" as const, requiredCapabilities: [], inputTokens: 0, outputTokens: this.budget.fastOutputTokens } : classifyTaskRequirements({ text: input.currentUserText, routeDecision: input.routeDecision ?? "direct",
       inputTokens: 0, outputTokens: this.budget.fastOutputTokens });
     const catalog = structuredClone(this.catalog), observations = structuredClone(this.observations());
     const rank = (role: "fast" | "deep") => {
