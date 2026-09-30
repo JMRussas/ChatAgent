@@ -1,5 +1,34 @@
 # Next ChatAgent handoff after 01B
 
+## Next task: team resolution and latest completed game — 2026-09-30
+
+User observed that the planner asks for the Patriots' provider ID. Fix the tool
+abstraction, not the user's wording. This supersedes the prior “planner evaluation
+first, then more retrieval” ordering; review/evaluation now accompany each tool slice.
+
+Implementation order:
+1. Verify team-directory access; implement provider-backed, cached name resolution
+   with explicit unique/ambiguous/not-found/unavailable outcomes.
+2. Implement `find_latest_completed_game(league, team, as_of?)`, composing resolution
+   and bounded backward game lookup internally. Reuse the shared account budget;
+   preserve source coverage and do not equate exhausted quota/search bounds with absence.
+3. Register the operation for the live planner. Keep internal IDs, pagination and
+   date-filter mechanics out of normal user interaction. No team keyword exceptions.
+4. Add evidence-backed answer generation with citations and honest recap limitations.
+5. Evaluate the whole conversation, including paraphrases, follow-ups, ambiguity,
+   offseason windows, partial coverage, cancellation and rate-limit behavior.
+
+Acceptance example: “What happened in the Patriots' last football game?” should
+resolve the team and retrieve its most recent completed game without asking for an
+internal ID or an unnecessary date/timezone. Unsupported MLB requests should explain
+the missing capability without offering unrelated NFL results.
+
+Detailed contracts and scope: [sports plan](../18-nba-briefing-demo.md).
+This is planned work only. General search/MLB, dependent model plans, semantic memory
+and the topic/task UI remain later work. Existing capability planner and source
+adapters provide the foundation; they do not yet satisfy this acceptance example.
+
+
 ## Model capability planning replaces live keyword routing — 2026-09-30
 
 Live `startServer` chat now uses `CapabilityChat` through the shared ChatService,

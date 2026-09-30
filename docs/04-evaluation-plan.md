@@ -1,5 +1,32 @@
 # Evaluation Plan
 
+## Next evaluation: named team to sourced game answer — 2026-09-30
+
+Apply evaluation to the richer tool work in the [sports plan](18-nba-briefing-demo.md).
+Target: “What happened in the Patriots' last football game?” Assess tool correctness,
+conversation behavior and factual answer quality separately.
+
+Deterministic cases: unique and ambiguous team matches, unknown names, unavailable
+team directory, expired caches, cross-league identity collisions, exact as-of bounds,
+completed versus in-progress/scheduled/postponed/cancelled games, unordered pages,
+missing scores, insufficient pagination/coverage, offseason search exhaustion, shared
+quota across directory/game calls, cancellation and reload during work. Verify bounded
+requests and explicit partial/unavailable outcomes. Exhausted budgets do not prove absence.
+
+Model/session cases: equivalent wording and typos, already-specified team names,
+follow-up references, changed team preferences, latest-completed versus last-night
+intent, useful versus unnecessary clarification, unsupported leagues, and continued
+chat while retrieval runs. Internal IDs must not be requested for resolvable names;
+missing MLB capability must not trigger an unsolicited NFL substitution.
+
+Grade final answers against fixture/provider evidence: correct team and game,
+completion status, score, source links, and explicit coverage limitations. Narrative
+claims need supporting evidence beyond a score. Keep code checks and calibrated
+human/model rubric judgments separate. Repeat live model cases and retain versioned
+plans, tool traces, latency and request counts; do not treat a few smoke checks or a
+passing runtime suite as a factual-quality benchmark. These are planned evaluations.
+
+
 ## Current application: NBA briefings
 
 The [NBA demo](18-nba-briefing-demo.md) is the selected workflow for multitask

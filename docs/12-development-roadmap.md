@@ -1,5 +1,19 @@
 # Development roadmap
 
+## 2026-09-30: prioritize useful tool operations
+
+Next build provider-backed team-name resolution and a bounded latest-completed-game
+operation, then evidence-backed answers. The model should request a useful operation;
+tools should handle provider IDs, pagination, date filters and quota coordination.
+Do not add team-name routing exceptions or ask users for database identifiers.
+
+Review and evaluate each slice, then test the complete Patriots-last-game interaction.
+Preserve foreground interaction during retrieval. The task board, general web search,
+MLB and broader memory/dependent planning follow this slice. This supersedes older
+next-step orderings below. See [tool contracts](18-nba-briefing-demo.md) and
+[current handoff](implementation/NEXT-HANDOFF.md). No runtime change is claimed here.
+
+
 ## 2026-09-30: NFL active-season verification
 
 Sports demo scope now includes NFL games alongside NBA. The same account/key

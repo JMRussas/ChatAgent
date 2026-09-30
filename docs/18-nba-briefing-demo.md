@@ -1,5 +1,58 @@
 # Personalized NBA briefing demo
 
+## Next priority: tools that accept user-level requests — 2026-09-30
+
+User feedback: asking for the Patriots' provider ID exposes unfinished integration
+work to the user. Prioritize richer tool contracts before more planner prompting,
+topic-specific routing or the task-board UI. This ordering supersedes the next-step
+recommendations in earlier journal entries. The following work is planned, not shipped.
+
+Target request: “What happened in the Patriots' last football game?” Resolve the team,
+find its latest completed game, retrieve available supporting evidence, and explain
+the result with citations. Do not require the user to know provider IDs or supply a
+date for an unambiguous latest-completed-game request.
+
+1. **Provider-backed team resolution.** Verify the provider's team-directory access
+   and coverage first. Accept league plus a team name/alias and return a unique
+   provider-qualified identity, multiple candidates, no match, or source unavailable.
+   Cache directory evidence with configurable expiry. Derive matching from provider
+   data and validated normalization; do not introduce a Patriots/Sox keyword table or
+   let the model invent IDs. Ask a user to choose only when multiple plausible teams
+   remain. A failed directory read must not be reported as no matching team.
+2. **Latest completed game operation.** Expose a contract such as
+   `find_latest_completed_game(league, team, as_of?)`. The tool resolves the name
+   internally, defaults as-of to the server clock, and searches backward within
+   configurable windows/page/request/deadline limits. Use completed status, timestamps
+   and source coverage to select the result; exclude scheduled, in-progress, postponed
+   and cancelled games. Include resolution and game provenance, query scope and limits.
+   If coverage is insufficient, report the most recent game found with that limitation
+   rather than certify it as the latest. Bound offseason searches. A genuine local-date
+   request can require timezone context; latest completed ordinarily does not.
+3. **Integrate through the existing capability registry.** Keep provider IDs, date
+   filters, pagination and request coordination inside tools. Directory and game calls
+   must share the account's rolling request budget. Define explicit bounded waiting or
+   retryable rate-limit outcomes so quota exhaustion is never confused with no game.
+   Preserve cancellation, foreground conversation and configuration reload semantics.
+   This composite tool does not require a general dependent-plan engine first.
+4. **Evidence-backed answer generation.** After retrieval, produce a readable answer
+   with source links. Scores establish the result; narrative claims about what happened
+   require supporting evidence. If only a score is available, say so. Preserve partial,
+   stale and unavailable states; no invented recap. Do not offer an unrelated supported
+   sport as a substitute for an unsupported request.
+5. **Evaluate the complete interaction.** Combine deterministic tool tests with
+   repeated model evaluations of paraphrases and follow-ups. Gate the demo on resolving
+   a named team without asking for an internal ID, retrieving the correct completed
+   game within budget, and answering only from returned evidence. Record traces and
+   configuration/model versions. Runtime completion and factual quality remain separate.
+
+Division of responsibility: the model interprets intent, chooses operations and
+explains evidence; tools implement domain operations; runtime code enforces schemas,
+budgets, cancellation and execution limits. Feed URLs, cache expiry, search bounds and
+source policies remain configuration. General web search, MLB, persistent memory,
+dependent model plans and topic-board UI remain later work. Review and evaluate each
+slice as implemented; this plan update changes no runtime behavior.
+
+
 ## Model capability planning replaces live keyword routing — 2026-09-30
 
 Live `startServer` chat now uses `CapabilityChat` through the shared ChatService,
