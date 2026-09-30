@@ -1,3 +1,4 @@
+import { GenerationError } from "../domain/generation";
 import { generationLifecycle } from "./generationLifecycle";
 import { ChatOrchestrator, DeepWorker } from "./orchestrator";
 import type { ChatTimelineEvent, DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
@@ -22,6 +23,29 @@ export class ConversationOwnershipConflictError extends Error {
 }
 
 export class ChatService {
+  private stopping = false;
+  private readonly inFlight = new Set<Promise<unknown>>();
+  get isShuttingDown() { return this.stopping; }
+  stopAccepting() { this.stopping = true; }
+  private track<T>(work: () => Promise<T>): Promise<T> {
+    const pending = Promise.resolve().then(work);
+    this.inFlight.add(pending);
+    void pending.finally(() => this.inFlight.delete(pending)).catch(() => undefined);
+    return pending;
+  }
+  async whenIdle(): Promise<void> {
+    while (this.inFlight.size) await Promise.allSettled([...this.inFlight]);
+    if (this.queue) await generationLifecycle(this.queue).flushClosingWrites();
+  }
+  async cancelRemaining(): Promise<void> {
+    if (!this.queue) return;
+    const lifecycle = generationLifecycle(this.queue);
+    lifecycle.closeAdmissions();
+    await Promise.all(lifecycle.registeredTurns().map(turn => this.orchestrator.cancel(turn.conversationId, turn.messageId)));
+  }
+  async discardPending(): Promise<void> {
+    if (this.queue) while (await this.queue.dequeue()) { /* cancelled, process-local work */ }
+  }
   private readonly ownerUserIdByConversationId = new Map<string, string>();
 
   constructor(
@@ -34,9 +58,9 @@ export class ChatService {
   ) {}
 
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
+    if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
     this.claimConversation(message.conversationId, message.userId);
-
-    return this.orchestrator.handleUserMessage(message);
+    return this.track(() => this.orchestrator.handleUserMessage(message));
   }
 
   claimConversation(conversationId: string, userId: string, claim = true): void {
@@ -54,7 +78,8 @@ export class ChatService {
   }
 
   async runDeepWorkerOnce(): Promise<DeepResult | undefined> {
-    return this.worker.runSingle();
+    if (this.stopping) return undefined;
+    return this.track(() => this.worker.runSingle());
   }
 
   async getTimeline(conversationId: string): Promise<ChatTimelineEvent[]> {
@@ -66,7 +91,11 @@ export class ChatService {
     return this.deadLetterStore.list();
   }
 
-  async replayDeadLetter(taskId: string): Promise<boolean> {
+  replayDeadLetter(taskId: string): Promise<boolean> {
+    if (this.stopping) return Promise.reject(new GenerationError("SHUTTING_DOWN", false));
+    return this.track(() => this.replay(taskId));
+  }
+  private async replay(taskId: string): Promise<boolean> {
     if (!this.queue || !this.deadLetterStore) return false;
 
     const removed = await this.deadLetterStore.remove(taskId);

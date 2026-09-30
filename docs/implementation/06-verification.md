@@ -1,6 +1,9 @@
 # 06 — Lifecycle and honest end-to-end verification
 
-Status: planned. Integrates 01–04, and 05 when enabled. Code gates are offline;
+Status: in progress. 06A runtime shutdown and automatic-worker HTTP acceptance
+implemented (439 tests / 61 files, typecheck, build, simulated release gate pass).
+06B passive recorder/artifacts, benchmark changes, browser gates and live quality
+comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
 live answer-quality gates require separately identified provider configuration.
 
 ## Shutdown and ownership

@@ -1,5 +1,28 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: spec 06A runtime lifecycle complete
+
+`startServer` now returns the bound server/address and an idempotent `shutdown()`.
+Only index.ts installs process signal handlers. Shutdown stops admission/background
+work, cancels and awaits summary jobs, gives active calls the configured grace,
+cancels remaining/late-created attempts, releases pending reservations, drains the
+process-local queue, closes SSE, awaits serialized final telemetry, and closes HTTP.
+Persistence failures and the overall shutdown deadline reject explicitly; the CLI
+sets a failure exit status. This is not durable queue recovery or a guarantee that
+remote compute has stopped.
+
+Tests cover an active SSE client, deferred provider and persistence, graceful
+completion, queued cancellation, late context-preparation races, write failure,
+timeout, idempotence, and an automatic-worker HTTP flow on an ephemeral port with
+no process signal listeners. **439 tests / 61 files**, typecheck, build and the
+seeded simulated release gate pass. No live model call was needed for this change.
+
+Next: **06B passive evaluation recorder and artifact/annotation contracts**,
+followed by honest live benchmark comparisons and browser acceptance. Spec 06 as a
+whole remains in progress; EVAL-01–06, browser gates, and live quality comparisons
+are not claimed complete by these lifecycle tests.
+
+
 ## 2026-09-30: review findings fixed
 
 All three findings from the review of `4e0bea1` are addressed:

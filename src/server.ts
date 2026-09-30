@@ -1,3 +1,4 @@
+import { createRuntimeHandle, loadShutdownConfig, type RuntimeHandle } from "./app/runtimeHandle";
 import { loadDispatchConfig } from "./config/dispatchConfig";
 import { CatalogDispatch } from "./routing/catalogDispatch";
 import { ModelSelectionError } from "./routing/modelSelector";
@@ -197,8 +198,12 @@ function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown)
 
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
   const protocolV1 = createProtocolV1Handler(service);
+  const responses = new Set<ServerResponse>();
   const server = createServer(async (req, res) => {
+    responses.add(res);
+    res.once("close", () => responses.delete(res));
     try {
+      if (service.isShuttingDown) return json(res, 503, { code: "SHUTTING_DOWN", error: "Runtime is shutting down" });
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
 
@@ -377,7 +382,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
       if (error instanceof ModelSelectionError) return json(res, 503, { error: error.message, code: error.code, exclusions: error.exclusions });
       if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
-      if (error instanceof GenerationError) return json(res, error.code === "CONTEXT_TOO_LARGE" ? 413 : error.code === "CAPABILITY_UNSUPPORTED" ? 400 : 502, { error: "Generation failed", code: error.code });
+      if (error instanceof GenerationError) return json(res, error.code === "SHUTTING_DOWN" ? 503 : error.code === "CONTEXT_TOO_LARGE" ? 413 : error.code === "CAPABILITY_UNSUPPORTED" ? 400 : 502, { error: "Generation failed", code: error.code });
       if (error instanceof HttpRequestError) {
         return json(res, error.statusCode, { error: error.message });
       }
@@ -406,10 +411,13 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     close(error => { void shutdown!.then(() => callback?.(error), failure => callback?.(failure)); });
     return server;
   }) as typeof server.close;
-  return server;
+  return Object.assign(server, { closeStreams: () => {
+    for (const response of responses) if (String(response.getHeader("Content-Type")).startsWith("text/event-stream")) response.end();
+  } });
 }
 
-export async function startServer(port: number): Promise<void> {
+export async function startServer(port: number): Promise<RuntimeHandle> {
+  const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
   const summaryConfig = loadSummaryConfig();
   if (summaryConfig.mode === "model" && process.env.CONTEXT_SUMMARY_MODEL_BINDING !== "fast")
@@ -500,13 +508,7 @@ export async function startServer(port: number): Promise<void> {
   const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting, dispatch);
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 
-  const saveTelemetry = async () => {
-    try {
-      await telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
-    } catch (error) {
-      console.warn(`Telemetry save failed: ${(error as Error).message}`);
-    }
-  };
+  const saveTelemetry = () => telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
 
   const autoRunConfig = resolveDeepWorkerAutoRunConfig(process.env);
 
@@ -528,7 +530,6 @@ export async function startServer(port: number): Promise<void> {
   const server = createChatServer(service, {
     documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
-    shutdown: async () => { inventoryStore.shutdown(); await contextManager.shutdown(); },
     contextTelemetry: () => contextManager.getSummaryTelemetry()
   });
   // Do not report success or start background work until the port is bound.
@@ -548,7 +549,7 @@ export async function startServer(port: number): Promise<void> {
 
   const telemetrySaveIntervalMs = parsePositiveIntEnv(process.env.TELEMETRY_SAVE_INTERVAL_MS, 5000, 250, 60_000);
   const timer = setInterval(() => {
-    void saveTelemetry();
+    void saveTelemetry().catch(() => console.warn("Telemetry save failed"));
   }, telemetrySaveIntervalMs);
 
   const deepWorkerTimer = autoRunConfig.enabled
@@ -568,29 +569,22 @@ export async function startServer(port: number): Promise<void> {
     });
   }, discoveryConfig.intervalMs);
 
-  server.on("close", () => {
-    clearInterval(timer);
-    if (deepWorkerTimer) {
-      clearInterval(deepWorkerTimer);
-    }
-    clearInterval(discoveryTimer);
-    void saveTelemetry();
-  });
-
-  const stop = () => {
+  const stopBackground = () => {
     clearInterval(timer);
     if (deepWorkerTimer) clearInterval(deepWorkerTimer);
     clearInterval(discoveryTimer);
-    server.close(() => { server.closeAllConnections(); });
-    server.closeAllConnections();
+    inventoryStore.shutdown();
   };
-  process.once("SIGINT", stop);
-  process.once("SIGTERM", stop);
-  server.once("close", () => { process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop); });
+  const runtime = createRuntimeHandle(server, service, {
+    config: shutdownConfig, stopBackground,
+    stopInternal: () => contextManager.shutdown(), persist: saveTelemetry
+  });
+  server.once("close", stopBackground);
 
   // Safe to log: describeProviderConfig() never includes secret values
   // (e.g. AZURE_OPENAI_API_KEY), only provider/model names, endpoints, and
   // region — see its docstring in ./config/providerConfig.
   const autoRunLabel = autoRunConfig.enabled ? `on/${autoRunConfig.intervalMs}ms` : "off";
-  console.log(`Chat server listening on port ${port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`);
+  console.log(`Chat server listening on port ${runtime.address.port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`);
+  return runtime;
 }

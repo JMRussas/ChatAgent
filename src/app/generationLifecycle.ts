@@ -87,6 +87,16 @@ export class GenerationAttempt {
 }
 
 export class GenerationLifecycle {
+  private closing = false;
+  private closingWrites: Promise<void>[] = [];
+  closeAdmissions() { this.closing = true; }
+  registeredTurns() {
+    return [...this.turns.values()].flatMap(phases => {
+      const first = [...phases.values()][0];
+      return first ? [{ conversationId: first.conversationId, messageId: first.messageId }] : [];
+    });
+  }
+  async flushClosingWrites() { await Promise.all(this.closingWrites); }
   private claimed = new Set<string>();
   private turns = new Map<string, Map<Phase, GenerationAttempt>>();
   private key(conversationId: string, messageId: string) { return JSON.stringify([conversationId, messageId]); }
@@ -102,6 +112,11 @@ export class GenerationLifecycle {
     const phases = this.turns.get(key) ?? new Map<Phase, GenerationAttempt>();
     const attempt = new GenerationAttempt(conversationId, messageId, phase, timeline, taskId);
     phases.set(phase, attempt); this.turns.set(key, phases);
+    if (this.closing) {
+      const completion = attempt.finish("cancelled");
+      this.closingWrites.push(completion);
+      void completion.catch(() => undefined);
+    }
     return attempt;
   }
   async cancel(conversationId: string, messageId: string) {
