@@ -87,7 +87,9 @@ source-backed follow-ups. The first slice plans tasks offline:
 npm run sports:plan -- data/nba-briefing-request.example.json
 ```
 
-This fixed-time example fetches no live data and asks for a team selection. See the
+Pass an optional second argument to select a custom briefing profile; the default
+is `data/sports/nba-profile.example.json`. Windows, tasks and source budgets are
+configurable. This fixed-time example fetches no live data and asks for a team selection. See the
 [demo plan](docs/18-nba-briefing-demo.md) for implemented scope and next steps.
 
 ## Run locally

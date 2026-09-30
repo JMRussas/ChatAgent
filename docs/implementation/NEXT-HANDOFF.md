@@ -1,5 +1,23 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: configurable briefing profiles before coordination
+
+User requested configurability rather than hard-coded prototype choices. Added
+validated `data/sports/nba-profile.example.json`: task/source selection, titles,
+lookback/catch-up windows, result limits and freshness budgets are configuration.
+`sports:plan <request.json> [profile.json]` and `planBriefing` emit v2 plans carrying
+the validated profile digest and resolved source settings. NBA remains the supported
+league; no generic workflow engine is introduced. The existing NBA wrapper uses the
+example defaults and also emits v2. See [migration and limits](../18-nba-briefing-demo.md).
+
+Source binding now accepts injected adapters, fails on missing registrations before
+execution and does not construct fixtures or call providers. Next: implement the
+bounded coordinator using these bindings and per-task run state, cancellation,
+duplicate-start handling and independent results. Persisted checkpoints must include
+profile/user/team identity; none are written by this slice. UI and live settings are
+unchanged.
+
+
 ## 2026-09-30: normalized sports evidence and fixture adapters
 
 Added `src/sports/sources.ts` and three explicitly fictional datasets in `data/sports/`.

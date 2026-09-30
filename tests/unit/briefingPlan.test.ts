@@ -7,7 +7,7 @@ describe("NBA briefing planning", () => {
     const plan = planNbaBriefing(base);
     expect(plan.execution).toBe("not-started");
     expect(plan.tasks.map(t => t.state)).toEqual(["ready", "needs-input"]);
-    expect(plan.tasks[0].window).toEqual({ fromInclusive: "2026-09-29T12:00:00.000Z", toExclusive: "2026-09-30T12:00:00.000Z", basis: "initial-24-hours", truncated: false });
+    expect(plan.tasks[0].window).toEqual({ fromInclusive: "2026-09-29T12:00:00.000Z", toExclusive: "2026-09-30T12:00:00.000Z", basis: "initial-lookback", truncated: false });
     expect(plan.questions).toHaveLength(1);
   });
   it("uses independent successful coverage checkpoints and preserves the selected identity", () => {

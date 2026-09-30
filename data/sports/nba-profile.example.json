@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "chatagent-briefing-profile-v1",
+  "id": "nba-default",
+  "league": "NBA",
+  "initialLookbackHours": 24,
+  "maxCatchupHours": 168,
+  "tasks": [
+    {
+      "id": "league-briefing",
+      "scope": "league",
+      "title": "NBA briefing",
+      "sources": [
+        { "adapterId": "games", "kind": "games", "limit": 50, "maxAgeMs": 900000 },
+        { "adapterId": "news", "kind": "news", "limit": 30, "maxAgeMs": 3600000 }
+      ]
+    },
+    {
+      "id": "team-briefing",
+      "scope": "team",
+      "title": "Team briefing",
+      "sources": [
+        { "adapterId": "games", "kind": "games", "limit": 20, "maxAgeMs": 900000 },
+        { "adapterId": "news", "kind": "news", "limit": 20, "maxAgeMs": 3600000 },
+        { "adapterId": "availability", "kind": "availability", "limit": 30, "maxAgeMs": 1800000 }
+      ]
+    }
+  ]
+}

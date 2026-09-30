@@ -121,6 +121,39 @@ Next is the bounded coordinator below, using these fixtures before live integrat
 The UI and active preview server are unchanged. No model or external source calls
 were needed for this slice.
 
+## Configurable profiles — 2026-09-30
+
+The planner now emits `chatagent-briefing-plan-v2`. Its task list, task titles,
+source adapter IDs/kinds, per-source result/freshness limits, initial lookback and
+catch-up cap come from a validated profile. Defaults live in
+`data/sports/nba-profile.example.json`, not planner logic. For a custom configuration:
+
+```bash
+npm run sports:plan -- data/nba-briefing-request.example.json path/to/profile.json
+```
+
+Omitting the second argument uses the NBA example. `planBriefing(request, profile)`
+is the configurable entrypoint; `planNbaBriefing(request)` remains a convenience
+wrapper and also returns v2. V2 replaces `requiredSources` with full `sources`
+configuration and changes the window basis to `initial-lookback`. Profile ID and
+SHA-256 digest of the validated profile accompany every plan. Unknown fields,
+duplicate task/adapter IDs, empty task/source lists, reversed window settings and
+out-of-range budgets fail validation. A league-only profile does not ask for a team.
+
+`bindBriefingSources(profile, registry)` accepts a caller-supplied map of adapters
+implementing `SportsSource`, validates all required bindings before execution and
+performs no reads. It has no dependency on the fixture adapter. The upcoming
+coordinator must use these validated settings instead of rebuilding source defaults.
+
+Deliberate limits: this is NBA configuration, not automatic support for other leagues
+or arbitrary workflows. Available operations remain games/news/availability; scopes
+remain league/team. Schema safety bounds are fixed. Checkpoint callers must namespace
+state by user, team identity and profile digest. The current request supplies one
+checkpoint per scope: advance it only after every configured task/source in that
+scope covers the interval successfully. Independent task checkpoints will belong to
+the coordinator's state. No persistence, coordinator, live connection or UI settings
+editor is added by this configuration slice.
+
 ## Next implementation and acceptance
 
 1. Implemented: normalized source/evidence contracts and fixture adapters for games, news
