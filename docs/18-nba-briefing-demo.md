@@ -154,12 +154,63 @@ scope covers the interval successfully. Independent task checkpoints will belong
 the coordinator's state. No persistence, coordinator, live connection or UI settings
 editor is added by this configuration slice.
 
+## Implemented coordinator slice — 2026-09-30
+
+`BriefingCoordinator` starts configured tasks using injected sources and exposes
+copied snapshots, bounded logical completion, task/run cancellation and close.
+Each run and task gets a unique ID; plan task IDs retain their configuration identity.
+Duplicate `(userId, requestId)` starts with the same resolved plan return the existing
+run without new reads; changed inputs conflict. An explicit refresh requires a new
+request ID. Every lookup/cancellation checks the caller's user ID. This is ownership
+scoping for a future authenticated boundary, not authentication by itself.
+
+Tasks publish source evidence independently and read their configured sources
+sequentially. Coordinator options validate `maxConcurrentTasks` (default 2),
+`taskTimeoutMs` (30 seconds including queue time) and `maxRuns` (20 retained runs).
+Results distinguish complete, partial, failed, cancelled, deadline and needs-input.
+Settled means no queued/running work, not successful completion. A missing team can
+settle as needs-input while league work completes; restart with a new request after
+selection. This is evidence collection, not generated briefing prose or model quality.
+
+Cancellation/deadlines abort the source signal and settle the caller's task promptly.
+Late evidence is discarded. An adapter ignoring abort retains its physical execution
+slot until it actually settles, preventing timed-out requests from creating unbounded
+new work. Close stops admission and cancels active/queued logical tasks; it cannot
+force a noncooperative adapter to terminate. Retained runs are capped and there is
+no eviction, durable storage or resume API yet. Reaching the cap fails admission.
+
+Errors contain safe codes rather than arbitrary provider exception text. Results
+are checked against the requested query; injected adapters remain responsible for
+validating their evidence contracts. Checkpoint candidates require all configured
+sources eligible and no truncated catch-up window. Candidates are returned per task,
+never persisted or silently promoted to a successful scope checkpoint. Evidence
+queries use the plan's explicit as-of timestamp; live freshness at display time will
+need re-evaluation. No retry or synthesis policy is added here.
+
+Run the synthetic example:
+
+```bash
+npm run sports:fixture -- data/sports/briefing-request.fixture.json
+```
+
+This file deliberately selects a fictional fixture team, not a user preference.
+The CLI exits nonzero unless every task completes, including when a team needs input.
+It uses the fixture registry explicitly; production coordinator code has no fixture
+fallback. No external calls are made. The existing UI/HTTP chat is unchanged.
+
+Next: expose bounded briefing start/status/cancel operations in the runtime and add
+HTTP tests proving quick chat remains usable while fixture collection is held, with
+correct ownership and cancellation. This source-task concurrency does not change
+the one-active-job limit of the existing deep model worker. Then integrate verified
+live sources and the planned task UI. Current tests establish coordinator behavior,
+not live multitask quality or browser acceptance.
+
 ## Next implementation and acceptance
 
 1. Implemented: normalized source/evidence contracts and fixture adapters for games, news
    and availability. Exercise current, stale, empty, partial and failed coverage;
    confirm source-backed results and no unsupported “nothing happened” claims.
-2. Add a bounded briefing coordinator with unique run/task identities, cancellation,
+2. Coordinator core implemented; integrate it with HTTP and overlap evaluation, preserving unique run/task identities, cancellation,
    duplicate-start handling and independent section results. Reuse the existing
    runtime where appropriate; the current deep worker permits one active deep job.
    Add the overlapping HTTP fixture checks from the multitask plan as part of this

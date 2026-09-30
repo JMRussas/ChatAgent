@@ -1,5 +1,34 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: bounded briefing coordinator and runnable fixtures
+
+Added `BriefingCoordinator`: configured/injected sources, unique run/task IDs,
+independent task evidence/results, user-scoped idempotent starts, conflicting-key
+rejection, copied snapshots and scoped cancellation. Concurrency, queue-inclusive
+deadlines and retained-run caps are configurable. Logical cancellation/deadline
+settles promptly; a noncooperative adapter retains its physical slot until settlement
+and cannot publish late evidence. No raw provider exception detail is retained.
+
+`sports:fixture -- data/sports/briefing-request.fixture.json` runs the entire evidence
+collection with fictional sources/team. It exits nonzero for incomplete tasks.
+No user preference, live provider, checkpoint persistence or UI is changed.
+Checkpoint candidates are per task and withheld for partial/stale/truncated coverage.
+Settled runs may still need input or contain failures. Source collection concurrency
+is separate from the existing serial deep-model worker.
+
+Validation: **558 tests / 72 files**, TypeScript build/type checking, the complete
+fixture CLI and diff checks pass. Seven new coordinator tests cover independent
+publication, idempotency/conflicts, ownership, cancellation, deadlines, failure
+coverage, missing configuration/capacity and late-result suppression. No HTTP/browser
+or live-source acceptance is claimed for this core slice.
+
+Next bounded task: HTTP/runtime integration of briefing start/status/cancel plus a
+held-source fixture test proving foreground chat remains available. Preserve ownership,
+duplicate-start behavior, bounded shutdown and source attribution. Then live-source
+integration and task UI. See [coordinator limits](../18-nba-briefing-demo.md): in-memory
+runs, no eviction/resume, and cooperative cancellation limits remain explicit.
+
+
 ## 2026-09-30: configurable briefing profiles before coordination
 
 User requested configurability rather than hard-coded prototype choices. Added

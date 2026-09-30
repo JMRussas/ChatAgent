@@ -90,7 +90,9 @@ npm run sports:plan -- data/nba-briefing-request.example.json
 Pass an optional second argument to select a custom briefing profile; the default
 is `data/sports/nba-profile.example.json`. Windows, tasks and source budgets are
 configurable. This fixed-time example fetches no live data and asks for a team selection. See the
-[demo plan](docs/18-nba-briefing-demo.md) for implemented scope and next steps.
+[demo plan](docs/18-nba-briefing-demo.md) for implemented scope and next steps. Run
+`npm run sports:fixture -- data/sports/briefing-request.fixture.json` to collect
+fictional evidence through the coordinator; this does not fetch live NBA data.
 
 ## Run locally
 
