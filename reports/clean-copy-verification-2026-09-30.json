@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "chatagent-clean-copy-v1",
+  "sourceRevision": "afc173325b624263607b5a30c16b9218ff051585",
+  "platform": "win32",
+  "arch": "x64",
+  "node": "v24.15.0",
+  "npm": "11.12.1",
+  "startedAt": "2026-09-30T15:49:37.433Z",
+  "lockfileBefore": "a959af0bea0882eee36a0c42d933bc2881739ae3e1660a6f7b946917eef47a91",
+  "environment": "Allowlisted OS variables; isolated empty npm configs, fresh npm cache and browser directory; seeded simulation; no repository local configuration or credentials copied",
+  "steps": [
+    {
+      "name": "install",
+      "exitCode": 0,
+      "durationMs": 2142,
+      "logSha256": "03d288493109d4ae7e58124ca5e6ddbe8b1292b8e24e9251c861c8a43a4845f1"
+    },
+    {
+      "name": "release",
+      "exitCode": 0,
+      "durationMs": 18073,
+      "logSha256": "13707a0963cf9f8915149b8ea3d413d3e2eaca1bf5806d25805365c95628682c"
+    },
+    {
+      "name": "build",
+      "exitCode": 0,
+      "durationMs": 2332,
+      "logSha256": "f7d84c78a3edfcab179be7da767c2bab0ee772ac4a1ecbd68abf348fdae51508"
+    },
+    {
+      "name": "browser-install",
+      "exitCode": 0,
+      "durationMs": 9801,
+      "logSha256": "dbb1b386c03413c8b1847b619913809881a41e15c0dd7e8d1eda2550fe944d2b"
+    },
+    {
+      "name": "browser-tests",
+      "exitCode": 0,
+      "durationMs": 13058,
+      "logSha256": "f203b2dc1ddeccc12abd5c4d72762a5edd322aca984529e3e923f6ab7abf7ae1"
+    }
+  ],
+  "finishedAt": "2026-09-30T15:50:22.862Z",
+  "lockfileAfter": "a959af0bea0882eee36a0c42d933bc2881739ae3e1660a6f7b946917eef47a91",
+  "commands": [
+    "npm ci",
+    "npm run verify:release",
+    "npm run build",
+    "node node_modules/playwright/cli.js install chromium",
+    "npm run test:browser"
+  ],
+  "checkout": {
+    "method": "Fresh local clone with --no-hardlinks, detached at sourceRevision",
+    "initialWorkingTree": "clean",
+    "localConfigurationCopied": false,
+    "providerCredentialsInherited": false
+  },
+  "results": {
+    "typescriptTests": 535,
+    "testFiles": 68,
+    "typecheck": "pass",
+    "prototypeEvaluation": "pass",
+    "seededBenchmarkComparison": "pass",
+    "build": "pass",
+    "browserTests": 8,
+    "chromium": "153.0.8010.12 (Playwright v1243)",
+    "lockfileUnchanged": true
+  },
+  "generatedChanges": {
+    "content": [
+      "reports/benchmark-summary.json: generatedAtIso only"
+    ],
+    "filesystemModes": [
+      "reports/benchmark-compare.md",
+      "reports/benchmark-summary.json",
+      "reports/benchmark-summary.md",
+      "reports/prototype-eval.md"
+    ],
+    "explanation": "Windows-generated files on the mounted checkout gained executable mode bits; no source or lockfile changes. Original workspace generated reports were not modified."
+  },
+  "localEvidenceDirectory": "D:/Temp/chatagent-clean-evidence-20260930",
+  "limits": [
+    "Windows x64 with Node 24 only; Ubuntu CI and other supported Node versions were not exercised.",
+    "Browser tests use mock providers and a real local HTTP/SSE server; no live inference, factual grading, or streaming model comparison.",
+    "Python doc-agent and bridge checks were not part of this installation gate.",
+    "Spec 06 remains in progress. Logs are local; committed hashes identify them but do not preserve their contents."
+  ]
+}

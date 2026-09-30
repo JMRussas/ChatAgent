@@ -12,6 +12,26 @@ measurements are available in 06B evidence) and live quality comparisons remain.
 Chromium browser acceptance is implemented and passes eight cases; see evidence below. Integrates 01–04, and 05 when enabled. Code gates are offline;
 live answer-quality gates require separately identified provider configuration.
 
+## Clean-copy installation evidence — 2026-09-30
+
+A fresh local clone of `afc1733` passed installation and all common code/browser
+gates on Windows x64 with Node 24.15.0 and npm 11.12.1. No ignored configuration or
+credentials were copied; the child environment contained allowlisted OS variables
+and explicit seeded-simulation settings. npm used fresh cache storage and empty
+user/global configurations. Playwright downloaded Chromium into a fresh directory.
+
+Commands: `npm ci`, `npm run verify:release`, `npm run build`,
+`node node_modules/playwright/cli.js install chromium`, `npm run test:browser`.
+Results: **535 tests / 68 files**, typecheck, evaluation report, seeded benchmark
+comparison, build and **eight browser tests** passed. Lockfile hashes match before
+and after. [Machine-readable evidence](../../reports/clean-copy-verification-2026-09-30.json)
+records revision, versions, timings, exit codes, hashes and limits. Only generated
+benchmark time and mounted-filesystem mode bits changed in the disposable checkout.
+
+This closes the Windows clean-copy check, not Ubuntu CI, Python validation, live
+quality acceptance or the repeated streaming comparison. No provider calls were
+needed. Full spec 06 remains in progress.
+
 ## Shutdown and ownership
 
 Refactor server composition to expose `startServer` returning a RuntimeHandle with

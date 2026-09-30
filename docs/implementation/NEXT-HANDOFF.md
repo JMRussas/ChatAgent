@@ -1,5 +1,29 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: clean-copy installation verified
+
+A fresh independent clone of `afc1733`, with no copied local configuration or
+credentials, passed `npm ci`, `npm run verify:release`, `npm run build`, a fresh
+Chromium installation, and `npm run test:browser`. Validation: **535 tests / 68
+files**, typecheck, prototype evaluation, seeded benchmark comparison, and **eight
+browser tests** pass. The lockfile remained unchanged. npm used empty user/global
+configuration and a separate fresh cache; Playwright used a fresh browser directory.
+
+[Installation evidence](../../reports/clean-copy-verification-2026-09-30.json)
+records the source revision, toolchain, lockfile/log hashes and step exit codes.
+This verifies Windows x64, Node 24.15.0 and npm 11.12.1. Ubuntu CI, other Node
+versions, Python experiments and live inference were not exercised. Generated
+reports changed only the benchmark timestamp in content, plus mounted-filesystem
+mode bits in the disposable clone. The original workspace reports were preserved.
+
+Next: select supported streaming conditions and preregister repeated single-model
+versus dual-path measurements (at least 30 prompts, at least ten deep-eligible,
+three repetitions, matching history and recorded warm/cold conditions). Inspect
+available bindings before choosing a pair; Claude's current bridge is final-only
+and cannot establish streaming first-token latency. Independent factual review of
+the earlier platform comparison remains open. Spec 06 is still in progress;
+retrieval and the sports demonstration follow this verification work.
+
 ## 2026-09-30: evidence-grounding and follow-up scenarios
 
 Added a versioned five-scenario/ten-turn suite with explicit expected grounding and
