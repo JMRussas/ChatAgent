@@ -78,6 +78,12 @@ describe("provider-backed team directories", () => {
     expect(active?.aborted).toBe(true);
     expect(await pending).toMatchObject({status:"unavailable",reason:"stale_directory"});
   });
+  it("refuses to publish cached lists after close", async () => {
+    const s = setup(); await s.directory.list({league:"NBA"},"u","c",signal());
+    const pending = s.directory.list({league:"NBA"},"u","c",signal());
+    s.directory.close();
+    await expect(pending).rejects.toThrow("CAPABILITIES_CHANGED");
+  });
   it("invalidates issued tools after reload/close", async () => {
     const s = setup(); const tool = s.directory.tools().find(t => t.id === "sports:resolve-team")!; s.directory.close();
     await expect(tool.execute({query:"Comets"},"u","r",signal(),"c")).rejects.toThrow("CAPABILITIES_CHANGED");

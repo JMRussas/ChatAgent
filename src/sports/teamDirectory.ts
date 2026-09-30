@@ -128,6 +128,7 @@ export class TeamDirectory {
     if (!this.options.leagues.includes(league)) throw Error("DIRECTORY_UNSUPPORTED");
     const directory = await this.read(league, signal);
     signal.throwIfAborted();
+    if (this.closed) throw Error("CAPABILITIES_CHANGED");
     const def = definitions[league];
     return this.results.put(userId, conversationId, {
       version: "tool-result-v1",

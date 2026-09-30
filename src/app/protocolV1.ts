@@ -22,6 +22,7 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
     phase: event.phase,
     activity: event.activity === "thinking" || event.activity === "generating" ? "running" : event.activity,
     answerRevision: event.type === "provisional" || event.type === "refined" ? event.sequence : undefined,
+    ...(event.payloadResults?.length ? { payloadResults: event.payloadResults } : {}),
     text: event.text, finishReason: event.finishReason, retrying: event.retrying,
     answerKind: event.answerKind, processingStatus: event.processingStatus,
     model: event.model ? { ...event.model, bindingId: event.model.bindingId ?? event.phase } : undefined,

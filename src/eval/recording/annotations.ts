@@ -28,7 +28,10 @@ export function scoreRecording(value: unknown, annotations: unknown, now = Date.
     const annotation = answer && grading.ratings.find(r => r.promptId === turn.promptId && r.responseHash === answer.answer!.scoredHash);
     const useful = annotation?.firstUsefulEventSequence === undefined ? null : events.find(e => e.sequence === annotation.firstUsefulEventSequence);
     const usefulValid = annotation?.firstUsefulEventSequence === undefined || useful && useful.callId === answer?.callId && useful.elapsedMs >= turn.elapsedMs && useful.elapsedMs <= (terminal?.elapsedMs ?? -1) && ["delta", "provisional", "refined"].includes(useful.type);
-    const finalReviewable = reviewable && terminal?.finishReason === "stop";
+    // Existing annotation versions grade text only. Never label a user payload as
+    // graded until a payload-bound rubric is supported.
+    const payloadGrading = events.some(e => e.payloads?.length) ? "unrated" : "not_applicable";
+    const finalReviewable = reviewable && terminal?.finishReason === "stop" && payloadGrading === "not_applicable";
     const dimension = (value: unknown) =>
       finalReviewable && (value === "pass" || value === "fail") ? value : "unavailable";
     const groundedness = dimension(annotation && "groundedness" in annotation ? annotation.groundedness : undefined);
@@ -41,7 +44,7 @@ export function scoreRecording(value: unknown, annotations: unknown, now = Date.
     const rated = finalReviewable && groundedness !== "unavailable" && taskCompletion !== "unavailable" && annotation && usefulValid && annotation.correctness !== "unrated" && annotation.relevance !== "unrated" && annotation.unsupportedClaims !== "unrated";
     const knownFailure = finalReviewable && annotation && (annotation.correctness === "fail" || annotation.relevance === "fail" ||
       annotation.unsupportedClaims === "yes" || groundedness === "fail" || taskCompletion === "fail");
-    return { runtimeOutcome, groundedness, taskCompletion, gradingComplete: Boolean(rated),
+    return { runtimeOutcome, groundedness, taskCompletion, payloadGrading, gradingComplete: Boolean(rated),
       correctness: dimension(annotation?.correctness), relevance: dimension(annotation?.relevance),
       turnId: turn.turnId, promptId: turn.promptId, responseHash: answer?.answer?.scoredHash ?? null,
       outcome: runtimeOutcome !== "stop" ? "unavailable" : knownFailure ? "fail" : rated ? "pass" : "unavailable",

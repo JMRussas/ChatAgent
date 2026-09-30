@@ -1,5 +1,15 @@
 # Next ChatAgent handoff after 01B
 
+## Review corrections — 2026-09-30
+
+Versioned answer events now include user payloads inline, so clients can render them
+without knowing internal conversation IDs. Cached directory reads recheck closure
+before publishing. Text-only grading explicitly reports payload-bearing turns as
+unrated instead of allowing a quality pass; payload-bound grading remains future work.
+Validation: 38 focused regression/integration tests and TypeScript build passed.
+Next: topic navigation and explicit scoped conversation/reference selection.
+
+
 ## Active plan: payload separation and manual topic workflows — 2026-09-30
 
 This section supersedes next-step ordering in the historical entries below.

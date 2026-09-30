@@ -54,6 +54,15 @@ describe("evaluation recording", () => {
       expect(run.trace[0].answer?.text ?? "").not.toContain("PAYLOAD_CANARY");
     }
   });
+  it("does not pass text-only annotations for payload-bearing answers", async () => {
+    const recorder = await setup({capture:"answers"}); turn(recorder); await recorder.finish();
+    const run = await readArtifact(recorder.path);
+    expect(scoreRecording(run,annotations()).passed).toBe(true);
+    run.trace[2].payloads = [{resultId:digest("id"),contentHash:digest("table"),artifactHash:digest("table"),transformed:false,text:"table"}];
+    const score = scoreRecording(run,annotations());
+    expect(score.passed).toBe(false);
+    expect(score.results[0]).toMatchObject({payloadGrading:"unrated",gradingComplete:false,outcome:"unavailable"});
+  });
   it("defaults off and rejects invalid capture/size configuration", () => {
     expect(redact('password="a secret with spaces"')).toBe("password=[REDACTED]");
     expect(recordingConfig({})).toBeUndefined();
