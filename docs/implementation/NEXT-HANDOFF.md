@@ -1,5 +1,35 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: 06C live measurement foundation implemented
+
+The live benchmark now submits each prompt once against the actual server, waits
+for message-correlated fast/deep terminal events under a 120-second default deadline,
+and polls every 100 ms. It uses automatic workers; polling never triggers retries.
+Attempt IDs determine retry counts. Reports retain observed model/binding/revision
+metadata, terminal outcomes, exact final-answer hashes and client observation times.
+A stalled submission is bounded too. Deadline/transport failures request bounded
+cancellation; unconfirmed cleanup stops the batch and leaves unrun prompts explicit.
+
+Live observations use `chatagent-live-benchmark-v1`, with separate default output
+`reports/live-benchmark-v1.json` and `.md`. Per-turn evidence distinguishes mock,
+live, mixed and unknown providers. No route-derived quality score or hypothetical
+profile names remain in live execution. Quality, usage, cost, configuration digest,
+provider/queue duration and annotated useful-answer time remain unavailable; these
+reports are explicitly not comparison eligible. Existing simulation artifacts and
+methodology remain historical and unchanged. The comparison CLI rejects the new
+observation format until compatibility and grading support are implemented.
+
+Validation: **462 tests / 62 files**, typecheck, build and seeded simulated release
+gate pass. Ten live-runner unit cases cover correlation, retries, failure/truncation,
+acknowledgments, stalled requests, deadlines and cancellation. The existing runtime
+HTTP test also runs the benchmark against actual automatic workers with mock models.
+No live provider calls, model grading or performance claims were made.
+
+Next: finish **06C configuration/dataset compatibility and experiment manifests**,
+connect exact-answer grading, then matched recorder overhead. Browser and live-quality
+acceptance remain afterward; the sports demo follows spec 06. Recording remains off
+locally. This milestone does not complete 06C or spec 06.
+
 ## 2026-09-30: 06B passive recorder and annotation contracts implemented
 
 [Recorder setup and evidence](06b-recording.md) documents opt-in metadata/answer

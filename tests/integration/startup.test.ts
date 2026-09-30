@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { startServer } from "../../src/server";
+import { runLiveBenchmark } from "../../src/bench/liveBenchmark";
 import catalog from "../../data/model-catalog.json";
 
 beforeEach(() => {
@@ -91,6 +92,11 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
       const result = await (await fetch(`${base}/conversations/automatic/events`)).json();
       expect(result.events.some((event: { type: string }) => event.type === "refined")).toBe(true);
     }, { timeout: 2000, interval: 25 });
+    const [benchmark] = await runLiveBenchmark([{ id: "deep", text: "Compare and design code for a complex distributed system with detailed tradeoffs" }],
+      { baseUrl: base, deadlineMs: 5000, pollIntervalMs: 25 });
+    expect(benchmark).toMatchObject({ outcome: "stop", routeDecision: "deep", evidenceMode: "synthetic", retryCount: 0, quality: null });
+    expect(benchmark.attempts.map(a => a.phase).sort()).toEqual(["deep", "fast"]);
+    expect(benchmark.responseHash).toMatch(/^[a-f0-9]{64}$/);
     const recording = await (await fetch(`${base}/telemetry/evaluation`)).json();
     expect(recording.enabled).toBe(true);
     await handle.shutdown();
