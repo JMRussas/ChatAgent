@@ -1,5 +1,32 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: shared sports admission/cache
+
+Added `createBalldontlieSources`: NBA/NFL adapters share a conservative five-per-minute
+rolling budget plus 12-second spacing. Reuse one registry for the account across
+coordinators. Games CLIs use the factory; separate processes still do not coordinate.
+Identical in-flight reads coalesce, successful/partial evidence has a bounded TTL
+cache, and source timestamps are never refreshed by reuse. Scope and freshness
+checks prevent substituting a partial league page for a team query. Provider 429
+results impose shared cooldown; local admission rejects immediately without retries.
+
+Cancellation detaches individual waiters and aborts the source only when the last
+waiter leaves. Abandoned results are not cached, and noncooperative reads retain
+bounded pending slots. Limits are validated configuration. No live requests or
+subscription changes were needed. Existing adapter/HTTP/UI behavior is otherwise
+unchanged; background admission errors currently become `SOURCE_READ_FAILED` at
+coordinator level, and automatic retry scheduling is not implemented.
+
+Validation: **579 tests / 76 files**, TypeScript build/type checking and diff checks
+pass. Six new tests cover shared rolling admission, expiry/freshness/mutation,
+coalescing, independent cancellation, abandoned-read capacity, cooldown and registry
+isolation. No live API quota was consumed.
+
+Next: news ingestion, then task UI and source-backed model follow-ups. Do not claim
+account-wide cross-process throttling or full briefing coverage. See
+[cache/budget semantics](../18-nba-briefing-demo.md).
+
+
 ## 2026-09-30: NFL adapter and existing-key access verified
 
 User authorized NFL using the same BALLDONTLIE account/key. Added league-specific

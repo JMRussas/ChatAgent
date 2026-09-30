@@ -1,6 +1,6 @@
 import "../config/loadEnv";
 import { z } from "zod";
-import { BalldontlieGamesSource } from "./balldontlie";
+import { createBalldontlieSources } from "./sharedSources";
 async function main() {
   const args = process.argv.slice(2);
   const league = args[0] === "nfl" ? (args.shift(), "NFL" as const) : "NBA" as const;
@@ -8,7 +8,7 @@ async function main() {
   const hours = z.coerce.number().int().min(1).max(744).parse(args[0] ?? (league === "NFL" ? 168 : 24));
   const teamId = args[1] ? z.string().regex(/^[1-9][0-9]*$/).parse(args[1]) : null;
   const now = Date.now();
-  const source = new BalldontlieGamesSource(process.env.BALLDONTLIE_API_KEY, { league });
+  const source = createBalldontlieSources(process.env.BALLDONTLIE_API_KEY).get(league.toLowerCase() + "-games")!;
   const result = await source.read({ league, kind: "games", now: new Date(now).toISOString(),
     window: { fromInclusive: new Date(now - hours * 3600000).toISOString(), toExclusive: new Date(now).toISOString() },
     team: teamId ? { provider: league === "NFL" ? "balldontlie-nfl" : "balldontlie", id: teamId, name: "Requested team " + teamId } : null,

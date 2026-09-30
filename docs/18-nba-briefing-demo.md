@@ -1,5 +1,44 @@
 # Personalized NBA briefing demo
 
+## Shared request admission and cache — 2026-09-30
+
+`createBalldontlieSources(key, options)` returns `nba-games` and `nfl-games` adapters
+sharing one process-local account budget. Reuse this registry across league/team
+coordinators; creating a second registry or CLI process creates a separate budget.
+The explicit games CLIs now use this composition. Server activation remains opt-in.
+
+Defaults enforce at most five starts per rolling 60 seconds plus 12-second spacing.
+The boundary is conservative: a start exactly 60 seconds old still counts. Failed
+and cancelled admitted reads consume their reservation. Denied admission throws
+`SPORTS_SHARED_RATE_LIMIT` immediately; it does not wait, retry or silently refresh.
+A provider rate-limit response adds a shared 60-second cooldown. The coordinator
+currently represents thrown admission errors as `SOURCE_READ_FAILED`; richer retry
+scheduling/UX remains future work. This does not coordinate other applications or
+processes using the key.
+
+Successful available evidence is cached for 15 seconds by exact league, operation,
+team, window and limit. Reuse does not rewrite retrieval or source update times;
+freshness is re-evaluated using current/read time and the caller's age budget. Unknown
+freshness remains unknown. Partial evidence may be cached but stays partial; errors
+and unavailable responses are not cached. Entries default to a cap of 20 per adapter.
+Different team queries cannot borrow an incomplete league page. Moving time windows
+are different scopes and miss this cache; no approximate query widening is implied.
+
+Concurrent identical reads share one underlying operation. A caller cancelling stops
+its wait; only the last departing waiter aborts the underlying signal. Late results
+from an abandoned operation cannot enter cache. Noncooperative operations retain
+pending slots until settlement (default cap four per adapter), preventing unbounded
+pending work. Pending-capacity errors are explicit. The existing adapter timeout
+still bounds cooperative transport operations.
+
+Limits/TTL/cache/pending capacities are validated configuration. Rate settings can
+be made stricter, not raised beyond this free-tier ceiling. Tests use controlled
+clocks and synthetic transport; this slice made no live requests or account changes.
+Next: news ingestion, then task UI and source-backed model follow-ups. Automatic
+refresh should not be enabled until admission-denied work has an explicit scheduling
+policy and the required sources are available.
+
+
 ## 2026-09-30: NFL is the first active-season live target
 
 NBA remains supported. The user requested NFL access using the existing account.
