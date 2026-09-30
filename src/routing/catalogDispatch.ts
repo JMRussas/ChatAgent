@@ -130,6 +130,8 @@ export class CatalogDispatch {
     if (!obs || Date.parse(obs.observedAtIso) > now.getTime() || obs.expiresAtIso <= now.toISOString() || obs.installed !== "yes" || obs.access !== "allowed" || obs.health !== "reachable" ||
       obs.revision !== candidate.selection.revision) throw new AdmissionError("BINDING_OBSERVATION_CHANGED_OR_STALE");
     const resources = this.policy.bindings[candidate.entry.id];
+    if (resources?.quotaAdmission === "adapter-preflight" && candidate.binding.quotaAdmission !== "adapter-preflight")
+      throw new AdmissionError("QUOTA_PREFLIGHT_UNSUPPORTED");
     const denied = resourceExclusion(resources, this.policy, now.getTime());
     if (denied) throw new AdmissionError(denied);
     if (JSON.stringify(resources) !== JSON.stringify(candidate.resources)) throw new AdmissionError("RESOURCE_EVIDENCE_CHANGED");

@@ -1,13 +1,47 @@
 # Next ChatAgent handoff after 01B
 
-## 2026-09-29: included-usage policy selected
+## 2026-09-30: Claude live acceptance complete
 
-User deferred paid extra usage. Claude inference now fails before spawn with
-`CLI_EXTRA_USAGE_ENABLED` when enabled, or `CLI_BILLING_UNKNOWN` when the setting
-cannot be verified. This block precedes quota admission and never retries or
-triggers fallback. The account-wide setting was not changed. Next: user disables
-account extra usage, reconcile scoped windows with admission, then live answer
-and cancellation acceptance. Earlier billing-choice questions are resolved.
+Claude 2.1.285 through the local Hekate bridge passed catalog selection and a live
+answer (`BRIDGE_OK`). Separate cancellation and timeout checks each observed three
+processes in the invocation tree and verified zero survivors. This establishes
+local cleanup, not proof that remote inference stopped or incurred zero charges.
+The runtime supports answer-only/final-only output; tool execution and interleaved
+thinking comparisons remain separate evaluation work.
+
+Local configuration now uses catalog routing and the approved 80% headroom policy.
+Only Claude has resource-policy evidence in this local profile. Subscription and
+potential metered usage are declared; incremental cost stays unknown, with explicit
+`allow-unpriced`, no monetary ceiling, and no fallback. The user reports separate
+account funding protections. No account settings were changed.
+
+`quotaAdmission: "adapter-preflight"` requires a code-owned binding capability.
+Claude checks usage immediately before every invocation under the shared CLI
+concurrency gate; percentages are never converted to invented request/token counts.
+Configured resource evidence expires after one day and must be reviewed/renewed;
+usage evidence expires after 30 seconds. Local discovery runs every 20 seconds.
+Missing/stale evidence blocks dispatch.
+
+Live checks are explicit commands, excluded from offline tests:
+`npm run cli:claude:accept -- answer`, `-- cancel`, and `-- timeout`.
+The latter two verify Windows process-tree cleanup. Each command can use live
+subscription capacity. They require the configured local dispatch policy.
+
+Next: **spec 06 lifecycle/verification and evaluation mode**, then the sports demo.
+
+
+## 2026-09-29: account setting correction and optional headroom admission
+
+User explicitly refuses to disable account-wide extra usage; respect that.
+Removed the account-flag admission requirement. No documented per-invocation
+included-only switch was found in installed help or current official references.
+Strict mode reports `CLI_INCLUDED_ONLY_UNSUPPORTED`. Optional
+`HEKATE_CLAUDE_USAGE_POLICY=headroom` permits fresh reported shared/model usage
+below 80%, with no zero-overage guarantee. User accepted the remaining risk, citing existing account funding protections.
+Local `.env` now enables `headroom`. Those protections are user-reported, not
+independently verified. Do not ask the user to disable account extra usage again. No model call was made.
+Next: reconcile resource-policy evidence, then live answer and cancellation
+acceptance. The risk choice is resolved. See [review](05-claude-review.md).
 
 ## 2026-09-29: reasoning evaluation and tool-use learning design
 

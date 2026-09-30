@@ -74,7 +74,7 @@ describe("offline CLI runner", () => {
       await expect(collect(new CliRunner(limits).adapter(program).generate(request))).rejects.toMatchObject({ code });
     }
   });
-  it.each(["CLI_EXTRA_USAGE_ENABLED", "CLI_BILLING_UNKNOWN"] as const)("blocks %s before inference even with available quota", async code => {
+  it.each(["CLI_INCLUDED_ONLY_UNSUPPORTED", "CLI_USAGE_UNAVAILABLE", "CLI_USAGE_HEADROOM"] as const)("blocks %s before inference even with available quota", async code => {
     const { program, request } = await setup("echo", { executable: "must-never-start", inspect: async () => ({ ...ready(), blockedReason: code }) });
     await expect(collect(new CliRunner(limits).adapter(program).generate(request))).rejects.toMatchObject({ code, retryable: false });
   });

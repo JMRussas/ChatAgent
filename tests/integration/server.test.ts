@@ -48,7 +48,7 @@ describe("chat server", () => {
     const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
       new DeepWorker(queue, new MockDeepProvider(), timeline), timeline);
 
-    const baseEntry = (await loadModelCatalog()).models[0];
+    const baseEntry = (await loadModelCatalog()).models.find(entry => entry.id === "mock-default")!;
     const catalog = modelCatalogSchema.parse({
       version: 1,
       models: [

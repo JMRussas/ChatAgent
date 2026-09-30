@@ -1,13 +1,64 @@
 # Claude connection and shared-layer review
 
-## 2026-09-29 policy decision: included usage only
+## 2026-09-30: Claude live acceptance complete
 
-User deferred extra usage to a later enhancement. Readiness now records a safe
-blocking code when the account's extra-usage flag is enabled or unknown. The runner
-enforces it before spawn, even if a future quota reader reports available capacity.
-Disabling provider fallback does not disable overage inside Claude itself. No
-account-wide settings were modified. Tests cover enabled, disabled, missing and
-malformed billing flags, and verify blocked calls never launch an executable.
+Claude 2.1.285 through the local Hekate bridge passed catalog selection and a live
+answer (`BRIDGE_OK`). Separate cancellation and timeout checks each observed three
+processes in the invocation tree and verified zero survivors. This establishes
+local cleanup, not proof that remote inference stopped or incurred zero charges.
+The runtime supports answer-only/final-only output; tool execution and interleaved
+thinking comparisons remain separate evaluation work.
+
+Local configuration now uses catalog routing and the approved 80% headroom policy.
+Only Claude has resource-policy evidence in this local profile. Subscription and
+potential metered usage are declared; incremental cost stays unknown, with explicit
+`allow-unpriced`, no monetary ceiling, and no fallback. The user reports separate
+account funding protections. No account settings were changed.
+
+`quotaAdmission: "adapter-preflight"` requires a code-owned binding capability.
+Claude checks usage immediately before every invocation under the shared CLI
+concurrency gate; percentages are never converted to invented request/token counts.
+Configured resource evidence expires after one day and must be reviewed/renewed;
+usage evidence expires after 30 seconds. Local discovery runs every 20 seconds.
+Missing/stale evidence blocks dispatch.
+
+Live checks are explicit commands, excluded from offline tests:
+`npm run cli:claude:accept -- answer`, `-- cancel`, and `-- timeout`.
+The latter two verify Windows process-tree cleanup. Each command can use live
+subscription capacity. They require the configured local dispatch policy.
+
+Validation: **423 TypeScript tests across 59 files**, **11 Python bridge tests**,
+typecheck, build, and the seeded simulated release gate all pass. The simulation
+is regression evidence, not a live quality/latency benchmark. Review also corrected
+fixtures that assumed the first catalog entry was mock and isolated startup tests
+from local routing configuration.
+
+Next: **spec 06 lifecycle/verification and evaluation mode**, then the sports demo.
+
+
+## 2026-09-29 correction: account setting stays enabled
+
+The earlier requirement to disable account extra usage was too restrictive and
+has been removed. No account setting was changed. Checked installed 2.1.285 help,
+[CLI reference](https://code.claude.com/docs/en/cli-reference), and
+[environment variable reference](https://code.claude.com/docs/en/env-vars).
+No supported per-invocation overage opt-out was found. `--max-budget-usd` is an API
+spend cap, not a documented included-subscription-only switch; do not use it as one.
+
+Strict mode now reports `CLI_INCLUDED_ONLY_UNSUPPORTED` independently of the
+account flag. Prepared opt-in `HEKATE_CLAUDE_USAGE_POLICY=headroom`: fresh shared
+and applicable model windows must be below 80%, with valid future resets.
+Missing model-specific windows are omitted by the reader, not treated as zero;
+shared windows remain mandatory. This is a best-effort check of reported limits,
+not an entitlement guarantee or token reservation. Other sessions and observation
+lag can still cause paid overage. User accepted this approach, citing existing account funding protections.
+Enabled `headroom` in local `.env`; those protections are user-reported, not
+independently verified.
+Read-only inspection at 2026-09-30T03:02:18Z passed: Claude 2.1.285,
+authenticated, automation supported, quota available under the headroom policy.
+Shared five-hour usage was 0%, weekly usage 3%, extra usage remained enabled.
+No live generation has been run. Resource-policy evidence and live answer/tree
+cancellation acceptance remain outstanding.
 
 ## 2026-09-29 follow-up: CLI upgrade and actual account usage
 

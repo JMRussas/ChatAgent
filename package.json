@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "cli:claude:accept": "tsx src/providers/cli/acceptClaude.ts",
     "cli:claude:inspect": "tsx src/providers/cli/inspectClaude.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",

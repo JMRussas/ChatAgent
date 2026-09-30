@@ -1,19 +1,23 @@
 # 05 — Subscription CLI execution
 
-2026-09-29 policy decision: **included subscription usage only**. Paid overage is
-a later enhancement. The Claude adapter requires observed `extraUsageEnabled=false`
-before inference; enabled or unknown billing continuation blocks the invocation,
-even with quota headroom. This also prevents same-provider paid continuation,
-which `usageBillingFallbackAllowed=false` alone cannot enforce. Do not change the
-account-wide setting implicitly. Scoped quota admission and live acceptance remain
-separate requirements after the account setting is resolved.
+2026-09-29 correction: leave the user's account-wide extra usage enabled.
+`HEKATE_CLAUDE_USAGE_POLICY=strict` is the default and reports
+`CLI_INCLUDED_ONLY_UNSUPPORTED`: no supported per-invocation included-only guarantee
+has been verified. The account flag is telemetry, not an admission requirement.
+Opt-in `headroom` checks fresh (at most 30 seconds old) five-hour and weekly usage,
+plus the selected model's separate window when reported. All must be below 80%
+and have future reset timestamps. Unknown models or invalid/missing shared
+observations block. This reduces risk but cannot reserve capacity against other
+sessions or guarantee zero overage. User accepted this approach, citing existing account funding protections;
+local `.env` now enables `headroom`. These protections are user-reported, not
+independently verified by ChatAgent. Extra-usage controls remain a later enhancement.
 
-Status: 05A offline runner and registration contract implemented; 05B Claude local
-bridge implemented for review, live acceptance pending quota-policy resolution.
+Status: 05A and 05B implemented and live acceptance passed for Claude 2.1.285
+under the approved headroom policy. See the current review evidence.
 See [Claude review](05-claude-review.md) and [offline evidence](05-evidence.md).
 Depends on generation lifecycle, inventory, and dispatch (02–04).
 Claude uses the existing OS login under profile label `default`; authentication
-was inspected. Remaining quota and extra usage are not yet verified. Do not invent
+was inspected. Account usage and the extra-usage flag were observed read-only. Do not invent
 subscription entitlement or pick a billed fallback implicitly.
 
 ## Two deliverables

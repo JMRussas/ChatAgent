@@ -14,6 +14,22 @@ function setup(entries = [entry("a"), entry("b")]) {
   return { r, input };
 }
 describe("catalog selector", () => {
+  it("requires a code-owned preflight capability for percentage-based subscription admission", () => {
+    const { r, input } = setup([entry("a")]);
+    const resources = input.policy.bindings.a;
+    resources.facts.billingComponents = ["subscription"];
+    input.policy.allowedBillingComponents = ["subscription"];
+    expect(() => rankModels(input)).toThrow("No eligible model");
+    resources.quotaAdmission = "adapter-preflight";
+    expect(() => rankModels(input)).toThrow("No eligible model");
+    r.registry.get(entryBindingId(input.catalog.models[0]))!.quotaAdmission = "adapter-preflight";
+    expect(rankModels(input)[0].resources?.quota).toBeUndefined();
+    resources.incremental = undefined;
+    expect(() => rankModels(input)).toThrow("No eligible model");
+    input.policy.maxIncrementalUsd = null;
+    input.policy.unknownCostAction = "allow-unpriced";
+    expect(rankModels(input)).toHaveLength(1);
+  });
   it.each(["disabled", "stale", "denied", "unknown-limit", "unsupported-adapter"])("excludes %s bindings", kind => {
     const { input } = setup();
     if (kind === "disabled") input.catalog.models[0].enabled = false;

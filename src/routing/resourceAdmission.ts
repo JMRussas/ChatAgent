@@ -17,7 +17,7 @@ export function resourceExclusion(r: BindingResources | undefined, policy: Dispa
   const cost = r.incremental && fresh(r.incremental.evidence, now) ? r.incremental.maxInvocationUsd : null;
   if (cost === null && (policy.unknownCostAction === "deny" || policy.maxIncrementalUsd !== null)) return "COST_UNKNOWN_OR_STALE";
   if (cost !== null && policy.maxIncrementalUsd !== null && cost > policy.maxIncrementalUsd) return "SPEND_LIMIT";
-  if (r.facts.billingComponents.includes("subscription") && !r.quota) return "QUOTA_UNKNOWN";
+  if (r.facts.billingComponents.includes("subscription") && !r.quota && r.quotaAdmission !== "adapter-preflight") return "QUOTA_UNKNOWN";
   if (r.quota && !fresh(r.quota.evidence, now)) return "QUOTA_UNKNOWN_OR_STALE";
   return undefined;
 }

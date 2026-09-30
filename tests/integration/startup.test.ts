@@ -3,10 +3,15 @@ import type { AddressInfo } from "node:net";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { startServer } from "../../src/server";
 import catalog from "../../data/model-catalog.json";
 
+beforeEach(() => {
+  vi.stubEnv("MODEL_ROUTING_MODE", "fixed");
+  vi.stubEnv("MODEL_DISPATCH_CONFIG_PATH", "");
+  vi.stubEnv("HEKATE_CLI_ROOT", "");
+});
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 it("rejects a catalog window consumed by reserves before starting the server", async () => {

@@ -46,6 +46,8 @@ export function rankModels(input: SelectionInput): Candidate[] {
     if (!contextLimits.length || !outputLimits.length) reasons.push("LIMIT_UNKNOWN");
     if (outputLimits.length && input.requirements.outputTokens > Math.min(...outputLimits)) reasons.push("OUTPUT_LIMIT");
     const resources = structuredClone(input.policy.bindings[entry.id]);
+    if (resources?.quotaAdmission === "adapter-preflight" && binding?.quotaAdmission !== "adapter-preflight")
+      reasons.push("QUOTA_PREFLIGHT_UNSUPPORTED");
     const resourceReason = resourceExclusion(resources, input.policy, now);
     if (resourceReason) reasons.push(resourceReason);
     if (!reasons.length) {

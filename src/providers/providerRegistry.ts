@@ -15,6 +15,7 @@ export interface RegisteredBinding {
   connection: Connection;
   fast?: FastModelProvider;
   deep?: DeepModelProvider;
+  quotaAdmission?: "adapter-preflight";
   capabilities: ("tools" | "vision" | "structuredOutput")[];
 }
 export function entryBindingId(entry: ModelEntry) {

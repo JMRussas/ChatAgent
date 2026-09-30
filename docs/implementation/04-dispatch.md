@@ -164,7 +164,13 @@ monetary ceiling. Such work has unknown cost, not zero cost.
 
 Optional per-binding `quota` contains `poolId`, unit (`requests` or `tokens`),
 `remaining`, and the same evidence fields. Shared pools must use identical snapshots;
-conflicts fail closed. Subscription bindings require quota evidence. Optional
+conflicts fail closed. Subscription bindings require quota evidence, or explicit
+`quotaAdmission: "adapter-preflight"` backed by a code-owned registered capability.
+The latter delegates the live check to a reviewed adapter before every invocation;
+it does not create ledger quota units or promise a token reservation. Currently
+Hekate Claude implements this with fresh reported usage below the approved cutoff.
+A policy flag alone cannot grant the capability. Cost admission still applies;
+unknown incremental cost requires explicit `allow-unpriced` and a null ceiling. Optional
 `compute` contains `poolId` and positive `concurrency`. `quotaExhaustionAction` also
 controls whether busy compute pools fail immediately or wait up to `waitTimeoutMs`.
 Queued tasks reserve cost/quota but do not occupy compute slots until execution.

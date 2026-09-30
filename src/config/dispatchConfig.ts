@@ -12,6 +12,7 @@ export const bindingResourcesSchema = z.object({
   // A declared complete upper bound, in USD, covering all incremental billing
   // components (tokens/cache/requests/time). Fixed fees are deliberately separate.
   incremental: z.object({ maxInvocationUsd: z.number().finite().nonnegative(), currency: z.literal("USD"), evidence }).strict().optional(),
+  quotaAdmission: z.literal("adapter-preflight").optional(),
   fixedCostNote: z.string().optional(),
   quota: z.object({ poolId: z.string().min(1), unit: z.enum(["requests", "tokens"]),
     remaining: z.number().finite().nonnegative(), evidence }).strict().optional(),

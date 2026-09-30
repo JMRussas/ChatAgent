@@ -16,11 +16,11 @@ const config: RuntimeProviderConfig = {
 function catalog(fast?: number, deep?: number) {
   return modelCatalogSchema.parse({ version: 1, models: [
     ...["fast", "deep"].map((model, index) => ({
-      ...data.models[0], id: model, model,
+      ...data.models.find(entry => entry.id === "mock-default")!, id: model, model,
       limits: { contextTokens: [fast, deep][index] }
     })),
-    { ...data.models[0], id: "unselected", model: "unselected", limits: { contextTokens: 100 } },
-    { ...data.models[0], id: "other-provider", provider: "ollama", model: "fast", limits: { contextTokens: 100 } }
+    { ...data.models.find(entry => entry.id === "mock-default")!, id: "unselected", model: "unselected", limits: { contextTokens: 100 } },
+    { ...data.models.find(entry => entry.id === "mock-default")!, id: "other-provider", provider: "ollama", model: "fast", limits: { contextTokens: 100 } }
   ] });
 }
 

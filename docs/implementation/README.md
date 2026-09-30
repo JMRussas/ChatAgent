@@ -1,5 +1,35 @@
 # Implementation handoff
 
+## 2026-09-30: Claude live acceptance complete
+
+Claude 2.1.285 through the local Hekate bridge passed catalog selection and a live
+answer (`BRIDGE_OK`). Separate cancellation and timeout checks each observed three
+processes in the invocation tree and verified zero survivors. This establishes
+local cleanup, not proof that remote inference stopped or incurred zero charges.
+The runtime supports answer-only/final-only output; tool execution and interleaved
+thinking comparisons remain separate evaluation work.
+
+Local configuration now uses catalog routing and the approved 80% headroom policy.
+Only Claude has resource-policy evidence in this local profile. Subscription and
+potential metered usage are declared; incremental cost stays unknown, with explicit
+`allow-unpriced`, no monetary ceiling, and no fallback. The user reports separate
+account funding protections. No account settings were changed.
+
+`quotaAdmission: "adapter-preflight"` requires a code-owned binding capability.
+Claude checks usage immediately before every invocation under the shared CLI
+concurrency gate; percentages are never converted to invented request/token counts.
+Configured resource evidence expires after one day and must be reviewed/renewed;
+usage evidence expires after 30 seconds. Local discovery runs every 20 seconds.
+Missing/stale evidence blocks dispatch.
+
+Live checks are explicit commands, excluded from offline tests:
+`npm run cli:claude:accept -- answer`, `-- cancel`, and `-- timeout`.
+The latter two verify Windows process-tree cleanup. Each command can use live
+subscription capacity. They require the configured local dispatch policy.
+
+Next: **spec 06 lifecycle/verification and evaluation mode**, then the sports demo.
+
+
 ## 2026-09-29: Claude reuse and review
 
 User selected Claude through a local bridge to Hekate's existing unified CLI
@@ -29,9 +59,8 @@ seeded simulated release gate pass. No live/billed provider or real-browser run 
 performed. Cost bounds are declared, usage remains unsettled when unreported, and
 reservations are process-local; see the evidence for limits.
 
-**Next bounded task: [spec 05 — CLI execution](05-cli.md)**, starting with its
-product/account selection and documented adapter contract. Keep spec 06 evaluation
-mode queued and the sports demo after the runtime sequence. Do not reactivate the
+**Next bounded task: [spec 06 — verification](06-verification.md)** and evaluation
+mode. Keep the sports demo after the runtime sequence. Do not reactivate the
 parked documentation-agent experiments as the default next task.
 
 ## 2026-09-29: spec 03 (inventory) implemented

@@ -17,7 +17,7 @@
         "executionMode": "answer-only", "automationSupport": "supported"
       },
       "billing": { "kind": "subscription", "quotaPoolId": "claude-default", "exhaustionPolicy": "fail", "usageBillingFallbackAllowed": false },
-      "notes": "Local bridge to Hekate shared CLI provider. Limits are conservative application caps. Requires configured paths, current readiness and resource admission. Live acceptance pending; unknown quota blocks generation."
+      "notes": "Local bridge to Hekate shared CLI provider. Limits are conservative application caps. Requires configured paths, current readiness and resource admission. Live answer and Windows cleanup verified on Claude 2.1.285. Opt-in headroom admission; unavailable usage blocks generation."
     },
     {
       "id": "mock-default",

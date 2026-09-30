@@ -12,18 +12,36 @@ import type { DiscoveryAdapter } from "../../models/inventory";
 import type { ContextBudgetConfig } from "../../config/contextConfig";
 
 export const HEKATE_CLAUDE_ID = "hekate-claude";
-/** Included usage only. Account-level paid continuation must be disabled;
- * a catalog fallback flag cannot prevent the same CLI invocation using overage. */
-export function includedUsageBlock(usage: unknown): CliReadiness["blockedReason"] {
-  const enabled = (usage as { extraUsageEnabled?: unknown } | undefined)?.extraUsageEnabled;
-  return enabled === false ? undefined : enabled === true ? "CLI_EXTRA_USAGE_ENABLED" : "CLI_BILLING_UNKNOWN";
+export type ClaudeUsagePolicy = "strict" | "headroom";
+/** Headroom is a best-effort admission check, never a billing reservation. */
+export function claudeUsageAdmission(usage: unknown, model: string, policy: ClaudeUsagePolicy = "strict", now = Date.now()):
+  Pick<CliReadiness, "quota" | "blockedReason"> {
+  const blocked = (blockedReason: NonNullable<CliReadiness["blockedReason"]>) => ({ quota: "unknown" as const, blockedReason });
+  if (policy === "strict") return blocked("CLI_INCLUDED_ONLY_UNSUPPORTED");
+  const snapshot = usage as CliReadiness["usage"];
+  const observed = Date.parse(snapshot?.observedAt ?? "");
+  if (!snapshot || !Number.isFinite(observed) || observed > now || now - observed > 30000 || !Array.isArray(snapshot.windows))
+    return blocked("CLI_USAGE_UNAVAILABLE");
+  const family = /^(?:claude-)?(sonnet|opus|haiku)(?:-|$)/.exec(model)?.[1];
+  if (!family) return blocked("CLI_USAGE_UNAVAILABLE");
+  const scopes = new Set(["five_hour", "seven_day", `seven_day_${family}`]);
+  const windows = snapshot.windows.filter(w => w && scopes.has(w.scope));
+  if (!["five_hour", "seven_day"].every(scope => windows.some(w => w.scope === scope)) ||
+      new Set(windows.map(w => w.scope)).size !== windows.length ||
+      windows.some(w => !Number.isFinite(w.usedPercentage) || w.usedPercentage < 0 ||
+        !Number.isFinite(Date.parse(w.resetsAt)) || Date.parse(w.resetsAt) <= now))
+    return blocked("CLI_USAGE_UNAVAILABLE");
+  if (windows.some(w => w.usedPercentage >= 80)) return blocked("CLI_USAGE_HEADROOM");
+  return { quota: "available" };
 }
-export interface HekateBridgeConfig { python: string; root: string; executable: string; workingDirectory: string }
+export interface HekateBridgeConfig { python: string; root: string; executable: string; workingDirectory: string; usagePolicy?: ClaudeUsagePolicy }
 export function hekateBridgeConfig(env: NodeJS.ProcessEnv): HekateBridgeConfig | undefined {
   if (!env.HEKATE_CLI_ROOT) return;
   if (!env.HEKATE_CLI_PYTHON || !env.HEKATE_CLAUDE_EXECUTABLE || !env.HEKATE_CLI_WORKING_DIRECTORY)
     throw new Error("HEKATE_CLI_CONFIG_INCOMPLETE");
-  return { python: env.HEKATE_CLI_PYTHON, root: env.HEKATE_CLI_ROOT,
+  const usagePolicy = env.HEKATE_CLAUDE_USAGE_POLICY ?? "strict";
+  if (usagePolicy !== "strict" && usagePolicy !== "headroom") throw new Error("HEKATE_CLI_USAGE_POLICY_INVALID");
+  return { usagePolicy, python: env.HEKATE_CLI_PYTHON, root: env.HEKATE_CLI_ROOT,
     executable: env.HEKATE_CLAUDE_EXECUTABLE, workingDirectory: env.HEKATE_CLI_WORKING_DIRECTORY };
 }
 const safeCodes = new Set(["HEKATE_PROVIDER_UNAVAILABLE", "HEKATE_BRIDGE_FAILED", "OUTPUT_TOO_LARGE", "CLI_INVALID_REQUEST",
@@ -50,10 +68,7 @@ export function createHekateClaudeAdapter(config: HekateBridgeConfig, model: str
     return { version: typeof status.version === "string" ? status.version : null,
       authenticated: status.authenticated === "yes" ? "yes" : "no", automation: status.automation === "supported" ? "supported" : "unsupported",
       usage: status.usage ?? undefined,
-      blockedReason: includedUsageBlock(status.usage),
-      // Best-effort account windows are exposed separately. Percentage headroom
-      // does not establish a per-request allowance or authorize paid overage.
-      quota: "unknown", observedAt: now, expiresAt: new Date(Date.now() + 30000).toISOString() };
+      ...claudeUsageAdmission(status.usage, model, config.usagePolicy), observedAt: now, expiresAt: new Date(Date.now() + 30000).toISOString() };
   };
   return runner.adapter({ id: HEKATE_CLAUDE_ID, executable: config.python, args,
     allowedWorkingRoot: config.workingDirectory, answerOnly: true, inspect,
@@ -77,7 +92,7 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
     adapters.set(entryBindingId(entry), adapter);
     if (registry && entry.enabled) {
       const allowlist = new CliAdapterRegistry(); allowlist.register(adapter);
-      registry.registerCli({ bindingId: entryBindingId(entry), entry, connection }, allowlist,
+      registry.registerCli({ bindingId: entryBindingId(entry), entry, connection, quotaAdmission: "adapter-preflight" }, allowlist,
         config.workingDirectory, { fast: Math.min(budget.fastOutputTokens, entry.limits.maxOutputTokens ?? 512),
           deep: Math.min(budget.deepOutputTokens, entry.limits.maxOutputTokens ?? 512) });
     }
@@ -91,7 +106,8 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
         observedAtIso: state.observedAt, expiresAtIso: state.expiresAt,
         installed: state.version ? "yes" as const : "unknown" as const,
         access: state.authenticated === "yes" ? "allowed" as const : "denied" as const,
-        health: "unknown" as const, apiCompatibility: ["cli"], lastErrorCode: state.authenticated === "yes" ? state.blockedReason ?? "CLI_QUOTA_UNKNOWN" : "AUTH_REQUIRED" };
+        health: state.authenticated === "yes" && state.automation === "supported" && state.quota === "available" && !state.blockedReason
+          ? "reachable" as const : "unknown" as const, apiCompatibility: ["cli"], lastErrorCode: state.authenticated === "yes" ? state.blockedReason ?? (state.quota === "available" ? undefined : "CLI_QUOTA_UNKNOWN") : "AUTH_REQUIRED" };
     }));
   } } };
 }
