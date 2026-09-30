@@ -1,5 +1,16 @@
 # Development roadmap
 
+## Reference selection increment — 2026-09-30
+
+Manual-control lifecycle fixes committed as `ffa1089`. Explicit bounded table-row
+selection, detachment and selected-row payload review are implemented. References
+are validated against owned server results; nonselected rows do not enter model
+context. Reference hashes/content follow evaluation capture policy. Payload grading
+remains separate from production review. Next: general game search and specific-game
+details, including latest-completed selection. See the
+[current handoff](implementation/NEXT-HANDOFF.md) for verification and limitations.
+
+
 ## Manual controls increment — 2026-09-30
 
 Scope review corrections are committed as `72971f8`. Per-run model selection and

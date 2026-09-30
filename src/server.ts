@@ -1,3 +1,4 @@
+import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
 import type { BriefingHttp } from "./sports/briefingHttp";
 import { CapabilityChat } from "./app/capabilityChat";
@@ -153,6 +154,7 @@ class HttpRequestError extends Error {
 }
 
 const MessageBodySchema = z.object({
+  referenceSelections:referenceSelectionsSchema.optional(),
   runControls: runControlsSchema.optional(),
   messageId: z.string().uuid().optional(),
   conversationId: z.string().min(1),
@@ -208,6 +210,10 @@ function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown)
 }
 
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
+  service.resolveReferences=(selections,userId,conversationId)=>{
+    const store=options.briefings?.directory?.results;if(!store)throw Error("REFERENCES_UNAVAILABLE");
+    return selectReferences(store,selections,userId,conversationId);
+  };
   const protocolV1 = createProtocolV1Handler(service);
   const responses = new Set<ServerResponse>();
   const server = createServer(async (req, res) => {
@@ -258,6 +264,10 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       if (method === "GET" && url.pathname === "/sports/team-directories") {
         return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [], topics: options.briefings?.directory?.topics() ?? [] });
+      }
+      if (method === "POST" && url.pathname === "/conversation-context/detach") {
+        const body=z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200)}).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        return json(res,200,{context:service.detachTeamReference(body.conversationId,body.userId) ?? null});
       }
       if (method === "POST" && url.pathname === "/conversation-context") {
         const body = z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200)}).strict().parse(requireObjectBody(await parseJsonBody(req)));
@@ -311,6 +321,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           userId: body.userId,
           text: body.text,
           runControls: body.runControls,
+          referenceSelections:body.referenceSelections,
           timestampIso: body.timestampIso ?? new Date().toISOString()
         });
 

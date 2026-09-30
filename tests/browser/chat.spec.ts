@@ -183,3 +183,29 @@ test("guards duplicate submits while context is refreshing",async({page,app})=>{
  await expect(page.locator("#sendButton")).toBeDisabled();release();
  await expect(page.locator(".answer-content")).toContainText("One reply");expect(app.controls.inputs).toHaveLength(1);
 });
+
+test("selected payload rows enable a scoped review and can be detached",async({page,app})=>{
+ app.controls.plan={action:"retrieve",calls:[{tool:"sports:list-teams",arguments:{league:"NBA"}}]};
+ await send(page,"Show teams");await expect(page.locator(".turn table")).toContainText("PRIVATE_OTHER_ROW");
+ await expect(page.locator("#referenceRows option")).toHaveCount(2);
+ await page.locator("#referenceRows").selectOption("0");await page.locator("#attachRows").click();
+ await page.locator("#runMode").selectOption("review");
+ await page.locator("#runTarget").selectOption({index:1});
+ app.controls.plan={action:"answer",message:"Selected rows reviewed; unselected rows were not reviewed."};
+ await send(page,"Check the selected row");await expect(page.locator(".answer-content").last()).toContainText("Selected rows reviewed");
+ const review=JSON.stringify(app.controls.inputs.at(-1));
+ expect(review).toContain("Harbor <Comets>");expect(review).not.toContain("PRIVATE_OTHER_ROW");
+ await page.locator("#detachRows").click();await page.locator("#runMode").selectOption("chat");
+ app.controls.plan={action:"answer",message:"Detached"};
+ await send(page,"Continue");await expect(page.locator(".answer-content").last()).toContainText("Detached");
+ const latest=app.controls.inputs.at(-1) as {context:{systemInstruction:string}};
+ expect(latest.context.systemInstruction).not.toContain("Harbor <Comets>");
+});
+
+test("detaching team evidence preserves topic scope",async({page})=>{
+ await page.getByRole("button",{name:"Show teams",exact:true}).click();await expect(page.locator("#directoryTeam option")).toHaveCount(2);
+ await page.locator("#attachTeamReference").check();await page.locator("#openTeamConversation").click();
+ await expect(page.locator("#selectedConversationContext")).toContainText("attached");
+ await page.locator("#detachTeam").click();await expect(page.locator("#selectedConversationContext")).toContainText("not_attached");
+ await expect(page.locator("#selectedConversationContext")).toContainText("Harbor");
+});

@@ -401,6 +401,15 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           <label>Answer <select id="runTarget"><option value="">Select a completed text answer</option></select></label>
           <p>Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Enter review criteria or revision feedback in the prompt.</p>
         </fieldset>
+        <fieldset>
+          <legend>References for this turn</legend>
+          <label>Result <select id="referenceResult"></select></label>
+          <label>Rows (up to 20 per result) <select id="referenceRows" multiple size="5"></select></label>
+          <button type="button" id="attachRows">Use selected rows</button>
+          <button type="button" id="detachRows">Detach selected result</button>
+          <button type="button" id="detachTeam">Detach team reference</button>
+          <p id="referenceStatus" role="status">No table rows attached.</p>
+        </fieldset>
         <div class="meta-grid">
           <label>
             Conversation ID
@@ -566,7 +575,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
     }
     function renderThread() {
-      const targets = state.events.filter(e => ["provisional","refined"].includes(e.type) && e.processingStatus === "complete" && e.answerKind !== "acknowledgment" && !e.payloadResults?.length);
+      if (typeof refreshReferenceChoices === "function") refreshReferenceChoices();
+      const targets = state.events.filter(e => ["provisional","refined"].includes(e.type) && e.processingStatus === "complete" && e.answerKind !== "acknowledgment");
       const unique = [...new Map(targets.map(e=>[e.messageId,e])).values()];
       const key = unique.map(e=>e.messageId+":"+e.sequence).join(",");
       if ($("runTarget").dataset.key !== key) {
@@ -772,6 +782,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         return;
       }
 
+      const referenceSelections = [...selectedReferences].map(([resultId,rows])=>({resultId,rows}));
       const runControls = $("runControls").hidden ? undefined : {
         ...($("runModel").value ? {bindingId:$("runModel").value}:{}),thinking:$("runThinking").value,mode:$("runMode").value,
         ...($("runMode").value !== "chat" ? {targetMessageId:$("runTarget").value}:{})};
@@ -800,7 +811,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             conversationId,
             messageId,
             userId,
-            text, runControls
+            text, runControls, referenceSelections
           })
         });
 
@@ -891,6 +902,40 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         showConversationContext(data.context);
       } catch { if (requestVersion === contextRequestVersion) $("selectedConversationContext").textContent = "Conversation context unavailable."; }
     };
+    const selectedReferences = new Map();
+    let availableReferences = new Map();
+    const referenceSummary = () => { $("referenceStatus").textContent = selectedReferences.size ? [...selectedReferences].map(([id,rows]) => rows.length + " selected rows from " + (availableReferences.get(id)?.payload?.title || id)).join("; ") : "No table rows attached."; };
+    const loadReferenceRows = () => {
+      $("referenceRows").replaceChildren();const result=availableReferences.get($("referenceResult").value);
+      if(!result?.payload)return;
+      result.payload.rows.forEach((row,index)=>{const option=document.createElement("option");option.value=String(index);option.textContent=row.join(" · ").slice(0,160);option.selected=(selectedReferences.get(result.context.resultId)||[]).includes(index);$("referenceRows").appendChild(option);});
+    };
+    function refreshReferenceChoices() {
+      if (typeof directoryResult === "undefined") return;
+      const results=state.events.flatMap(e=>e.payloadResults || []);
+      if(directoryResult)results.push(directoryResult);
+      availableReferences=new Map(results.filter(r=>r.payload).map(r=>[r.context.resultId,r]));
+      const key=[...availableReferences.keys()].join(",");
+      if($("referenceResult").dataset.key===key)return;
+      const previous=$("referenceResult").value;$("referenceResult").replaceChildren();
+      for(const [id,r] of availableReferences){const option=document.createElement("option");option.value=id;option.textContent=r.payload.title;$("referenceResult").appendChild(option);}
+      if(availableReferences.has(previous))$("referenceResult").value=previous;
+      $("referenceResult").dataset.key=key;loadReferenceRows();referenceSummary();
+    }
+    $("referenceResult").onchange=loadReferenceRows;
+    $("attachRows").onclick=()=>{
+      const id=$("referenceResult").value,rows=[...$("referenceRows").selectedOptions].map(o=>Number(o.value));
+      if(!id || !rows.length || rows.length>20 || !selectedReferences.has(id) && selectedReferences.size>=3){$("referenceStatus").textContent="Select 1–20 rows from up to three results.";return;}
+      selectedReferences.set(id,rows);referenceSummary();
+    };
+    $("detachRows").onclick=()=>{selectedReferences.delete($("referenceResult").value);loadReferenceRows();referenceSummary();};
+    $("detachTeam").onclick=async()=>{
+      const conversationId=conversationIdInput.value.trim(),userId=userIdInput.value.trim();
+      const response=await fetch("/conversation-context/detach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})}).catch(()=>null);
+      if(conversationId!==conversationIdInput.value.trim() || userId!==userIdInput.value.trim())return;
+      if(!response?.ok){$("referenceStatus").textContent="Could not detach team reference.";return;}
+      await refreshConversationContext();
+    };
     let directoryResult, directoryOwner, directoryRequest;
     const clearDirectory = () => { directoryRequest?.abort(); directoryResult = null; $("teamTopicControls").hidden = true; $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = ""; };
     fetch("/sports/team-directories").then(r => r.json()).then(data => {
@@ -917,6 +962,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         $("directoryTeam").replaceChildren();
         result.payload.rows.forEach((row,index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = row[0]; $("directoryTeam").appendChild(option); });
         $("attachTeamReference").checked = false; $("teamTopicControls").hidden = false;
+        refreshReferenceChoices();
         renderToolPayloads($("directoryPayload"), [result]); $("directoryStatus").textContent = "Directory displayed. Rows were not sent to a model.";
       } catch (error) { if (!controller.signal.aborted) $("directoryStatus").textContent = error.message; }
     };
@@ -934,7 +980,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       } catch (error) { $("directoryStatus").textContent = error.message; }
       finally { $("openTeamConversation").disabled = false; }
     };
-    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); clearDirectory(); void refreshConversationContext(); });
+    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); selectedReferences.clear(); clearDirectory(); refreshReferenceChoices(); referenceSummary(); void refreshConversationContext(); });
     void refreshConversationContext();
     renderDecision();
     renderThread();

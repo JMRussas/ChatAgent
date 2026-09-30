@@ -1,5 +1,31 @@
 # Next ChatAgent handoff after 01B
 
+## Explicit reference rows and payload review — 2026-09-30
+
+Manual-control review fixes are committed as `ffa1089`. The next slice adds table
+reference selection from direct browsing or conversation payloads. The UI keeps an
+explicit selection for subsequent turns until detached or the conversation changes;
+selections are not persisted across page reload. Limits: three result handles, up to
+20 distinct rows each, and 16,000 serialized evidence bytes. Server-side selection
+checks owner/conversation, expiry, row bounds and size before model invocation. Raw
+caller-provided evidence is never accepted. Team-reference detachment retains topic.
+
+The planner receives only selected rows plus columns, provenance and scope limitations.
+Payload review/revision requires selected rows from the target result and explicitly
+limits assessment to those rows. Unselected rows remain out of model context. Review
+prompts omit unavailable tool definitions, leaving room for evidence. Past generated
+conversation text remains history after detach; detach stops new evidence injection,
+not deletion of historical answers. Selected-row hashes and optional redacted content
+are recorded separately under existing evaluation capture policies. These production
+reviews do not turn text-only evaluation annotations into payload quality scores.
+
+Validation: 639 tests / 85 files passed with four workers after an earlier parallel
+worker crash; TypeScript build and all 19 browser tests passed. Coverage includes selected-row review,
+nonselected-row exclusion, row detach and topic-preserving team detach. No live calls
+or preview restart. Next: general game search and specific-game detail operations,
+including latest-completed selection, using the same payload/reference contracts.
+
+
 ## Manual-control review fixes — 2026-09-30
 
 Early control failures retain a user timeline event. Thinking verification propagates

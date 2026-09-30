@@ -1,3 +1,4 @@
+import { referenceSelectionsSchema } from "./referenceSelection";
 import { runControlsSchema } from "./runControls";
 import { rejectUnsupportedInputs } from "../providers/interfaces";
 import { randomUUID } from "node:crypto";
@@ -9,6 +10,7 @@ import type { ChatTimelineEvent } from "../domain/types";
 
 const scopeSchema = z.object({ accountId: z.string().min(1).max(200), projectId: z.string().min(1).max(200) });
 const submitSchema = scopeSchema.extend({
+  referenceSelections:referenceSelectionsSchema.optional(),
   runControls: runControlsSchema.optional(),
   protocolVersion: z.literal("1.0"), messageId: z.string().uuid(),
   text: z.string().min(1), clientTimestampIso: z.string().datetime()
@@ -58,7 +60,7 @@ export function createProtocolV1Handler(service: ChatService) {
       let result;
       try {
         result = await service.submitMessage({ conversationId: internalId, userId: scope.accountId,
-          messageId: body.messageId, runControls:body.runControls, text: body.text, timestampIso: body.clientTimestampIso });
+          messageId: body.messageId, runControls:body.runControls, referenceSelections:body.referenceSelections, text: body.text, timestampIso: body.clientTimestampIso });
       } catch (error) {
         // A failed generation is still an accepted turn. Let clients consume its
         // partial text and terminal event instead of treating it as a transport failure.

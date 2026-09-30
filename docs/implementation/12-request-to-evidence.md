@@ -36,9 +36,10 @@ reference fields are omitted from subsequent model inputs. This is process-local
 state with a 100-conversation cap, not durable topic/profile memory.
 
 Manual per-run model pins, verified Ollama thinking overrides and explicit text
-review/revision actions are now implemented. Next executable slice: broader explicit
-reference management, including bounded evidence for payload review. Current reference attachment is limited to the chosen team
-record at conversation creation; arbitrary payload selection and detach are pending.
+review/revision actions are now implemented. Explicit bounded table-row attachment/detachment and selected-row payload review are
+now implemented. Next executable slice: general game search and specific-game details. Reference selection now supports three owned table results, up to 20 rows per result
+and 16,000 evidence bytes. Users can detach table rows or the initial team reference.
+Other payload types and cross-conversation reference sharing remain pending.
 Declare the directory scope honestly: current-team filtering is not established by
 NBA's historical directory. Do not label the list current-only without evidence.
 

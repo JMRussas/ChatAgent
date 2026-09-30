@@ -49,6 +49,12 @@ export class ChatService {
   async discardPending(): Promise<void> {
     if (this.queue) while (await this.queue.dequeue()) { /* cancelled, process-local work */ }
   }
+  resolveReferences?: (selections:unknown,userId:string,conversationId:string) => import("./referenceSelection").AttachedReference[];
+  detachTeamReference(conversationId:string,userId:string) {
+    this.claimConversation(conversationId,userId,false);
+    const scope=this.scopes.get(conversationId);if(scope)scope.reference=null;
+    return this.getSelectedContext(conversationId,userId);
+  }
   private readonly scopes = new Map<string, ConversationScope>();
   openScopedConversation(userId: string, value: unknown) {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
@@ -80,7 +86,13 @@ export class ChatService {
     if (message.runControls && !this.orchestrator.runControlOptions) throw new GenerationError("RUN_CONTROLS_UNSUPPORTED",false);
     this.claimConversation(message.conversationId, message.userId);
     const selectedContext = this.getSelectedContext(message.conversationId,message.userId);
-    return this.track(() => this.orchestrator.handleUserMessage({...message,selectedContext}));
+    let attachedReferences: import("./referenceSelection").AttachedReference[] = [];
+    if(message.referenceSelections?.length){
+      if(!this.resolveReferences)throw new GenerationError("REFERENCES_UNAVAILABLE",false);
+      try {attachedReferences=this.resolveReferences(message.referenceSelections,message.userId,message.conversationId);}
+      catch {throw new GenerationError("REFERENCE_SELECTION_UNAVAILABLE",false,"Selected references are expired, unavailable or too large. Refresh or detach them.");}
+    }
+    return this.track(() => this.orchestrator.handleUserMessage({...message,selectedContext,attachedReferences}));
   }
 
   claimConversation(conversationId: string, userId: string, claim = true): void {

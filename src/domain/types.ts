@@ -4,6 +4,8 @@ import type { ConversationContext } from "./context";
 export type RouteDecision = "direct" | "deep" | "clarify";
 
 export interface UserMessage {
+  referenceSelections?: import("../app/referenceSelection").ReferenceSelection;
+  attachedReferences?: import("../app/referenceSelection").AttachedReference[];
   runControls?: import("../app/runControls").RunControls;
   /** Server-owned selection; never accepted directly from request JSON. */
   selectedContext?: ReturnType<typeof import("../app/conversationScope").scopeForModel>;
@@ -58,6 +60,7 @@ export interface DeepResult {
 export interface ChatTimelineEvent {
   /** UI/evaluation only; never serialize into model history. */
   payloadResults?: import("../app/toolResult").ToolResult[];
+  attachedReferences?: UserMessage["attachedReferences"];
   selectedContext?: UserMessage["selectedContext"];
   runControls?: import("../app/runControls").RunControls;
   capabilityPlan?: unknown;
