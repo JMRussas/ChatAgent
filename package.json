@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "sports:plan": "tsx src/sports/planCli.ts",
     "sports:fixture": "tsx src/sports/fixtureCli.ts",
+    "sports:games": "tsx src/sports/gamesCli.ts",
     "cli:claude:accept": "tsx src/providers/cli/acceptClaude.ts",
     "cli:claude:inspect": "tsx src/providers/cli/inspectClaude.ts",
     "dev": "tsx src/index.ts",

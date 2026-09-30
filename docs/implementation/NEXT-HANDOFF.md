@@ -1,5 +1,31 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: prepare BALLDONTLIE games integration
+
+User selected BALLDONTLIE preparation with no existing provider account. Added an
+injected games adapter and explicit `sports:games -- [hours] [provider-team-id]` CLI.
+It uses header authentication, a fixed HTTPS origin, redirect rejection, bounded
+body/time/window, one page and a shared-instance local rate guard. Invalid/unsupported
+records are disclosed. Status/score normalization preserves final versus scheduled
+semantics. Current-clock CLI windows do not trust an HTTP client's clock.
+
+No key is configured. Missing-key CLI returned `ACCESS_DENIED` / `API_KEY_MISSING`
+without a request, as intended. No account/trial/subscription or live read occurred.
+Source freshness stays unknown and coverage partial (including preseason omission);
+no complete-briefing or checkpoint claim is made. See [setup and limitations](../18-nba-briefing-demo.md).
+
+Next: authenticated verification when a key is configured, news ingestion and later
+availability coverage, then UI/model follow-ups. Fixture or UI work can continue
+independently. Do not activate fixtures as live fallbacks or silently downgrade a
+required source. `BALLDONTLIE_API_KEY` belongs only in ignored local configuration;
+no default server wiring was enabled.
+
+Validation: **570 tests / 74 files**, TypeScript build/type checking and diff checks
+pass. Seven new adapter tests cover authentication preflight, normalization, filters,
+pagination disclosure, lifecycle/score handling, bounds/errors, rate limiting and
+abort/timeout. No browser code changed; no authenticated live verification ran.
+
+
 ## 2026-09-30: briefing HTTP integration and foreground overlap
 
 Optional `BriefingHttp` now exposes start/status/cancel via `POST /briefings`.

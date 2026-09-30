@@ -228,6 +228,56 @@ with server-controlled operational time, then task UI and source-backed model
 follow-ups. Source access remains unconfigured; fixture clocks and user IDs are
 explicit prototype inputs, not production identity or trusted wall-clock sources.
 
+## BALLDONTLIE preparation — 2026-09-30
+
+User selected preparing BALLDONTLIE integration and has no existing provider account.
+No account, subscription, trial or key was created. Local sports credentials are absent.
+The [provider documentation](https://docs.balldontlie.io/) describes key-authenticated
+games, cursor pagination, lifecycle states and date/team filters; news is not supplied
+by this games operation. Entitlements and terms still need review for the chosen
+account before live use. This adapter has not been verified against an authenticated
+live response.
+
+`BalldontlieGamesSource` implements the injected source interface. It uses a fixed
+HTTPS origin, Authorization header, disallowed redirects, timeout/body-size limits,
+and one page per read with no retries. Share an instance across tasks to share the
+local request budget (default minimum interval 12 seconds). Calls within the budget
+window return an explicit local rate-limit result; there is no implicit waiting or
+cross-process/account-wide quota coordination. Constructor options configure timeout,
+byte bound and minimum interval. Missing credentials make no network request.
+
+Team filters require provider `balldontlie` and a positive numeric ID; this does not
+resolve a user's ambiguous team name or validate account team access. Requests use
+padded calendar-date bounds and then exact timestamp/team filtering. Games with no
+usable timestamp or unsupported lifecycle state are omitted with an explicit limitation,
+not guessed. Final scores require both values; pregame zeros are not scores. Source
+update time and data-as-of remain unknown because this adapter has no verified
+freshness evidence. Retrieval time comes from its clock, never the request's `now`.
+
+Coverage is deliberately partial: the default games endpoint excludes preseason,
+only one page is fetched, and unknown/unsupported records may be present. Pagination
+and result-limit truncation are disclosed. No checkpoint advances or successful full
+briefing can result from this adapter yet. Address complete season-type coverage,
+validated freshness semantics and pagination before broadening those claims.
+
+To run explicitly after configuring `BALLDONTLIE_API_KEY` in the ignored local `.env`:
+
+```bash
+npm run sports:games -- 24
+# Optional second argument is a provider team ID, not a saved user preference.
+```
+
+The CLI uses the current server clock for its retrospective window. It exits nonzero
+for partial, unknown or unavailable evidence; inspect the JSON to distinguish useful
+partial results from transport errors. Missing-key behavior was exercised locally
+without a network call. Adapter tests use synthetic HTTP responses; they are not
+provider accuracy evidence. No news/availability adapter, default server activation,
+UI wiring or profile selection changed.
+
+Next: authenticated read-only verification when a key is available, plus an explicit
+news ingestion adapter. Avoid blocking independent fixture/UI development on access,
+but do not claim a live sourced briefing until the required sources are connected.
+
 ## Next implementation and acceptance
 
 1. Implemented: normalized source/evidence contracts and fixture adapters for games, news

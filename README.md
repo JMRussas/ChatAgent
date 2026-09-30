@@ -93,6 +93,9 @@ configurable. This fixed-time example fetches no live data and asks for a team s
 [demo plan](docs/18-nba-briefing-demo.md) for implemented scope and next steps. Run
 `npm run sports:fixture -- data/sports/briefing-request.fixture.json` to collect
 fictional evidence through the coordinator; this does not fetch live NBA data.
+An explicit `npm run sports:games -- 24` command prepares the BALLDONTLIE games
+path using `BALLDONTLIE_API_KEY` from local configuration. No key is bundled; partial
+coverage and unknown freshness remain visible. See the demo plan before live use.
 
 ## Run locally
 
