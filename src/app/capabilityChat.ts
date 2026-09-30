@@ -16,7 +16,7 @@ export interface CapabilityTool {
   description: string;
   inputSchema: unknown;
   validate(input: unknown): unknown;
-  execute(input: unknown, userId: string, requestId: string, signal: AbortSignal): Promise<unknown>;
+  execute(input: unknown, userId: string, requestId: string, signal: AbortSignal, conversationId?: string): Promise<unknown>;
 }
 const statement = z.string().trim().min(1).max(8000);
 export const capabilityPlanSchema = z.discriminatedUnion("action", [
@@ -101,7 +101,7 @@ export class CapabilityChat {
             try {
               deep.control.signal.throwIfAborted();
               return { tool: call.tool, result: await tools.find(tool => tool.id === call.tool)!.execute(call.arguments,
-                message.userId, `${deep.attemptId}:${index}`, deep.control.signal) };
+                message.userId, `${deep.attemptId}:${index}`, deep.control.signal, message.conversationId) };
             } catch { return { tool: call.tool, error: "TOOL_EXECUTION_FAILED" }; }
           }));
           if (!deep.active) return;

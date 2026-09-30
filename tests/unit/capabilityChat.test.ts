@@ -16,13 +16,14 @@ function app(output: unknown, tools: CapabilityTool[] = []) {
 }
 describe("capability-based conversation", () => {
   it("isolates tool request identities across conversations reusing a message ID", async () => {
-    const ids: string[] = [];
+    const ids: string[] = [], owners: string[] = [];
     const tool: CapabilityTool = { id: "test:lookup", description: "Test", inputSchema: {}, validate: value => value,
-      execute: async (_args, _user, id) => { ids.push(id); return {}; } };
+      execute: async (_args, user, id, _signal, conversation) => { ids.push(id); owners.push(`${user}:${conversation}`); return {}; } };
     const a = app({ action: "retrieve", calls: [{ tool: tool.id, arguments: {} }] }, [tool]);
     await a.chat.handleUserMessage(message);
     await a.chat.handleUserMessage({ ...message, conversationId: "other" });
     await a.chat.whenIdle(); expect(new Set(ids).size).toBe(2);
+    expect(owners).toEqual(["u:c", "u:other"]);
   });
 
   it("persists unsupported intent without sports keywords or invented confidence and uses history on follow-up", async () => {

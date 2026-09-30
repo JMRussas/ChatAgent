@@ -8,11 +8,14 @@ import { BriefingHttp } from "./briefingHttp";
 import { RssNewsSource, rssConfigSchema } from "./rssNews";
 import { createBalldontlieSources, sportsSourceOptionsSchema, SportsRequestBudget } from "./sharedSources";
 
+import { TeamDirectory, directoryOptionsSchema } from "./teamDirectory";
+
 export const liveBriefingConfigSchema = z.object({
   schemaVersion: z.literal("chatagent-live-briefing-v1"),
   profile: briefingProfileSchema,
   feeds: z.array(rssConfigSchema).max(20).default([]),
   games: sportsSourceOptionsSchema.default({}),
+  directories: directoryOptionsSchema.default({}),
   coordinator: briefingCoordinatorOptionsSchema.default({})
 }).strict().superRefine((config, ctx) => {
   const invalid = (message: string) => ctx.addIssue({ code: "custom", message });
@@ -50,7 +53,9 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
   const coordinator = new BriefingCoordinator(registry, config.coordinator);
   coordinator.configure(registry, config.coordinator, version);
   const http = new BriefingHttp(coordinator, config.profile);
-  http.close = () => { closed = true; coordinator.close(); };
+  let directory = new TeamDirectory(apiKey, budget, config.directories, version, transport, clock);
+  http.additionalTools = () => directory.tools();
+  http.close = () => { closed = true; directory.close(); coordinator.close(); };
   return { coordinator, http, get profile() { return structuredClone(config.profile); }, get version() { return version; },
     apply(configuration: unknown) {
       if (closed) throw new Error("BRIEFING_CLOSED");
@@ -61,6 +66,8 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
       budget.configure(next.games.requestsPerMinute, next.games.minIntervalMs);
       coordinator.configure(nextRegistry, next.coordinator, nextVersion);
       http.setProfile(next.profile);
+      directory.close();
+      directory = new TeamDirectory(apiKey, budget, next.directories, nextVersion, transport, clock);
       config = next; version = nextVersion;
       return { version, changed: true };
     }

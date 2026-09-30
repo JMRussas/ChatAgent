@@ -1,5 +1,41 @@
 # Next ChatAgent handoff after 01B
 
+## Provider team resolution implemented — 2026-09-30
+
+Live capability registry now includes `sports:resolve-team` and `sports:select-team`.
+Names, abbreviations and city/location aliases come from provider directories; no
+team-specific routing rules. Missing scope searches configured directories. Explicit
+unsupported scope performs no I/O. Ambiguity and partial coverage remain explicit.
+Trusted conversation identity is passed separately from model arguments. Candidate
+selection uses a bounded server store and validates owner, expiry and revisions.
+
+Configuration: optional `directories` in the live briefing JSON supports `leagues`
+(default NBA/NFL), `cacheTtlMs` (one hour), `selectionTtlMs` (ten minutes), and
+`maxSnapshots` (100). Reload invalidates old selections and caches while preserving
+the shared game/directory account request budget and provider cooldown. Same-directory
+concurrent cache misses fail admission; there is no queue or automatic retry. Close
+aborts directory requests. Directory changes conservatively invalidate selections
+across the directory service. Stores and caches remain process-local.
+
+Live access verification: initial authenticated directory probes succeeded (NFL 32
+entries, NBA 89 entries). Two later adapter smoke calls resolved New England Patriots
+and Phoenix Suns successfully. Credentials were not logged. NBA includes historical directory
+entries; a match does not establish active-team status. Endpoint contracts:
+[NFL teams](https://nfl.balldontlie.io/#teams),
+[NBA teams](https://docs.balldontlie.io/#teams).
+
+Validation: full suite 623 tests / 81 files passed, followed by 15 focused tests
+including two additional lifecycle cases. TypeScript build passed. All 9 browser tests passed. These are deterministic checks and access probes,
+not model-quality evaluation scores.
+
+Next: implement bounded latest-completed-game composition, consuming provider-backed
+resolution internally. The existing planner executes independent calls and does not
+yet chain lookup into game retrieval or synthesize a cited answer. Existing low-level
+game tools still accept provider IDs. This slice does not establish the full Patriots
+acceptance example. Typo/fuzzy matching and active-team filtering remain unimplemented;
+matching is exact after case/punctuation/Unicode normalization of provider aliases.
+
+
 ## Current priority: general contracts and resource-specific policies — 2026-09-30
 
 This supersedes earlier next-step ordering and incorporates the plan review plus the

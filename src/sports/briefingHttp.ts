@@ -12,12 +12,13 @@ const commandSchema = z.discriminatedUnion("op", [
 
 /** Server-owned profile; clients cannot choose adapters, budgets or executable code. */
 export class BriefingHttp {
+  additionalTools: () => CapabilityTool[] = () => [];
   tools(): CapabilityTool[] {
     const profile = structuredClone(this.profile);
     const version = this.coordinator.version;
     const combinations = new Map(profile.tasks.flatMap(task => task.sources.map(source =>
       [`${task.scope}:${source.kind}`, { scope: task.scope, kind: source.kind }] as const)));
-    return [...combinations].filter(([, value]) => value.kind !== "availability").map(([id, { scope, kind }]) => {
+    const evidenceTools: CapabilityTool[] = [...combinations].filter(([, value]) => value.kind !== "availability").map(([id, { scope, kind }]) => {
       const schema = z.object({ from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }),
         timezone: briefingRequestSchema.shape.timezone,
         team: scope === "team" ? briefingRequestSchema.shape.team.removeDefault().unwrap() : z.null()
@@ -29,7 +30,7 @@ export class BriefingHttp {
         if (args.team && (args.team.provider !== (profile.league === "NFL" ? "balldontlie-nfl" : "balldontlie") || !/^[1-9][0-9]*$/.test(args.team.id))) throw new Error("INVALID_TEAM");
         return args;
       };
-      return { id: `${profile.league.toLowerCase()}:${id}`, description: `Read ${profile.league} ${scope} ${kind} evidence. Maximum window ${profile.maxCatchupHours} hours. Coverage may be partial and freshness unknown. No team-ID lookup, web search or other leagues. Team scope requires an explicitly supplied provider ID; never guess one.`,
+      return { id: `${profile.league.toLowerCase()}:${id}`, description: `Read ${profile.league} ${scope} ${kind} evidence. Maximum window ${profile.maxCatchupHours} hours. Coverage may be partial and freshness unknown. No web search or other leagues. Resolve names using sports:resolve-team when registered; team scope requires an evidence-backed provider ID, never a guess.`,
         inputSchema: { type: "object", additionalProperties: false, required: ["from", "to", "timezone", "team"], properties: {
           from: { type: "string", description: "Inclusive ISO timestamp with timezone" }, to: { type: "string", description: "Exclusive ISO timestamp with timezone; no later than now" },
           timezone: { type: "string", description: "IANA timezone" }, team: scope === "team" ? { type: "object", required: ["provider", "id", "name"], properties: {
@@ -50,6 +51,7 @@ export class BriefingHttp {
         }
       };
     });
+    return [...evidenceTools, ...this.additionalTools()];
   }
   chatCapabilities() { return { league: this.profile.league, maxWindowHours: this.profile.maxCatchupHours }; }
   startChat(value: unknown) {

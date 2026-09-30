@@ -1,5 +1,13 @@
 # Personalized NBA briefing demo
 
+Current increment (2026-09-30): provider-backed NBA/NFL team directories are wired
+into the live tool registry, with configurable cache/selection limits, shared
+account admission, and conversation-bound candidate selection. Directory capability
+is separate from game/news capability. Next is bounded latest-completed-game
+composition; the end-to-end acceptance example is still pending. See the latest
+[handoff](implementation/NEXT-HANDOFF.md) for verification and limitations.
+
+
 ## Current priority: general contracts and resource-specific policies — 2026-09-30
 
 This supersedes earlier next-step ordering and incorporates the plan review plus the
