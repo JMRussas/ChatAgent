@@ -63,6 +63,19 @@ describe("evaluation recording", () => {
     expect(score.passed).toBe(false);
     expect(score.results[0]).toMatchObject({payloadGrading:"unrated",gradingComplete:false,outcome:"unavailable"});
   });
+  it("captures effective scope independently under the configured retention policy", async () => {
+    for (const capture of ["metadata","answers"] as const) {
+      const recorder=await setup({capture});
+      const selectedContext={path:["SCOPE_CANARY"],entity:{provider:"test",id:"1",name:"SCOPE_CANARY"},reference:null,referenceStatus:"expired" as const};
+      recorder.record("c",{type:"user",messageId:"m",text:"hello",createdAtIso:new Date().toISOString(),selectedContext});
+      recorder.record("c",{type:"terminal",phase:"fast",messageId:"m",text:"done",finishReason:"stop",createdAtIso:new Date().toISOString()});
+      await recorder.finish();const run=await readArtifact(recorder.path);
+      expect(run.trace[0].selectedContext).toMatchObject({contentHash:digest(JSON.stringify(selectedContext)),referenceStatus:"expired"});
+      const saved=await readFile(recorder.path,"utf8");
+      if(capture === "metadata") expect(saved).not.toContain("SCOPE_CANARY");
+      else expect(run.trace[0].selectedContext?.text).toContain("SCOPE_CANARY");
+    }
+  });
   it("defaults off and rejects invalid capture/size configuration", () => {
     expect(redact('password="a secret with spaces"')).toBe("password=[REDACTED]");
     expect(recordingConfig({})).toBeUndefined();

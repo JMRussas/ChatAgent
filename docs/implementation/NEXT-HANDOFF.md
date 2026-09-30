@@ -1,5 +1,15 @@
 # Next ChatAgent handoff after 01B
 
+## Scope review corrections — 2026-09-30
+
+The UI restores active conversation/user IDs from tab-scoped session storage.
+Reference indicators refresh at expiry and before sending, with stale response guards.
+Evaluation events record the effective selected-context hash and attachment state;
+answer capture optionally retains redacted context, with integrity validation.
+Validation: 21 recording tests, 15 browser tests and TypeScript build passed.
+Next implementation: explicit per-run model selection and manual review controls.
+
+
 ## Topic browsing and explicit team references — 2026-09-30
 
 Implemented the next UI slice: Sports → configured sport → league → provider team.

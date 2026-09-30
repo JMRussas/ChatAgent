@@ -135,3 +135,26 @@ test("topic creation rejects foreign and invalid row references", async ({app}) 
   expect(opened.context.reference).toBeNull();
   expect((await post("/conversation-context",{conversationId:opened.conversationId,userId:"other"})).ok).toBe(false);
 });
+
+
+test("restores scoped conversation after refresh", async ({page}) => {
+  await page.getByRole("button",{name:"Show teams",exact:true}).click();
+  await expect(page.locator("#directoryTeam option")).toHaveCount(2);
+  await page.locator("#openTeamConversation").click();
+  await expect(page.locator("#selectedConversationContext")).toContainText("Harbor");
+  const id=await page.locator("#conversationId").inputValue();
+  await page.reload();
+  await expect(page.locator("#conversationId")).toHaveValue(id);
+  await expect(page.locator("#selectedConversationContext")).toContainText("Harbor");
+});
+
+test("reference indicator refreshes when attached evidence expires", async ({page}) => {
+  const expiry=Date.now()+1200;
+  await page.route("**/conversation-context",async route=>{
+    const expired=Date.now()>=expiry;
+    await route.fulfill({json:{context:{path:["Sports","Example"],referenceStatus:expired?"expired":"attached",reference:expired?null:{sourceUrl:"https://example.invalid",expiresAt:new Date(expiry).toISOString()}}}});
+  });
+  await page.locator("#conversationId").fill("expiry-test");await page.locator("#conversationId").blur();
+  await expect(page.locator("#selectedConversationContext")).toContainText("attached");
+  await expect(page.locator("#selectedConversationContext")).toContainText("expired");
+});

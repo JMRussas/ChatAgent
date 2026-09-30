@@ -494,6 +494,14 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     const composer = $("composer");
     const conversationIdInput = $("conversationId");
     const userIdInput = $("userId");
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("chatagent-active-conversation") || "null");
+      if (saved && typeof saved.conversationId === "string" && typeof saved.userId === "string") {
+        conversationIdInput.value = state.conversationId = saved.conversationId;
+        userIdInput.value = state.userId = saved.userId;
+      }
+    } catch { /* Storage may be disabled. */ }
+    const saveConversation = () => { try { sessionStorage.setItem("chatagent-active-conversation", JSON.stringify({conversationId:conversationIdInput.value.trim(),userId:userIdInput.value.trim()})); } catch {} };
     const promptInput = $("prompt");
     const sendButton = $("sendButton");
     const thread = $("thread");
@@ -745,6 +753,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         return;
       }
 
+      await refreshConversationContext();
+      if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) return;
+      saveConversation();
       state.conversationId = conversationId;
       state.userId = userId;
       openTimelineStream();
@@ -821,19 +832,27 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.userId = String(userIdInput.value || "").trim();
     });
 
+    let contextExpiryTimer, contextRequestVersion = 0;
     const showConversationContext = context => {
+      clearTimeout(contextExpiryTimer);
+      if (context?.reference && context.referenceStatus === "attached") {
+        const remaining = Date.parse(context.reference.expiresAt) - Date.now();
+        if (remaining <= 0) context = {...context,reference:null,referenceStatus:"expired"};
+        else contextExpiryTimer = setTimeout(() => { void refreshConversationContext(); }, Math.min(remaining + 25, 2147483647));
+      }
       $("selectedConversationContext").textContent = context ? "Conversation scope: " + context.path.join(" → ") + ". Reference: " + context.referenceStatus + (context.reference ? " (" + context.reference.sourceUrl + ")" : "") : "Conversation scope: general";
     };
     const refreshConversationContext = async () => {
+      const requestVersion = ++contextRequestVersion;
       const conversationId = $("conversationId").value.trim(), userId = $("userId").value.trim();
       showConversationContext(null);
       try {
         const r = await fetch("/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
         const data = await r.json();
-        if (conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) return;
+        if (requestVersion !== contextRequestVersion || conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) return;
         if (!r.ok) { $("selectedConversationContext").textContent = "Conversation context unavailable for this user."; return; }
         showConversationContext(data.context);
-      } catch { $("selectedConversationContext").textContent = "Conversation context unavailable."; }
+      } catch { if (requestVersion === contextRequestVersion) $("selectedConversationContext").textContent = "Conversation context unavailable."; }
     };
     let directoryResult, directoryOwner, directoryRequest;
     const clearDirectory = () => { directoryRequest?.abort(); directoryResult = null; $("teamTopicControls").hidden = true; $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = ""; };
@@ -878,7 +897,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       } catch (error) { $("directoryStatus").textContent = error.message; }
       finally { $("openTeamConversation").disabled = false; }
     };
-    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { clearDirectory(); void refreshConversationContext(); });
+    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); clearDirectory(); void refreshConversationContext(); });
     void refreshConversationContext();
     renderDecision();
     renderThread();

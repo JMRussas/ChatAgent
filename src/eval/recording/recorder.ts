@@ -73,6 +73,12 @@ export class EvaluationRecorder {
         answer: answerEvent ? { scoredHash: textHash, artifactHash: captured === undefined ? null : digest(captured),
           transformed: captured !== undefined && captured !== event.text, ...(captured === undefined ? {} : { text: captured }) } : null,
         usage: null, costUsd: null,
+        ...(event.selectedContext ? {selectedContext:(() => {
+          const raw = JSON.stringify(event.selectedContext), captured = this.config.capture === "answers" ? redact(raw) : undefined;
+          return {contentHash:digest(raw), artifactHash:captured === undefined ? null : digest(captured),
+            transformed:captured !== undefined && captured !== raw,referenceStatus:event.selectedContext.referenceStatus,
+            ...(captured === undefined ? {} : {text:captured})};
+        })()} : {}),
         ...(event.payloadResults?.length ? {payloads:event.payloadResults.map(result => {
           const raw = JSON.stringify(result), captured = this.config.capture === "answers" ? redact(raw) : undefined;
           return {resultId:this.identity("result",result.context.resultId),contentHash:digest(raw),

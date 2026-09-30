@@ -13,7 +13,7 @@ export type ConversationScope = z.infer<typeof conversationScopeSchema>;
 export function scopeForModel(scope: ConversationScope | undefined, now = Date.now()) {
   if (!scope) return undefined;
   const result = structuredClone(scope);
-  const referenceStatus = result.reference ? Date.parse(result.reference.expiresAt) <= now ? "expired" : "attached" : "not_attached";
+  const referenceStatus: "attached" | "expired" | "not_attached" = result.reference ? Date.parse(result.reference.expiresAt) <= now ? "expired" : "attached" : "not_attached";
   if (referenceStatus === "expired") result.reference = null;
   return {...result, referenceStatus};
 }

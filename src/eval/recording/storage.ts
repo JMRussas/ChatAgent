@@ -18,6 +18,7 @@ const eventSchema = z.object({
     resolvedModel: z.null(), modelRevision: z.null(), reasoningEnabled: z.boolean().nullable() }).strict().nullable(),
   answerKind: z.enum(["acknowledgment", "substantive"]).nullable(),
   answer: z.object({ scoredHash: hash, artifactHash: hash.nullable(), transformed: z.boolean(), text: z.string().optional() }).strict().nullable(),
+  selectedContext: z.object({contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),referenceStatus:z.enum(["attached","expired","not_attached"]),text:z.string().optional()}).strict().optional(),
   payloads: z.array(z.object({resultId:hash,contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),text:z.string().optional()}).strict()).max(3).optional(),
   usage: z.null(), costUsd: z.null()
 }).strict();
@@ -43,7 +44,7 @@ export function validateArtifact(value: unknown, now = Date.now(), allowExpired 
   const parents = new Map<string, string>();
   const pending = new Set<string>();
   for (const [i, event] of parsed.trace.entries()) {
-    for (const payload of event.payloads ?? []) {
+    for (const payload of [...(event.payloads ?? []), ...(event.selectedContext ? [event.selectedContext] : [])]) {
       if (parsed.manifest.capture === "metadata" && payload.text !== undefined ||
         payload.text !== undefined && digest(payload.text) !== payload.artifactHash ||
         !payload.transformed && payload.artifactHash !== null && payload.contentHash !== payload.artifactHash)
