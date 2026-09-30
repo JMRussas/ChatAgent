@@ -8,6 +8,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 import claude_bridge as bridge
+from usage import normalize_usage
 
 
 class SharedProviderContract(unittest.TestCase):
@@ -89,6 +90,21 @@ class SharedProviderContract(unittest.TestCase):
         with patch.object(bridge.subprocess, "Popen", side_effect=lambda _cmd, **kw: original([sys.executable, "-c", fixture], **kw)), patch.object(sys, "stdin", stdin):
             with self.assertRaisesRegex(bridge.BridgeError, "OUTPUT_TOO_LARGE"):
                 bridge.generate(self.shared, "claude", "sonnet", 4096)
+
+    def test_usage_preserves_scoped_windows_and_ignores_breakdown(self):
+        snapshot = normalize_usage({"five_hour": {"utilization": 10, "resets_at": "2026-10-01T00:00:00Z"},
+            "seven_day_opus": {"utilization": 100, "resets_at": "2026-10-02T00:00:00Z"},
+            "seven_day_sonnet": None, "seven_day_breakdown": {"percent": 95},
+            "extra_usage": {"is_enabled": True, "private": "secret"}})
+        self.assertEqual([w["scope"] for w in snapshot["windows"]], ["five_hour", "seven_day_opus"])
+        self.assertTrue(snapshot["extraUsageEnabled"])
+        self.assertNotIn("secret", json.dumps(snapshot))
+
+    def test_invalid_usage_never_becomes_zero(self):
+        for value in (None, "0", -1, float("nan"), True):
+            with self.assertRaises(ValueError):
+                normalize_usage({"five_hour": {"utilization": value, "resets_at": "2026-10-01T00:00:00Z"}})
+        self.assertEqual(normalize_usage({})["windows"], [])
 
 
 if __name__ == "__main__":

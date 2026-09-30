@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 import threading
+from usage import read_usage
 
 
 class BridgeError(Exception):
@@ -59,10 +60,11 @@ def inspect(executable):
     help_text = subprocess.run([executable, "--help"], capture_output=True, timeout=10, env=env, check=True).stdout.decode()
     supported = all(flag in help_text for flag in ("--tools", "--disallowedTools", "--strict-mcp-config", "--setting-sources", "--settings", "--no-session-persistence", "--disable-slash-commands"))
     subscription = status.get("loggedIn") is True and status.get("authMethod") == "claude.ai" and status.get("apiProvider") == "firstParty"
-    # Authentication is not quota evidence. Never return account identifiers/tokens.
+    # Utilization is a fresh observation, not a token/call allowance or billing grant.
     return {"version": version, "authenticated": "yes" if subscription else "no",
             "authentication": "subscription-login" if subscription else "unknown",
-            "quota": "unknown", "automation": "supported" if supported else "unsupported"}
+            "quota": "unknown", "automation": "supported" if supported else "unsupported",
+            "usage": read_usage() if subscription else None}
 
 
 def normalize(shared, raw):

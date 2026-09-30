@@ -1,5 +1,30 @@
 # Claude connection and shared-layer review
 
+## 2026-09-29 follow-up: CLI upgrade and actual account usage
+
+Verified the user's update to **2.1.285**. A read-only request to the fixed
+`https://api.anthropic.com/api/oauth/usage` endpoint succeeded using the existing
+OS-profile OAuth credential, without exposing or persisting credentials.
+The endpoint is undocumented and treated as best-effort, not a stable API contract.
+This corrects the earlier implication that account usage could not be obtained.
+
+`npm run cli:claude:inspect` now exposes a timestamped, allowlisted usage snapshot.
+At the verification time, shared five-hour usage was **0%**, weekly usage **3%**,
+and extra usage was **enabled**. Separate Opus/Sonnet limit fields were null;
+null is not zero or proof of an unlimited model allowance. `seven_day_breakdown`
+contains consumption shares and is not interpreted as a quota window.
+
+The reader does not follow redirects, logs no credentials/raw errors, limits
+response bytes/time, and makes no automatic retries. Missing, failed or malformed
+observations remain unavailable. The existing strict generation gate is unchanged:
+observed percentage headroom is not an exact token reservation or permission to
+use paid overage. Resource-policy reconciliation and live answer/cancellation
+acceptance remain open. No model request was made for this verification.
+
+**11 Python contract tests pass**, including window normalization, null/malformed
+values, model scope, extra-usage flags and distinction from breakdown percentages.
+The original review below remains the record of the initial 2.1.143 investigation.
+
 2026-09-29. User selected **Claude**, then **local bridge to Hekate's shared
 provider**. This supersedes the pending product selection in older handoffs.
 Local profile: `default` (existing OS login). Claude Code **2.1.143** reports

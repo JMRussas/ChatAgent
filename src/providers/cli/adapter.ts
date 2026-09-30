@@ -7,6 +7,9 @@ export interface CliReadiness {
   automation: "supported" | "unsupported" | "unknown";
   quota: "available" | "exhausted" | "unknown";
   resetAt?: string;
+  usage?: { source: string; observedAt: string;
+    windows: { scope: string; usedPercentage: number; resetsAt: string }[];
+    extraUsageEnabled: boolean | null };
   observedAt: string;
   expiresAt: string;
 }

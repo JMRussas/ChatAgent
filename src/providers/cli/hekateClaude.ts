@@ -43,8 +43,9 @@ export function createHekateClaudeAdapter(config: HekateBridgeConfig, model: str
     const now = new Date().toISOString();
     return { version: typeof status.version === "string" ? status.version : null,
       authenticated: status.authenticated === "yes" ? "yes" : "no", automation: status.automation === "supported" ? "supported" : "unsupported",
-      // No documented remaining-quota probe exists in the reused provider.
-      // Keep admission closed rather than manufacturing an unlimited allowance.
+      usage: status.usage ?? undefined,
+      // Best-effort account windows are exposed separately. Percentage headroom
+      // does not establish a per-request allowance or authorize paid overage.
       quota: "unknown", observedAt: now, expiresAt: new Date(Date.now() + 30000).toISOString() };
   };
   return runner.adapter({ id: HEKATE_CLAUDE_ID, executable: config.python, args,

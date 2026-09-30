@@ -1,5 +1,16 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: usage reader verified after upgrade
+
+Claude **2.1.285** is installed. Account usage retrieval succeeded through the
+undocumented OAuth usage endpoint; the bridge inspection command now reports
+safe, timestamped windows and the extra-usage flag. See the
+[review follow-up](05-claude-review.md). Shared windows were 0%/3% used at inspection;
+model-specific fields were null and extra usage enabled. These are observations,
+not persistent allowance grants. Strict generation admission and live acceptance
+remain unresolved; no paid or model invocation occurred. Do not repeat the claim
+that no account usage can be obtained. Reconcile scoped windows with admission next.
+
 ## 2026-09-29: Claude bridge review
 
 Claude and a local bridge to Hekate's unified provider are selected. Bridge and
