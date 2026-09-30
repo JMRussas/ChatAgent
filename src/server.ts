@@ -262,8 +262,17 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
       }
 
+      if (method === "POST" && url.pathname === "/sports/games") {
+        const body=z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200),operation:z.enum(["search","details"]),input:z.unknown()}).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        const games=options.briefings?.gameOperations;if(!games)return json(res,404,{error:"Game operations disabled"});
+        service.claimConversation(body.conversationId,body.userId);
+        const controller=new AbortController(),cancel=()=>controller.abort();res.once("close",cancel);
+        try{return json(res,200,body.operation === "search" ? await games.search(body.input,body.userId,body.conversationId,controller.signal) : games.details(body.input,body.userId,body.conversationId));}
+        catch(error){if(error instanceof z.ZodError)throw error;return json(res,409,{error:"Game operation unavailable. Check scope, references and configured limits."});}
+        finally{res.removeListener("close",cancel);}
+      }
       if (method === "GET" && url.pathname === "/sports/team-directories") {
-        return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [], topics: options.briefings?.directory?.topics() ?? [] });
+        return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [], topics: options.briefings?.directory?.topics() ?? [], gameLeagues: options.briefings?.gameOperations?.leagues() ?? [] });
       }
       if (method === "POST" && url.pathname === "/conversation-context/detach") {
         const body=z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200)}).strict().parse(requireObjectBody(await parseJsonBody(req)));

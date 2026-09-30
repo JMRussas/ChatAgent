@@ -209,3 +209,21 @@ test("detaching team evidence preserves topic scope",async({page})=>{
  await page.locator("#detachTeam").click();await expect(page.locator("#selectedConversationContext")).toContainText("not_attached");
  await expect(page.locator("#selectedConversationContext")).toContainText("Harbor");
 });
+
+
+test("game browsing and snapshot details require no model and clear on owner change",async({page,app})=>{
+ await page.locator("#gamesLeague").selectOption("NBA");
+ await page.locator("#gamesFrom").fill("2026-09-27T00:00:00Z");
+ await page.locator("#gamesTo").fill("2026-09-30T00:00:00Z");
+ await page.locator("#searchGames").click();
+ await expect(page.locator("#gamesPayload table")).toContainText("Harbor <Comets>");
+ await expect(page.locator("#gamesStatus")).toContainText("partial");
+ await expect(page.locator("#selectedGame option")).toHaveCount(1);
+ await page.locator("#showGameDetails").click();
+ await expect(page.locator("#gamesStatus")).toContainText("No fresh lookup");
+ await expect(page.locator("#gamesPayload table")).toContainText("101");
+ expect(app.controls.inputs).toHaveLength(0);expect(app.pending.size).toBe(0);
+ await page.locator("#userId").fill("another-owner");await page.locator("#userId").blur();
+ await expect(page.locator("#gamesPayload table")).toHaveCount(0);
+ await expect(page.locator("#selectedGame option")).toHaveCount(0);
+});

@@ -1,5 +1,20 @@
 # Personalized NBA briefing demo
 
+## Bounded game search and snapshot details — 2026-09-30
+
+General NBA/NFL date-window search, provider team-name resolution and bounded
+latest-completed searches are implemented. Direct UI browsing and specific retrieved
+row details use separate user payloads; rows enter model context only when attached.
+Latest means most recent final found by start time within configured windows, with
+partial coverage. Details do not make a fresh lookup. Shared account quotas still apply.
+Configuration and limitations: [request-to-evidence plan](implementation/12-request-to-evidence.md).
+
+Next: grounded reporting from selected game evidence and stage-specific evaluation.
+Registry context size needs attention for smaller models: the browser fixture required
+16K instead of 8K with the expanded registry. Runtime budget checks remain enforced.
+No live provider/model calls or preview restart performed for this increment.
+
+
 ## Reference selection increment — 2026-09-30
 
 Manual-control lifecycle fixes committed as `ffa1089`. Explicit bounded table-row

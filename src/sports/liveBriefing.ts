@@ -1,3 +1,4 @@
+import { GameOperations, gameOperationsOptionsSchema } from "./gameOperations";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
@@ -16,6 +17,7 @@ export const liveBriefingConfigSchema = z.object({
   feeds: z.array(rssConfigSchema).max(20).default([]),
   games: sportsSourceOptionsSchema.default({}),
   directories: directoryOptionsSchema.default({}),
+  gameSearch:gameOperationsOptionsSchema.default({}),
   coordinator: briefingCoordinatorOptionsSchema.default({})
 }).strict().superRefine((config, ctx) => {
   const invalid = (message: string) => ctx.addIssue({ code: "custom", message });
@@ -55,8 +57,10 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
   const http = new BriefingHttp(coordinator, config.profile);
   let directory = new TeamDirectory(apiKey, budget, config.directories, version, transport, clock);
   http.directory = directory;
-  http.additionalTools = () => directory.tools();
-  http.close = () => { closed = true; directory.close(); coordinator.close(); };
+  let games = new GameOperations(directory,registry,config.gameSearch,version,clock);
+  http.gameOperations = games;
+  http.additionalTools = () => [...directory.tools(),...games.tools()];
+  http.close = () => { closed = true; games.close(); directory.close(); coordinator.close(); };
   return { coordinator, http, get profile() { return structuredClone(config.profile); }, get version() { return version; },
     apply(configuration: unknown) {
       if (closed) throw new Error("BRIEFING_CLOSED");
@@ -67,8 +71,11 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
       budget.configure(next.games.requestsPerMinute, next.games.minIntervalMs);
       coordinator.configure(nextRegistry, next.coordinator, nextVersion);
       http.setProfile(next.profile);
+      games.close();
       directory.close();
       directory = new TeamDirectory(apiKey, budget, next.directories, nextVersion, transport, clock);
+      games = new GameOperations(directory,nextRegistry,next.gameSearch,nextVersion,clock);
+      http.gameOperations = games;
       http.directory = directory;
       config = next; version = nextVersion;
       return { version, changed: true };

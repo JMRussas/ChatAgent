@@ -3,8 +3,33 @@
 Status: operation contracts and provider-backed NBA/NFL team resolution are implemented.
 Team-list payload/context separation and direct table delivery are now implemented.
 Minimal topic browsing with scoped conversations and opt-in team references is
-implemented. General game search, synthesis and the end-to-end evaluation runner remain pending. The ordering below supersedes earlier
-latest-game-first plans. This is a plan update, not a runtime implementation claim.
+implemented. Bounded game search and snapshot details are implemented. Grounded synthesis and the end-to-end evaluation runner remain pending. The ordering below supersedes earlier
+latest-game-first plans. Implementation limits are documented below.
+
+
+## Bounded game operations — 2026-09-30
+
+`sports:find-games` resolves provider team names or owned candidate selections and
+searches an explicit ISO timestamp window (maximum 31 days), optionally filtering
+status. `latest_completed` scans configurable backward windows and returns the most
+recent final with scores found by start time. Each window reads one provider page;
+coverage remains partial, including empty results. This does not establish the actual
+latest game, latest completion, or absence of games. Unsupported leagues remain explicit.
+
+`sports:game-details` and the direct UI display basic details from a selected issued
+search row. Details are a snapshot, not a fresh request or box score. Results use the
+existing owned/expiring payload handles, selected-row attachment and source provenance.
+The direct UI needs no model. Shared provider admission/cache remains in force.
+`gameSearch` config controls leagues, window days/count, result TTL, row limit and
+snapshot count; reload invalidates handles and aborts active operations.
+
+Next: grounded reporting from explicitly selected game evidence, plus deterministic
+stage evaluation fixtures before claiming model quality. Still pending: dependent tool
+loops, richer statistics/reporting, pagination/exhaustive temporal selection, user-friendly
+ambiguity selection in the game browser and payload-specific quality scoring. The browser
+fixture now uses a 16K model context because the full registry exceeds its former 8K
+budget after output reservations. Runtime admission remains unchanged; compact registry
+exposure is needed for smaller context models.
 
 ## Current implementation and immediate next slice
 
@@ -25,8 +50,7 @@ authentication layer. Production authentication remains a separate concern.
 
 Evaluation recording hashes payloads independently; opt-in answer capture retains
 redacted envelope content separately from model answer text under existing byte limits.
-Direct UI browsing does not create model evaluation events. Explicit attachment and
-bounded model reference reads are still pending with the topic workflow.
+Direct UI browsing does not create model evaluation events. Explicit bounded row attachment is implemented.
 
 Topic UI now derives sport/league choices from configured directories and teams from
 provider records. Opening a new conversation freezes its scope; browsing remains
@@ -37,7 +61,7 @@ state with a 100-conversation cap, not durable topic/profile memory.
 
 Manual per-run model pins, verified Ollama thinking overrides and explicit text
 review/revision actions are now implemented. Explicit bounded table-row attachment/detachment and selected-row payload review are
-now implemented. Next executable slice: general game search and specific-game details. Reference selection now supports three owned table results, up to 20 rows per result
+now implemented. Bounded game search and snapshot details are implemented; next is grounded reporting and stage-specific evaluation. Reference selection now supports three owned table results, up to 20 rows per result
 and 16,000 evidence bytes. Users can detach table rows or the initial team reference.
 Other payload types and cross-conversation reference sharing remain pending.
 Declare the directory scope honestly: current-team filtering is not established by

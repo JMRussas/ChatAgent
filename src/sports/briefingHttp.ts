@@ -12,6 +12,7 @@ const commandSchema = z.discriminatedUnion("op", [
 
 /** Server-owned profile; clients cannot choose adapters, budgets or executable code. */
 export class BriefingHttp {
+  gameOperations?: import("./gameOperations").GameOperations;
   directory?: import("./teamDirectory").TeamDirectory;
   additionalTools: () => CapabilityTool[] = () => [];
   tools(): CapabilityTool[] {

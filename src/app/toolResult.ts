@@ -8,7 +8,7 @@ export const tablePayloadSchema = z.object({ kind: z.literal("table"), title: z.
 export const toolResultSchema = z.object({ version: z.literal("tool-result-v1"),
   context: z.object({ status: z.enum(["ready", "unavailable"]), summary: z.string().max(2000),
     resultId: z.string().uuid(), expiresAt: z.string().datetime(), scope: z.string().max(300),
-    coverage: z.enum(["complete", "unavailable"]), limitations: z.array(z.string().max(300)).max(20)
+    coverage: z.enum(["complete", "partial", "unavailable"]), limitations: z.array(z.string().max(300)).max(20)
   }).strict(),
   payload: tablePayloadSchema.nullable(),
   evidence: z.object({ sourceUrl: z.string().url(), observedAt: z.string().datetime(), revision: z.string().max(200) }).strict()

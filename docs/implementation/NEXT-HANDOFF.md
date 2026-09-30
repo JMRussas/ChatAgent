@@ -1,5 +1,22 @@
 # Next ChatAgent handoff after 01B
 
+## Bounded game search and snapshot details — 2026-09-30
+
+General NBA/NFL date-window search, provider team-name resolution and bounded
+latest-completed searches are implemented. Direct UI browsing and specific retrieved
+row details use separate user payloads; rows enter model context only when attached.
+Latest means most recent final found by start time within configured windows, with
+partial coverage. Details do not make a fresh lookup. Shared account quotas still apply.
+Configuration and limitations: [request-to-evidence plan](12-request-to-evidence.md).
+
+Next: grounded reporting from selected game evidence and stage-specific evaluation.
+Registry context size needs attention for smaller models: the browser fixture required
+16K instead of 8K with the expanded registry. Runtime budget checks remain enforced.
+Validation: 643 tests across 86 files passed, followed by all five game-operation
+tests after adding a cancellation regression (644 tests total). TypeScript build and
+20 browser tests passed. No live provider/model calls or preview restart performed.
+
+
 ## Explicit reference rows and payload review — 2026-09-30
 
 Manual-control review fixes are committed as `ffa1089`. The next slice adds table

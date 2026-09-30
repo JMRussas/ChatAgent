@@ -471,6 +471,18 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         </table>
       </section>
     </aside>
+    <section class="panel" id="gamesPanel" hidden>
+      <h2>Games</h2>
+      <label>League <select id="gamesLeague"></select></label>
+      <label>Team name (optional for date search) <input id="gamesTeam" /></label>
+      <label>Search <select id="gamesSelection"><option value="all">Date window</option><option value="latest_completed">Most recent completed found</option></select></label>
+      <label>From (ISO timestamp with timezone) <input id="gamesFrom" placeholder="2026-09-01T00:00:00Z" /></label>
+      <label>To (exclusive ISO timestamp) <input id="gamesTo" placeholder="2026-09-08T00:00:00Z" /></label>
+      <button type="button" id="searchGames">Find games</button>
+      <label>Retrieved game <select id="selectedGame"></select></label>
+      <button type="button" id="showGameDetails">Show record details</button>
+      <p id="gamesStatus" role="status"></p><div id="gamesPayload" class="tool-payload"></div>
+    </section>
     <section class="panel" id="teamDirectoryPanel" hidden>
       <h2>Sports topics</h2>
       <label>Sport <select id="directorySport"></select></label>
@@ -902,6 +914,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         showConversationContext(data.context);
       } catch { if (requestVersion === contextRequestVersion) $("selectedConversationContext").textContent = "Conversation context unavailable."; }
     };
+    const gameResults = new Map();
+    let gameSearchResult, gameRequest;
     const selectedReferences = new Map();
     let availableReferences = new Map();
     const referenceSummary = () => { $("referenceStatus").textContent = selectedReferences.size ? [...selectedReferences].map(([id,rows]) => rows.length + " selected rows from " + (availableReferences.get(id)?.payload?.title || id)).join("; ") : "No table rows attached."; };
@@ -912,7 +926,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     };
     function refreshReferenceChoices() {
       if (typeof directoryResult === "undefined") return;
-      const results=state.events.flatMap(e=>e.payloadResults || []);
+      const results=[...state.events.flatMap(e=>e.payloadResults || []),...gameResults.values()];
       if(directoryResult)results.push(directoryResult);
       availableReferences=new Map(results.filter(r=>r.payload).map(r=>[r.context.resultId,r]));
       const key=[...availableReferences.keys()].join(",");
@@ -939,6 +953,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     let directoryResult, directoryOwner, directoryRequest;
     const clearDirectory = () => { directoryRequest?.abort(); directoryResult = null; $("teamTopicControls").hidden = true; $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = ""; };
     fetch("/sports/team-directories").then(r => r.json()).then(data => {
+      if(data.gameLeagues?.length){$("gamesPanel").hidden=false;for(const league of data.gameLeagues){const o=document.createElement("option");o.value=league;o.textContent=league;$("gamesLeague").appendChild(o);}}
       if (!data.leagues?.length) return;
       $("teamDirectoryPanel").hidden = false;
       for (const sport of [...new Set(data.topics.map(t => t.sport))]) { const option = document.createElement("option"); option.value = sport; option.textContent = sport; $("directorySport").appendChild(option); }
@@ -966,6 +981,27 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         renderToolPayloads($("directoryPayload"), [result]); $("directoryStatus").textContent = "Directory displayed. Rows were not sent to a model.";
       } catch (error) { if (!controller.signal.aborted) $("directoryStatus").textContent = error.message; }
     };
+    $("gamesSelection").onchange=()=>{const latest=$("gamesSelection").value === "latest_completed";$("gamesFrom").disabled=latest;$("gamesTo").disabled=latest;};
+    const runGames=async operation=>{
+      if(operation === "details" && !gameSearchResult)return;
+      gameRequest?.abort();const controller=new AbortController();gameRequest=controller;
+      const conversationId=conversationIdInput.value.trim(),userId=userIdInput.value.trim();
+      const input=operation === "details" ? {resultId:gameSearchResult.context.resultId,row:Number($("selectedGame").value)} : {
+        league:$("gamesLeague").value,selection:$("gamesSelection").value,...($("gamesTeam").value.trim()?{teamQuery:$("gamesTeam").value.trim()}:{}),
+        ...($("gamesSelection").value === "all" ? {from:$("gamesFrom").value.trim(),to:$("gamesTo").value.trim()}: {})};
+      if(operation === "search"){gameSearchResult=null;$("selectedGame").replaceChildren();}
+      $("gamesStatus").textContent="Retrieving game records…";$("gamesPayload").replaceChildren();
+      try{
+        const r=await fetch("/sports/games",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({conversationId,userId,operation,input})});const result=await r.json();
+        if(controller.signal.aborted || conversationId!==conversationIdInput.value.trim() || userId!==userIdInput.value.trim())return;
+        if(!r.ok)throw Error(result.error || "Game request failed");
+        if(!result.context){$("gamesStatus").textContent=JSON.stringify(result);return;}
+        gameResults.set(result.context.resultId,result);if(gameResults.size>20)gameResults.delete(gameResults.keys().next().value);
+        if(operation === "search" && result.payload){gameSearchResult=result;result.payload.rows.forEach((row,index)=>{const o=document.createElement("option");o.value=String(index);o.textContent=row.slice(0,4).join(" · ");$("selectedGame").appendChild(o);});}
+        renderToolPayloads($("gamesPayload"),[result]);$("gamesStatus").textContent=result.context.summary+" "+result.context.limitations.join(". ");refreshReferenceChoices();
+      }catch(error){if(!controller.signal.aborted)$("gamesStatus").textContent=error.message;}
+    };
+    $("searchGames").onclick=()=>runGames("search");$("showGameDetails").onclick=()=>runGames("details");
     $("openTeamConversation").onclick = async () => {
       if (!directoryResult) return;
       const selected = directoryResult, owner = directoryOwner;
@@ -980,7 +1016,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       } catch (error) { $("directoryStatus").textContent = error.message; }
       finally { $("openTeamConversation").disabled = false; }
     };
-    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); selectedReferences.clear(); clearDirectory(); refreshReferenceChoices(); referenceSummary(); void refreshConversationContext(); });
+    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); gameRequest?.abort(); gameResults.clear(); gameSearchResult=null; $("selectedGame").replaceChildren(); $("gamesPayload").replaceChildren(); $("gamesStatus").textContent=""; selectedReferences.clear(); clearDirectory(); refreshReferenceChoices(); referenceSummary(); void refreshConversationContext(); });
     void refreshConversationContext();
     renderDecision();
     renderThread();

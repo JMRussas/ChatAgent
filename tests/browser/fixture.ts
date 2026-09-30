@@ -37,10 +37,10 @@ async function runtime() {
     return { taskId: task.taskId, finalReply: result.text, finishReason: result.finishReason, confidence: 1, citations: [], totalLatencyMs: 0 };
   } };
   const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue();
-  const sports = createLiveBriefing(sportsConfig, "fixture-key", (async () => Response.json({data:[{id:1,full_name:"Harbor <Comets>",name:"Comets",abbreviation:"HC",city:"Harbor"},{id:2,full_name:"PRIVATE_OTHER_ROW",name:"Other",abbreviation:"PO",city:"Elsewhere"}]})) as typeof fetch);
+  const sports = createLiveBriefing(sportsConfig, "fixture-key", (async (url) => String(url).includes("/games") ? Response.json({data:[{id:10,datetime:"2026-09-28T20:00:00Z",status_state:"final",home_team:{id:1,full_name:"Harbor <Comets>"},visitor_team:{id:2,full_name:"Visitor Stars"},home_team_score:101,visitor_team_score:98}],meta:{next_cursor:null}}) : Response.json({data:[{id:1,full_name:"Harbor <Comets>",name:"Comets",abbreviation:"HC",city:"Harbor"},{id:2,full_name:"PRIVATE_OTHER_ROW",name:"Other",abbreviation:"PO",city:"Elsewhere"}]})) as typeof fetch);
   const legacy = new ChatOrchestrator(fast, queue, timeline);
   const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async input => { controls.inputs.push(input); return { text: JSON.stringify(controls.plan), finishReason: "stop" }; } }, queue, timeline,
-    new ContextManager(timeline, { windowTokens: 8192, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
+    new ContextManager(timeline, { windowTokens: 16384, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
     () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools());
   const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),
     runControlOptions:()=>planner.runControlOptions(),thinkingOptions:id=>planner.thinkingOptions(id),
