@@ -1,12 +1,13 @@
 /** Explicit live acceptance command; never imported by startup or offline tests. */
 import "../../config/loadEnv";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { loadModelCatalog } from "../../config/modelCatalog";
+import { InventoryStore } from "../../models/inventory";
+import { loadDiscoveryConfigFromEnv } from "../../config/discoveryConfig";
 import { loadDispatchConfig } from "../../config/dispatchConfig";
 import { ProviderRegistry } from "../providerRegistry";
-import { connectHekateClaude, createHekateClaudeAdapter, hekateBridgeConfig } from "./hekateClaude";
-import { CliRunner, cliLimits, processTreeTerminator, type CliProgram } from "./runner";
+import { connectHekateClaude, hekateBridgeConfig } from "./hekateClaude";
+import { CliRunner, cliLimits, type CliProgram } from "./runner";
+import { acceptanceBinding, observedTreeTerminator } from "./claudeAcceptance";
 import { CatalogDispatch } from "../../routing/catalogDispatch";
 import { ContextManager } from "../../app/contextManager";
 import { InMemoryConversationTimelineStore } from "../../app/timelineStore";
@@ -17,9 +18,10 @@ const budget = { windowTokens: 8192, fastOutputTokens: mode === "answer" ? 128 :
 const catalog = await loadModelCatalog(), registry = new ProviderRegistry();
 const connected = connectHekateClaude(catalog, registry, budget);
 const controller = new AbortController();
-const observations = (await Promise.all(connected.connections.map(c => connected.discovery!.discover(c, controller.signal)))).flat();
+const inventory = new InventoryStore({ cli: connected.discovery }, loadDiscoveryConfigFromEnv());
+await inventory.refreshAll(connected.connections);
 const { policy } = await loadDispatchConfig();
-const dispatch = new CatalogDispatch(catalog, registry, policy, budget, () => observations);
+const dispatch = new CatalogDispatch(catalog, registry, policy, budget, () => inventory.listObservations());
 const manager = new ContextManager(new InMemoryConversationTimelineStore(), budget);
 const prompt = mode === "answer" ? "Reply with exactly BRIDGE_OK." : "Write a detailed 2000-word explanation of sorting algorithms.";
 try {
@@ -42,23 +44,15 @@ try {
           return program.encode(request);
         } });
       }
-    }({ ...cliLimits(), timeoutMs: mode === "timeout" ? 12000 : 60000 }, { terminate: async child => {
-      const script = `$all=Get-CimInstance Win32_Process; $ids=@(${child.pid}); do { $next=@($all | Where-Object { $_.ParentProcessId -in $ids -and $_.ProcessId -notin $ids } | Select-Object -ExpandProperty ProcessId); $ids+= $next } while ($next.Count -gt 0); ConvertTo-Json -Compress -InputObject @($ids)`;
-      const { stdout } = await promisify(execFile)("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script]);
-      descendants = JSON.parse(stdout);
-      await processTreeTerminator.terminate(child);
-    } });
+    }({ ...cliLimits(), timeoutMs: mode === "timeout" ? 12000 : 60000 }, observedTreeTerminator(pids => { descendants = pids; }));
     const config = hekateBridgeConfig(process.env)!;
-    const adapter = createHekateClaudeAdapter(config, "sonnet", runner);
+    const binding = acceptanceBinding(plan.fast.candidate.binding, config, runner, plan.fast.candidate.requirements.outputTokens);
     let code: string | undefined;
     try {
-      await dispatch.execute(plan.fast, control, "acceptance", async () => {
-        for await (const event of adapter.generate({ bindingId: plan.fast.candidate.selection.bindingId,
-          context: plan.context,
-          outputBudget: 2048, role: "fast", signal: controller.signal, workingDirectory: config.workingDirectory,
-          accountProfile: "default", quotaPoolId: "claude-default", exhaustionPolicy: "fail" })) { void event; }
-        return { finishReason: "stop" };
-      });
+      await dispatch.execute(plan.fast, control, "acceptance", () => binding.fast!.createProvisionalReply({
+        context: plan.fast.context, correctedText: prompt, routeDecision: "direct",
+        message: { text: prompt, messageId: "smoke", conversationId: "claude-acceptance", userId: "operator", timestampIso: new Date().toISOString() }
+      }, control));
     } catch (error) { code = (error as { code?: string }).code; }
     finally { if (timer) clearTimeout(timer); }
     const alive = descendants.filter(pid => { try { process.kill(pid, 0); return true; } catch { return false; } });
@@ -66,4 +60,4 @@ try {
       throw new Error(`LIVE_CLEANUP_FAILED:${JSON.stringify({ code, observedProcesses: descendants.length, alive })}`);
     console.log(JSON.stringify({ mode, code, observedProcesses: descendants.length, survivingProcesses: alive.length }));
   }
-} finally { await manager.shutdown(); }
+} finally { inventory.shutdown(); await manager.shutdown(); }

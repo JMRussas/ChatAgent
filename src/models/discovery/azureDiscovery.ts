@@ -7,7 +7,7 @@
 // AAD app-registration credential (client-credentials grant), distinct from
 // the AZURE_OPENAI_API_KEY used for the actual chat-completions data plane.
 import type { Connection } from "../connections";
-import type { DiscoveryAdapter, ModelObservation } from "../inventory";
+import type { DiscoveryAdapter, DiscoveryObservation } from "../inventory";
 import { bindingKey } from "../connections";
 
 const ARM_API_VERSION = "2024-10-01";
@@ -90,7 +90,7 @@ async function listAllDeployments(credentials: AzureArmCredentials, token: strin
 export class AzureDiscoveryAdapter implements DiscoveryAdapter {
   constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
-  async discover(connection: Connection, signal: AbortSignal): Promise<ModelObservation[]> {
+  async discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]> {
     const credentials = readArmCredentialsFromEnv(this.env);
     const token = await getArmAccessToken(credentials, signal);
     const deployments = await listAllDeployments(credentials, token, signal);
@@ -104,7 +104,6 @@ export class AzureDiscoveryAdapter implements DiscoveryAdapter {
         model: deployment.name,
         revision: deployment.properties?.model?.version,
         observedAtIso,
-        expiresAtIso: observedAtIso, // stamped by InventoryStore with the configured TTL
         source: "azure-arm-deployments-list",
         installed: "yes",
         // Management-plane list permission does not imply the configured
@@ -113,6 +112,6 @@ export class AzureDiscoveryAdapter implements DiscoveryAdapter {
         access: "unknown",
         health: deployment.properties?.provisioningState === "Succeeded" ? "reachable" : "unreachable",
         apiCompatibility: ["azure-openai-chat"]
-      } satisfies ModelObservation));
+      } satisfies DiscoveryObservation));
   }
 }

@@ -454,7 +454,7 @@ export async function startServer(port: number): Promise<void> {
   const discoveryAdapters: Partial<Record<Connection["apiKind"], DiscoveryAdapter>> = {
     "mock": { discover: async connection => catalog.models.filter(e => e.provider === "mock").map(entry => ({
       bindingId: entryBindingId(entry), connectionId: connection.connectionId, model: entry.model,
-      observedAtIso: new Date().toISOString(), expiresAtIso: new Date().toISOString(), source: "synthetic-mock-adapter",
+      observedAtIso: new Date().toISOString(), source: "synthetic-mock-adapter",
       installed: "yes" as const, access: "allowed" as const, health: "reachable" as const, apiCompatibility: ["mock"]
     })) },
     "ollama-chat": new OllamaDiscoveryAdapter(),

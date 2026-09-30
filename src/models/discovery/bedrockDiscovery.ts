@@ -7,11 +7,11 @@
 // @aws-sdk/client-bedrock-runtime (inference) already used for chat calls.
 import { BedrockClient, ListFoundationModelsCommand } from "@aws-sdk/client-bedrock";
 import type { Connection } from "../connections";
-import type { DiscoveryAdapter, ModelObservation } from "../inventory";
+import type { DiscoveryAdapter, DiscoveryObservation } from "../inventory";
 import { bindingKey } from "../connections";
 
 export class BedrockDiscoveryAdapter implements DiscoveryAdapter {
-  async discover(connection: Connection, signal: AbortSignal): Promise<ModelObservation[]> {
+  async discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]> {
     if (!connection.region) return [];
 
     const client = new BedrockClient({ region: connection.region, maxAttempts: 1 });
@@ -25,7 +25,6 @@ export class BedrockDiscoveryAdapter implements DiscoveryAdapter {
         connectionId: connection.connectionId,
         model: summary.modelId,
         observedAtIso,
-        expiresAtIso: observedAtIso, // stamped by InventoryStore with the configured TTL
         source: "bedrock-list-foundation-models",
         installed: "yes",
         // Listing permission (bedrock:ListFoundationModels) does not imply
@@ -35,6 +34,6 @@ export class BedrockDiscoveryAdapter implements DiscoveryAdapter {
         health: summary.modelLifecycle?.status === "ACTIVE" ? "reachable"
           : summary.modelLifecycle?.status === "LEGACY" ? "unreachable" : "unknown",
         apiCompatibility: ["bedrock-converse"]
-      } satisfies ModelObservation));
+      } satisfies DiscoveryObservation));
   }
 }

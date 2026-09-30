@@ -1,5 +1,25 @@
 # Claude connection and shared-layer review
 
+## 2026-09-30: review findings fixed
+
+All three findings from the review of `4e0bea1` are addressed:
+
+- Inventory respects the earlier of the adapter expiry and configured TTL. Adapters
+  without their own limit omit expiry; malformed explicit expiry stays stale.
+- Live cleanup inspection has a five-second timeout, bounded output, and guaranteed
+  invocation-tree termination in `finally`, including inspection/parse failures.
+- Cancellation/timeout acceptance uses the selected binding's model and production
+  CLI wrapper, preserving its profile, quota pool, exhaustion policy and output
+  budget. The acceptance harness now also goes through InventoryStore.
+
+Validation: **432 TypeScript tests across 60 files**, typecheck, build and seeded
+simulated release gate pass. New offline regressions cover expiry caps, inspection
+failure/timeout, and a non-Sonnet binding with different quota settings. Live
+cancellation and timeout were rerun; each observed three processes and zero
+survivors. No account settings changed. Next remains spec 06 verification and
+evaluation mode.
+
+
 ## 2026-09-30: Claude live acceptance complete
 
 Claude 2.1.285 through the local Hekate bridge passed catalog selection and a live

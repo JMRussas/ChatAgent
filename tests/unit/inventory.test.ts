@@ -52,6 +52,23 @@ describe("computeReadiness precedence", () => {
 });
 
 describe("InventoryStore", () => {
+  it.each([
+    [undefined, 600000],
+    ["2026-09-29T00:00:30.000Z", 30000],
+    ["2026-09-29T01:00:00.000Z", 600000],
+    ["2026-09-29T00:00:00.000Z", 0],
+    ["invalid", 0]
+  ])("caps discovery validity %s at %s ms", async (expiresAtIso, expectedMs) => {
+    const observation = { ...fixtureObservation(), expiresAtIso };
+    const store = new InventoryStore({ "ollama-chat": { discover: async () => [observation] } },
+      { intervalMs: 1000, ttlMs: 600000, timeoutMs: 1000, maxConcurrentRequests: 1 });
+    await store.refreshConnection(connection());
+    const stored = store.getObservation("b1")!;
+    expect(Date.parse(stored.expiresAtIso) - Date.parse(stored.observedAtIso)).toBe(expectedMs);
+    if (expectedMs === 30000) expect(computeReadiness({ enabled: true, adapterImplemented: true,
+      observation: stored, nowIso: "2026-09-29T00:00:31.000Z" })).toBe("stale");
+    store.shutdown();
+  });
   afterEach(() => vi.useRealTimers());
 
   it("stores observations from a successful discovery call", async () => {

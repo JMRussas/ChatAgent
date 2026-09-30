@@ -4,7 +4,7 @@
 // model_info as "<architecture-family>.context_length" (e.g. "llama.context_length"),
 // not a fixed key name, since it varies by model architecture.
 import type { Connection } from "../connections";
-import type { DiscoveryAdapter, ModelObservation } from "../inventory";
+import type { DiscoveryAdapter, DiscoveryObservation } from "../inventory";
 import { bindingKey } from "../connections";
 import { mapWithConcurrency } from "./util";
 
@@ -30,7 +30,7 @@ function findContextLength(modelInfo: Record<string, unknown> | undefined): numb
 export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
   constructor(private readonly fetchMetadata: boolean = true) {}
 
-  async discover(connection: Connection, signal: AbortSignal): Promise<ModelObservation[]> {
+  async discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]> {
     if (!connection.baseUrl) return [];
 
     const tagsResponse = await fetch(`${connection.baseUrl}/api/tags`, { signal });
@@ -43,12 +43,11 @@ export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
 
     return mapWithConcurrency(models, 4, async (entry) => {
       const observedAtIso = new Date().toISOString();
-      const base: ModelObservation = {
+      const base: DiscoveryObservation = {
         bindingId: bindingKey(connection.connectionId, "ollama-chat", entry.name),
         connectionId: connection.connectionId,
         model: entry.name,
         observedAtIso,
-        expiresAtIso: observedAtIso, // stamped by InventoryStore with the configured TTL
         source: "ollama-api-tags",
         installed: "yes",
         // Local Ollama has no separate list-vs-invoke permission model; an

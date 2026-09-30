@@ -19,8 +19,10 @@ export interface ModelObservation {
   lastErrorCode?: string;
 }
 
+/** Adapters may cap validity; absent expiry uses the inventory's configured TTL. */
+export type DiscoveryObservation = Omit<ModelObservation, "expiresAtIso"> & { expiresAtIso?: string };
 export interface DiscoveryAdapter {
-  discover(connection: Connection, signal: AbortSignal): Promise<ModelObservation[]>;
+  discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]>;
 }
 
 export type Readiness = "disabled" | "unsupported-adapter" | "unchecked" | "stale" | "denied" | "unavailable" | "ready";
@@ -117,10 +119,13 @@ export class InventoryStore {
       const results = await adapter.discover(connection, controller.signal);
       const seen = new Set<string>();
 
-      // TTL is applied here, once, so every adapter's freshness window is
-      // computed identically instead of each adapter re-deriving it.
+      // Global TTL is an upper bound, never an extension of adapter validity.
       for (const observation of results) {
-        const expiresAtIso = new Date(new Date(observation.observedAtIso).getTime() + this.config.ttlMs).toISOString();
+        const observed = Date.parse(observation.observedAtIso);
+        const adapterExpiry = observation.expiresAtIso === undefined ? Infinity : Date.parse(observation.expiresAtIso);
+        // Invalid explicit validity fails closed instead of becoming fresh evidence.
+        const expiresAtIso = new Date(Number.isFinite(adapterExpiry) || adapterExpiry === Infinity
+          ? Math.min(observed + this.config.ttlMs, adapterExpiry) : observed).toISOString();
         const stamped = { ...observation, expiresAtIso };
         this.observations.set(stamped.bindingId, stamped);
         seen.add(stamped.bindingId);
