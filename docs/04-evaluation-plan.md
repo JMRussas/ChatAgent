@@ -109,6 +109,36 @@ Multi-judge consensus is optional and does not replace a reliable reference.
 
 ## Orchestration comparison
 
+### Claude reasoning conditions
+
+Treat interleaved thinking as a declared experimental variable separate from
+orchestration strategy and passive recording. Record resolved model/version,
+transport, thinking mode, effort, budgets and supported controls. API support does
+not establish CLI support. Adaptive thinking may already interleave automatically;
+unsupported disabled conditions are unavailable, not fabricated controls. Verify
+against [Claude thinking guidance](https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost)
+and the installed interface before running.
+
+Use identical held-out tasks, evidence, tools and aggregate budgets, repeated runs
+and counterbalanced order. Hold the judge configuration constant and blind it to
+condition labels. Measure task/factual success, tool arguments, recovery, redundant
+calls, latency and usage. Count all work, including failures and budget exhaustion.
+The current answer-only bridge cannot test thinking between tool results: that
+comparison starts with the scoped sports tools. Answer-generation effort tests are
+labelled separately. Retain observable actions/results, not private reasoning.
+
+### Optional tool-use LoRA experiment
+
+After evaluation mode and the sports tool baseline, consider the
+[local-model tool-use training design](16-tool-use-lora.md). Establish unchanged
+model and improved-prompt/schema baselines first. Use curated tool trajectories,
+held-out games/templates and execution-based scoring to decide whether adaptation
+helps. Keep reasoning settings fixed in the initial LoRA comparison to avoid
+confounding two interventions. This is a proposed follow-on, not a training run
+or a change to runtime sequencing.
+
+### Execution strategies
+
 When the execution capabilities exist, compare:
 
 1. One agent making sequential calls with reassessment between results.

@@ -67,6 +67,12 @@ add run and parent-child call identities where needed. Recording is independent 
 orchestration selection. Record supported paths; sub-agent execution is not a
 prerequisite. The strategy comparison follows when its conditions are available.
 
+The [Claude reasoning comparison](../04-evaluation-plan.md#claude-reasoning-conditions)
+records actual model/transport support and declared thinking/effort differences.
+Answer-only runs cannot establish inter-tool reasoning effects. The optional
+[tool-use LoRA design](../16-tool-use-lora.md) follows the sports tool baseline;
+it does not add a training requirement to this spec.
+
 Named acceptance cases:
 
 - **EVAL-01 — Passive recording:** a deterministic deferred-provider scenario with

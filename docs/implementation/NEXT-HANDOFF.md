@@ -1,5 +1,15 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: reasoning evaluation and tool-use learning design
+
+User approved adding Claude interleaved-thinking conditions to the evaluation
+plan. Compare only controls verified for the actual model/transport; the present
+answer-only bridge cannot exercise inter-tool reasoning. User also asked about
+LoRA for tool use: [design note](../16-tool-use-lora.md) proposes a trainable local
+model experiment after evaluation mode and the sports baseline. No training or
+inference run was started. Existing Claude admission/live acceptance work remains
+the next runtime dependency; this note does not approve paid overage.
+
 ## 2026-09-29: usage reader verified after upgrade
 
 Claude **2.1.285** is installed. Account usage retrieval succeeded through the
