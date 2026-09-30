@@ -162,6 +162,45 @@ establish factual accuracy or live-provider performance.
 
 ## Live evidence and completion
 
+### Live Claude golden baseline (2026-09-30)
+
+`npm run eval:live-accept -- reports/evaluations/<new-run-directory>` is an explicit
+live, capacity-consuming command, separate from offline release verification. It
+requires catalog routing and the configured `claude-hekate-default` binding. It
+starts an isolated ephemeral runtime, enables answer recording for that process,
+disables context summaries and doc tasks, uses the automatic deep worker, and runs
+the original five goldens with 120-second observation deadlines. It saves the
+dataset, HTTP observations, recorder artifact and structural results. An existing
+output directory is refused. Structural success alone leaves quality unrated;
+review retained exact answers with versioned annotations before claiming quality.
+
+The [first dated review](../../reports/live-golden-claude-2026-09-30.json) records
+**3/5 structural passes; acceptance failed**. Actual attempts used the Hekate Claude
+CLI binding, model alias `sonnet`, CLI revision `2.1.285 (Claude Code)`; resolved
+model revision, token usage and cost are unknown. The first three cases passed
+assistant review of their exact answers (not independently calibrated human review).
+
+- Arithmetic, clarification and verified server-date answers completed in roughly
+  3.3–3.8 seconds, within the original limits.
+- Latest-data deep execution failed `COMPUTE_CAPACITY_EXHAUSTED`: the configured
+  single compute slot and fail-on-contention policy reject overlapping deep work.
+  Its fast answer starts mid-sentence and is not a complete useful response.
+- The complex comparison was rejected with HTTP 503 `NO_ELIGIBLE_MODEL` before
+  turn registration. Selection exclusions were not retained by this observation
+  report, so the specific cause remains unconfirmed.
+
+The four recorded turns do not satisfy five-case coverage. Missing final answers
+cannot pass grading, and this is not a successful linked or comparative evaluation.
+Raw answers remain in the ignored local run directory with retention expiry
+`2026-10-07T15:02:32.971Z`; committed hashes and findings alone cannot reproduce an
+exact-answer review after those artifacts expire. No retrieval was available, no
+streaming first-token measurement was made, and warm/cold condition is unknown.
+Account settings and persistent resource policy were not changed.
+
+Next investigate the latter failures, and test an explicitly recorded bounded-wait
+profile if paired execution should share one slot. Keep this failed baseline and
+write a new run; do not relax original golden assertions.
+
 Run the five current golden cases on an explicitly chosen authorized live pair,
 then add follow-up/grounding cases from spec 01. Record provider/model/revision and
 safe environment details. Keep existing failing golden reports as historical files;

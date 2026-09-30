@@ -1,5 +1,37 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: live Claude golden baseline — failed
+
+Added `npm run eval:live-accept -- <new-output-directory>` for the five existing
+goldens through an isolated HTTP runtime and answer recorder. It uses the configured
+catalog policy, waits for Claude readiness, preserves original assertions and exits
+nonzero for structural failures. Recording is enabled only in that process.
+
+The authorized Claude run passed **3/5 structural cases**. Exact-answer assistant
+review passed arithmetic, clarification and server-date answers. Both deep cases
+failed: `COMPUTE_CAPACITY_EXHAUSTED` under the current fail-on-contention policy,
+then HTTP 503 `NO_ELIGIBLE_MODEL` before a turn was recorded. The first deep case's
+fast reply also begins mid-sentence. Do not count these as successful quality
+evidence or infer a confirmed cause for the latter two findings.
+
+See [live baseline evidence](06-verification.md#live-claude-golden-baseline-2026-09-30)
+and the [dated review report](../../reports/live-golden-claude-2026-09-30.json).
+The raw local recording expires October 7; the committed review retains hashes and
+findings, not independently reviewable full answers. No full-coverage linked report
+or compatible single/dual comparison was produced.
+
+Validation: **516 tests / 67 files**, typecheck, build and seeded simulated release
+gate pass after fixing the new test fixture's type assertion. Browser tests were
+not rerun because no UI/browser code changed. Account settings and persistent local
+policy remain unchanged; the live acceptance gate remains failed.
+
+Next: reconcile the single-slot Claude policy with paired fast/deep execution
+(evaluate a separately recorded bounded-wait configuration), capture selection
+exclusions to diagnose `NO_ELIGIBLE_MODEL`, and investigate the incomplete fast
+reply. Preserve this baseline and rerun into a new directory. Then finish follow-up
+grounding cases, repeated single/dual measurements and clean-copy installation.
+Spec 06 remains in progress; the sports demo follows it.
+
 ## 2026-09-30: Chromium browser acceptance
 
 Added dev-only Playwright, `npm run test:browser`, per-test ephemeral mock runtimes,

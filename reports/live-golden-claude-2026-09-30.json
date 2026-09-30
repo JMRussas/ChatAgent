@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "live-golden-review-v1",
+  "runId": "91b72e80-55a3-4209-bcba-f637bbdde6da",
+  "code": {
+    "revision": "67d4f58a4915c561fc5293918b94a110274a395c",
+    "dirty": true,
+    "sourceDigest": "08bce5c195f7f1d66468061e154cc5a74ed19b23de09e8c7e31dc6df53127cfe"
+  },
+  "configurationDigest": "0c3a5a2da4c7dec8ceb2584dab29796ec5b338d7d1f024c7b225cf98425272f8",
+  "mode": "live",
+  "observedProvider": {
+    "provider": "cli",
+    "modelAlias": "sonnet",
+    "bindingId": "[\"cli-hekate-claude-default\",\"cli\",\"sonnet\",\"default\"]",
+    "bindingRevision": "2.1.285 (Claude Code)",
+    "resolvedModelRevision": null
+  },
+  "artifactRetentionExpiresAt": "2026-10-07T15:02:32.971Z",
+  "artifactLocalPath": "reports/evaluations/live-golden-2026-09-30/91b72e80-55a3-4209-bcba-f637bbdde6da/run.json",
+  "structural": [
+    {
+      "promptId": "direct-basic-math",
+      "passed": true,
+      "failures": [],
+      "route": "direct",
+      "outcome": "stop",
+      "fastMs": 3377.494,
+      "finalMs": 3445.2102,
+      "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd"
+    },
+    {
+      "promptId": "clarify-underspecified",
+      "passed": true,
+      "failures": [],
+      "route": "clarify",
+      "outcome": "stop",
+      "fastMs": 3765.6582,
+      "finalMs": 3775.749099999999,
+      "responseHash": "85f07530385bfd112c78fb7f2407098810c84afaeca25a63d795ff8b411066dc"
+    },
+    {
+      "promptId": "direct-day-question-no-echo",
+      "passed": true,
+      "failures": [],
+      "route": "direct",
+      "outcome": "stop",
+      "fastMs": 3343.3396999999986,
+      "finalMs": 3443.2508,
+      "responseHash": "975b11b20d16371267c98e3ff0286393feb5108d51b09f0cd7e36b1a4a4514de"
+    },
+    {
+      "promptId": "deep-latest-sourced",
+      "passed": false,
+      "failures": [
+        "Generation did not stop normally",
+        "Missing deep answer"
+      ],
+      "route": "deep",
+      "outcome": "error",
+      "fastMs": 8342.167300000001,
+      "finalMs": 8370.2477,
+      "responseHash": null
+    },
+    {
+      "promptId": "deep-complex-compare",
+      "passed": false,
+      "failures": [
+        "Missing or mismatched turn evidence",
+        "Route mismatch",
+        "Generation did not stop normally",
+        "Empty fast answer",
+        "Missing deep answer",
+        "Final latency exceeds original limit or is unavailable"
+      ],
+      "route": null,
+      "outcome": "error",
+      "fastMs": 2.636899999997695,
+      "finalMs": null,
+      "responseHash": null
+    }
+  ],
+  "rubric": {
+    "version": "live-golden-review-v1",
+    "correctness": "Matches supplied arithmetic, empty conversation, or verified server date; latest-data claims require retrieved evidence.",
+    "relevance": "Directly answers the actual request with a complete coherent answer.",
+    "unsupportedClaims": "No factual assertion beyond supplied context or stable arithmetic.",
+    "limits": "Assistant review, not independent human calibration; missing final answers are unavailable."
+  },
+  "annotations": {
+    "version": 1,
+    "rubricVersion": "live-golden-review-v1",
+    "judge": {
+      "kind": "model",
+      "id": "assistant-review",
+      "configurationDigest": "2b4fd59c3883a2f02c2123ade7920fc4582b6cce3aa3fc9eb3ea9133ecd31f50"
+    },
+    "ratings": [
+      {
+        "promptId": "direct-basic-math",
+        "responseHash": "4eeeaa2b74ff4fd8be484d19f321ea7289550af2ec3887782543f6d8edc579cd",
+        "correctness": "pass",
+        "relevance": "pass",
+        "unsupportedClaims": "no"
+      },
+      {
+        "promptId": "clarify-underspecified",
+        "responseHash": "85f07530385bfd112c78fb7f2407098810c84afaeca25a63d795ff8b411066dc",
+        "correctness": "pass",
+        "relevance": "pass",
+        "unsupportedClaims": "no"
+      },
+      {
+        "promptId": "direct-day-question-no-echo",
+        "responseHash": "975b11b20d16371267c98e3ff0286393feb5108d51b09f0cd7e36b1a4a4514de",
+        "correctness": "pass",
+        "relevance": "pass",
+        "unsupportedClaims": "no"
+      }
+    ]
+  },
+  "review": [
+    {
+      "promptId": "direct-basic-math",
+      "finding": "Returned 2 + 2 = 4; correct and relevant."
+    },
+    {
+      "promptId": "clarify-underspecified",
+      "finding": "Asked what the user wants done and correctly noted no prior task."
+    },
+    {
+      "promptId": "direct-day-question-no-echo",
+      "finding": "Returned Wednesday, September 30, 2026, attributed to verified server time, with timezone qualification."
+    },
+    {
+      "promptId": "deep-latest-sourced",
+      "finding": "Deep attempt failed COMPUTE_CAPACITY_EXHAUSTED. Fast text starts mid-sentence; not a complete useful answer. No final deep answer to grade."
+    },
+    {
+      "promptId": "deep-complex-compare",
+      "finding": "HTTP 503 NO_ELIGIBLE_MODEL before a user turn was recorded; not graded. Exclusion details unavailable in this observation report."
+    }
+  ],
+  "acceptancePassed": false,
+  "limits": [
+    "Three successful answers reviewed; five-case acceptance failed.",
+    "No retrieval tools, resolved model revision, first-token streaming, token usage or monetary cost measurement.",
+    "No repeated single/dual comparison or follow-up grounding acceptance performed.",
+    "Warm/cold condition unknown.",
+    "Raw recordings expire; hashes alone do not retain reviewable answer evidence."
+  ]
+}
