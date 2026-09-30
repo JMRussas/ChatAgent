@@ -45,12 +45,17 @@ Produce `reports/prototype-eval.md` with:
 
 ## Evaluation mode (planned, 2026-09-29)
 
-Implement an opt-in passive recorder in [spec 06](implementation/06-verification.md#evaluation-mode).
+Updated 2026-09-30: the passive recorder is available; setup and current limitations
+are documented in [06B](implementation/06b-recording.md).
+
+The opt-in passive recorder and annotation contracts are implemented in
+[06B](implementation/06b-recording.md). Broader comparison/measurement work remains
+in [spec 06](implementation/06-verification.md#evaluation-mode).
 Recording and orchestration strategy are separate settings. Enabling recording must
 preserve prompts, model selection, tool permissions, budgets, retry policy and
 scheduling policy. Recording can affect elapsed time and deadline outcomes; measure
-that overhead rather than promising identical live timing. This is planned work,
-not an existing capability.
+that overhead rather than promising identical live timing. Matched overhead
+measurement and experiment compatibility are still planned.
 
 Persist a versioned manifest, correlated event trace, scored results and summary in
 `reports/evaluations/<run-id>/`. Capture:

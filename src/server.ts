@@ -1,3 +1,7 @@
+import { startEvaluationRecording } from "./eval/recording/startup";
+import { cliLimits } from "./providers/cli/runner";
+import { digest } from "./eval/recording/contract";
+import { platform, arch } from "node:os";
 import { createRuntimeHandle, loadShutdownConfig, type RuntimeHandle } from "./app/runtimeHandle";
 import { loadDispatchConfig } from "./config/dispatchConfig";
 import { CatalogDispatch } from "./routing/catalogDispatch";
@@ -118,6 +122,7 @@ interface ServerOptions {
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
   dispatchTelemetry?: () => ReturnType<CatalogDispatch["telemetry"]>;
+  evaluationStatus?: () => unknown;
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
 }
 
@@ -209,6 +214,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       if (await protocolV1(req, res, url, () => parseJsonBody(req))) return;
 
+      if (method === "GET" && url.pathname === "/telemetry/evaluation") return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });
       if (method === "GET" && url.pathname === "/") {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -484,8 +490,31 @@ export async function startServer(port: number): Promise<RuntimeHandle> {
       })) : view.models };
   };
 
+  const recorder = await startEvaluationRecording({
+    routingMode: dispatchConfig.mode, orchestration: "fast-deep", fast: config.fast, deep: config.deep,
+    budget: contextBudget, thinking, summary: summaryConfig, hardware: { platform: platform(), arch: arch() },
+    endpointDigests: [config.azure?.endpoint, config.ollama?.baseUrl, config.bedrock?.region].map(value => value ? digest(value) : null),
+    catalog: catalog.models.map(({ id, provider, model, enabled, roles, tasks, capabilities, limits, routingPriority }) =>
+      ({ id, provider, model, enabled, roles, tasks, capabilities, limits, routingPriority })),
+    dispatchPolicyDigest: digest(JSON.stringify(dispatchConfig.policy)),
+    resourcePolicy: {
+      allowedExecutionScopes: dispatchConfig.policy.allowedExecutionScopes,
+      allowedBillingComponents: dispatchConfig.policy.allowedBillingComponents,
+      maxIncrementalUsd: dispatchConfig.policy.maxIncrementalUsd, unknownCostAction: dispatchConfig.policy.unknownCostAction,
+      quotaExhaustionAction: dispatchConfig.policy.quotaExhaustionAction, waitTimeoutMs: dispatchConfig.policy.waitTimeoutMs,
+      bindings: Object.fromEntries(Object.entries(dispatchConfig.policy.bindings).map(([id, resource]) => [id, {
+        facts: resource.facts, quotaAdmission: resource.quotaAdmission ?? null,
+        maxInvocationUsd: resource.incremental?.maxInvocationUsd ?? null,
+        quota: resource.quota ? { unit: resource.quota.unit, remaining: resource.quota.remaining, poolDigest: digest(resource.quota.poolId) } : null,
+        concurrency: resource.compute?.concurrency ?? null
+      }]))
+    },
+    cliLimits: process.env.HEKATE_CLI_ROOT ? cliLimits() : null, worker: resolveDeepWorkerAutoRunConfig(process.env),
+    generation: Object.fromEntries(["CLI_TIMEOUT_MS", "CLI_MAX_OUTPUT_BYTES", "CLI_MAX_CONCURRENCY", "HEKATE_CLAUDE_USAGE_POLICY",
+      "CHAT_FAST_MAX_OUTPUT_TOKENS", "CHAT_DEEP_MAX_OUTPUT_TOKENS", "DEEP_WORKER_AUTO_RUN", "DEEP_WORKER_INTERVAL_MS"].map(key => [key, process.env[key] ?? null]))
+  });
   const queue = new InMemoryTaskQueue();
-  const timeline = new InMemoryConversationTimelineStore();
+  const timeline = new InMemoryConversationTimelineStore(recorder?.record);
   const deadLetters = new InMemoryDeadLetterStore();
   let summaryModel = summaryConfig.mode === "model"
     ? buildFastProvider(config, { ...contextBudget, fastOutputTokens: summaryConfig.maxTokens }, thinking) : undefined;
@@ -530,12 +559,14 @@ export async function startServer(port: number): Promise<RuntimeHandle> {
   const server = createChatServer(service, {
     documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
+    evaluationStatus: () => recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry()
   });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
       documentTasks?.close();
+      recorder?.invalidate("EVAL_STARTUP_FAILED");
       reject(error.code === "EADDRINUSE"
         ? new Error(`Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`)
         : error);
@@ -577,7 +608,12 @@ export async function startServer(port: number): Promise<RuntimeHandle> {
   };
   const runtime = createRuntimeHandle(server, service, {
     config: shutdownConfig, stopBackground,
-    stopInternal: () => contextManager.shutdown(), persist: saveTelemetry
+    onTimeout: () => recorder?.invalidate("EVAL_RUNTIME_SHUTDOWN_TIMEOUT"),
+    stopInternal: () => contextManager.shutdown(), persist: async () => {
+      const results = await Promise.allSettled([saveTelemetry(), recorder?.finish()]);
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failures.length) throw new AggregateError(failures.map(r => r.reason), "RUNTIME_PERSISTENCE_FAILED");
+    }
   });
   server.once("close", stopBackground);
 

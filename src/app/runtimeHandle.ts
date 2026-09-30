@@ -15,6 +15,7 @@ interface ShutdownHooks {
   stopBackground(): void;
   stopInternal(): Promise<void>;
   persist(): Promise<void>;
+  onTimeout?(): void;
 }
 export function createRuntimeHandle(server: Server & { closeStreams(): void }, service: ChatService, hooks: ShutdownHooks): RuntimeHandle {
   const address = server.address();
@@ -52,6 +53,7 @@ export function createRuntimeHandle(server: Server & { closeStreams(): void }, s
     const timeout = new Promise<never>((_, reject) => {
       deadline = setTimeout(() => {
         if (grace) clearTimeout(grace);
+        try { hooks.onTimeout?.(); } catch { /* Timeout remains the terminal shutdown error. */ }
         void service.cancelRemaining().catch(() => undefined);
         void close().catch(() => undefined);
         reject(new Error("RUNTIME_SHUTDOWN_TIMEOUT"));

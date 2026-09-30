@@ -33,7 +33,7 @@ export function observation(e: ModelEntry): ModelObservation {
     installed: "yes", access: "allowed", health: "reachable", apiCompatibility: ["mock"],
     observedAtIso: now, expiresAtIso: evidence.expiresAtIso, revision: "rev-1", source: "fixture" };
 }
-export function runtime(entries = [entry("a")], behaviors: Record<string, { fast?: FastModelProvider; deep?: DeepModelProvider }> = {}) {
+export function runtime(entries = [entry("a")], behaviors: Record<string, { fast?: FastModelProvider; deep?: DeepModelProvider }> = {}, observer?: ConstructorParameters<typeof InMemoryConversationTimelineStore>[0]) {
   const catalog: ModelCatalog = { version: 1, models: entries };
   const registry = new ProviderRegistry();
   const observations = entries.map(observation);
@@ -49,7 +49,7 @@ export function runtime(entries = [entry("a")], behaviors: Record<string, { fast
       fast, deep, capabilities: ["structuredOutput"] });
   }
   const dispatch = new CatalogDispatch(catalog, registry, policy, budget, () => observations, () => new Date(now));
-  const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue(), dead = new InMemoryDeadLetterStore();
+  const timeline = new InMemoryConversationTimelineStore(observer), queue = new InMemoryTaskQueue(), dead = new InMemoryDeadLetterStore();
   const manager = new ContextManager(timeline, budget);
   const adaptive = new AdaptiveRoutingCoordinator(new InMemoryLatencyEstimator(), { provider: "mock", model: "fixed" }, { provider: "mock", model: "fixed" });
   const unusedFast = { createProvisionalReply: vi.fn() }, unusedDeep = { resolveDeepTask: vi.fn() };

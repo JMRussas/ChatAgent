@@ -20,3 +20,6 @@ __pycache__/
 
 # Local dispatch resource/quota policy
 data/dispatch-policy.local.json
+
+# Private evaluation recordings (including explicitly captured answers)
+reports/evaluations/

@@ -9,6 +9,7 @@ import catalog from "../../data/model-catalog.json";
 
 beforeEach(() => {
   vi.stubEnv("MODEL_ROUTING_MODE", "fixed");
+  vi.stubEnv("EVAL_RECORDING", "false");
   vi.stubEnv("MODEL_DISPATCH_CONFIG_PATH", "");
   vi.stubEnv("HEKATE_CLI_ROOT", "");
 });
@@ -63,6 +64,9 @@ it("rejects an occupied port without announcing success or starting background t
 it("returns an ephemeral runtime handle and completes deep work automatically without process signal listeners", async () => {
   const directory = await mkdtemp(join(tmpdir(), "chatagent-runtime-"));
   const telemetry = join(directory, "telemetry.json");
+  const evaluationRoot = join(directory, "evaluations"), datasetPath = join(directory, "dataset.json");
+  await writeFile(datasetPath, JSON.stringify({ version: "test-v1", prompts: [{ id: "deep", text: "Compare and design code for a complex distributed system with detailed tradeoffs" }] }));
+  vi.stubEnv("EVAL_RECORDING", "true"); vi.stubEnv("EVAL_DATASET_PATH", datasetPath); vi.stubEnv("EVAL_OUTPUT_ROOT", evaluationRoot);
   for (const role of ["FAST", "DEEP"]) {
     vi.stubEnv(`CHAT_${role}_PROVIDER`, "mock"); vi.stubEnv(`CHAT_${role}_MODEL`, "mock-v1");
   }
@@ -87,7 +91,13 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
       const result = await (await fetch(`${base}/conversations/automatic/events`)).json();
       expect(result.events.some((event: { type: string }) => event.type === "refined")).toBe(true);
     }, { timeout: 2000, interval: 25 });
+    const recording = await (await fetch(`${base}/telemetry/evaluation`)).json();
+    expect(recording.enabled).toBe(true);
     await handle.shutdown();
+    const artifact = JSON.parse(await readFile(join(evaluationRoot, recording.runId, "run.json"), "utf8"));
+    expect(artifact.manifest.status).toBe("complete");
+    expect(artifact.summary.mode).toBe("synthetic");
+    expect(artifact.trace.some((e: { type: string }) => e.type === "refined")).toBe(true);
     expect(JSON.parse(await readFile(telemetry, "utf8"))).toHaveProperty("estimator");
   } finally { await handle.shutdown(); await rm(directory, { recursive: true, force: true }); }
 });

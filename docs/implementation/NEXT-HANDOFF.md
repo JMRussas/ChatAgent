@@ -1,5 +1,29 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-30: 06B passive recorder and annotation contracts implemented
+
+[Recorder setup and evidence](06b-recording.md) documents opt-in metadata/answer
+capture, versioned run artifacts, exact-answer grading and retention commands.
+Timeline observation adds no inference calls and does not control routing or
+retries. Unknown cost/usage/quality and unmeasured overhead remain unknown.
+Shutdown flushes recording; write/incomplete/timeout failures are explicit and do
+not change inference answers. Default capture is metadata-only and remains off
+unless `EVAL_RECORDING=true` is configured with a versioned dataset.
+
+Named tests cover deterministic recording on/off with a deferred retry, overlapping
+turns and cancellation, exact-answer annotation/hash integrity, secret-bearing
+fixtures, size/retention limits, failed writes, final flush and CLI nonzero status.
+The server integration test checks automatic deep work and persisted recording at
+shutdown. **453 tests / 62 files**, typecheck, build and seeded simulated release
+gate pass. No live inference or model grading was run for this change.
+
+Next: **06C honest benchmark measurements and experiment compatibility**, including
+matched recorder-overhead runs (EVAL-06), then browser and live-quality acceptance.
+The existing live benchmark still has its historical measurement limitations;
+these recorder tests do not establish answer quality or performance improvement.
+Spec 06 as a whole remains in progress.
+
+
 ## 2026-09-30: spec 06A runtime lifecycle complete
 
 `startServer` now returns the bound server/address and an idempotent `shutdown()`.

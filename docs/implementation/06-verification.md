@@ -2,8 +2,9 @@
 
 Status: in progress. 06A runtime shutdown and automatic-worker HTTP acceptance
 implemented (439 tests / 61 files, typecheck, build, simulated release gate pass).
-06B passive recorder/artifacts, benchmark changes, browser gates and live quality
-comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
+06B passive recorder/artifact and annotation contracts are implemented; see
+[06B setup/evidence](06b-recording.md). Benchmark changes, experiment compatibility,
+matched overhead measurement, browser gates and live quality comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
 live answer-quality gates require separately identified provider configuration.
 
 ## Shutdown and ownership
