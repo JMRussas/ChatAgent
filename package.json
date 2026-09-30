@@ -10,6 +10,7 @@
     "cli:claude:inspect": "tsx src/providers/cli/inspectClaude.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
+    "test:browser": "playwright test",
     "test:watch": "vitest",
     "test:tdd": "vitest --watch --reporter=verbose",
     "lint": "tsc -p tsconfig.json --noEmit",
@@ -31,6 +32,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

@@ -23,3 +23,7 @@ data/dispatch-policy.local.json
 
 # Private evaluation recordings (including explicitly captured answers)
 reports/evaluations/
+
+# Browser acceptance artifacts
+test-results/
+playwright-report/

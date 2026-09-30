@@ -8,7 +8,8 @@ implemented (439 tests / 61 files, typecheck, build, simulated release gate pass
 (see 06B comparison usage). HTTP observation/recorder linkage is implemented
 (513 tests / 66 files, typecheck/build/simulated release pass). Remaining:
 live/concurrent overhead acceptance (synthetic recorder-component and mock HTTP
-measurements are available in 06B evidence), browser gates and live quality comparisons remain. Integrates 01–04, and 05 when enabled. Code gates are offline;
+measurements are available in 06B evidence) and live quality comparisons remain.
+Chromium browser acceptance is implemented and passes eight cases; see evidence below. Integrates 01–04, and 05 when enabled. Code gates are offline;
 live answer-quality gates require separately identified provider configuration.
 
 ## Shutdown and ownership
@@ -127,6 +128,37 @@ with deferred mock providers on an ephemeral port; never depend on port 3100 or 
 - Automatic worker HTTP test completes a queued job without run-once requests.
 - Shutdown tests use deferred provider, active SSE client and pending telemetry save;
   assert deadline, no leaked handles, final persistence, and idempotence.
+
+## Browser acceptance evidence (2026-09-30)
+
+`npm run test:browser` runs eight Playwright Chromium cases against a new loopback
+server on an ephemeral port for each test. `tests/browser/fixture.ts` supplies
+controlled mock providers and an automatic deep worker; tests release real provider
+awaits to exercise the production service, timeline and HTTP/SSE handler. No `.env`,
+port 3100, Hekate or live provider is required. Teardown uses RuntimeHandle.shutdown.
+Playwright is dev-only; CI installs Chromium with system dependencies and runs this
+gate after the existing release/build checks. Local browser setup is
+`npx playwright install chromium`. Browser traces are retained on failure in the
+ignored `test-results/` directory. The fixture pattern follows
+[Playwright's fixture documentation](https://playwright.dev/docs/test-fixtures).
+
+Coverage:
+
+- Direct draft text, active aria-busy/spinner, final answer and cleared progress.
+- Deep queued state, selected model, overlapping second turn, late chunk isolation
+  and final fast/deep answers from automatic processing.
+- Provider auth/quota/general failure and length truncation stop progress honestly.
+- Keyboard activation of Send/Stop, cancellation, polite activity announcements,
+  reduced-motion spinner behavior and no horizontal overflow at 390px width.
+- Real SSE connection closure/reconnect restores accumulated text without duplication
+  and clears the reconnect message before final completion.
+
+The browser tests exposed a real omission: `.activity-spinner` had CSS but no DOM
+node. Active reply summaries now render an aria-hidden spinner alongside their text,
+hide it at termination, and honor reduced motion. The tests assert visible state;
+they do not replace a full assistive-technology audit or certify other browsers.
+Firefox/WebKit and real mobile hardware were not run. Mock answer strings do not
+establish factual accuracy or live-provider performance.
 
 ## Live evidence and completion
 

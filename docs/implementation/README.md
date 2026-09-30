@@ -1,5 +1,30 @@
 # Implementation handoff
 
+## 2026-09-30: Chromium browser acceptance
+
+Added dev-only Playwright, `npm run test:browser`, per-test ephemeral mock runtimes,
+and CI Chromium installation/browser execution. Eight real-browser cases cover
+direct streaming, deep queue/model/progress, overlapping turns and late chunks,
+auth/quota/general failures, length truncation, keyboard cancellation, mobile width,
+reduced motion, and real SSE disconnect/reconnect without duplicate text.
+
+Browser evidence found and fixed missing spinner DOM: active reply summaries now
+render the existing styled spinner, hide it on termination, and retain accessible
+text and reduced-motion behavior. See [06 browser evidence](06-verification.md#browser-acceptance-evidence-2026-09-30)
+for setup and limits. This is Chromium automation, not a full accessibility audit,
+other-browser certification or live model quality evidence.
+
+Validation: **8 Chromium browser tests pass; 513 unit/integration tests / 66 files,
+typecheck, build and seeded simulated release gate pass**. The first release run,
+concurrent with browser tests, had an unexpected Vitest worker exit; a separate full
+rerun passed. No assertion was weakened. No live model calls or account changes.
+Recording remains off locally; historical benchmark output is preserved.
+
+Next: **live-quality acceptance** with explicitly configured provider(s), versioned
+exact-answer annotations, repeated single/dual comparisons, remaining live/concurrent
+measurement checks, and clean-copy installation verification. Do not claim spec 06
+complete or begin the sports demo before those remaining gates are accounted for.
+
 ## 2026-09-30: HTTP observation / recorder linkage
 
 The live benchmark CLI now emits `chatagent-live-benchmark-v2` with raw conversation

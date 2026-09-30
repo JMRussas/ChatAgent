@@ -257,8 +257,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
     .reply-activity { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.85rem; }
     .reply-activity.failed { color: #9b2929; }
-    .activity-spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: activity-spin 900ms linear infinite; flex-shrink: 0; }
+    .activity-spinner { display: inline-block; margin-right: 6px; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: activity-spin 900ms linear infinite; flex-shrink: 0; }
     @keyframes activity-spin { to { transform: rotate(360deg); } }
+    .activity-spinner[hidden] { display: none; }
     @media (prefers-reduced-motion: reduce) { .activity-spinner { animation: none; } }
     .status {
       padding: 0.2rem 0.7rem;
@@ -545,12 +546,14 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           const answers = document.createElement("div"); bubble.appendChild(answers);
           const details = document.createElement("details"); details.className = "reply-activity";
           const summary = document.createElement("summary"); summary.setAttribute("aria-live", "polite"); details.appendChild(summary);
+          const spinner = document.createElement("span"); spinner.className = "activity-spinner"; spinner.setAttribute("aria-hidden", "true"); summary.appendChild(spinner);
+          const summaryLabel = document.createElement("span"); summary.appendChild(summaryLabel);
           const history = document.createElement("div"); details.appendChild(history);
           bubble.appendChild(details);
           const outcomes = document.createElement("div"); outcomes.className = "phase-outcomes"; outcomes.setAttribute("role", "status"); bubble.appendChild(outcomes);
           const transport = document.createElement("div"); transport.setAttribute("role", "status"); bubble.appendChild(transport);
           const stop = document.createElement("button"); stop.type = "button"; stop.textContent = "Stop"; stop.onclick = () => stopTurn(turn.messageId); bubble.appendChild(stop);
-          node = { row, user, bubble, answers, details, summary, history, outcomes, transport, stop, timers: [], answerNodes: new Map(), historyKey: "", wasActive: true };
+          node = { row, user, bubble, answers, details, summary, summaryLabel, spinner, history, outcomes, transport, stop, timers: [], answerNodes: new Map(), historyKey: "", wasActive: true };
           turnNodes.set(turn.messageId, node); thread.appendChild(row);
         }
         node.user.textContent = turn.userText;
@@ -578,7 +581,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         const current = turn.current;
         const working = current?.phase === "deep" && turn.status === "Working" ? "Working on a deeper answer" : turn.status;
         const label = working + (current?.model ? " · " + (current.provider ? current.provider + "/" : "") + current.model : "") + (current?.reasoningEnabled ? " · Reasoning enabled" : "");
-        if (node.summary.textContent !== label) node.summary.textContent = label;
+        if (node.summaryLabel.textContent !== label) node.summaryLabel.textContent = label;
+        node.spinner.hidden = !turn.active;
         if (node.wasActive && !turn.active && turn.status === "Complete") node.details.open = false;
         node.wasActive = turn.active;
         const historyKey = JSON.stringify(turn.attempts.map(a => [a.id, a.steps, a.startedAt, a.endedAt, a.queuedAt, a.model]));
