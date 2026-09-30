@@ -71,11 +71,11 @@ test("SSE reconnect restores exact text and clears connection status", async ({ 
   await expect(page.locator(".answer-content")).toHaveText("Final: Explain reconnect behavior");
 });
 
-test("Sox question reports unsupported retrieval without creating a simulated answer", async ({ page, app }) => {
-  await send(page, "What happened in the Sox game last night?");
+test("Red Sox question reports missing retrieval without redundant team clarification", async ({ page, app }) => {
+  await send(page, "What happened in the Red Sox game last night?");
   const panel = page.getByRole("region", { name: "Sports questions" });
-  await expect(panel).toContainText("No MLB/baseball source is connected");
-  await expect(panel).toContainText("Boston Red Sox or Chicago White Sox");
+  await expect(panel).toContainText("no MLB/baseball data source or general web-search tool is connected");
+  await expect(panel).not.toContainText("White Sox");
   expect(app.pending.size).toBe(0);
   await expect(page.locator(".turn")).toHaveCount(0);
 });

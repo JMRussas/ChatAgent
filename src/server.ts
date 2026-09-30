@@ -274,7 +274,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           return json(res, 200, { sports: {
             state: unavailable ? "unsupported" : "needs-input",
             message: intent.unsupported
-              ? "No MLB/baseball source is connected. I have not looked up a game. Sox can mean Boston Red Sox or Chicago White Sox; an answer also needs the date and timezone."
+              ? "I can’t verify that game result because no MLB/baseball data source or general web-search tool is connected to this chat. I haven’t looked it up."
               : !capabilities ? "Sports retrieval is not enabled on this server. No game data was retrieved."
               : unavailable ? "That league is not configured for retrieval on this server. No game data was retrieved."
               : "Confirm the league, team and date window below. Team names are not resolved automatically. This retrieves source evidence; it does not generate a game recap.",
