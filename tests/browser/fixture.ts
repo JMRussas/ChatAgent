@@ -14,7 +14,7 @@ import { GenerationError, type GenerationControl, type GenerationResult } from "
 
 async function runtime() {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
-  const controls: { worker: boolean; plan: unknown | null } = { worker: true, plan: null };
+  const controls: { worker: boolean; plan: unknown | null; inputs: unknown[] } = { worker: true, plan: null, inputs: [] };
   async function generate(phase: string, text: string, control?: GenerationControl): Promise<GenerationResult> {
     if (phase === "fast") await control?.onDelta(`Draft: ${text}`);
     if (phase === "fast" && text.includes("cite")) return { text: `Draft: ${text}`, finishReason: "stop" };
@@ -37,9 +37,9 @@ async function runtime() {
     return { taskId: task.taskId, finalReply: result.text, finishReason: result.finishReason, confidence: 1, citations: [], totalLatencyMs: 0 };
   } };
   const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue();
-  const sports = createLiveBriefing(sportsConfig, "fixture-key", (async () => Response.json({data:[{id:1,full_name:"Harbor <Comets>",name:"Comets",abbreviation:"HC",city:"Harbor"}]})) as typeof fetch);
+  const sports = createLiveBriefing(sportsConfig, "fixture-key", (async () => Response.json({data:[{id:1,full_name:"Harbor <Comets>",name:"Comets",abbreviation:"HC",city:"Harbor"},{id:2,full_name:"PRIVATE_OTHER_ROW",name:"Other",abbreviation:"PO",city:"Elsewhere"}]})) as typeof fetch);
   const legacy = new ChatOrchestrator(fast, queue, timeline);
-  const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async () => ({ text: JSON.stringify(controls.plan), finishReason: "stop" }) }, queue, timeline,
+  const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async input => { controls.inputs.push(input); return { text: JSON.stringify(controls.plan), finishReason: "stop" }; } }, queue, timeline,
     new ContextManager(timeline, { windowTokens: 8192, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
     () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools());
   const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),

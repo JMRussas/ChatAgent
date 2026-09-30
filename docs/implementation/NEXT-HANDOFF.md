@@ -1,5 +1,33 @@
 # Next ChatAgent handoff after 01B
 
+## Topic browsing and explicit team references — 2026-09-30
+
+Implemented the next UI slice: Sports → configured sport → league → provider team.
+Directory browsing is model-free. “Open team conversation” creates a new owned
+conversation with frozen scope; changing browse selectors does not rescope it. A
+separate unchecked control attaches only the selected team's directory record.
+The server resolves row selections against owned, unexpired, revision-matched results.
+No team IDs or reference contents are accepted from the browser. The conversation
+panel shows its scope/reference state. Expired reference fields are excluded on new
+model calls while the explicitly selected topic remains. No game availability or
+active-team status is inferred from directory membership.
+
+Scope state is process-local, capped at 100 scoped conversations per service instance,
+and remains a prototype rather than a durable topic board. New scope selection is
+currently exposed through the development UI/API, not the versioned conversation API.
+Attached references are snapshots: directory reload does not silently rewrite them;
+they expire at their original evidence deadline. General reference attachment/removal,
+model/thinking/review controls, semantic retrieval and game-specific views remain pending.
+Live planner requests and timeline user events record the effective selected context;
+legacy mock orchestration does not implement topic-aware reasoning.
+
+Validation: 632 tests / 83 files, 13 browser tests and TypeScript build passed.
+Browser tests cover context isolation, stable scope while browsing, explicit opt-in,
+foreign/invalid row rejection and exclusion of unselected rows. No live provider/model
+calls or preview restart performed. Next: manual model/thinking/review controls and
+broader explicit reference management, followed by general game search.
+
+
 ## Review corrections — 2026-09-30
 
 Versioned answer events now include user payloads inline, so clients can render them

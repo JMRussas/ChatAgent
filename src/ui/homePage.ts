@@ -395,6 +395,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         <div class="meta-grid">
           <label>
             Conversation ID
+            <p id="selectedConversationContext" role="status">Conversation scope: general</p>
             <input id="conversationId" value="conv-ui-demo" required minlength="1" />
           </label>
           <label>
@@ -453,11 +454,17 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       </section>
     </aside>
     <section class="panel" id="teamDirectoryPanel" hidden>
-      <h2>Team directories</h2>
+      <h2>Sports topics</h2>
+      <label>Sport <select id="directorySport"></select></label>
       <p>Browse provider data directly. This does not call a model or attach the rows to chat context.</p>
       <label>League <select id="directoryLeague"></select></label>
       <button type="button" id="loadTeams">Show teams</button>
       <p id="directoryStatus" role="status"></p>
+      <div id="teamTopicControls" hidden>
+        <label>Team <select id="directoryTeam"></select></label>
+        <label><input type="checkbox" id="attachTeamReference" /> Use this team's directory record as a model reference</label>
+        <button type="button" id="openTeamConversation">Open team conversation</button>
+      </div>
       <div id="directoryPayload" style="overflow:auto;max-height:32rem"></div>
     </section>
   </main>
@@ -814,26 +821,65 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.userId = String(userIdInput.value || "").trim();
     });
 
+    const showConversationContext = context => {
+      $("selectedConversationContext").textContent = context ? "Conversation scope: " + context.path.join(" → ") + ". Reference: " + context.referenceStatus + (context.reference ? " (" + context.reference.sourceUrl + ")" : "") : "Conversation scope: general";
+    };
+    const refreshConversationContext = async () => {
+      const conversationId = $("conversationId").value.trim(), userId = $("userId").value.trim();
+      showConversationContext(null);
+      try {
+        const r = await fetch("/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
+        const data = await r.json();
+        if (conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) return;
+        if (!r.ok) { $("selectedConversationContext").textContent = "Conversation context unavailable for this user."; return; }
+        showConversationContext(data.context);
+      } catch { $("selectedConversationContext").textContent = "Conversation context unavailable."; }
+    };
+    let directoryResult, directoryOwner, directoryRequest;
+    const clearDirectory = () => { directoryRequest?.abort(); directoryResult = null; $("teamTopicControls").hidden = true; $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = ""; };
     fetch("/sports/team-directories").then(r => r.json()).then(data => {
       if (!data.leagues?.length) return;
       $("teamDirectoryPanel").hidden = false;
-      for (const league of data.leagues) { const option = document.createElement("option"); option.value = league; option.textContent = league; $("directoryLeague").appendChild(option); }
+      for (const sport of [...new Set(data.topics.map(t => t.sport))]) { const option = document.createElement("option"); option.value = sport; option.textContent = sport; $("directorySport").appendChild(option); }
+      const selectSport = () => {
+        clearDirectory(); $("directoryLeague").replaceChildren();
+        for (const topic of data.topics.filter(t => t.sport === $("directorySport").value)) { const option = document.createElement("option"); option.value = topic.league; option.textContent = topic.league; $("directoryLeague").appendChild(option); }
+      };
+      $("directorySport").onchange = selectSport; $("directoryLeague").onchange = clearDirectory; selectSport();
     }).catch(() => {});
-    let directoryRequest;
     $("loadTeams").onclick = async () => {
-      directoryRequest?.abort(); const controller = new AbortController(); directoryRequest = controller;
+      clearDirectory(); const league = $("directoryLeague").value; const controller = new AbortController(); directoryRequest = controller;
       const conversationId = $("conversationId").value.trim(), userId = $("userId").value.trim();
       $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = "Loading directory…";
       try {
         const response = await fetch("/sports/teams", {method:"POST", headers:{"Content-Type":"application/json"}, signal:controller.signal,
-          body:JSON.stringify({conversationId,userId,league:$("directoryLeague").value})});
+          body:JSON.stringify({conversationId,userId,league})});
         const result = await response.json(); if (controller.signal.aborted) return;
-        if (conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) { $("directoryStatus").textContent = "Selection changed; load the directory again."; return; }
+        if (league !== $("directoryLeague").value || conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) { $("directoryStatus").textContent = "Selection changed; load the directory again."; return; }
         if (!response.ok) throw Error(result.error || "Directory unavailable");
+        directoryResult = result; directoryOwner = {conversationId,userId};
+        $("directoryTeam").replaceChildren();
+        result.payload.rows.forEach((row,index) => { const option = document.createElement("option"); option.value = String(index); option.textContent = row[0]; $("directoryTeam").appendChild(option); });
+        $("attachTeamReference").checked = false; $("teamTopicControls").hidden = false;
         renderToolPayloads($("directoryPayload"), [result]); $("directoryStatus").textContent = "Directory displayed. Rows were not sent to a model.";
       } catch (error) { if (!controller.signal.aborted) $("directoryStatus").textContent = error.message; }
     };
-    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { directoryRequest?.abort(); $("directoryPayload").replaceChildren(); $("directoryStatus").textContent = ""; });
+    $("openTeamConversation").onclick = async () => {
+      if (!directoryResult) return;
+      const selected = directoryResult, owner = directoryOwner;
+      $("openTeamConversation").disabled = true;
+      try {
+        const r = await fetch("/sports/conversations", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...owner,resultId:selected.context.resultId,row:Number($("directoryTeam").value),attachReference:$("attachTeamReference").checked})});
+        const data = await r.json();
+        if (directoryResult !== selected || owner.userId !== $("userId").value.trim() || owner.conversationId !== $("conversationId").value.trim()) return;
+        if (!r.ok) throw Error(data.error || "Cannot open conversation");
+        $("conversationId").value = data.conversationId; $("conversationId").dispatchEvent(new Event("change"));
+        showConversationContext(data.context); $("prompt").focus();
+      } catch (error) { $("directoryStatus").textContent = error.message; }
+      finally { $("openTeamConversation").disabled = false; }
+    };
+    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { clearDirectory(); void refreshConversationContext(); });
+    void refreshConversationContext();
     renderDecision();
     renderThread();
     openTimelineStream();

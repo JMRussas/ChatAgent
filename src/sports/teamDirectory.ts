@@ -121,6 +121,18 @@ export class TeamDirectory {
     return selectTeamCandidate(snapshot, choice, { userId, conversationId, registryRevision: this.revision,
       directoryRevision: this.directoryRevision(), now: new Date(this.clock()).toISOString() });
   }
+  topics() { return this.options.leagues.map(league => ({sport:definitions[league].sport,league})); }
+  selectTopic(resultId: string, row: number, userId: string, conversationId: string, attachReference: boolean) {
+    if (this.closed) throw Error("CAPABILITIES_CHANGED");
+    const result = this.results.get(resultId,userId,conversationId);
+    const league = this.options.leagues.find(l => definitions[l].url === result.evidence.sourceUrl);
+    const directory = league && this.cache.get(league);
+    if (!league || !directory || directory.revision !== result.evidence.revision || !Number.isInteger(row) || row < 0 || !directory.data[row]) throw Error("REFERENCE_STALE");
+    const team = directory.data[row], def = definitions[league];
+    return {path:["Sports",def.sport,league,team.full_name],entity:{provider:def.provider,id:String(team.id),name:team.full_name},
+      reference:attachReference ? {resultId,sourceUrl:def.url,observedAt:result.evidence.observedAt,expiresAt:result.context.expiresAt,revision:result.evidence.revision,
+        fields:{team:team.full_name,abbreviation:team.abbreviation,location:team.city ?? team.location ?? "",limitation:"Historical entries may be included; active status and freshness are not verified"}} : null};
+  }
   leagues() { return [...this.options.leagues]; }
   async list(input: unknown, userId: string, conversationId: string, signal: AbortSignal) {
     const { league } = z.object({league:z.enum(["NBA","NFL"])}).strict().parse(input);

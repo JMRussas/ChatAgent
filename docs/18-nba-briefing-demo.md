@@ -1,5 +1,17 @@
 # Personalized NBA briefing demo
 
+## Latest increment — 2026-09-30
+
+Review fixes committed as `1e2d60d`: versioned API payload delivery, close-race guard,
+and explicit unrated status for payload-bearing answers under text-only grading.
+Minimal sport/league/team browsing and frozen scoped conversations now work, with
+opt-in selected-team reference attachment. Browsing another topic leaves conversation
+scope unchanged. Expired reference content is excluded from new model calls.
+Validation: 632 tests, 13 browser tests and build passed. No model-quality claim.
+Next: manual model/thinking/review controls and broader reference management.
+See [current handoff](implementation/NEXT-HANDOFF.md) for scope and limitations.
+
+
 ## Active plan: payload separation and manual topic workflows — 2026-09-30
 
 This section supersedes next-step ordering in the historical entries below.

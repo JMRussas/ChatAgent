@@ -255,7 +255,21 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
 
       if (method === "GET" && url.pathname === "/sports/team-directories") {
-        return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [] });
+        return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [], topics: options.briefings?.directory?.topics() ?? [] });
+      }
+      if (method === "POST" && url.pathname === "/conversation-context") {
+        const body = z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200)}).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        return json(res,200,{context:service.getSelectedContext(body.conversationId,body.userId) ?? null});
+      }
+      if (method === "POST" && url.pathname === "/sports/conversations") {
+        const body = z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200),resultId:z.string().uuid(),row:z.number().int().min(0).max(999),attachReference:z.boolean()}).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        const directory = options.briefings?.directory;
+        if (!directory) return json(res,404,{error:"Directories disabled"});
+        service.claimConversation(body.conversationId,body.userId,false);
+        try {
+          const scope = directory.selectTopic(body.resultId,body.row,body.userId,body.conversationId,body.attachReference);
+          return json(res,201,service.openScopedConversation(body.userId,scope));
+        } catch { return json(res,409,{error:"Cannot open topic. Refresh the directory; the reference may have expired or conversation capacity may be full."}); }
       }
       if (method === "POST" && ["/sports/teams", "/sports/results"].includes(url.pathname)) {
         const directory = options.briefings?.directory;

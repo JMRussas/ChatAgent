@@ -2,8 +2,8 @@
 
 Status: operation contracts and provider-backed NBA/NFL team resolution are implemented.
 Team-list payload/context separation and direct table delivery are now implemented.
-Topic browsing, general game search, synthesis and the end-to-end evaluation runner
-remain pending. The ordering below supersedes earlier
+Minimal topic browsing with scoped conversations and opt-in team references is
+implemented. General game search, synthesis and the end-to-end evaluation runner remain pending. The ordering below supersedes earlier
 latest-game-first plans. This is a plan update, not a runtime implementation claim.
 
 ## Current implementation and immediate next slice
@@ -28,8 +28,16 @@ redacted envelope content separately from model answer text under existing byte 
 Direct UI browsing does not create model evaluation events. Explicit attachment and
 bounded model reference reads are still pending with the topic workflow.
 
-Next executable slice: minimal topic navigation and topic-scoped conversations with
-explicit reference selection, preserving this payload/context boundary.
+Topic UI now derives sport/league choices from configured directories and teams from
+provider records. Opening a new conversation freezes its scope; browsing remains
+independent. An unchecked checkbox can attach only the selected team record. Server
+validation uses owned result handles and matching directory revisions. Expired
+reference fields are omitted from subsequent model inputs. This is process-local
+state with a 100-conversation cap, not durable topic/profile memory.
+
+Next executable slice: manual model/thinking/review controls and broader explicit
+reference management. Current reference attachment is limited to the chosen team
+record at conversation creation; arbitrary payload selection and detach are pending.
 Declare the directory scope honestly: current-team filtering is not established by
 NBA's historical directory. Do not label the list current-only without evidence.
 

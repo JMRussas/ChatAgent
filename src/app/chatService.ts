@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { conversationScopeSchema, scopeForModel, type ConversationScope } from "./conversationScope";
 import { GenerationError } from "../domain/generation";
 import { generationLifecycle } from "./generationLifecycle";
 import { ChatOrchestrator, DeepWorker } from "./orchestrator";
@@ -47,6 +49,19 @@ export class ChatService {
   async discardPending(): Promise<void> {
     if (this.queue) while (await this.queue.dequeue()) { /* cancelled, process-local work */ }
   }
+  private readonly scopes = new Map<string, ConversationScope>();
+  openScopedConversation(userId: string, value: unknown) {
+    if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
+    if (this.scopes.size >= 100) throw Error("CONVERSATION_SCOPE_CAPACITY");
+    const scope = conversationScopeSchema.parse(value), conversationId = randomUUID();
+    this.claimConversation(conversationId, userId);
+    this.scopes.set(conversationId, structuredClone(scope));
+    return {conversationId, context:scopeForModel(scope)};
+  }
+  getSelectedContext(conversationId: string, userId: string) {
+    this.claimConversation(conversationId,userId,false);
+    return scopeForModel(this.scopes.get(conversationId));
+  }
   private readonly ownerUserIdByConversationId = new Map<string, string>();
 
   constructor(
@@ -61,7 +76,8 @@ export class ChatService {
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
     this.claimConversation(message.conversationId, message.userId);
-    return this.track(() => this.orchestrator.handleUserMessage(message));
+    const selectedContext = this.getSelectedContext(message.conversationId,message.userId);
+    return this.track(() => this.orchestrator.handleUserMessage({...message,selectedContext}));
   }
 
   claimConversation(conversationId: string, userId: string, claim = true): void {

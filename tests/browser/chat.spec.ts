@@ -100,3 +100,38 @@ test("tool payload survives timeline replay and is rendered outside answer text"
   await page.reload();
   await expect(page.locator(".turn table")).toContainText("Harbor <Comets>");
 });
+
+
+test("team topic scope survives browsing and attaches only the selected reference", async ({page,app}) => {
+  await page.getByRole("button",{name:"Show teams",exact:true}).click();
+  await expect(page.locator("#directoryTeam option")).toHaveCount(2);
+  await page.locator("#attachTeamReference").check();
+  await page.locator("#openTeamConversation").click();
+  await expect(page.locator("#selectedConversationContext")).toContainText("Harbor <Comets>");
+  await expect(page.locator("#selectedConversationContext")).toContainText("attached");
+  const conversation = await page.locator("#conversationId").inputValue();
+  await page.locator("#directorySport").selectOption("football");
+  await page.getByRole("button",{name:"Show teams",exact:true}).click();
+  await expect(page.locator("#directoryPayload")).toContainText("NFL team directory");
+  await expect(page.locator("#conversationId")).toHaveValue(conversation);
+  await expect(page.locator("#selectedConversationContext")).toContainText("basketball");
+  app.controls.plan = {action:"answer",message:"Your selected team is in scope."};
+  await send(page,"Which team are we discussing?");
+  await expect(page.locator(".answer-content")).toContainText("selected team");
+  expect(JSON.stringify(app.controls.inputs)).toContain("Harbor <Comets>");
+  expect(JSON.stringify(app.controls.inputs)).toContain("abbreviation");
+  expect(JSON.stringify(app.controls.inputs)).not.toContain("PRIVATE_OTHER_ROW");
+});
+
+test("topic creation rejects foreign and invalid row references", async ({app}) => {
+  const post = async (path:string,body:unknown) => fetch(app.url+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const owner={conversationId:"browse",userId:"owner"};
+  const directory=await (await post("/sports/teams",{...owner,league:"NBA"})).json();
+  const choice={...owner,resultId:directory.context.resultId,row:0,attachReference:false};
+  expect((await post("/sports/conversations",{...choice,conversationId:"foreign"})).status).toBe(409);
+  expect((await post("/sports/conversations",{...choice,row:999})).status).toBe(409);
+  const opened=await (await post("/sports/conversations",choice)).json();
+  expect(opened.context.referenceStatus).toBe("not_attached");
+  expect(opened.context.reference).toBeNull();
+  expect((await post("/conversation-context",{conversationId:opened.conversationId,userId:"other"})).ok).toBe(false);
+});
