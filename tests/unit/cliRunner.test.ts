@@ -74,6 +74,10 @@ describe("offline CLI runner", () => {
       await expect(collect(new CliRunner(limits).adapter(program).generate(request))).rejects.toMatchObject({ code });
     }
   });
+  it.each(["CLI_EXTRA_USAGE_ENABLED", "CLI_BILLING_UNKNOWN"] as const)("blocks %s before inference even with available quota", async code => {
+    const { program, request } = await setup("echo", { executable: "must-never-start", inspect: async () => ({ ...ready(), blockedReason: code }) });
+    await expect(collect(new CliRunner(limits).adapter(program).generate(request))).rejects.toMatchObject({ code, retryable: false });
+  });
   it("waits only for a documented bounded quota reset and rechecks readiness", async () => {
     let calls = 0;
     const { program, request } = await setup("normal", { inspect: async () => ++calls === 1 ? { ...ready(), quota: "exhausted", resetAt: new Date(Date.now() + 40).toISOString() } : ready() });

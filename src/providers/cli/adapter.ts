@@ -7,6 +7,7 @@ export interface CliReadiness {
   automation: "supported" | "unsupported" | "unknown";
   quota: "available" | "exhausted" | "unknown";
   resetAt?: string;
+  blockedReason?: "CLI_EXTRA_USAGE_ENABLED" | "CLI_BILLING_UNKNOWN";
   usage?: { source: string; observedAt: string;
     windows: { scope: string; usedPercentage: number; resetsAt: string }[];
     extraUsageEnabled: boolean | null };

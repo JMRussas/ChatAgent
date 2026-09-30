@@ -1,5 +1,14 @@
 # Claude connection and shared-layer review
 
+## 2026-09-29 policy decision: included usage only
+
+User deferred extra usage to a later enhancement. Readiness now records a safe
+blocking code when the account's extra-usage flag is enabled or unknown. The runner
+enforces it before spawn, even if a future quota reader reports available capacity.
+Disabling provider fallback does not disable overage inside Claude itself. No
+account-wide settings were modified. Tests cover enabled, disabled, missing and
+malformed billing flags, and verify blocked calls never launch an executable.
+
 ## 2026-09-29 follow-up: CLI upgrade and actual account usage
 
 Verified the user's update to **2.1.285**. A read-only request to the fixed

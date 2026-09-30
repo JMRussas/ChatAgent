@@ -12,6 +12,12 @@ import type { DiscoveryAdapter } from "../../models/inventory";
 import type { ContextBudgetConfig } from "../../config/contextConfig";
 
 export const HEKATE_CLAUDE_ID = "hekate-claude";
+/** Included usage only. Account-level paid continuation must be disabled;
+ * a catalog fallback flag cannot prevent the same CLI invocation using overage. */
+export function includedUsageBlock(usage: unknown): CliReadiness["blockedReason"] {
+  const enabled = (usage as { extraUsageEnabled?: unknown } | undefined)?.extraUsageEnabled;
+  return enabled === false ? undefined : enabled === true ? "CLI_EXTRA_USAGE_ENABLED" : "CLI_BILLING_UNKNOWN";
+}
 export interface HekateBridgeConfig { python: string; root: string; executable: string; workingDirectory: string }
 export function hekateBridgeConfig(env: NodeJS.ProcessEnv): HekateBridgeConfig | undefined {
   if (!env.HEKATE_CLI_ROOT) return;
@@ -44,6 +50,7 @@ export function createHekateClaudeAdapter(config: HekateBridgeConfig, model: str
     return { version: typeof status.version === "string" ? status.version : null,
       authenticated: status.authenticated === "yes" ? "yes" : "no", automation: status.automation === "supported" ? "supported" : "unsupported",
       usage: status.usage ?? undefined,
+      blockedReason: includedUsageBlock(status.usage),
       // Best-effort account windows are exposed separately. Percentage headroom
       // does not establish a per-request allowance or authorize paid overage.
       quota: "unknown", observedAt: now, expiresAt: new Date(Date.now() + 30000).toISOString() };
@@ -84,7 +91,7 @@ export function connectHekateClaude(catalog: ModelCatalog, registry: ProviderReg
         observedAtIso: state.observedAt, expiresAtIso: state.expiresAt,
         installed: state.version ? "yes" as const : "unknown" as const,
         access: state.authenticated === "yes" ? "allowed" as const : "denied" as const,
-        health: "unknown" as const, apiCompatibility: ["cli"], lastErrorCode: state.authenticated === "yes" ? "CLI_QUOTA_UNKNOWN" : "AUTH_REQUIRED" };
+        health: "unknown" as const, apiCompatibility: ["cli"], lastErrorCode: state.authenticated === "yes" ? state.blockedReason ?? "CLI_QUOTA_UNKNOWN" : "AUTH_REQUIRED" };
     }));
   } } };
 }

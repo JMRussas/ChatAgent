@@ -1,5 +1,14 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: included-usage policy selected
+
+User deferred paid extra usage. Claude inference now fails before spawn with
+`CLI_EXTRA_USAGE_ENABLED` when enabled, or `CLI_BILLING_UNKNOWN` when the setting
+cannot be verified. This block precedes quota admission and never retries or
+triggers fallback. The account-wide setting was not changed. Next: user disables
+account extra usage, reconcile scoped windows with admission, then live answer
+and cancellation acceptance. Earlier billing-choice questions are resolved.
+
 ## 2026-09-29: reasoning evaluation and tool-use learning design
 
 User approved adding Claude interleaved-thinking conditions to the evaluation

@@ -1,5 +1,13 @@
 # 05 — Subscription CLI execution
 
+2026-09-29 policy decision: **included subscription usage only**. Paid overage is
+a later enhancement. The Claude adapter requires observed `extraUsageEnabled=false`
+before inference; enabled or unknown billing continuation blocks the invocation,
+even with quota headroom. This also prevents same-provider paid continuation,
+which `usageBillingFallbackAllowed=false` alone cannot enforce. Do not change the
+account-wide setting implicitly. Scoped quota admission and live acceptance remain
+separate requirements after the account setting is resolved.
+
 Status: 05A offline runner and registration contract implemented; 05B Claude local
 bridge implemented for review, live acceptance pending quota-policy resolution.
 See [Claude review](05-claude-review.md) and [offline evidence](05-evidence.md).

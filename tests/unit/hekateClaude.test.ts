@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectHekateClaude, hekateBridgeConfig, parseBridgeEvent } from "../../src/providers/cli/hekateClaude";
+import { connectHekateClaude, hekateBridgeConfig, parseBridgeEvent, includedUsageBlock } from "../../src/providers/cli/hekateClaude";
 import { ProviderRegistry, entryBindingId } from "../../src/providers/providerRegistry";
 import { entry, budget } from "../helpers/dispatchFixtures";
 import { cliBinding } from "../../src/providers/cli/providers";
@@ -7,6 +7,12 @@ import type { CliGenerationRequest } from "../../src/providers/cli/adapter";
 import type { ConversationContext } from "../../src/domain/context";
 
 describe("Hekate Claude bridge", () => {
+  it("requires explicit disabled overage even when usage is below the cap", () => {
+    expect(includedUsageBlock({ extraUsageEnabled: false })).toBeUndefined();
+    expect(includedUsageBlock({ extraUsageEnabled: true, windows: [{ usedPercentage: 0 }] })).toBe("CLI_EXTRA_USAGE_ENABLED");
+    for (const usage of [undefined, null, {}, { extraUsageEnabled: "false" }, { extraUsageEnabled: null }])
+      expect(includedUsageBlock(usage)).toBe("CLI_BILLING_UNKNOWN");
+  });
   it("requires explicit operator paths and ignores absent configuration", () => {
     expect(hekateBridgeConfig({})).toBeUndefined();
     expect(() => hekateBridgeConfig({ HEKATE_CLI_ROOT: "root" })).toThrow("HEKATE_CLI_CONFIG_INCOMPLETE");

@@ -94,6 +94,7 @@ export class CliRunner {
         if (!Number.isFinite(observed) || observed > Date.now() || !Number.isFinite(expires) || expires <= Date.now() || !readiness.version) throw fail("CLI_READINESS_UNKNOWN");
         if (readiness.authenticated !== "yes") throw fail("AUTH_REQUIRED");
         if (readiness.automation !== "supported") throw fail("CLI_AUTOMATION_UNSUPPORTED");
+        if (readiness.blockedReason) throw fail(readiness.blockedReason);
         if (readiness.quota === "unknown") throw fail("CLI_QUOTA_UNKNOWN");
         if (readiness.quota === "available") break;
         const waitMs = readiness.resetAt ? Date.parse(readiness.resetAt) - Date.now() : NaN;
