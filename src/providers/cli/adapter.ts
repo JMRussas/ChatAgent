@@ -14,6 +14,7 @@ export interface CliGenerationRequest {
   bindingId: string;
   context: ConversationContext;
   outputBudget: number;
+  role?: "fast" | "deep";
   signal: AbortSignal;
   workingDirectory: string;
   accountProfile: string;

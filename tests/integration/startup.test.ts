@@ -13,7 +13,7 @@ it("rejects a catalog window consumed by reserves before starting the server", a
   const directory = await mkdtemp(join(tmpdir(), "chatruntime-window-"));
   const catalogPath = join(directory, "catalog.json");
   await writeFile(catalogPath, JSON.stringify({ version: 1, models: [
-    { ...catalog.models[0], limits: { contextTokens: 2048 } }
+    { ...catalog.models.find(entry => entry.id === "mock-default")!, limits: { contextTokens: 2048 } }
   ] }));
   for (const role of ["FAST", "DEEP"]) {
     vi.stubEnv(`CHAT_${role}_PROVIDER`, "mock");

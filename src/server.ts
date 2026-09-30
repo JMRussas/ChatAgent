@@ -2,6 +2,7 @@ import { loadDispatchConfig } from "./config/dispatchConfig";
 import { CatalogDispatch } from "./routing/catalogDispatch";
 import { ModelSelectionError } from "./routing/modelSelector";
 import { buildProviderRegistry, entryBindingId } from "./providers/providerRegistry";
+import { connectHekateClaude } from "./providers/cli/hekateClaude";
 import { rejectUnsupportedInputs } from "./providers/interfaces";
 import { resolve } from "node:path";
 import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./app/documentTasks";
@@ -460,11 +461,14 @@ export async function startServer(port: number): Promise<void> {
     "azure-openai-chat": new AzureDiscoveryAdapter(),
     "bedrock-converse": new BedrockDiscoveryAdapter()
   };
-  const inventoryStore = new InventoryStore(discoveryAdapters, discoveryConfig);
   const registry = dispatchConfig.mode === "catalog" ? await buildProviderRegistry(catalog, connections, config, contextBudget) : undefined;
+  const claudeBridge = connectHekateClaude(catalog, registry, contextBudget);
+  connections.push(...claudeBridge.connections);
+  if (claudeBridge.discovery) discoveryAdapters.cli = claudeBridge.discovery;
+  const inventoryStore = new InventoryStore(discoveryAdapters, discoveryConfig);
   const dispatch = registry ? new CatalogDispatch(catalog, registry, dispatchConfig.policy, contextBudget, () => inventoryStore.listObservations()) : undefined;
   const buildCatalogResponse = () => {
-    const view = describeModelCatalog(catalog, config, { connections, observations: inventoryStore.listObservations() });
+    const view = describeModelCatalog(catalog, config, { connections, observations: inventoryStore.listObservations(), implementedBindingIds: claudeBridge.bindingIds });
     return { ...view, routingMode: dispatch ? "catalog" as const : "fixed-fast-deep" as const,
       models: dispatch ? view.models.map(model => ({ ...model, selectedRoles: [],
         resourceFacts: dispatch.policy.bindings[model.id]?.facts ?? model.resourceFacts,

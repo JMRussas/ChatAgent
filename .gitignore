@@ -16,6 +16,7 @@ data/document-tasks/
 
 # Local Python environment for the optional documentation worker
 .venv/
+__pycache__/
 
 # Local dispatch resource/quota policy
 data/dispatch-policy.local.json

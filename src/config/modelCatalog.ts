@@ -109,6 +109,7 @@ export function connectionIdForEntry(entry: Pick<ModelEntry, "provider" | "cli">
 }
 
 export interface CatalogInventoryView {
+  implementedBindingIds?: readonly string[];
   connections?: readonly Connection[];
   observations?: readonly ModelObservation[];
 }
@@ -126,7 +127,7 @@ export function describeModelCatalog(catalog: ModelCatalog, config: RuntimeProvi
     curatedBindingIds.add(bindingId);
     const observation = observationsByBindingId.get(bindingId);
     const connection = connectionsById.get(connectionId);
-    const adapterImplemented = isChatAdapterImplemented(apiKind);
+    const adapterImplemented = isChatAdapterImplemented(apiKind) || !!inventory.implementedBindingIds?.includes(bindingId);
 
     const availability: Readiness = computeReadiness({ enabled: entry.enabled, adapterImplemented, observation, nowIso });
 

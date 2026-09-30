@@ -1,5 +1,14 @@
 # Next ChatAgent handoff after 01B
 
+## 2026-09-29: Claude bridge review
+
+Claude and a local bridge to Hekate's unified provider are selected. Bridge and
+registry/discovery wiring are implemented; existing OS-profile authentication
+passes inspection. [Review](05-claude-review.md) records shared-layer defects,
+mitigations and pending quota policy. Do not claim a live answer/cancellation
+pass or completion of 05B. A user question about bounded attempts with unknown
+quota is pending; the current implementation retains strict blocking.
+
 ## 2026-09-29: spec 05A offline milestone
 
 The offline CLI runner and provider registration contract are implemented and

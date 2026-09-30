@@ -2,6 +2,24 @@
   "version": 1,
   "models": [
     {
+      "id": "claude-hekate-default",
+      "provider": "cli",
+      "model": "sonnet",
+      "enabled": true,
+      "roles": ["fast", "deep"],
+      "tasks": ["conversation", "coding", "reasoning", "summarization"],
+      "capabilities": { "thinking": "unknown", "tools": "unsupported", "vision": "unsupported", "structuredOutput": "unsupported" },
+      "limits": { "contextTokens": 8192, "maxOutputTokens": 2048 },
+      "deployment": "remote",
+      "cli": {
+        "adapterId": "hekate-claude", "accountProfile": "default", "authentication": "subscription-login",
+        "nonInteractive": "supported", "streaming": "unsupported", "outputFormat": "jsonl",
+        "executionMode": "answer-only", "automationSupport": "supported"
+      },
+      "billing": { "kind": "subscription", "quotaPoolId": "claude-default", "exhaustionPolicy": "fail", "usageBillingFallbackAllowed": false },
+      "notes": "Local bridge to Hekate shared CLI provider. Limits are conservative application caps. Requires configured paths, current readiness and resource admission. Live acceptance pending; unknown quota blocks generation."
+    },
+    {
       "id": "mock-default",
       "provider": "mock",
       "model": "mock-v1",

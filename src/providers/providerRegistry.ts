@@ -30,7 +30,7 @@ export class ProviderRegistry {
   }
   get(id: string) { return this.bindings.get(id); }
   registerCli(binding: Omit<RegisteredBinding, "fast" | "deep" | "capabilities">,
-    adapters: CliAdapterRegistry, workingDirectory: string, outputBudget: number) {
+    adapters: CliAdapterRegistry, workingDirectory: string, outputBudget: number | { fast: number; deep: number }) {
     const adapter = adapters.get(binding.entry.cli?.adapterId ?? "");
     if (!adapter) throw new Error("CLI_ADAPTER_NOT_IMPLEMENTED");
     this.register(cliBinding(binding, adapter, workingDirectory, outputBudget));

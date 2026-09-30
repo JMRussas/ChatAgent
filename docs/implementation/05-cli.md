@@ -1,9 +1,11 @@
 # 05 — Subscription CLI execution
 
-Status: 05A offline runner and registration contract implemented; 05B live adapter
-pending product/account selection. See [offline evidence and limits](05-evidence.md).
+Status: 05A offline runner and registration contract implemented; 05B Claude local
+bridge implemented for review, live acceptance pending quota-policy resolution.
+See [Claude review](05-claude-review.md) and [offline evidence](05-evidence.md).
 Depends on generation lifecycle, inventory, and dispatch (02–04).
-The particular CLI product and account have not been selected. Do not invent a
+Claude uses the existing OS login under profile label `default`; authentication
+was inspected. Remaining quota and extra usage are not yet verified. Do not invent
 subscription entitlement or pick a billed fallback implicitly.
 
 ## Two deliverables

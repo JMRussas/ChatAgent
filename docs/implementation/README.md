@@ -1,5 +1,13 @@
 # Implementation handoff
 
+## 2026-09-29: Claude reuse and review
+
+User selected Claude through a local bridge to Hekate's existing unified CLI
+provider. [Review findings and setup](05-claude-review.md) describe reuse, fixes
+and pending live acceptance. Existing Max authentication is confirmed; generation
+is still blocked on unknown quota under the current policy. Product selection
+is resolved. Spec 05B is not yet complete.
+
 ## 2026-09-29: spec 05A offline CLI milestone
 
 Offline runner, explicit adapter registration, provider wrappers, quota waits and
