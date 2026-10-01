@@ -107,3 +107,20 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
     expect(JSON.parse(await readFile(telemetry, "utf8"))).toHaveProperty("estimator");
   } finally { await handle.shutdown(); await rm(directory, { recursive: true, force: true }); }
 });
+
+it("keeps mock chat working with a loaded role catalog and rejects role execution explicitly",async()=>{
+ const directory=await mkdtemp(join(tmpdir(),"chat-role-mock-"));
+ const path=join(directory,"roles.json");
+ await writeFile(path,JSON.stringify({version:"role-catalog-v1",roles:[{id:"writer",version:"1",bindingId:"fixed",instructions:"Write",toolIds:[]}]}));
+ for(const phase of ["FAST","DEEP"]){vi.stubEnv(`CHAT_${phase}_PROVIDER`,"mock");vi.stubEnv(`CHAT_${phase}_MODEL`,"mock-v1");}
+ vi.stubEnv("ROLE_CATALOG_PATH",path);vi.stubEnv("SPORTS_BRIEFING_CONFIG_PATH","");vi.stubEnv("DOC_TASK_PYTHON","");
+ vi.stubEnv("CONTEXT_SUMMARY_MODE","off");vi.stubEnv("TELEMETRY_STORE_PATH",join(directory,"telemetry.json"));vi.stubEnv("SHUTDOWN_GRACE_MS","0");
+ const handle=await startServer(0);
+ try{
+ const post=(body:unknown)=>fetch(`http://127.0.0.1:${handle.address.port}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+ const body={conversationId:"roles",userId:"u",text:"hello"};
+ expect((await post(body)).status).toBe(200);
+ const rejected=await post({...body,runControls:{roleId:"writer"}});
+ expect(rejected.ok).toBe(false);expect(await rejected.text()).toContain("ROLE_EXECUTION_UNSUPPORTED");
+ }finally{await handle.shutdown();await rm(directory,{recursive:true,force:true});}
+});

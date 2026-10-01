@@ -77,7 +77,13 @@ export class EvaluationRecorder {
           const raw=JSON.stringify(event.attachedReferences),captured=this.config.capture === "answers" ? redact(raw) : undefined;
           return {contentHash:digest(raw),artifactHash:captured === undefined ? null : digest(captured),transformed:captured !== undefined && captured !== raw,count:event.attachedReferences.length,...(captured === undefined ? {} : {text:captured})};
         })()} : {}),
+        ...(event.roleExecution ? {roleExecution:(()=>{
+          const raw=JSON.stringify(event.roleExecution),captured=this.config.capture === "answers" ? redact(raw) : undefined;
+          return {contentHash:digest(raw),artifactHash:captured === undefined ? null : digest(captured),transformed:captured !== undefined && captured !== raw,...(captured === undefined ? {} : {text:captured})};
+        })()} : {}),
         ...(event.runControls ? {runControls:{...event.runControls,
+          ...(event.runControls.roleId ? {roleId:redact(event.runControls.roleId)} : {}),
+          ...(event.runControls.toolIds ? {toolIds:event.runControls.toolIds.map(redact)} : {}),
           ...(event.runControls.bindingId ? {bindingId:redact(event.runControls.bindingId)} : {}),
           ...(event.runControls.targetMessageId ? {targetMessageId:this.identity("message",event.runControls.targetMessageId)} : {})}} : {}),
         ...(event.selectedContext ? {selectedContext:(() => {

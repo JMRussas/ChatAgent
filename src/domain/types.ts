@@ -58,6 +58,7 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  roleExecution?: import("../app/roleCatalog").RoleExecution;
   /** UI/evaluation only; never serialize into model history. */
   payloadResults?: import("../app/toolResult").ToolResult[];
   attachedReferences?: UserMessage["attachedReferences"];

@@ -1,5 +1,41 @@
 # Development roadmap
 
+## Role catalog and enforced tool exposure — implemented 2026-09-30
+
+Opt-in role configuration now packages model binding, instructions, tool allowlist,
+thinking, context/output contracts and input/tool-call limits. API selection captures
+an invocation snapshot, rejects disallowed overrides and validates the entire plan
+before executing any tools. Role-free calls retain existing behavior. Timeline and
+evaluation records track the effective role under existing capture policy.
+
+Set `ROLE_CATALOG_PATH` to `data/roles/sports.example.json` (fixed-provider example);
+select with `runControls.roleId`. See [configuration and limits](implementation/12-request-to-evidence.md).
+Next: manual role picker and context-budget visibility. LangChain migration,
+background role coordination, automatic role selection and role-file hot reload are
+not implemented. This increment makes no live-model quality claim.
+
+
+## Active direction: versioned role containers — 2026-09-30
+
+The [updated implementation plan](implementation/12-request-to-evidence.md#active-plan-role-containers-and-focused-execution--2026-09-30)
+supersedes older next-step ordering. A role packages its model, instructions, tools,
+context policy, thinking settings, limits and output contract. Roles remain manually
+selected initially, with effective configuration and versions recorded per invocation.
+
+Next implementation: validated role catalog and identical tool allowlists in model
+exposure, validation and execution. Follow with manual role selection/context-budget
+visibility, a bounded opt-in LangChain/LangGraph adapter comparison, grounded reporting
+and role-specific evaluation, then layer-one background-task coordination. Existing
+account quotas and user-payload/reference separation remain mandatory. Independent
+quality grading stays separate from production review. OSS execution requires no
+LangChain cloud services; hosted tracing/deployment is not part of the initial plan.
+
+Current state: game-operation review fixes remain uncommitted; their 22 focused unit
+and 21 browser tests plus build passed. No role runtime or framework migration has
+been implemented. Persistent user profiles and semantic retrieval remain longer-term,
+starting with manual context selection and an inspection of Hekate storage for reuse.
+
+
 ## Bounded game search and snapshot details — 2026-09-30
 
 General NBA/NFL date-window search, provider team-name resolution and bounded

@@ -34,7 +34,7 @@ export class GameOperations {
  async search(input:unknown,userId:string,conversationId:string,signal:AbortSignal){
   const args=gameSearchSchema.parse(input);if(this.closed)throw Error("CAPABILITIES_CHANGED");
   const combined=AbortSignal.any([signal,this.shutdown.signal]);combined.throwIfAborted();
-  let league=args.league,team=null;
+  let league=args.league ?? (this.config.leagues.length === 1 ? this.config.leagues[0] : undefined),team=null;
   if(league && !this.config.leagues.includes(league))return {status:"unsupported",missingCapability:`${league} game search`};
   if(args.teamSelection){
    const candidate=this.directory.select(args.teamSelection,userId,conversationId);
@@ -43,7 +43,9 @@ export class GameOperations {
   }
   if(args.teamQuery){
    const resolution=await this.directory.lookup({query:args.teamQuery,...(league?{league}:{})},userId,conversationId,combined);
-   if(resolution.status!=="matched")return {status:"needs_resolution",resolution};
+   combined.throwIfAborted();
+   if(this.closed)throw Error("CAPABILITIES_CHANGED");
+   if(resolution.status!=="matched")return {status:resolution.status === "unavailable" || resolution.status === "unsupported" ? resolution.status : "needs_resolution",resolution};
    const candidate=resolution.snapshot.candidates[0];league=z.enum(["NBA","NFL"]).parse(candidate.scope.league);team=candidate.team;
   }
   if(!league || !this.config.leagues.includes(league))return {status:"unsupported",missingCapability:"game search for resolved league"};
@@ -85,7 +87,7 @@ export class GameOperations {
   if(this.closed)throw Error("CAPABILITIES_CHANGED");const {resultId,row}=detailSchema.parse(input);
   const parent=this.directory.results.get(resultId,userId,conversationId),record=this.games.get(resultId)?.records[row];
   if(!record)throw Error("GAME_REFERENCE_UNAVAILABLE");
-  return this.directory.results.put(userId,conversationId,{version:"tool-result-v1",context:{...parent.context,summary:"Selected game record prepared from the retrieved snapshot. No fresh lookup was performed."},payload:{kind:"table",title:`${record.away.name} at ${record.home.name}`,columns:["Field","Value"],rows:[["Start (UTC)",record.startsAt],["Status",record.status],["Away",record.away.name],["Home",record.home.name],["Away score",record.score?String(record.score.away):"Unknown"],["Home score",record.score?String(record.score.home):"Unknown"]]},evidence:{...parent.evidence,sourceUrl:record.provenance.url}});
+  return this.directory.results.put(userId,conversationId,{version:"tool-result-v1",context:{...parent.context,summary:"Selected game record prepared from the retrieved snapshot. No fresh lookup was performed."},payload:{kind:"table",title:"Selected game record",columns:["Field","Value"],rows:[["Start (UTC)",record.startsAt],["Status",record.status],["Away",record.away.name],["Home",record.home.name],["Away score",record.score?String(record.score.away):"Unknown"],["Home score",record.score?String(record.score.home):"Unknown"]]},evidence:{...parent.evidence,sourceUrl:record.provenance.url}});
  }
  tools():CapabilityTool[]{return [
   {id:"sports:find-games",description:`Search games for ${this.config.leagues.join(", ")}. Accepts team names, not provider IDs. For a specific matchup/date use explicit ISO from/to (maximum 31 days); status optionally filters. latest_completed resolves a team and searches up to ${this.config.maxLatestWindows} windows of ${this.config.latestWindowDays} days backwards from now. Coverage is partial; latest is not guaranteed. Returns a user table; rows are outside model context.`,inputSchema:{type:"object",additionalProperties:false,properties:{league:{type:"string",enum:this.config.leagues},teamQuery:{type:"string"},teamSelection:{type:"object",additionalProperties:false,required:["snapshotId","candidateId"],properties:{snapshotId:{type:"string"},candidateId:{type:"string"}}},selection:{enum:["all","latest_completed"]},from:{type:"string"},to:{type:"string"},status:{enum:["any","scheduled","live","final","postponed","cancelled"]}}},validate:v=>gameSearchSchema.parse(v),execute:async(v,u,_r,s,c)=>{if(!c)throw Error("CONVERSATION_REQUIRED");return this.search(v,u,c,s);}},

@@ -1,3 +1,4 @@
+import { RoleCatalog } from "../../src/app/roleCatalog";
 import { ToolResultStore } from "../../src/app/toolResult";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -40,6 +41,18 @@ const annotations = (text = "answer") => ({ version: 2, rubricVersion: "rubric-v
   ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
 
 describe("evaluation recording", () => {
+  it("captures role snapshots under the configured retention policy",async()=>{
+    const catalog=new RoleCatalog({version:"role-catalog-v1",roles:[{id:"writer",version:"1",bindingId:"fixed",instructions:"PRIVATE_ROLE_INSTRUCTIONS",toolIds:[]}]});
+    const {execution}=catalog.resolve({roleId:"writer",mode:"chat",thinking:"configured"},[],["fixed"]);
+    for(const capture of ["metadata","answers"] as const){
+      const recorder=await setup({capture});
+      recorder.record("c",{type:"activity",messageId:"m",text:"Role selected",roleExecution:execution,createdAtIso:new Date().toISOString()});
+      await recorder.finish();const run=await readArtifact(recorder.path);
+      expect(run.trace[0].roleExecution?.contentHash).toBe(digest(JSON.stringify(execution)));
+      if(capture === "metadata")expect(await readFile(recorder.path,"utf8")).not.toContain("PRIVATE_ROLE_INSTRUCTIONS");
+      else expect(run.trace[0].roleExecution?.text).toContain("PRIVATE_ROLE_INSTRUCTIONS");
+    }
+  });
   it("records payload hashes separately and retains content only in answers mode", async () => {
     for (const capture of ["metadata", "answers"] as const) {
       const recorder = await setup({capture});

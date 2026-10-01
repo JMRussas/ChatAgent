@@ -227,3 +227,17 @@ test("game browsing and snapshot details require no model and clear on owner cha
  await expect(page.locator("#gamesPayload table")).toHaveCount(0);
  await expect(page.locator("#selectedGame option")).toHaveCount(0);
 });
+
+test("game browser disables details for empty searches and explains unresolved names",async({page})=>{
+ await expect(page.locator("#showGameDetails")).toBeDisabled();
+ await page.locator("#gamesLeague").selectOption("NBA");
+ await page.locator("#gamesFrom").fill("2026-01-01T00:00:00Z");
+ await page.locator("#gamesTo").fill("2026-01-02T00:00:00Z");
+ await page.locator("#searchGames").click();
+ await expect(page.locator("#gamesStatus")).toContainText("0 NBA game records");
+ await expect(page.locator("#showGameDetails")).toBeDisabled();
+ await page.locator("#gamesTeam").fill("Unknown club");
+ await page.locator("#searchGames").click();
+ await expect(page.locator("#gamesStatus")).toHaveText("No matching team found. Check the team name and league.");
+ await expect(page.locator("#showGameDetails")).toBeDisabled();
+});

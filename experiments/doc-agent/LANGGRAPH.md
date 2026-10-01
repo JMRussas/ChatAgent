@@ -1,5 +1,16 @@
 # The same agent as a LangGraph workflow
 
+## Relationship to the live application plan — 2026-09-30
+
+This Python experiment remains separate from the live TypeScript sports planner.
+The [active role-container plan](../../docs/implementation/12-request-to-evidence.md)
+introduces application-owned, versioned model/tool/context configurations first,
+then compares a bounded LangChain/LangGraph execution adapter against the existing
+runtime. It does not claim that live roles, background jobs or durable sports
+execution already exist. The single-task durability described below belongs to
+this experiment. Cloud hosting and hosted tracing are not required by the plan.
+
+
 ## 2026-09-27: durable single-task checkpoint
 
 [SQLite pause/resume](DURABILITY.md) now supports process restarts from confirmed

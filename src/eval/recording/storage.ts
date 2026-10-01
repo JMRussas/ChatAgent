@@ -7,6 +7,7 @@ import { canonical, digest, type RunArtifact } from "./contract";
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const label = z.string().max(512);
 const eventSchema = z.object({
+  roleExecution:z.object({contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),text:z.string().optional()}).strict().optional(),
   attachedReferences:z.object({contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),count:z.number().int().min(1).max(3),text:z.string().optional()}).strict().optional(),
   runControls:runControlsSchema.optional(),
   sequence: z.number().int().positive(), timelineSequence: z.number().int().positive().nullable(),
@@ -47,7 +48,7 @@ export function validateArtifact(value: unknown, now = Date.now(), allowExpired 
   const parents = new Map<string, string>();
   const pending = new Set<string>();
   for (const [i, event] of parsed.trace.entries()) {
-    for (const payload of [...(event.payloads ?? []), ...(event.selectedContext ? [event.selectedContext] : []), ...(event.attachedReferences ? [event.attachedReferences] : [])]) {
+    for (const payload of [...(event.payloads ?? []), ...(event.roleExecution ? [event.roleExecution] : []), ...(event.selectedContext ? [event.selectedContext] : []), ...(event.attachedReferences ? [event.attachedReferences] : [])]) {
       if (parsed.manifest.capture === "metadata" && payload.text !== undefined ||
         payload.text !== undefined && digest(payload.text) !== payload.artifactHash ||
         !payload.transformed && payload.artifactHash !== null && payload.contentHash !== payload.artifactHash)

@@ -50,3 +50,31 @@ it("does not publish when closed while a source ignores cancellation",async()=>{
  const pending=s.ops.search({league:"NFL",from:"2026-09-27T00:00:00Z",to:"2026-09-30T00:00:00Z"},"u","c",signal());
  const rejected=expect(pending).rejects.toThrow();s.ops.close();release();await rejected;
 });
+
+it.each(["cancel", "close"])("rejects %s during team resolution before returning any result",async action=>{
+ const s=setup(),controller=new AbortController();
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ vi.spyOn(s.directory,"lookup").mockImplementation(async()=>{await gate;return {status:"unavailable",requested:{query:"Comets"},reason:"cancelled"};});
+ const pending=s.ops.search({teamQuery:"Comets",selection:"latest_completed"},"u","c",controller.signal);
+ const rejected=expect(pending).rejects.toThrow();
+ if(action === "cancel")controller.abort();else s.ops.close();
+ release();await rejected;expect(s.read).not.toHaveBeenCalled();
+});
+it("limits unscoped team resolution to the sole configured game league",async()=>{
+ const s=setup(),lookup=vi.spyOn(s.directory,"lookup");
+ await s.ops.search({teamQuery:"Comets",selection:"latest_completed"},"u","c",signal());
+ expect(lookup.mock.calls[0][0]).toEqual({query:"Comets",league:"NFL"});
+});
+it("preserves directory unavailability rather than asking for resolution",async()=>{
+ const s=setup();vi.spyOn(s.directory,"lookup").mockResolvedValue({status:"unavailable",requested:{query:"Comets"},reason:"admission"});
+ expect(await s.ops.search({teamQuery:"Comets",selection:"latest_completed"},"u","c",signal())).toMatchObject({status:"unavailable",resolution:{reason:"admission"}});
+ expect(s.read).not.toHaveBeenCalled();
+});
+it("accepts maximum-length team names in snapshot details without losing names",async()=>{
+ const home="H".repeat(200),away="A".repeat(200);
+ const s=setup([{records:[{...game,home:{...team,name:home},away:{...game.away,name:away}}]}]);
+ const result=await s.ops.search({league:"NFL",from:"2026-09-27T00:00:00Z",to:"2026-09-30T00:00:00Z"},"u","c",signal());
+ if(!("context" in result))throw Error("Missing search result");
+ const details=s.ops.details({resultId:result.context.resultId,row:0},"u","c");
+ expect(details.payload?.rows).toContainEqual(["Home",home]);expect(details.payload?.rows).toContainEqual(["Away",away]);
+});

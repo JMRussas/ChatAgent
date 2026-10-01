@@ -480,7 +480,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       <label>To (exclusive ISO timestamp) <input id="gamesTo" placeholder="2026-09-08T00:00:00Z" /></label>
       <button type="button" id="searchGames">Find games</button>
       <label>Retrieved game <select id="selectedGame"></select></label>
-      <button type="button" id="showGameDetails">Show record details</button>
+      <button type="button" id="showGameDetails" disabled>Show record details</button>
       <p id="gamesStatus" role="status"></p><div id="gamesPayload" class="tool-payload"></div>
     </section>
     <section class="panel" id="teamDirectoryPanel" hidden>
@@ -983,8 +983,8 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     };
     $("gamesSelection").onchange=()=>{const latest=$("gamesSelection").value === "latest_completed";$("gamesFrom").disabled=latest;$("gamesTo").disabled=latest;};
     const runGames=async operation=>{
-      if(operation === "details" && !gameSearchResult)return;
-      gameRequest?.abort();const controller=new AbortController();gameRequest=controller;
+      if(operation === "details" && (!gameSearchResult || !$("selectedGame").options.length))return;
+      gameRequest?.abort();const controller=new AbortController();gameRequest=controller;$("showGameDetails").disabled=true;
       const conversationId=conversationIdInput.value.trim(),userId=userIdInput.value.trim();
       const input=operation === "details" ? {resultId:gameSearchResult.context.resultId,row:Number($("selectedGame").value)} : {
         league:$("gamesLeague").value,selection:$("gamesSelection").value,...($("gamesTeam").value.trim()?{teamQuery:$("gamesTeam").value.trim()}:{}),
@@ -995,11 +995,16 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
         const r=await fetch("/sports/games",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({conversationId,userId,operation,input})});const result=await r.json();
         if(controller.signal.aborted || conversationId!==conversationIdInput.value.trim() || userId!==userIdInput.value.trim())return;
         if(!r.ok)throw Error(result.error || "Game request failed");
-        if(!result.context){$("gamesStatus").textContent=JSON.stringify(result);return;}
+        if(!result.context){
+          const status=result.resolution?.status || result.status;
+          $("gamesStatus").textContent=status === "not_found" ? "No matching team found. Check the team name and league." : status === "ambiguous" || status === "partial" ? "Team lookup did not identify a unique match. Refine the team name and league." : status === "unsupported" ? "Game search or team lookup is not configured for this league." : "Team lookup is unavailable. Try again later.";
+          return;
+        }
         gameResults.set(result.context.resultId,result);if(gameResults.size>20)gameResults.delete(gameResults.keys().next().value);
         if(operation === "search" && result.payload){gameSearchResult=result;result.payload.rows.forEach((row,index)=>{const o=document.createElement("option");o.value=String(index);o.textContent=row.slice(0,4).join(" · ");$("selectedGame").appendChild(o);});}
         renderToolPayloads($("gamesPayload"),[result]);$("gamesStatus").textContent=result.context.summary+" "+result.context.limitations.join(". ");refreshReferenceChoices();
       }catch(error){if(!controller.signal.aborted)$("gamesStatus").textContent=error.message;}
+      finally{if(gameRequest===controller && !controller.signal.aborted)$("showGameDetails").disabled=!gameSearchResult || !$("selectedGame").options.length;}
     };
     $("searchGames").onclick=()=>runGames("search");$("showGameDetails").onclick=()=>runGames("details");
     $("openTeamConversation").onclick = async () => {
@@ -1016,7 +1021,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       } catch (error) { $("directoryStatus").textContent = error.message; }
       finally { $("openTeamConversation").disabled = false; }
     };
-    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); gameRequest?.abort(); gameResults.clear(); gameSearchResult=null; $("selectedGame").replaceChildren(); $("gamesPayload").replaceChildren(); $("gamesStatus").textContent=""; selectedReferences.clear(); clearDirectory(); refreshReferenceChoices(); referenceSummary(); void refreshConversationContext(); });
+    for (const id of ["conversationId", "userId"]) $(id).addEventListener("change", () => { saveConversation(); gameRequest?.abort(); $("showGameDetails").disabled=true; gameResults.clear(); gameSearchResult=null; $("selectedGame").replaceChildren(); $("gamesPayload").replaceChildren(); $("gamesStatus").textContent=""; selectedReferences.clear(); clearDirectory(); refreshReferenceChoices(); referenceSummary(); void refreshConversationContext(); });
     void refreshConversationContext();
     renderDecision();
     renderThread();

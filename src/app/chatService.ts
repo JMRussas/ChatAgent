@@ -83,7 +83,7 @@ export class ChatService {
   thinkingOptions(bindingId?:string) { return this.orchestrator.thinkingOptions?.(bindingId) ?? Promise.resolve({options:["configured"]}); }
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
-    if (message.runControls && !this.orchestrator.runControlOptions) throw new GenerationError("RUN_CONTROLS_UNSUPPORTED",false);
+    if (message.runControls && !this.orchestrator.runControlOptions) throw new GenerationError(message.runControls.roleId ? "ROLE_EXECUTION_UNSUPPORTED" : "RUN_CONTROLS_UNSUPPORTED",false);
     this.claimConversation(message.conversationId, message.userId);
     const selectedContext = this.getSelectedContext(message.conversationId,message.userId);
     let attachedReferences: import("./referenceSelection").AttachedReference[] = [];

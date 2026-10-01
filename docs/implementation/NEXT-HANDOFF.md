@@ -1,5 +1,68 @@
 # Next ChatAgent handoff after 01B
 
+## Role review corrections — 2026-09-30
+
+Mock-only startup retains its normal orchestrator even when a role catalog is loaded;
+role requests there fail explicitly with ROLE_EXECUTION_UNSUPPORTED. Planning prompts
+now state the role's effective call limit and omit retrieval instructions when no tools
+are exposed. Regression checks cover real mock startup and generated prompt limits.
+Next: manual role selection and context-budget visibility.
+
+
+## Role catalog and enforced tool exposure — implemented 2026-09-30
+
+Opt-in role configuration now packages model binding, instructions, tool allowlist,
+thinking, context/output contracts and input/tool-call limits. API selection captures
+an invocation snapshot, rejects disallowed overrides and validates the entire plan
+before executing any tools. Role-free calls retain existing behavior. Timeline and
+evaluation records track the effective role under existing capture policy.
+
+Set `ROLE_CATALOG_PATH` to `data/roles/sports.example.json` (fixed-provider example);
+select with `runControls.roleId`. See [configuration and limits](12-request-to-evidence.md).
+Next: manual role picker and context-budget visibility. LangChain migration,
+background role coordination, automatic role selection and role-file hot reload are
+not implemented. This increment makes no live-model quality claim.
+Validation: 662 tests across 87 files passed, followed by 22 recording tests
+after adding the role-capture regression (663 tests total). TypeScript build and
+21 browser tests passed. No live provider calls, preview restart or commit.
+
+
+## Active direction: versioned role containers — 2026-09-30
+
+The [updated implementation plan](12-request-to-evidence.md#active-plan-role-containers-and-focused-execution--2026-09-30)
+supersedes older next-step ordering. A role packages its model, instructions, tools,
+context policy, thinking settings, limits and output contract. Roles remain manually
+selected initially, with effective configuration and versions recorded per invocation.
+
+Next implementation: validated role catalog and identical tool allowlists in model
+exposure, validation and execution. Follow with manual role selection/context-budget
+visibility, a bounded opt-in LangChain/LangGraph adapter comparison, grounded reporting
+and role-specific evaluation, then layer-one background-task coordination. Existing
+account quotas and user-payload/reference separation remain mandatory. Independent
+quality grading stays separate from production review. OSS execution requires no
+LangChain cloud services; hosted tracing/deployment is not part of the initial plan.
+
+Current state: game-operation review fixes remain uncommitted; their 22 focused unit
+and 21 browser tests plus build passed. No role runtime or framework migration has
+been implemented. Persistent user profiles and semantic retrieval remain longer-term,
+starting with manual context selection and an inspection of Hekate storage for reuse.
+
+
+## Game-operation review fixes — 2026-09-30
+
+Reviewed `e06676a`. Game search now rechecks cancellation/closure after directory
+resolution, restricts unscoped name lookup to the sole configured game league, and
+preserves unavailable/unsupported resolution outcomes. Details use a bounded title
+while retaining full provider team names in their rows. The browser shows readable
+resolution messages and disables details while loading or when no row exists.
+Regression coverage includes cancellation and closure during lookup, restricted
+league lookup, admission failure, maximum-length names and empty/unresolved UI states.
+The large full tool registry remains a documented constraint for small context windows;
+this review does not claim to resolve registry size or live model quality.
+Validation: 22 focused unit tests, 21 browser tests and TypeScript build passed.
+No live provider calls or preview restart.
+
+
 ## Bounded game search and snapshot details — 2026-09-30
 
 General NBA/NFL date-window search, provider team-name resolution and bounded

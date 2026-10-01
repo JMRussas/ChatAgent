@@ -1,0 +1,70 @@
+import {expect,it,vi} from "vitest";
+import {RoleCatalog} from "../../src/app/roleCatalog";
+import {CapabilityChat,planningInstruction,type CapabilityTool} from "../../src/app/capabilityChat";
+import {ContextManager} from "../../src/app/contextManager";
+import {InMemoryConversationTimelineStore} from "../../src/app/timelineStore";
+import {InMemoryTaskQueue} from "../../src/providers/interfaces";
+const role={id:"researcher",version:"1",bindingId:"fixed",instructions:"ROLE_INSTRUCTION",toolIds:["allowed"],maxToolCalls:1,maxInputTokens:5000};
+const msg={messageId:"m",conversationId:"c",userId:"u",text:"Look up evidence",timestampIso:new Date().toISOString(),runControls:{roleId:"researcher",thinking:"configured" as const,mode:"chat" as const}};
+function setup(plan:unknown,definition:unknown=role){
+ const execute=vi.fn(async()=>({status:"done"}));
+ const tools:CapabilityTool[]=["allowed","excluded"].map(id=>({id,description:id+"_SCHEMA_CANARY",inputSchema:{},validate:v=>v,execute}));
+ const catalog=new RoleCatalog({version:"role-catalog-v1",roles:[definition]});
+ const timeline=new InMemoryConversationTimelineStore(),queue=new InMemoryTaskQueue();
+ const generate=vi.fn(async()=>({text:JSON.stringify(plan),finishReason:"stop" as const}));
+ const chat=new CapabilityChat({createProvisionalReply:generate},queue,timeline,new ContextManager(timeline,{windowTokens:8192,maxHistoryTurns:12,safetyTokens:256,fastOutputTokens:512,deepOutputTokens:2048}),()=>({fastProvider:"test",fastModel:"test",deepProvider:"none",deepModel:"none",generatedAtIso:new Date().toISOString()}),()=>tools,undefined,catalog);
+ return {chat,catalog,generate,execute,timeline,tools};
+}
+it("exposes only selected tools and records the effective role",async()=>{
+ const a=setup({action:"retrieve",calls:[{tool:"allowed",arguments:{}}]});
+ await a.chat.handleUserMessage(msg);await a.chat.whenIdle();
+ const prompt=JSON.stringify(a.generate.mock.calls);
+ expect(prompt).toContain("ROLE_INSTRUCTION");expect(prompt).toContain("allowed_SCHEMA_CANARY");expect(prompt).not.toContain("excluded_SCHEMA_CANARY");expect(a.execute).toHaveBeenCalledTimes(1);
+ const event=(await a.timeline.getEvents("c")).find(e=>e.roleExecution);
+ expect(event?.roleExecution).toMatchObject({definition:{version:"1"},bindingId:"fixed",toolIds:["allowed"]});
+});
+it("rejects a mixed allowed/excluded plan before any tool executes",async()=>{
+ const a=setup({action:"retrieve",calls:[{tool:"allowed",arguments:{}},{tool:"excluded",arguments:{}}]});
+ await expect(a.chat.handleUserMessage(msg)).rejects.toThrow();expect(a.execute).not.toHaveBeenCalled();
+});
+it("enforces tool-free roles and per-role call counts",async()=>{
+ for(const definition of [{...role,toolIds:[],maxToolCalls:0},role]){
+ const a=setup({action:"retrieve",calls:[{tool:"allowed",arguments:{}},{tool:"allowed",arguments:{}}]},definition);
+ await expect(a.chat.handleUserMessage(msg)).rejects.toThrow();expect(a.execute).not.toHaveBeenCalled();
+ }
+});
+it.each([
+ [{roleId:"missing"},role,"ROLE_NOT_FOUND"],
+ [{toolIds:["excluded"]},role,"ROLE_TOOL_OVERRIDE_DENIED"],
+ [{bindingId:"other"},role,"ROLE_MODEL_OVERRIDE_DENIED"],
+ [{thinking:"on"},role,"ROLE_THINKING_OVERRIDE_DENIED"],
+ [{},{...role,bindingId:"absent"},"ROLE_MODEL_UNAVAILABLE"],
+ [{},{...role,toolIds:["absent"]},"ROLE_TOOL_UNAVAILABLE"],
+ [{},{...role,maxInputTokens:256},"ROLE_INPUT_LIMIT"],
+ [{},{...role,thinking:"on"},"THINKING_CONFIG_UNSUPPORTED"]
+])("rejects invalid or unsupported configuration before generation (%j)",async(overrides,definition,error)=>{
+ const a=setup({action:"answer",message:"unused"},definition);
+ await expect(a.chat.handleUserMessage({...msg,runControls:{...msg.runControls,...overrides} as typeof msg.runControls})).rejects.toThrow(error as string);expect(a.generate).not.toHaveBeenCalled();
+});
+it("snapshots role and tool definitions before asynchronous work",async()=>{
+ const a=setup({action:"retrieve",calls:[{tool:"allowed",arguments:{}}]});
+ const pending=a.chat.handleUserMessage(msg);
+ a.catalog.replace({version:"role-catalog-v1",roles:[{...role,version:"2",toolIds:[],maxToolCalls:0}]});
+ a.tools[0].execute=vi.fn(async()=>{throw Error("mutated");});
+ await pending;await a.chat.whenIdle();expect(a.execute).toHaveBeenCalledTimes(1);
+ expect((await a.timeline.getEvents("c")).find(e=>e.roleExecution)?.roleExecution?.definition.version).toBe("1");
+ await expect(a.chat.handleUserMessage({...msg,messageId:"next"})).rejects.toThrow();
+});
+it("can narrow to no tools without changing the saved role",async()=>{
+ const a=setup({action:"answer",message:"Evidence unavailable"});
+ await a.chat.handleUserMessage({...msg,runControls:{...msg.runControls,toolIds:[]}});
+ expect(JSON.stringify(a.generate.mock.calls)).not.toContain("allowed_SCHEMA_CANARY");expect(a.catalog.list()[0].toolIds).toEqual(["allowed"]);
+});
+
+it("describes the effective call limit and omits retrieval for tool-free roles",()=>{
+ const a=setup({action:"answer",message:"ok"});
+ expect(planningInstruction(a.tools,"now",1)).toContain("up to 1 independent");
+ expect(planningInstruction(a.tools,"now",2)).not.toContain("up to 3");
+ expect(planningInstruction([],"now",0)).not.toContain('"action":"retrieve"');
+ expect(planningInstruction([],"now",0)).toContain("Retrieval is disabled");
+});

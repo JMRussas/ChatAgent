@@ -23,8 +23,8 @@ The direct UI needs no model. Shared provider admission/cache remains in force.
 `gameSearch` config controls leagues, window days/count, result TTL, row limit and
 snapshot count; reload invalidates handles and aborts active operations.
 
-Next: grounded reporting from explicitly selected game evidence, plus deterministic
-stage evaluation fixtures before claiming model quality. Still pending: dependent tool
+Next: role containers with enforced tool exposure, then manual budget visibility
+and the framework comparison below, before broader grounded reporting. Still pending: dependent tool
 loops, richer statistics/reporting, pagination/exhaustive temporal selection, user-friendly
 ambiguity selection in the game browser and payload-specific quality scoring. The browser
 fixture now uses a 16K model context because the full registry exceeds its former 8K
@@ -61,7 +61,7 @@ state with a 100-conversation cap, not durable topic/profile memory.
 
 Manual per-run model pins, verified Ollama thinking overrides and explicit text
 review/revision actions are now implemented. Explicit bounded table-row attachment/detachment and selected-row payload review are
-now implemented. Bounded game search and snapshot details are implemented; next is grounded reporting and stage-specific evaluation. Reference selection now supports three owned table results, up to 20 rows per result
+now implemented. Bounded game search and snapshot details are implemented; next is role containers and focused tool exposure. Reference selection now supports three owned table results, up to 20 rows per result
 and 16,000 evidence bytes. Users can detach table rows or the initial team reference.
 Other payload types and cross-conversation reference sharing remain pending.
 Declare the directory scope honestly: current-team filtering is not established by
@@ -79,27 +79,148 @@ history. Expose bounded reference views when reasoning actually needs evidence.
 Record delivery separately from retrieval success; a produced payload is not proof
 that the client displayed it. No automatic second model call for simple display.
 
-## Near-term implementation order
+## Active plan: role containers and focused execution — 2026-09-30
 
-1. Result separation and direct team-list delivery, including follow-up context tests.
-2. Minimal topic navigation: configured sports/leagues and provider-backed teams,
-   leading to relevant data views and a topic-scoped conversation. The hierarchy is
-   a browsing aid, not a requirement to encode every semantic relationship. Existing
-   conversations retain their scope when the user browses elsewhere.
-3. Explicit reference attachment and manual run controls: supported model/thinking
-   settings, user-defined scope/retrieval bounds, review off/self/selected model,
-   and an explicit revise-from-feedback action. No automatic complexity classifier,
-   reviewer selection or revision loop. Record the effective settings per invocation.
-4. General game search and specific-game details. Latest completed is a supported
-   selection/composite over this foundation. Tools own identity resolution, pagination,
-   completion checks, date filters and bounded search under the applicable resource policy.
-5. Game-specific reporting and grounded synthesis when requested. League RSS alone
-   does not establish a game's recap. Preserve partial coverage and citation provenance.
+This order supersedes earlier next-step entries. Team browsing, manual controls,
+reference attachment, game search and snapshot details are implemented. Review fixes
+for game operations are tested but uncommitted. The first role-catalog/API slice is implemented; the role UI and framework adapter
+remain pending. The live TypeScript planner and Python LangGraph experiment remain
+separate; the experiment's durable single-task checkpoints do not make live sports
+jobs durable.
 
-Deterministic and conversational evaluations accompany every slice. The larger
-27-case specification still needs executable fixtures and a session runner; no
-end-to-end quality score is claimed. Existing contracts remain useful and should be
-extended rather than replaced with prompt-specific operations.
+A role is a versioned execution container: model/provider binding, instructions,
+allowed tool IDs, context/reference policy, supported thinking settings, resource
+limits and output contract. A task is an invocation of that role with a request and
+selected evidence. Model choice is part of the role definition; variants can choose
+different models. This is application configuration, not an OS isolation boundary.
+
+### 1. Role contract and enforced tool exposure — implemented first slice
+
+Introduce a validated, server-owned role catalog. Resolve tool/model identifiers
+against existing registries; do not place credentials or executable code in role
+files. Start with configurable sports-research, evidence-writing and review roles.
+No fixed team-name routing. Writing/review roles can have no tools.
+
+Freeze the role version and effective configuration at invocation start. Reloads
+apply to new tasks; running tasks retain their captured definitions, subject to
+existing service shutdown/cancellation. Make permitted manual overrides explicit;
+record both the selected role and final effective configuration. Unknown roles,
+models, tool IDs and unsupported thinking settings fail before generation.
+
+Use the same allowed tool set for model exposure, plan validation and execution.
+A tool omitted from the model prompt must also be rejected by the executor, including
+mixed plans containing allowed and excluded calls. Role limits cannot increase
+account-wide allowances. Preserve current local/Ollama cloud/API/CLI admission
+policies and shared sports quotas. Direct UI browsing remains independent of model
+tool exposure and retains its existing service-side controls.
+
+Acceptance: excluded tools never execute, tool-free roles reject tool calls,
+config/model validation fails safely, overrides cannot widen permissions unnoticed,
+reload cannot mutate an in-flight role, and payloads remain outside model context
+unless explicitly selected. Test unfamiliar synthetic entities, not team keywords.
+
+Implemented interface: set `ROLE_CATALOG_PATH=data/roles/sports.example.json` to load
+an opt-in catalog at startup. The example uses `fixed` for the configured provider;
+catalog-routing deployments must set valid enabled fast-binding IDs instead. Loading
+a role catalog does not make fixture/mock providers factual. The existing unselected
+planner remains available when no `roleId` is supplied; this is task configuration,
+not an application-wide authorization system.
+
+Send `runControls: {roleId: "sports-researcher"}` through the existing chat APIs.
+Optional `toolIds` narrows the role's tools; `bindingId` overrides require an explicit
+role allowlist, and thinking overrides require role permission. `configured` uses
+the role's thinking default. Role versions/effective configuration are captured on
+the timeline; evaluation records hash the snapshot and retain redacted content only
+under answer-capture policy. The output contract is currently `capability-plan-v1`;
+context policy is currently conversation history plus explicitly selected references.
+Limits currently add estimated input tokens and tool-call count to existing provider
+admission. Arbitrary output contracts and independent role deadline policies are not
+implemented. The role schema does not accept executable code or credentials.
+
+The catalog supports atomic replacement programmatically, and each invocation captures
+its role/tool definitions before awaiting work. No role-file reload endpoint or watcher
+is exposed yet; changing the configured file requires restart. Service closure can
+still cancel tools captured by an existing role. Runtime model/tool IDs are checked
+when selecting a role, so a sports config change can invalidate a role for new calls.
+
+### 2. Manual role UI and context-budget visibility — next implementation
+
+Select a role and inspect its model, tools, instructions, evidence policy and limits.
+Optional overrides create an explicit effective configuration rather than silently
+editing a saved role. Topic navigation may suggest a role, but does not automatically
+switch the active role or change conversation scope. Expose individual allowed tools
+inside expandable groups; disabling tools narrows the selected invocation.
+
+Show estimated tokens for instructions, tool definitions, history, selected evidence,
+output reservations and safety margin. Distinguish estimates from provider-reported
+usage. Review the current maximum fast/deep output reservation against the actual
+execution path; do not simply remove headroom. Reject requests that cannot fit before
+invoking the model and offer explicit scope/history/evidence reductions.
+
+Acceptance: focused roles fit a defined 8K fixture with reserved output and selected
+bounded evidence; genuinely oversized input still fails. Add a canary proving unrelated
+tool schemas and unselected payload rows never enter the prompt. Record the actual
+exposed tool IDs and configuration version for each call.
+
+### 3. Bounded LangChain/LangGraph integration comparison
+
+Inspect installed dependencies and existing Hekate/provider bridges first. Implement
+one opt-in execution adapter for the sports-research role in the live application's
+language/runtime where practical, using LangChain's agent building blocks and
+LangGraph only where workflow control is needed. Preserve the application-owned role
+schema so it configures execution rather than becoming tied to one framework API.
+
+Compare against the existing planner with deterministic fixture sources and the same
+role/model/evidence contracts. Explicitly bound any new dependent model/tool loop;
+account for every call and honor cancellation/deadlines. Adapt the existing CLI bridge
+where needed; do not assume standard model integrations cover subscription CLI access.
+Use OSS libraries on our own infrastructure. LangSmith/cloud deployment is optional;
+no hosted tracing or external evaluation upload is required for this slice.
+
+Deep Agents is a candidate to inspect, not an adopted dependency: its added tools,
+prompts and automation must be evaluated against exact role allowlists. Decide whether
+to expand framework adoption from parity evidence, rather than replacing the working
+runtime wholesale. Required parity includes ownership/expiry, payload separation,
+admission, cancellation, model pinning, role/tool enforcement and trace attribution.
+
+### 4. Grounded reporting and role-specific evaluation
+
+Build the selected-game evidence writer and explicit self/cross-model review workflows.
+Keep role-level deterministic tests from step 1; add conversational quality measurement
+here. Compare role/model variants with identical task inputs and evidence. Record
+role version, effective settings, exposed tools, input context, tool results, output,
+provider usage, waits and latency under existing capture/redaction policies.
+
+Measure scope/identity resolution, temporal selection, evidence sufficiency, grounded
+claims and unsupported requests separately. Include small-model role variants, tool
+exclusion attacks, partial/unavailable results and unrelated payload canaries. Use
+synthetic provider names/IDs; no production prompt matching against evaluation cases.
+Independent grading evaluates the whole workflow, including any production review
+and revision. Human-calibrated model grading supplements deterministic checks; it
+does not turn successful execution into factual correctness.
+
+The 27-case specification still needs executable fixtures and a session runner.
+No end-to-end quality score is claimed. A league news feed alone does not establish a
+game recap; preserve partial coverage and source provenance.
+
+### 5. Layer-one coordination and multiple background tasks
+
+Layer one owns the user conversation; selected role instances perform focused work.
+Begin with explicit user launch/cancel/review actions and visible task progress. Define
+job identity, input snapshots, result handles, cancellation and completion delivery
+before automatic delegation. The user must be able to continue a separate conversation
+turn while a worker is held, and late results must remain attached to the originating
+task. Do not merge complete worker transcripts into the conversation manager's context.
+
+Role execution is not itself a durable scheduler. Add persistence and restart/replay
+semantics deliberately after the manual execution path works. Automatic role choice,
+complexity classification, reviewer selection and escalation remain deferred.
+
+Framework references for this plan:
+- [LangChain agents](https://docs.langchain.com/oss/python/langchain/agents)
+- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview)
+- [Subagent patterns](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)
+- [Deep Agents subagents](https://docs.langchain.com/oss/python/deepagents/subagents)
 
 ## Longer-term direction and memory
 
