@@ -1,5 +1,30 @@
 # Evaluation Plan
 
+## Native/graph integration comparison — 2026-09-30
+
+Twelve deterministic integration checks now run six identical scenarios on each engine
+through CapabilityChat, ChatService, catalog dispatch and the live sports adapter with
+fixture transport. They cover sports payload/context separation, selective row injection,
+foreign/expired references rejected before inference, shared sports-request admission,
+inaccessible pinned models without substitution, model-account quota denial, and a
+held tool while another turn completes followed by cancellation/late-result suppression.
+
+All 12 tests and TypeScript build pass. An initial assertion incorrectly matched the
+user-facing error text against an error code; it now checks the actual code. No runtime
+fix was needed. No live model/provider calls or performance measurements were made.
+The graph adapter remains opt-in and uncommitted; native remains default. These tests
+show equivalent behavior for the listed cases, not general reasoning-quality parity.
+
+Next bounded step: design the dependent retrieval-to-answer contract and deterministic
+fixtures before expanding the graph. Specify exactly which evidence reaches the next
+model call, total model/tool-call budgets, partial-evidence behavior, cancellation and
+independent grounding checks. Do not automatically inject full payload tables or turn
+on review/retry loops. Production adoption still needs broader error/deadline/reload
+coverage and live model quality evidence. The whole-plan status table below (handoff
+and roadmap) remains applicable; step 3 has stronger deterministic coverage, while
+quality evaluation, general background roles and persistent memory remain incomplete.
+
+
 ## Manual role UI and admitted context budgets — 2026-09-30
 
 Role execution and review fixes committed as `df65366`. The next slice adds a manual

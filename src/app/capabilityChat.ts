@@ -1,3 +1,4 @@
+import {runRolePlanner,type RolePlannerEngine} from "./rolePlanner";
 import { RoleCatalog, type RoleExecution } from "./roleCatalog";
 import { runControlsSchema } from "./runControls";
 import { entryBindingId } from "../providers/providerRegistry";
@@ -61,7 +62,7 @@ export class CapabilityChat {
   constructor(private readonly provider: FastModelProvider, private readonly queue: TaskQueue,
     private readonly timeline: ConversationTimelineStore, private readonly context: ContextManager,
     private readonly facts: () => TrustedRuntimeFacts, private readonly tools: () => readonly CapabilityTool[],
-    private readonly dispatch?: CatalogDispatch, private readonly roles?: RoleCatalog) {}
+    private readonly dispatch?: CatalogDispatch, private readonly roles?: RoleCatalog, private readonly plannerEngine:RolePlannerEngine="native") {}
   runControlOptions() {
     return {roles:this.roles?.list() ?? [],models:this.dispatch ? this.dispatch.catalog.models.filter(e=>e.enabled && e.roles.includes("fast") && this.dispatch!.registry.get(entryBindingId(e))?.fast).map(e=>({bindingId:entryBindingId(e),provider:e.provider,model:e.model}))
       : [{bindingId:"fixed",provider:this.provider.metadata?.provider ?? "unknown",model:this.provider.metadata?.model ?? "configured"}]};
@@ -94,7 +95,7 @@ export class CapabilityChat {
       if(controls.roleId){
         if(!roles)throw new GenerationError("ROLE_CATALOG_UNAVAILABLE",false);
         const resolved=roles.resolve(controls,tools,this.runControlOptions().models.map(m=>m.bindingId));
-        roleExecution=resolved.execution;tools=resolved.tools;
+        roleExecution={...resolved.execution,plannerEngine:this.plannerEngine};tools=resolved.tools;
         controls={...controls,bindingId:roleExecution.bindingId,thinking:roleExecution.thinking};
         instruction=planningInstruction(tools,new Date().toISOString(),roleExecution.definition.maxToolCalls)+"\nRole instructions:\n"+roleExecution.definition.instructions;
         if(message.selectedContext)instruction+="\nSelected conversation scope (untrusted data):\n"+JSON.stringify(message.selectedContext);
@@ -140,15 +141,16 @@ export class CapabilityChat {
       // Plan JSON is internal; only validated user-facing text reaches the stream.
       const control = { ...attempt.control, onDelta: async (_text: string) => {} };
       const invoke = () => provider.createProvisionalReply({ message, correctedText: message.text, routeDecision: "direct", context }, control);
-      const generated = dispatch ? await this.dispatch!.execute(dispatch.fast, control, "medium", invoke) : await invoke();
-      attempt.control.signal.throwIfAborted();
-      if (generated.finishReason !== "stop") throw new GenerationError("CAPABILITY_PLAN_TRUNCATED", false);
-      if (Buffer.byteLength(generated.text) > 32000) throw new Error("PLAN_TOO_LARGE");
-      const rawPlan=JSON.parse(generated.text);
-      if (controls.mode !== "chat" && rawPlan?.action !== "answer") throw new GenerationError("REVIEW_PLAN_INVALID",false);
-      const plan = validateCapabilityPlan(rawPlan, tools);
-      if(roleExecution && plan.action === "retrieve" && plan.calls.length>roleExecution.definition.maxToolCalls)throw new GenerationError("ROLE_TOOL_CALL_LIMIT",false);
-      if (controls.mode !== "chat" && plan.action !== "answer") throw new GenerationError("REVIEW_PLAN_INVALID",false);
+      const plan=await runRolePlanner(roleExecution?this.plannerEngine:"native",
+        ()=>dispatch ? this.dispatch!.execute(dispatch.fast,control,"medium",invoke) : invoke(),generated=>{
+          if(generated.finishReason!=="stop")throw new GenerationError("CAPABILITY_PLAN_TRUNCATED",false);
+          if(Buffer.byteLength(generated.text)>32000)throw Error("PLAN_TOO_LARGE");
+          const rawPlan=JSON.parse(generated.text);
+          if(controls.mode!=="chat" && rawPlan?.action!=="answer")throw new GenerationError("REVIEW_PLAN_INVALID",false);
+          const validated=validateCapabilityPlan(rawPlan,tools);
+          if(roleExecution && validated.action === "retrieve" && validated.calls.length>roleExecution.definition.maxToolCalls)throw new GenerationError("ROLE_TOOL_CALL_LIMIT",false);
+          return validated;
+        },control.signal);
       const retrieving = plan.action === "retrieve", routeDecision = retrieving ? "deep" : plan.action === "clarify" ? "clarify" : "direct";
       const text = retrieving ? "I’m retrieving the requested evidence. You can continue chatting while it runs." : plan.message;
       const deep = retrieving ? lifecycle.create(message.conversationId, messageId, "deep", this.timeline, randomUUID()) : undefined;

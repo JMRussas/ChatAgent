@@ -17,7 +17,7 @@ export const roleDefinitionSchema=z.object({
 const catalogSchema=z.object({version:z.literal("role-catalog-v1"),roles:z.array(roleDefinitionSchema).min(1).max(100)}).strict()
  .refine(v=>new Set(v.roles.map(r=>r.id)).size===v.roles.length,"Duplicate role IDs");
 export type RoleDefinition=z.infer<typeof roleDefinitionSchema>;
-export type RoleExecution={definition:RoleDefinition;definitionHash:string;bindingId:string;thinking:RunControls["thinking"];toolIds:string[]};
+export type RoleExecution={plannerEngine?:import("./rolePlanner").RolePlannerEngine;definition:RoleDefinition;definitionHash:string;bindingId:string;thinking:RunControls["thinking"];toolIds:string[]};
 /** Application-owned configuration. Snapshot selection performs no model or provider calls. */
 export class RoleCatalog {
  private roles:z.infer<typeof catalogSchema>;

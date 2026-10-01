@@ -34,6 +34,7 @@
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1142.0",
     "@aws-sdk/client-bedrock-runtime": "^3.882.0",
+    "@langchain/langgraph": "1.4.18",
     "dotenv": "^18.0.4",
     "fast-xml-parser": "^5.11.2",
     "zod": "^3.24.1"

@@ -1,3 +1,4 @@
+import {rolePlannerEngine} from "./app/rolePlanner";
 import { loadRoleCatalog } from "./app/roleCatalog";
 import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
@@ -625,10 +626,11 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
     deepModel: config.deep.model,
     generatedAtIso: new Date().toISOString()
   });
+  const plannerEngine=rolePlannerEngine();
   const roleCatalog=await loadRoleCatalog(process.env.ROLE_CATALOG_PATH);
   const orchestrator = config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
     ? new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider)
-    : new CapabilityChat(providers.fastProvider, queue, timeline, contextManager, trustedFactsProvider, () => briefings?.tools() ?? [], dispatch, roleCatalog);
+    : new CapabilityChat(providers.fastProvider, queue, timeline, contextManager, trustedFactsProvider, () => briefings?.tools() ?? [], dispatch, roleCatalog, plannerEngine);
   const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting, dispatch);
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
 

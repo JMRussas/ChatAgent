@@ -1,5 +1,55 @@
 # Development roadmap
 
+## Native/graph integration comparison — 2026-09-30
+
+Twelve deterministic integration checks now run six identical scenarios on each engine
+through CapabilityChat, ChatService, catalog dispatch and the live sports adapter with
+fixture transport. They cover sports payload/context separation, selective row injection,
+foreign/expired references rejected before inference, shared sports-request admission,
+inaccessible pinned models without substitution, model-account quota denial, and a
+held tool while another turn completes followed by cancellation/late-result suppression.
+
+All 12 tests and TypeScript build pass. An initial assertion incorrectly matched the
+user-facing error text against an error code; it now checks the actual code. No runtime
+fix was needed. No live model/provider calls or performance measurements were made.
+The graph adapter remains opt-in and uncommitted; native remains default. These tests
+show equivalent behavior for the listed cases, not general reasoning-quality parity.
+
+Next bounded step: design the dependent retrieval-to-answer contract and deterministic
+fixtures before expanding the graph. Specify exactly which evidence reaches the next
+model call, total model/tool-call budgets, partial-evidence behavior, cancellation and
+independent grounding checks. Do not automatically inject full payload tables or turn
+on review/retry loops. Production adoption still needs broader error/deadline/reload
+coverage and live model quality evidence. The whole-plan status table below (handoff
+and roadmap) remains applicable; step 3 has stronger deterministic coverage, while
+quality evaluation, general background roles and persistent memory remain incomplete.
+
+
+## Whole-plan checkpoint and graph comparison start — 2026-09-30
+
+Committed `eb50551`: manual role UI/context-budget display and metadata attempt-ID
+fix. Regression checks show metadata shares the actual attempt and terminates on both
+success and failure. The next framework increment is uncommitted: an opt-in TypeScript
+LangGraph model/validate adapter behind ROLE_PLANNER_ENGINE, used only by selected
+roles. Native is default. Existing provider bridges/tool executor remain shared.
+
+| Plan area | Actual state |
+| --- | --- |
+| Sports foundation | Provider directories, bounded NBA/NFL search, shared quotas, basic details and configured news retrieval implemented; exhaustive latest-game selection and richer statistics remain incomplete. |
+| Payloads and manual evidence | Direct UI tables, owned/expiring references, bounded row attachment and explicit review/revision implemented. |
+| 1. Role containers | Implemented and committed: versioned definitions, model/tool enforcement, limits and recording. |
+| 2. Manual role UI/budgets | Implemented and committed first slice. Budget is latest admitted-call evidence; unsent preflight, richer grouping and role-file hot reload remain follow-ups. |
+| 3. Framework comparison | Started with a one-model-call graph and deterministic parity checks; broader parity/adoption gate remains open. |
+| 4. Grounded reporting/evaluation | Runtime/contract tests and manual review exist. Full 27-case session runner, independent payload/answer quality grading and calibrated model comparisons remain pending. |
+| 5. Layer-one background roles | Existing background retrieval/document work exists. General role-job coordination, durable multi-task scheduling and restart/replay semantics remain pending. |
+| Longer-term profiles/memory | Topic scope and explicit references exist; editable persistent profiles, semantic retrieval and automatic context selection remain pending. |
+
+We have a usable manual prototype, not a completed autonomous or production system.
+No live quality gate or framework performance claim has been made. Next bounded work:
+expand the native/graph comparison to payloads, ownership/expiry, admission and held
+cancellation before adding dependent tool loops. No preview restart or live calls.
+
+
 ## Manual role UI and admitted context budgets — 2026-09-30
 
 Role execution and review fixes committed as `df65366`. The next slice adds a manual

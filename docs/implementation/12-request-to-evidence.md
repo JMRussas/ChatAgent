@@ -203,6 +203,33 @@ to expand framework adoption from parity evidence, rather than replacing the wor
 runtime wholesale. Required parity includes ownership/expiry, payload separation,
 admission, cancellation, model pinning, role/tool enforcement and trace attribution.
 
+First comparison increment implemented: `ROLE_PLANNER_ENGINE=langgraph` opts selected
+role calls into an invocation-local TypeScript StateGraph (`model -> validate`). Native
+execution remains default; unselected calls remain native. Both paths use the same
+provider invocation, validation, application tool executor, quotas, cancellation and
+payload handling. The graph has two nodes and a recursion bound of four, with no graph
+retry policy, checkpoint store or extra model/tool loop. Existing provider retries
+and admission remain unchanged. The selected engine is recorded in the role snapshot.
+
+Pinned dependency: `@langchain/langgraph` 1.4.18. Existing Hekate CLI access remains
+behind our FastModelProvider bridge; this increment does not switch subscription CLI
+calls to a framework model integration. No LangChain cloud services or new tracing
+configuration are required. Framework tracing still follows any explicitly configured
+framework environment. The direct graph node approach follows the
+[official Graph API](https://docs.langchain.com/oss/javascript/langgraph/graph-api).
+
+This begins step 3; it does not complete the framework adoption gate. The first integration comparison now covers
+payload-bearing sports fixtures, owned/expired references, held/cancelled operations,
+model pinning and model/sports account admission across both engines (12 checks). Then decide whether a bounded
+dependent retrieval/synthesis loop merits framework expansion. Current tests establish
+one-call behavior for these cases, not better reasoning, speed or quality. Native
+remains the default. Next specify bounded dependent retrieval/synthesis evidence flow
+and fixtures; error/deadline/reload parity and live quality gates remain open.
+The separate Python experiment's durable retrieval checkpoints are not inherited here.
+Review additionally verified cancellation with a held provider: graph abort now drains
+the provider promise before returning, matching native ownership/idle semantics.
+Validation: 691 tests / 89 files and TypeScript build passed.
+
 ### 4. Grounded reporting and role-specific evaluation
 
 Build the selected-game evidence writer and explicit self/cross-model review workflows.

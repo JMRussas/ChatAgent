@@ -7,13 +7,13 @@ import {InMemoryConversationTimelineStore} from "../../src/app/timelineStore";
 import {InMemoryTaskQueue} from "../../src/providers/interfaces";
 const role={id:"researcher",version:"1",bindingId:"fixed",instructions:"ROLE_INSTRUCTION",toolIds:["allowed"],maxToolCalls:1,maxInputTokens:5000};
 const msg={messageId:"m",conversationId:"c",userId:"u",text:"Look up evidence",timestampIso:new Date().toISOString(),runControls:{roleId:"researcher",thinking:"configured" as const,mode:"chat" as const}};
-function setup(plan:unknown,definition:unknown=role){
+function setup(plan:unknown,definition:unknown=role,engine:"native"|"langgraph"="native"){
  const execute=vi.fn(async()=>({status:"done"}));
  const tools:CapabilityTool[]=["allowed","excluded"].map(id=>({id,description:id+"_SCHEMA_CANARY",inputSchema:{},validate:v=>v,execute}));
  const catalog=new RoleCatalog({version:"role-catalog-v1",roles:[definition]});
  const timeline=new InMemoryConversationTimelineStore(),queue=new InMemoryTaskQueue();
  const generate=vi.fn(async()=>({text:JSON.stringify(plan),finishReason:"stop" as const}));
- const chat=new CapabilityChat({createProvisionalReply:generate},queue,timeline,new ContextManager(timeline,{windowTokens:8192,maxHistoryTurns:12,safetyTokens:256,fastOutputTokens:512,deepOutputTokens:2048}),()=>({fastProvider:"test",fastModel:"test",deepProvider:"none",deepModel:"none",generatedAtIso:new Date().toISOString()}),()=>tools,undefined,catalog);
+ const chat=new CapabilityChat({createProvisionalReply:generate},queue,timeline,new ContextManager(timeline,{windowTokens:8192,maxHistoryTurns:12,safetyTokens:256,fastOutputTokens:512,deepOutputTokens:2048}),()=>({fastProvider:"test",fastModel:"test",deepProvider:"none",deepModel:"none",generatedAtIso:new Date().toISOString()}),()=>tools,undefined,catalog,engine);
  return {chat,catalog,generate,execute,timeline,tools};
 }
 it("exposes only selected tools and records the effective role",async()=>{
@@ -87,4 +87,13 @@ it.each([true,false])("metadata shares the actual attempt and terminates with it
  for(const e of events.filter(e=>e.roleExecution || e.contextBudget))expect(e.attemptId).toBe(terminal.attemptId);
  const turn=deriveTurns(events)[0];expect(turn.attempts).toHaveLength(1);expect(turn.active).toBe(false);
  expect(turn.attempts[0].endedAt).toBeDefined();
+});
+
+it.each(["native","langgraph"] as const)("%s preserves selected-role execution and rejects excluded calls",async engine=>{
+ const a=setup({action:"retrieve",calls:[{tool:"allowed",arguments:{}}]},role,engine);
+ await a.chat.handleUserMessage(msg);await a.chat.whenIdle();expect(a.generate).toHaveBeenCalledTimes(1);expect(a.execute).toHaveBeenCalledTimes(1);
+ const events=await a.timeline.getEvents("c");expect(events.find(e=>e.roleExecution)?.roleExecution?.plannerEngine).toBe(engine);
+ expect(events.find(e=>e.type === "refined")?.text).toContain("done");
+ const denied=setup({action:"retrieve",calls:[{tool:"allowed",arguments:{}},{tool:"excluded",arguments:{}}]},role,engine);
+ await expect(denied.chat.handleUserMessage(msg)).rejects.toThrow();expect(denied.execute).not.toHaveBeenCalled();
 });
