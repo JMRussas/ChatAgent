@@ -21,6 +21,7 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
   if (event.type === "user" || !event.messageId || !event.phase || event.sequence === undefined) return undefined;
   return {
     protocolVersion: "1.0", conversationId, messageId: event.messageId,
+    ...(event.groundedAnswer ? {groundedAnswer:event.groundedAnswer} : {}),
     ...(event.contextBudget ? {contextBudget:event.contextBudget} : {}),
     taskId: event.taskId, attemptId: event.attemptId, sequence: event.sequence,
     type: event.type === "provisional" || event.type === "refined" ? "answer" : event.type,

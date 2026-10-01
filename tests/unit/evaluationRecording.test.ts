@@ -41,6 +41,17 @@ const annotations = (text = "answer") => ({ version: 2, rubricVersion: "rubric-v
   ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
 
 describe("evaluation recording", () => {
+  it("retains evidence-answer validation only under the selected capture policy",async()=>{
+    const groundedAnswer={answer:{status:"insufficient_evidence" as const,reason:"PRIVATE_EVIDENCE_REASON"},evidenceLimitations:["Selected rows only"],citationChecks:"not_applicable" as const,semanticGrounding:"ungraded" as const};
+    for(const capture of ["metadata","answers"] as const){
+      const recorder=await setup({capture});
+      recorder.record("c",{type:"provisional",messageId:"m",text:"Insufficient evidence",groundedAnswer,createdAtIso:new Date().toISOString()});
+      await recorder.finish();const run=await readArtifact(recorder.path);
+      expect(run.trace[0].groundedAnswer?.contentHash).toBe(digest(JSON.stringify(groundedAnswer)));
+      if(capture === "metadata")expect(await readFile(recorder.path,"utf8")).not.toContain("PRIVATE_EVIDENCE_REASON");
+      else expect(run.trace[0].groundedAnswer?.text).toContain("PRIVATE_EVIDENCE_REASON");
+    }
+  });
   it("captures role snapshots under the configured retention policy",async()=>{
     const catalog=new RoleCatalog({version:"role-catalog-v1",roles:[{id:"writer",version:"1",bindingId:"fixed",instructions:"PRIVATE_ROLE_INSTRUCTIONS",toolIds:[]}]});
     const {execution}=catalog.resolve({roleId:"writer",mode:"chat",thinking:"configured"},[],["fixed"]);

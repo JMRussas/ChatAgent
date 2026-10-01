@@ -398,14 +398,14 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           <details id="roleDetails" hidden><summary>Role definition and allowed tools</summary>
             <pre id="roleDescription" style="white-space:pre-wrap"></pre>
             <label>Expose selected tools (deselect to narrow) <select id="roleTools" multiple size="5"></select></label>
-            <p>Review and revise expose no tools, regardless of this selection.</p>
+            <p>Evidence answers, review and revise expose no tools, regardless of this selection.</p>
           </details>
           <label>Model <select id="runModel"><option value="">Configured routing</option></select></label>
           <label>Thinking <select id="runThinking"><option value="configured">Configured</option></select></label>
           <span id="thinkingStatus" role="status"></span>
-          <label>Action <select id="runMode"><option value="chat">Chat</option><option value="review">Review selected answer</option><option value="revise">Revise using my feedback</option></select></label>
+          <label>Action <select id="runMode"><option value="chat">Chat</option><option value="answer-evidence">Answer from selected evidence</option><option value="review">Review selected answer</option><option value="revise">Revise using my feedback</option></select></label>
           <label>Answer <select id="runTarget"><option value="">Select a completed text answer</option></select></label>
-          <p>Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Enter review criteria or revision feedback in the prompt.</p>
+          <p>Answer from selected evidence requires attached rows and an evidence-answer role (or no role). It makes one tool-free call; citation checks do not grade factual correctness. Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Enter review criteria or revision feedback in the prompt.</p>
         </fieldset>
         <details><summary>Latest admitted model-call budget (estimated)</summary>
           <p id="contextBudgetStatus">No admitted model-call estimate in this conversation.</p>
@@ -811,8 +811,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       const runControls = $("runControls").hidden ? undefined : {
         ...($("runRole").value ? {roleId:$("runRole").value,toolIds:[...$("roleTools").selectedOptions].map(o=>o.value)}:{}),
         ...($("runModel").value ? {bindingId:$("runModel").value}:{}),thinking:$("runThinking").value,mode:$("runMode").value,
-        ...($("runMode").value !== "chat" ? {targetMessageId:$("runTarget").value}:{})};
-      if (runControls?.mode !== "chat" && runControls && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
+        ...(["review","revise"].includes($("runMode").value) ? {targetMessageId:$("runTarget").value}:{})};
+      if (runControls && ["review","revise"].includes(runControls.mode) && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
+      if(runControls?.mode === "answer-evidence" && !referenceSelections.length){setStatus("Attach evidence rows first.",true);return;}
       sendButton.disabled = true;
       await refreshConversationContext();
       if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) { sendButton.disabled = false; return; }

@@ -1,3 +1,4 @@
+import {retrievalAnswerPolicySchema} from "./retrievalAnswerContract";
 import { GenerationError } from "../domain/generation";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -10,10 +11,12 @@ export const roleDefinitionSchema=z.object({
  bindingId:z.string().min(1).max(500),instructions:z.string().min(1).max(8000),toolIds:ids,
  thinking:z.enum(["configured","on","off"]).default("configured"),
  contextPolicy:z.literal("conversation-and-selected-references").default("conversation-and-selected-references"),
- outputContract:z.literal("capability-plan-v1").default("capability-plan-v1"),
+ evidenceLimits:retrievalAnswerPolicySchema.pick({deadlineMs:true,maxEvidenceBytes:true}).partial().optional(),
+ outputContract:z.enum(["capability-plan-v1","answer-evidence-v1"]).default("capability-plan-v1"),
  maxToolCalls:z.number().int().min(0).max(3).default(3),maxInputTokens:z.number().int().min(256).max(1000000).default(8192),
  overrides:z.object({bindingIds:ids.default([]),thinking:z.boolean().default(false)}).strict().default({})
-}).strict().refine(v=>v.maxToolCalls>0 || v.toolIds.length===0,"Zero-call roles must have no tools");
+}).strict().refine(v=>v.maxToolCalls>0 || v.toolIds.length===0,"Zero-call roles must have no tools")
+ .refine(v=>v.outputContract!=="answer-evidence-v1" || v.toolIds.length===0 && v.maxToolCalls===0,"Evidence-answer roles must have no tools and zero tool calls");
 const catalogSchema=z.object({version:z.literal("role-catalog-v1"),roles:z.array(roleDefinitionSchema).min(1).max(100)}).strict()
  .refine(v=>new Set(v.roles.map(r=>r.id)).size===v.roles.length,"Duplicate role IDs");
 export type RoleDefinition=z.infer<typeof roleDefinitionSchema>;
@@ -27,6 +30,7 @@ export class RoleCatalog {
  resolve(controls:RunControls,registry:readonly CapabilityTool[],bindings:readonly string[]){
   const found=this.roles.roles.find(r=>r.id===controls.roleId);if(!found)throw new GenerationError("ROLE_NOT_FOUND",false);
   const definition=structuredClone(found);
+  if((definition.outputContract === "answer-evidence-v1") !== (controls.mode === "answer-evidence"))throw new GenerationError("ROLE_OUTPUT_CONTRACT_MISMATCH",false,"Choose an evidence-answer role for answer-from-evidence mode, and a planning role for other modes.");
   if(!bindings.includes(definition.bindingId) || definition.overrides.bindingIds.some(id=>!bindings.includes(id)))throw new GenerationError("ROLE_MODEL_UNAVAILABLE",false);
   if(definition.toolIds.some(id=>!registry.some(t=>t.id===id)))throw new GenerationError("ROLE_TOOL_UNAVAILABLE",false);
   const bindingId=controls.bindingId ?? definition.bindingId;

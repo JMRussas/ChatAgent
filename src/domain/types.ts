@@ -58,6 +58,8 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  /** Structured validation result for UI/evaluation, excluded from model history. */
+  groundedAnswer?: ReturnType<typeof import("../app/retrievalAnswerContract").validateGroundedAnswer>;
   contextBudget?: import("./contextBudgetUsage").ContextBudgetUsage;
   roleExecution?: import("../app/roleCatalog").RoleExecution;
   /** UI/evaluation only; never serialize into model history. */

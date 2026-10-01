@@ -1,5 +1,41 @@
 # Request-to-evidence contracts and acceptance gates
 
+## Manual evidence answers — 2026-09-30
+
+Validation: full suite passed 709 tests / 91 files, and all 23 browser tests passed.
+Subsequent citation-display, recording and configurable-limit changes passed focused
+recording/runtime/role tests (including two additional regressions) and TypeScript
+build. No live model-quality claim is made.
+
+Implemented `runControls.mode: "answer-evidence"` and the UI action **Answer from
+selected evidence**. Attach rows, choose the action, select an evidence-answer role
+(or no role), and send a question. No previous answer target is required. The example
+`evidence-writer` is now version 2 with output contract `answer-evidence-v1`; other
+role/action combinations are rejected explicitly.
+
+This is one manually initiated, tool-free answer call using existing provider/model
+admission and the selected native/graph engine. It starts a new bounded invocation;
+it does not share a ledger or deadline with the earlier retrieval turn. It is not yet
+the automatic two-call retrieval/answer workflow. Defaults are 60 seconds and 16,000
+serialized evidence bytes. Roles may configure `evidenceLimits.deadlineMs` (up to
+300,000) and `evidenceLimits.maxEvidenceBytes` (up to 16,000). Existing input budgets
+still apply. Role-file edits require the existing role catalog startup/replacement
+path; this adds no hot reload.
+
+Ownership, expiry and handle validity are checked before context creation, after
+provider admission and before publication. Cancellation drains the provider and
+suppresses late output. Invalid citations/tool requests fail without publishing an
+answer. Source limitations are preserved in displayed text; exact citation checks
+remain separate from semantic grounding, which is explicitly ungraded. Structured
+validation is retained in timeline events and hashed evaluation records, with content
+captured only under the existing answers capture policy.
+
+Next: review this increment, then run a bounded model-quality comparison over selected
+evidence and insufficient-evidence cases with independent claim grading. The full
+27-case evaluation runner, automatic dependent workflows, general background roles
+and persistent memory remain pending. No live provider calls or preview restart were
+performed; this increment is uncommitted pending review.
+
 ## Bounded retrieval-to-answer contract — 2026-09-30
 
 Review fixed a deadline gap: answer validation now requires the workflow ledger

@@ -262,3 +262,17 @@ test("manual roles expose permitted tools and show the admitted context estimate
  await expect(page.locator("#contextBudgetStatus")).toContainText("tool definitions 2");
  await page.reload();await expect(page.locator("#runRole")).toHaveValue("");
 });
+
+
+test("manual evidence answer uses attached rows without a target answer",async({page,app})=>{
+ app.controls.plan={action:"retrieve",calls:[{tool:"sports:list-teams",arguments:{league:"NBA"}}]};
+ await send(page,"Show teams");await expect(page.locator("#referenceRows option")).toHaveCount(2);
+ await page.locator("#referenceRows").selectOption("0");await page.locator("#attachRows").click();
+ await page.locator("#runMode").selectOption("answer-evidence");
+ app.controls.plan={status:"insufficient_evidence",reason:"Team names alone cannot establish game scores."};
+ await send(page,"What was their score?");
+ await expect(page.locator(".answer-content").last()).toContainText("Team names alone cannot establish game scores.");
+ await expect(page.locator(".answer-content").last()).toContainText("Factual quality: ungraded");
+ const input=JSON.stringify(app.controls.inputs.at(-1));
+ expect(input).toContain("Harbor <Comets>");expect(input).not.toContain("PRIVATE_OTHER_ROW");
+});

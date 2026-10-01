@@ -45,7 +45,7 @@ async function runtime() {
     () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools(),undefined,new RoleCatalog({version:"role-catalog-v1",roles:[
       {id:"writer",version:"1",bindingId:"fixed",instructions:"Use selected evidence only.",toolIds:[],maxToolCalls:0,maxInputTokens:6000},
       {id:"researcher",version:"1",bindingId:"fixed",instructions:"Find evidence.",toolIds:["sports:list-teams","sports:find-games"],maxToolCalls:2,maxInputTokens:6000}
-    ]}));
+    ]}),"native",()=>sports.http.directory?.results);
   const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),
     runControlOptions:()=>planner.runControlOptions(),thinkingOptions:id=>planner.thinkingOptions(id),
     cancel: (conversation, message) => legacy.cancel(conversation, message), whenIdle: () => planner.whenIdle() }, new DeepWorker(queue, deep, timeline), timeline, queue);
