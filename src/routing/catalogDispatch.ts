@@ -1,3 +1,4 @@
+import {loadExecutionRetention, type ExecutionRetention} from "../config/executionRetention";
 import { randomUUID } from "node:crypto";
 import type { ModelCatalog } from "../config/modelCatalog";
 import type { DispatchPolicy } from "../config/dispatchConfig";
@@ -23,16 +24,33 @@ export class CatalogDispatch {
   readonly admission: ResourceAdmission;
   private phases = new Map<string, PhaseDispatch>();
   private metrics: DispatchMetric[] = [];
+  private completed = new Map<string,number>();
   constructor(readonly catalog: ModelCatalog, readonly registry: ProviderRegistry,
     readonly policy: DispatchPolicy, readonly budget: ContextBudget,
-    private observations: () => readonly ModelObservation[], private now: () => Date = () => new Date()) {
+    private observations: () => readonly ModelObservation[], private now: () => Date = () => new Date(), private readonly retention:ExecutionRetention=loadExecutionRetention(), private readonly retentionClock=Date.now) {
     this.admission = new ResourceAdmission(policy, () => this.now().getTime());
   }
-  get(id?: string) { return id ? this.phases.get(id) : undefined; }
+  retentionStats() { this.prune(); return {phases:this.phases.size, retained:this.completed.size, metrics:this.metrics.length}; }
+  private prune() {
+    for(const [id,at] of this.completed){
+      if(this.retentionClock()-at<this.retention.completedTtlMs && this.completed.size<=this.retention.maxCompleted)continue;
+      this.phases.delete(id);this.completed.delete(id);
+    }
+  }
+  /** Called by the owning workflow only after physical work, retries and writes settle. */
+  complete(phase?:PhaseDispatch) {
+    if(!phase || !this.phases.has(phase.id))return;
+    this.release(phase);
+    if(!this.completed.has(phase.id))this.completed.set(phase.id,this.retentionClock());
+    this.prune();
+  }
+  activate(phase:PhaseDispatch) { this.completed.delete(phase.id); }
+  get(id?: string) { this.prune(); return id ? this.phases.get(id) : undefined; }
   telemetry() { return { attempts: structuredClone(this.metrics), reservations: this.admission.snapshot() }; }
   record(phase: PhaseDispatch, attemptId: string, size: string, result: string, elapsedMs: number) {
     this.metrics.push({ bindingId: phase.candidate.selection.bindingId, phase: phase.role,
       task: phase.candidate.requirements.task, size, attemptId, result, elapsedMs });
+    this.metrics.splice(0,Math.max(0,this.metrics.length-this.retention.maxMetrics));
   }
   metadata(phase: PhaseDispatch): GenerationMetadata {
     const c = phase.candidate;
@@ -140,6 +158,7 @@ export class CatalogDispatch {
       candidate.requirements.outputTokens > (obs.effectiveOutputTokens ?? Infinity)) throw new AdmissionError("FALLBACK_CONTEXT_LIMIT");
   }
   async begin(phase: PhaseDispatch, signal: AbortSignal) {
+    this.activate(phase);
     try {
       this.revalidate(phase);
       phase.ticket ??= (await this.admission.reserveWithWait([{ resources: phase.candidate.resources,

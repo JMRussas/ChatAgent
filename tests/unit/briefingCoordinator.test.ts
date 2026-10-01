@@ -84,7 +84,8 @@ describe("briefing coordinator", () => {
     const c = coordinator(registry(), { maxRuns: 1 });
     const run = c.start("user", "request", { ...request, team: null }, defaultNbaProfile());
     expect((await c.wait("user", run.id)).tasks[1].status).toBe("needs-input");
-    expect(() => c.start("user", "new", request, defaultNbaProfile())).toThrow("BRIEFING_CAPACITY");
+    expect(c.start("user", "new", request, defaultNbaProfile()).id).not.toBe(run.id);
+    expect(() => c.snapshot("user", run.id)).toThrow("BRIEFING_NOT_FOUND");
     expect(() => coordinator(new Map()).start("user", "request", request, defaultNbaProfile())).toThrow("SPORTS_ADAPTER_MISSING");
     c.close(); expect(() => c.start("user", "request", request, defaultNbaProfile())).toThrow("BRIEFING_CLOSED");
   });
@@ -102,4 +103,106 @@ describe("briefing coordinator", () => {
     expect(result.tasks[0].status).toBe("partial");
     expect(result.tasks[0].errors).toEqual([{ adapterId: "games", code: "SOURCE_READ_FAILED" }]);
   });
+});
+
+it("reclaims settled runs and all associated indexes under sustained use", async () => {
+  const c = coordinator(registry(), {maxRuns: 2});
+  let last = "";
+  for (let i = 0; i < 50; i++) {
+    const run = c.start("user", `request-${i}`, request, defaultNbaProfile());
+    await c.wait("user", run.id);
+    last = run.id;
+    expect(c.retentionStats()).toMatchObject({runs: Math.min(i+1,2), requests: Math.min(i+1,2), profiles: Math.min(i+1,2), settled: Math.min(i+1,2), jobs: 0, waiters: 0});
+  }
+  expect(c.start("user", "request-49", request, defaultNbaProfile()).id).toBe(last);
+});
+
+it("expires retry identity without extending it on reads, and cleans all indexes", async () => {
+  vi.useFakeTimers();
+  const c = coordinator(registry(), {maxRuns: 2, settledRunTtlMs: 100});
+  const run = c.start("user", "retry", request, defaultNbaProfile());
+  await c.wait("user", run.id);
+  await vi.advanceTimersByTimeAsync(99);
+  expect(c.start("user", "retry", request, defaultNbaProfile()).id).toBe(run.id);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(() => c.snapshot("user", run.id)).toThrow("BRIEFING_NOT_FOUND");
+  expect(c.retentionStats()).toMatchObject({runs:0, requests:0, profiles:0, settled:0, jobs:0, waiters:0});
+  const next = c.start("user", "retry", request, defaultNbaProfile());
+  expect(next.id).not.toBe(run.id);
+  await c.wait("user", next.id);
+});
+it("protects running and cancelled-but-draining adapters under retention pressure", async () => {
+  vi.useFakeTimers();
+  const held = gate(), sources = registry(); sources.set("games", held.adapter);
+  const c = coordinator(sources, {maxRuns:1, settledRunTtlMs:10});
+  const run = c.start("user", "held", request, defaultNbaProfile());
+  const waiting = c.wait("user", run.id);
+  expect(() => c.start("user", "new", request, defaultNbaProfile())).toThrow("BRIEFING_CAPACITY");
+  c.cancel("user", run.id);
+  expect((await waiting).settled).toBe(true);
+  await vi.advanceTimersByTimeAsync(20);
+  expect(c.start("user", "held", request, defaultNbaProfile()).id).toBe(run.id);
+  expect(() => c.start("user", "new", request, defaultNbaProfile())).toThrow("BRIEFING_CAPACITY");
+  held.release();await vi.advanceTimersByTimeAsync(1);
+  const next = c.start("user", "new", request, defaultNbaProfile());
+  expect((await c.wait("user", next.id)).settled).toBe(true);
+});
+it("cleans retained snapshots when the configured run cap is lowered", async () => {
+  const c = coordinator(registry(), {maxRuns:3});
+  const first = c.start("user", "first", request, defaultNbaProfile());
+  const waits = [c.wait("user", first.id), c.wait("user", first.id)];
+  await Promise.all(waits);
+  for (const id of ["second", "third"]) await c.wait("user",c.start("user",id,request,defaultNbaProfile()).id);
+  c.configure(registry(), {maxRuns:1}, "v2");
+  expect(c.retentionStats()).toMatchObject({runs:1,requests:1,profiles:1,settled:1,jobs:0,waiters:0});
+  expect((await waits[0]).id).toBe(first.id);
+  expect(() => c.snapshot("user", first.id)).toThrow("BRIEFING_NOT_FOUND");
+  const retried = c.start("user","first",request,defaultNbaProfile());
+  expect(retried.id).not.toBe(first.id);await c.wait("user",retried.id);
+});
+
+it("delivers settled snapshots when capacity eviction precedes waiter continuations", async () => {
+  const profile = defaultNbaProfile();
+  profile.tasks = [profile.tasks[0]];
+  profile.tasks[0].sources = [profile.tasks[0].sources[0]];
+  const fixture = new FixtureSportsSource(games);
+  let evict!: () => void;
+  let firstRead = true;
+  const sources = registry();
+  sources.set("games", {read: (query, signal) => {
+    const result = fixture.read(query, signal);
+    if (firstRead) {
+      firstRead = false;
+      // The first microtask queues eviction behind execute's await continuation.
+      // execute settles the run and queues its waiters; eviction is already ahead
+      // of those waiters. No private coordinator methods or timers are mocked.
+      queueMicrotask(() => queueMicrotask(evict));
+    }
+    return result;
+  }});
+  const c = coordinator(sources, {maxRuns:1});
+  const first = c.start("user", "first", request, profile);
+  let delivered = 0;
+  const waits = [c.wait("user", first.id), c.wait("user", first.id)]
+    .map(promise => promise.then(run => { delivered++; return run; }));
+  const evicted = new Promise<string>((resolve, reject) => {
+    evict = () => {
+      try {
+        expect(c.snapshot("user", first.id).settled).toBe(true);
+        expect(delivered).toBe(0);
+        const next = c.start("user", "next", request, profile);
+        expect(() => c.snapshot("user", first.id)).toThrow("BRIEFING_NOT_FOUND");
+        resolve(next.id);
+      } catch (error) { reject(error); }
+    };
+  });
+  const [nextId, snapshots] = await Promise.all([evicted, Promise.all(waits)]);
+  expect(snapshots[0]).toEqual(snapshots[1]);
+  expect(snapshots[0]).toMatchObject({id:first.id, settled:true, tasks:[{status:"complete"}]});
+  expect(snapshots[0].tasks[0].results).toHaveLength(1);
+  snapshots[0].tasks[0].results.length = 0;
+  expect(snapshots[1].tasks[0].results).toHaveLength(1);
+  await expect(c.wait("user", first.id)).rejects.toThrow("BRIEFING_NOT_FOUND");
+  expect((await c.wait("user", nextId)).settled).toBe(true);
+  expect(c.retentionStats()).toMatchObject({runs:1, requests:1, profiles:1, settled:1, jobs:0, waiters:0});
 });

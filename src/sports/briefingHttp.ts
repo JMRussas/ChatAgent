@@ -45,7 +45,11 @@ export class BriefingHttp {
           const tasks = profile.tasks.filter(task => task.scope === scope).map(task => ({ ...task, sources: task.sources.filter(source => source.kind === kind) })).filter(task => task.sources.length);
           const run = this.coordinator.start(userId, requestId, { now: args.to, timezone: args.timezone, team: args.team,
             lastSuccessful: { league: args.from, team: args.from } }, { ...profile, tasks });
-          const abort = () => { this.coordinator.cancel(userId, run.id); };
+          const abort = () => {
+            // Settlement/retention may win the race before this listener is removed.
+            try { this.coordinator.cancel(userId, run.id); }
+            catch (error) { if (!(error instanceof Error) || error.message !== "BRIEFING_NOT_FOUND") throw error; }
+          };
           signal.addEventListener("abort", abort, { once: true });
           if (signal.aborted) abort();
           try { return await this.coordinator.wait(userId, run.id); }

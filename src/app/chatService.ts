@@ -47,7 +47,15 @@ export class ChatService {
     await Promise.all(lifecycle.registeredTurns().map(turn => this.orchestrator.cancel(turn.conversationId, turn.messageId)));
   }
   async discardPending(): Promise<void> {
-    if (this.queue) while (await this.queue.dequeue()) { /* cancelled, process-local work */ }
+    if (this.queue) {
+      let task;
+      const errors:unknown[]=[];
+      while ((task=await this.queue.dequeue())) {
+        try { await this.worker.discardQueued(task); }
+        catch(error) { errors.push(error); }
+      }
+      if(errors.length)throw new AggregateError(errors,"Queued task cleanup failed");
+    }
   }
   resolveReferences?: (selections:unknown,userId:string,conversationId:string) => import("./referenceSelection").AttachedReference[];
   detachTeamReference(conversationId:string,userId:string) {
@@ -136,9 +144,25 @@ export class ChatService {
     const lifecycle = generationLifecycle(this.queue);
     const messageId = removed.task.messageId ?? removed.task.taskId;
     if (lifecycle.get(removed.task.conversationId, messageId, "deep")?.status === "cancelled") return false;
-    const attempt = lifecycle.create(removed.task.conversationId, messageId, "deep", this.timelineStore, removed.task.taskId);
-    await attempt.queued();
-    await this.queue.enqueue(removed.task);
+    let releaseDispatch:(()=>void)|undefined;
+    let replayAttempt:import("./generationLifecycle").GenerationAttempt|undefined;
+    try {
+      if(["fast","deep"].some(phase=>lifecycle.get(removed.task.conversationId,messageId,phase as "fast"|"deep")?.active))
+        throw new GenerationError("REPLAY_CONFLICT",false);
+      releaseDispatch=this.worker.prepareReplay(removed.task);
+      const attempt = replayAttempt = lifecycle.create(removed.task.conversationId, messageId, "deep", this.timelineStore, removed.task.taskId);
+      attempt.dispatchId=removed.task.dispatchId;
+      await attempt.queued();
+      await this.queue.enqueue(removed.task);
+    } catch(error) {
+      releaseDispatch?.();
+      try { if(replayAttempt?.active)await replayAttempt.finish("error",undefined,"REPLAY_FAILED"); }
+      finally {
+        if(replayAttempt)lifecycle.releaseTask(removed.task.taskId);
+        await this.deadLetterStore.add(removed);
+      }
+      throw error;
+    }
     return true;
   }
 

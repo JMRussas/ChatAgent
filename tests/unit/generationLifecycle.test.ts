@@ -9,7 +9,7 @@ import { MockFastProvider, MockDeepProvider } from "../../src/providers/mockProv
 import { ContextManager } from "../../src/app/contextManager";
 import { ContextBudgetError } from "../../src/app/contextBuilder";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
-import { GenerationAttempt } from "../../src/app/generationLifecycle";
+import { GenerationAttempt, generationLifecycle } from "../../src/app/generationLifecycle";
 import { OllamaFastProvider } from "../../src/providers/ollamaProviders";
 import { deriveTurns } from "../../src/ui/turnViewModel";
 
@@ -152,4 +152,17 @@ describe("generation lifecycle", () => {
     expect(events.filter(e => e.type === "delta").map(e => e.text)).toEqual(["a", "bc", "d"]);
     expect(events.at(-1)?.type).toBe("terminal"); expect(vi.getTimerCount()).toBe(0);
   });
+});
+
+it("protects the identity of a replay whose original lifecycle record expired",async()=>{
+  vi.useFakeTimers();
+  const s=setup(undefined,{resolveDeepTask:async()=>{throw new GenerationError("PROVIDER_AUTH",false);}});
+  await s.service.submitMessage(message);await s.worker.runSingle();
+  const record=(await s.dead.list())[0];
+  await vi.advanceTimersByTimeAsync(300001);
+  expect(generationLifecycle(s.queue).get("c",message.messageId,"deep")).toBeUndefined();
+  expect(await s.service.replayDeadLetter(record.task.taskId)).toBe(true);
+  await expect(s.service.submitMessage(message)).rejects.toMatchObject({code:"DUPLICATE_MESSAGE_ID"});
+  await s.service.cancelRemaining();await s.service.discardPending();
+  expect(generationLifecycle(s.queue).retentionStats()).toMatchObject({tasks:0,consumers:0});
 });

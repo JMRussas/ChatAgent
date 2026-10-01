@@ -1,5 +1,204 @@
 # Request-to-evidence contracts and acceptance gates
 
+## Active remediation plan: four deep-review findings — 2026-10-01
+
+Status: implemented; awaiting review/commit. Next work follows the
+[reliability roadmap](../12-development-roadmap.md#current-plan--reliability-before-feature-expansion-2026-10-01);
+provider-supported structured output is deferred. Keep compact answer text, separate deduplicated reference payloads,
+manual evidence selection and unchanged historical artifacts. Do not reinstate the
+post-expansion answer rejection or automatically inject reference payloads into history.
+The pre-remediation baseline passed 721 tests; the review exposed behavioral gaps
+not covered by that baseline. All four fixes below now have regression coverage.
+
+Implementation notes:
+- `delivered-answer-v1` validates displayed text and the separate references.
+  Recording annotations v3 bind `referenceSupport` to a canonical `deliveryHash`;
+  text dimensions, structural `referenceIntegrity`, and semantic support stay separate.
+  Versions 1/2 can still grade text but cannot confer a cited-reference quality pass.
+  Metadata-only/redacted references remain unavailable; valid empty references on
+  insufficient-evidence answers do not require a citation-support rating.
+- Comparison reports and grading output are v3. Reports retain raw generation,
+  canonical validation, delivered text/references and delivery hashes. A failed
+  invocation retains diagnostics with null delivery; historical v1/v2 reports are
+  unchanged and are rejected by the new delivery grader.
+- Review/revise expose manual text-only and selected-evidence scopes. The latter
+  requires owned, unexpired selected rows and maps original markers to issued cell
+  IDs; omitted markers remain unreviewed. Evidence revisions use the grounded v2
+  contract and rebuild references. The effective contract and scope are recorded.
+  Existing planning roles can review/revise; evidence-answer roles remain for the
+  answer-from-evidence action. No reference payload is automatically added to history.
+- Reference sections and their grid ancestors now shrink and wrap long values,
+  retaining keyboard expansion, complete payloads and safe HTTP(S) links.
+
+Quality remains independently judged: structural validity is not factual entailment.
+Review evidence still comes from the process-local, expiring result store; historical
+references alone cannot reconstruct a review after their issued evidence is gone.
+
+Validation: 740 unit/integration tests across 95 files passed, TypeScript build
+passed, and all 26 browser tests passed. The five affected browser cases also passed
+after the final scope-metadata change. Coverage includes CLI grading round-trip,
+legacy/capture-policy handling, corrupted delivery, partial citation maps,
+foreign/expired/cancelled evidence, long values and safe-link rendering. An initial
+four-worker test run lost a worker; the full suite passed cleanly with two workers.
+No live model calls, historical baseline rewrites, preview restart or commit.
+
+### 1. Close the false-pass grading gap (finding 1)
+
+First make existing text-only annotation versions report reference-bearing answers as
+reference-quality ungraded, preventing an overall quality pass. Preserve text-only
+scoring for answers without references and distinguish empty reference payloads on
+insufficient-evidence responses from actual cited references.
+
+Define a shared versioned delivered-answer contract containing the final displayed
+text and typed answerReferences. Validate unique source/citation IDs, source existence,
+marker-to-citation associations and the mapping to the validated canonical evidence
+where available. Require every application-issued marker to resolve; do not treat
+arbitrary bracketed numbers in prose as automatically issued citation markers.
+
+Add a new annotation version that binds ratings to a canonical digest of both final
+text and the exact reference payload. Keep text correctness, structural reference
+integrity and independently judged evidence support as separate dimensions. Metadata-
+only, redacted, missing or legacy text-only evidence cannot silently acquire a full
+reference-quality pass. Older artifacts remain readable with their original scope;
+never manufacture new annotations or silently migrate old hashes.
+
+Acceptance: reproduce the review's nonexistent-source/wrong-value case; it must never
+pass. A reference-only change must invalidate a prior delivered-answer grade. Cover
+missing references, duplicate IDs, mismatched markers, altered URLs/values, redaction,
+metadata-only capture, text-only answers and insufficient-evidence compatibility.
+A syntactically valid reference still does not establish semantic entailment.
+
+### 2. Capture delivery in the comparison runner (finding 3)
+
+Reuse the delivered-answer contract and digest from step 1. Save final published text
+and answerReferences alongside raw model output, normalized validation, selected
+source packet and actual model context. Distinguish generation, validation and
+publication outcomes; rejected/unpublished output has no successful delivery artifact.
+Version the comparison report/grade contract explicitly and retain complete planned
+case/condition coverage checks. Older baselines remain untouched and cannot be labeled
+as delivery-graded when they lack those fields.
+
+Acceptance: deliberately break a formatter marker/source association and prove it
+cannot pass delivery grading even when raw model output and normalized validation
+are correct. Verify reference-only and rendered-text changes invalidate grades,
+missing deliveries fail, and cancellation/errors retain raw diagnostics without
+claiming publication. Check CLI round trips and capture-policy boundaries.
+
+### 3. Make manual review/revision reference-aware (finding 2)
+
+Recognize answerReferences as part of the selected target, not only payloadResults.
+Provide an explicit manual scope: text-only review versus selected-evidence review.
+Text-only mode must state that it does not verify citations or factual grounding.
+Evidence review requires user-selected owned, unexpired rows matching the target's
+cited results/cells. Resolve the target's display markers to those selected cells and
+pass only the bounded mapping and selected evidence for this invocation. Unselected
+citations remain explicitly unreviewed; do not infer complete review from one match.
+
+Revalidate ownership/expiry/availability before inference; retain cancellation and
+model admission. Do not automatically attach the whole historical payload. Revision
+must not copy orphaned markers: any newly issued citation markers must resolve through
+the validated reference contract, while an uncited textual review must not inherit
+an unrelated reference payload. Keep original answers immutable.
+
+Acceptance: reproduce "check citation [1]" losing its mapping. Test multiple sources,
+reordered rows, duplicate markers, partial selection, unrelated/foreign/expired rows,
+text-only scope, and revision mapping. Verify the subsequent ordinary chat still
+receives no automatically expanded reference payload. Exercise API and browser paths.
+
+### 4. Contain large reference values in the UI (finding 4)
+
+Constrain the References section and its flex/grid ancestors to available width;
+wrap long URLs and cell values, with local scrolling where needed. Keep complete
+values accessible without widening the conversation or truncating the underlying
+payload. Preserve safe HTTP(S) links, textContent rendering, keyboard expansion and
+reference replay. This is a presentation fix, not a reason to reject a valid answer.
+
+Acceptance: use an actual issued long-URL reference payload at 390-pixel and desktop
+viewports. Assert conversation/answer/reference bounds, not merely document width
+(which can hide ancestor clipping). Include long cell values, markup-like text,
+unsafe URL schemes, keyboard expand/collapse and reload replay. The formerly >2 MB
+repeated-source case must still publish compact text with deduplicated references.
+
+### Completion and sequence
+
+Implement in order 1, 2, 3, 4 so all later behavior has a delivery-aware grading gate.
+Use deterministic regression fixtures first; no live calls are needed to establish
+these fixes. Run focused suites per change, then the full unit/integration suite,
+TypeScript build and browser suite. Update journals with precise completed scope,
+remaining limitations and validation results. Review the combined changes before a
+commit; commit only when requested. Implementation was subsequently authorized.
+Resume structured-output work after the reliability gates in the current roadmap.
+
+## Separate answer references — 2026-10-01
+
+User direction supersedes the post-expansion size rejection described below. Answers
+now contain numbered citation markers; a separate `answerReferences` payload holds
+each cited cell once and source provenance once per result snapshot. Repeated citations
+within a claim share a marker. The UI renders an expandable References section with
+safe HTTP(S) links. Timeline replay and v1 projection retain the payload; subsequent
+model history receives answer text, not expanded source URLs or reference payloads.
+Evaluation recording hashes it separately and retains content only in answers mode.
+
+Removed the post-expansion ANSWER_TOO_LARGE check. The prior >2 MB reproduction now
+publishes a compact answer with one source and one cited-cell entry. Existing model
+output, context and selected-evidence bounds remain; no new generic pagination or
+large-payload transport mechanism is claimed. Deduplication resolves this bounded
+citation case without discarding an otherwise valid answer.
+
+Validation: 24 browser tests passed, including citation expansion and reload replay;
+focused runtime, projection and recording checks and TypeScript build passed. No live
+model rerun or preview restart. Changes remain uncommitted for review. Next remains
+provider-supported structured output for the retained malformed JSON evaluation case.
+
+## Citation-ID review fix — 2026-10-01
+
+Review reproduced an output amplification gap: compact citation-ID JSON could expand
+long source URLs repeatedly into a displayed answer exceeding the shared 1 MiB
+answer limit. The runtime now measures the final evidence-answer text and rejects
+oversized output with ANSWER_TOO_LARGE before publication or terminal answer text is
+assigned. The regression published over 2 MB before the fix and is rejected afterward.
+This also protects the legacy v1 evidence-answer rendering path.
+
+All 47 focused contract, citation, runtime, role and comparison tests pass; TypeScript
+build passes. Existing isolation, reordered-cell mapping, expiry/cancellation and v1
+compatibility checks remain intact. No live inference or preview restart was needed.
+Changes remain uncommitted. Next remains provider-supported structured output to
+address the malformed JSON case retained in the live comparison.
+
+## Citation IDs and follow-up comparison — 2026-10-01
+
+Committed the reviewed comparison runner as `968e47d`. The next increment introduces
+`answer-evidence-v2`: each selected cell has an issued citation ID, and the model copies
+those IDs instead of constructing original row/column coordinates and quotes. The
+server resolves IDs to the existing canonical citation representation before applying
+expiry, cancellation and grounding-contract checks. IDs from unselected cells or other
+results are rejected; reorderings preserve original row identity. Semantic entailment
+remains ungraded by the runtime.
+
+The model-facing view is byte-limited including citation-ID overhead, and context
+budget reporting counts that view. The comparison preflights the expanded view before
+any inference. Existing explicit v1 roles retain coordinate-based output compatibility.
+No-role evidence answers and the example evidence-writer (now version 3) use v2.
+The schema example now has an empty limitations array with instructions to add only
+specific additional limitations. No automatic repair or retry was added.
+
+Validation: full suite passed 718 tests / 93 files; subsequent focused checks passed
+16 tests including an added v1 compatibility regression. TypeScript build passed.
+A six-call local Qwen3 8B off/on comparison used the same three development cases:
+5/6 runtime and separately reviewed task criteria passed. All five parseable responses
+used valid citation IDs, including thinking-on's formerly failing selected-row case.
+Thinking-off source-instruction output had an extra closing brace; strict JSON parsing
+blocked publication. No answer copied the generic limitation placeholder. This small
+sample does not establish overall quality improvement or a preferred thinking mode.
+Separate Codex review is not human-calibrated; historical baselines remain unchanged.
+
+Artifacts: `reports/evaluations/evidence-citation-ids-20261001/`, including raw inputs,
+outputs, ratings and graded report. Nonzero evaluation/grade exit status reflects the
+retained JSON failure, not a harness crash. Next after review: investigate opt-in
+provider-supported structured output to reduce format failures and rerun the same
+cases, preserving failure records. The larger evaluation and workflow plan remains
+pending. This citation increment is uncommitted; preview has not been restarted.
+
 ## Evaluation comparison review fixes — 2026-10-01
 
 The grader previously checked only records present in the report: deleting a failed

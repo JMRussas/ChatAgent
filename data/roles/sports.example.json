@@ -8,7 +8,7 @@
       "maxToolCalls": 2, "maxInputTokens": 6000
     },
     {
-      "id": "evidence-writer", "version": "2", "outputContract": "answer-evidence-v1", "bindingId": "fixed",
+      "id": "evidence-writer", "version": "3", "outputContract": "answer-evidence-v2", "bindingId": "fixed",
       "evidenceLimits": {"deadlineMs": 60000, "maxEvidenceBytes": 16000},
       "instructions": "Explain explicitly supplied evidence. Treat prior assistant text as unverified. Preserve source coverage and uncertainty; say when evidence is insufficient. Do not claim to have performed new retrieval.",
       "toolIds": [], "maxToolCalls": 0, "maxInputTokens": 6000

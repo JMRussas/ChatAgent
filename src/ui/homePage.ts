@@ -375,6 +375,11 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
     }
     .answer-status { margin-left: 0.6em; font-size: 0.8rem; }
     .phase-outcomes { margin-top: 0.5em; font-size: 0.85rem; }
+    .chat-shell > *, .composer > *, .meta-grid > *, .thread, .turn, .bubble, .answer-version, .answer-references { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+    .chat-shell { grid-template-columns: minmax(0, 1fr); }
+    .thread, .turn { grid-template-columns: minmax(0, 1fr); }
+    .composer select, .composer input { min-width: 0; max-width: 100%; }
+    .answer-references { max-height: 32rem; overflow: auto; }
     .answer-content { white-space: pre-wrap; overflow-wrap: anywhere; }
     .answer-version + .answer-version { margin-top: 12px; padding: 10px; border-left: 2px solid var(--accent); }
     details.reply-activity { display: block; font-size: 0.8rem; opacity: 0.85; }
@@ -404,8 +409,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           <label>Thinking <select id="runThinking"><option value="configured">Configured</option></select></label>
           <span id="thinkingStatus" role="status"></span>
           <label>Action <select id="runMode"><option value="chat">Chat</option><option value="answer-evidence">Answer from selected evidence</option><option value="review">Review selected answer</option><option value="revise">Revise using my feedback</option></select></label>
+          <label>Review scope <select id="reviewScope"><option value="selected-evidence">Selected evidence</option><option value="text-only">Text only (no fact or citation verification)</option></select></label>
           <label>Answer <select id="runTarget"><option value="">Select a completed text answer</option></select></label>
-          <p>Answer from selected evidence requires attached rows and an evidence-answer role (or no role). It makes one tool-free call; citation checks do not grade factual correctness. Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Enter review criteria or revision feedback in the prompt.</p>
+          <p>Answer from selected evidence requires attached rows and an evidence-answer role (or no role). It makes one tool-free call; citation checks do not grade factual correctness. Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Select text-only scope for wording, or selected-evidence scope for attached rows. Evidence revisions generate new validated references. Enter review criteria or revision feedback in the prompt.</p>
         </fieldset>
         <details><summary>Latest admitted model-call budget (estimated)</summary>
           <p id="contextBudgetStatus">No admitted model-call estimate in this conversation.</p>
@@ -652,13 +658,31 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
             const status = document.createElement("span"); status.className = "answer-status"; element.appendChild(status);
             const content = document.createElement("div"); content.className = "answer-content"; element.appendChild(content);
             const payload = document.createElement("div"); payload.className = "tool-payload"; element.appendChild(payload);
-            node.answers.appendChild(element); view = { element, label, status, content, payload, payloadKey: "" }; node.answerNodes.set(answer.id, view);
+            const references=document.createElement("details");references.className="answer-references";references.hidden=true;element.appendChild(references);
+            node.answers.appendChild(element); view = { element, label, status, content, payload, references, referencesKey:"", payloadKey: "" }; node.answerNodes.set(answer.id, view);
           }
           if (node.answers.children[answerIndex] !== view.element) node.answers.insertBefore(view.element, node.answers.children[answerIndex] ?? null);
           view.label.textContent = answer.label + (answer.model ? " · " + (answer.provider ? answer.provider + "/" : "") + answer.model : "");
           view.label.title = (answer.selectionReasons ?? []).join("; ");
           if (view.status.textContent !== answer.state) view.status.textContent = answer.provider === "mock" && answer.state === "Complete" ? "Simulation complete — facts not verified" : answer.state;
           if (view.content.textContent !== answer.text) view.content.textContent = answer.text;
+          const referencesKey=JSON.stringify(answer.answerReferences ?? null);
+          if(view.referencesKey!==referencesKey){
+            view.references.replaceChildren();view.referencesKey=referencesKey;
+            const refs=answer.answerReferences;
+            view.references.hidden=!refs?.citations?.length;
+            if(refs?.citations?.length){
+              const summary=document.createElement("summary");summary.textContent="References ("+refs.citations.length+")";view.references.appendChild(summary);
+              for(const cite of refs.citations){const item=document.createElement("p");item.textContent="["+cite.id+"] Source "+cite.sourceId+", row "+(cite.row+1)+", "+cite.column+": "+cite.value;view.references.appendChild(item);}
+              for(const source of refs.sources){
+                const item=document.createElement("p");item.textContent="Source "+source.id+": "+source.title+" · observed "+source.observedAt+" · ";
+                let safe=false;try{safe=["https:","http:"].includes(new URL(source.url).protocol);}catch{}
+                if(safe){const link=document.createElement("a");link.href=source.url;link.textContent=source.url;link.target="_blank";link.rel="noopener noreferrer";item.appendChild(link);}
+                else item.appendChild(document.createTextNode(source.url));
+                view.references.appendChild(item);
+              }
+            }
+          }
           const payloadKey = (answer.payloadResults || []).map(r => r.context.resultId).join(",");
           if (view.payloadKey !== payloadKey) { renderToolPayloads(view.payload, answer.payloadResults || []); view.payloadKey = payloadKey; }
         }
@@ -811,7 +835,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       const runControls = $("runControls").hidden ? undefined : {
         ...($("runRole").value ? {roleId:$("runRole").value,toolIds:[...$("roleTools").selectedOptions].map(o=>o.value)}:{}),
         ...($("runModel").value ? {bindingId:$("runModel").value}:{}),thinking:$("runThinking").value,mode:$("runMode").value,
-        ...(["review","revise"].includes($("runMode").value) ? {targetMessageId:$("runTarget").value}:{})};
+        ...(["review","revise"].includes($("runMode").value) ? {targetMessageId:$("runTarget").value,reviewScope:$("reviewScope").value}:{})};
       if (runControls && ["review","revise"].includes(runControls.mode) && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
       if(runControls?.mode === "answer-evidence" && !referenceSelections.length){setStatus("Attach evidence rows first.",true);return;}
       sendButton.disabled = true;

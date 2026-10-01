@@ -58,6 +58,8 @@ export interface DeepResult {
 }
 
 export interface ChatTimelineEvent {
+  /** Deduplicated display payload; never injected into model history. */
+  answerReferences?: import("../app/answerReferences").AnswerReferences;
   /** Structured validation result for UI/evaluation, excluded from model history. */
   groundedAnswer?: ReturnType<typeof import("../app/retrievalAnswerContract").validateGroundedAnswer>;
   contextBudget?: import("./contextBudgetUsage").ContextBudgetUsage;

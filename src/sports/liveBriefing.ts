@@ -52,7 +52,7 @@ export function createLiveBriefing(configuration: unknown, apiKey?: string,
     return registry;
   };
   const registry = sources(config);
-  const coordinator = new BriefingCoordinator(registry, config.coordinator);
+  const coordinator = new BriefingCoordinator(registry, config.coordinator, clock);
   coordinator.configure(registry, config.coordinator, version);
   const http = new BriefingHttp(coordinator, config.profile);
   let directory = new TeamDirectory(apiKey, budget, config.directories, version, transport, clock);

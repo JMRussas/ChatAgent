@@ -57,21 +57,30 @@ latency samples are not a production SLA. See the [evidence guide](docs/results.
 
 ```mermaid
 flowchart TD
-    UI[Browser conversation and task panel] --> Chat[TypeScript chat service]
-    Chat --> Context[Bounded context and source-linked memory]
-    Chat --> Fast[Streaming foreground provider]
-    Chat --> Deep[Asynchronous deep worker]
-    UI --> Tasks[Conversation-scoped task API]
-    Tasks --> Bridge[Node to Python JSON-lines bridge]
-    Bridge --> Manager[Independent task lifecycle and budgets]
-    Manager --> Graph[LangGraph workflow]
-    Graph --> Model[LangChain ChatOllama]
-    Graph --> Tools[Bounded documentation search and read]
-    Graph <--> Checkpoints[(SQLite checkpoints)]
-    Fast --> Providers[Ollama / Azure / Bedrock adapters]
-    Deep --> Providers
-    Model --> Ollama[Local Ollama]
+    UI[Browser conversation, run controls and task panel] --> Service[ChatService facade and HTTP routes]
+    Service --> Orch{Mock-only?}
+    Orch -- yes --> CO[ChatOrchestrator: keyword routing]
+    Orch -- no --> CC[CapabilityChat: validated model plan over tool registry]
+    CO --> Lifecycle[Generation lifecycle: attempts, deltas, cancellation, retention]
+    CC --> Lifecycle
+    CO --> Context[Context manager: bounded snapshot and source-linked memory]
+    CC --> Context
+    CC --> Tools[Capability tools: sports teams, games, league news]
+    Tools --> Sources[Bounded sources with shared budget: BALLDONTLIE, RSS, fixtures]
+    Lifecycle --> Fast[Streaming fast provider]
+    Lifecycle --> Queue[(In-memory task queue)]
+    Queue --> Deep[Deep worker: retries then dead letter]
+    Fast --> Dispatch[Fixed pair, or catalog dispatch with discovery and admission]
+    Deep --> Dispatch
+    Dispatch --> Providers[Mock / Ollama / Azure / Bedrock adapters, Claude CLI bridge]
+    UI --> DocTasks[Optional conversation-scoped document tasks]
+    DocTasks --> Bridge[Node to Python JSON-lines bridge]
+    Bridge --> Manager[Task lifecycle, ownership and budgets]
+    Manager --> Graph[LangGraph workflow with SQLite checkpoints]
+    Graph --> Retrieval[Bounded documentation search and read on local Ollama]
 ```
+
+A class-level map with eight diagrams is in [docs/10-class-map.html](docs/10-class-map.html).
 
 The documentation agent is an explicit optional action. The bridge admits up to
 eight scheduled documentation tasks and runs one at a time; foreground chat uses

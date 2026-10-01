@@ -1,3 +1,4 @@
+import {validateDeliveredAnswer,deliveryDigest} from "../../app/deliveredAnswer";
 import { z } from "zod";
 import { validateArtifact, recordingEvidenceValid } from "./storage";
 import { digest, canonical, redact } from "./contract";
@@ -11,6 +12,7 @@ const legacyRating = z.object({ promptId: z.string(), responseHash: hash, correc
   unsupportedClaims: z.enum(["yes", "no", "unrated"]), firstUsefulEventSequence: z.number().int().positive().optional() }).strict();
 export const annotationsSchema = z.discriminatedUnion("version", [
   z.object({ ...common, version: z.literal(1), ratings: z.array(legacyRating) }).strict(),
+  z.object({...common,version:z.literal(3),ratings:z.array(legacyRating.extend({groundedness:rating,taskCompletion:rating,referenceSupport:rating,deliveryHash:hash,rationale:z.string().max(2000).optional()}).strict())}).strict(),
   z.object({ ...common, version: z.literal(2), ratings: z.array(legacyRating.extend({
     groundedness: rating, taskCompletion: rating, rationale: z.string().max(2000).optional()
   }).strict()) }).strict()
@@ -31,7 +33,22 @@ export function scoreRecording(value: unknown, annotations: unknown, now = Date.
     // Existing annotation versions grade text only. Never label a user payload as
     // graded until a payload-bound rubric is supported.
     const payloadGrading = events.some(e => e.payloads?.length) ? "unrated" : "not_applicable";
+    let referenceGrading="not_applicable",referenceIntegrity="not_applicable",deliveryHash:string|null=null;
+    if(answer?.answerReferences || answer?.groundedAnswer){
+      referenceGrading="unrated";referenceIntegrity="unavailable";
+      try{
+        const refs=answer.answerReferences,grounded=answer.groundedAnswer;
+        if(!refs?.text || refs.transformed || !grounded?.text || grounded.transformed || !reviewable)throw Error("UNAVAILABLE_DELIVERY");
+        referenceIntegrity="invalid";
+        const delivery=validateDeliveredAnswer({version:"delivered-answer-v1",text:answer.answer!.text,references:JSON.parse(refs.text)},JSON.parse(grounded.text));
+        referenceIntegrity="valid";
+        deliveryHash=deliveryDigest(delivery);
+        if(!delivery.references.citations.length)referenceGrading="not_applicable";
+        else if(annotation && "deliveryHash" in annotation && "referenceSupport" in annotation && annotation.deliveryHash===deliveryHash)referenceGrading=String(annotation.referenceSupport);
+      }catch{referenceGrading="unrated";}
+    }
     const finalReviewable = reviewable && terminal?.finishReason === "stop" && payloadGrading === "not_applicable";
+    const referencesRated=["pass","fail","not_applicable"].includes(referenceGrading);
     const dimension = (value: unknown) =>
       finalReviewable && (value === "pass" || value === "fail") ? value : "unavailable";
     const groundedness = dimension(annotation && "groundedness" in annotation ? annotation.groundedness : undefined);
@@ -41,10 +58,10 @@ export function scoreRecording(value: unknown, annotations: unknown, now = Date.
     const runtimeOutcome = terminals.some(t => !t) ? "unavailable" : terminals.some(t => t!.finishReason === "error") ? "error"
       : terminals.some(t => t!.finishReason === "cancelled") ? "cancelled" : terminals.some(t => t!.finishReason === "length") ? "length"
       : terminals.every(t => t!.finishReason === "stop") ? "stop" : "unavailable";
-    const rated = finalReviewable && groundedness !== "unavailable" && taskCompletion !== "unavailable" && annotation && usefulValid && annotation.correctness !== "unrated" && annotation.relevance !== "unrated" && annotation.unsupportedClaims !== "unrated";
-    const knownFailure = finalReviewable && annotation && (annotation.correctness === "fail" || annotation.relevance === "fail" ||
+    const rated = finalReviewable && referencesRated && groundedness !== "unavailable" && taskCompletion !== "unavailable" && annotation && usefulValid && annotation.correctness !== "unrated" && annotation.relevance !== "unrated" && annotation.unsupportedClaims !== "unrated";
+    const knownFailure = finalReviewable && annotation && (referenceGrading==="fail" || annotation.correctness === "fail" || annotation.relevance === "fail" ||
       annotation.unsupportedClaims === "yes" || groundedness === "fail" || taskCompletion === "fail");
-    return { runtimeOutcome, groundedness, taskCompletion, payloadGrading, gradingComplete: Boolean(rated),
+    return { runtimeOutcome, groundedness, taskCompletion, payloadGrading, referenceGrading, referenceIntegrity, deliveryHash, gradingComplete: Boolean(rated),
       correctness: dimension(annotation?.correctness), relevance: dimension(annotation?.relevance),
       turnId: turn.turnId, promptId: turn.promptId, responseHash: answer?.answer?.scoredHash ?? null,
       outcome: runtimeOutcome !== "stop" ? "unavailable" : knownFailure ? "fail" : rated ? "pass" : "unavailable",

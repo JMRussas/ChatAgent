@@ -1,6 +1,6 @@
 import {expect,it,vi} from "vitest";
 import dataset from "../../data/evals/evidence-quality.v1.json";
-import {runEvidenceComparison,gradeEvidenceComparison} from "../../src/eval/evidenceComparison";
+import {runEvidenceComparison,gradeEvidenceComparison,evidenceHash} from "../../src/eval/evidenceComparison";
 it("keeps expected answers out of inference and requires independent hash-bound grades",async()=>{
  const generate=vi.fn(async()=>({text:JSON.stringify({status:"insufficient_evidence",reason:"Not enough evidence"}),finishReason:"stop" as const}));
  const report=await runEvidenceComparison(dataset,[{id:"fixture",thinking:"configured",provider:{createProvisionalReply:generate}}]);
@@ -35,4 +35,32 @@ it("rejects invalid condition IDs before provider calls",async()=>{
  const generate=vi.fn();
  await expect(runEvidenceComparison(dataset,[{id:" fixture ",thinking:"configured",provider:{createProvisionalReply:generate}}])).rejects.toThrow("surrounding whitespace");
  expect(generate).not.toHaveBeenCalled();
+});
+
+it("captures delivery and fails a formatter regression even if raw model output passes",async()=>{
+ const provider={createProvisionalReply:async()=>({text:JSON.stringify({status:"insufficient_evidence",reason:"No play data"}),finishReason:"stop" as const})};
+ const report=await runEvidenceComparison(dataset,[{id:"fixture",thinking:"configured",provider}]);
+ expect(report.records[0].delivered?.text).toContain("No play data");
+ report.records[0].delivered!.text="Wrong rendered answer";
+ const {responseHash,semanticGrade,...record}=report.records[0];report.records[0].responseHash=evidenceHash(record);
+ const graded=gradeEvidenceComparison(report,{judge:{id:"reviewer",kind:"human"},ratings:report.records.map(r=>({responseHash:r.responseHash,grade:"pass",rationale:"Raw model output correct"}))});
+ expect(graded.passed).toBe(false);expect(graded.results[0].runtimePassed).toBe(false);
+});
+it("retains rejected model output without inventing a delivery",async()=>{
+ const report=await runEvidenceComparison(dataset,[{id:"fixture",thinking:"configured",provider:{createProvisionalReply:async()=>({text:"{invalid",finishReason:"stop"})}}]);
+ expect(report.records.every(r=>r.delivered===null && r.deliveryHash===null && r.answer===null && r.generated?.text==="{invalid" && r.errorCode)).toBe(true);
+ const grades={judge:{id:"reviewer",kind:"human"},ratings:report.records.map(r=>({responseHash:r.responseHash,grade:"pass",rationale:"Cannot override missing delivery"}))};
+ expect(gradeEvidenceComparison(report,grades).passed).toBe(false);
+ expect(()=>gradeEvidenceComparison({...report,version:"evidence-comparison-v2"},grades)).toThrow();
+});
+it("grades saved delivery reports through the CLI without provider calls",async()=>{
+ const {mkdtemp,writeFile,readFile,rm}=await import("node:fs/promises"),{tmpdir}=await import("node:os"),{join}=await import("node:path"),{execFile}=await import("node:child_process"),{promisify}=await import("node:util");
+ const root=await mkdtemp(join(tmpdir(),"delivery-cli-"));
+ try{
+  const report=await runEvidenceComparison(dataset,[{id:"fixture",thinking:"configured",provider:{createProvisionalReply:async()=>({text:JSON.stringify({status:"insufficient_evidence",reason:"No play data"}),finishReason:"stop"})}}]);
+  const reportPath=join(root,"report.json"),ratingsPath=join(root,"ratings.json");
+  await writeFile(reportPath,JSON.stringify(report));await writeFile(ratingsPath,JSON.stringify({judge:{id:"fixture-reviewer",kind:"human"},ratings:report.records.map(r=>({responseHash:r.responseHash,grade:"pass",rationale:"CLI transport fixture; not a quality assessment"}))}));
+  await promisify(execFile)(process.execPath,["node_modules/tsx/dist/cli.mjs","src/eval/evidenceComparisonCli.ts","grade",reportPath,ratingsPath]);
+  expect(JSON.parse(await readFile(reportPath+".graded.json","utf8"))).toMatchObject({version:"evidence-comparison-grading-v3",passed:true});
+ }finally{await rm(root,{recursive:true,force:true});}
 });

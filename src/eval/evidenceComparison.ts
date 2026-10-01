@@ -1,3 +1,5 @@
+import {validateDeliveredAnswer,deliveryDigest} from "../app/deliveredAnswer";
+import {citationEvidenceView} from "../app/evidenceCitations";
 import {createHash,randomUUID} from "node:crypto";
 import {z} from "zod";
 import {CapabilityChat} from "../app/capabilityChat";
@@ -20,7 +22,7 @@ export async function runEvidenceComparison(datasetInput:unknown,conditions:Evid
  // Validate every selection and payload before the first provider call.
  const specs=dataset.cases.map(c=>{
   const store=new ToolResultStore();const result=store.put("eval","validate",{version:"tool-result-v1",context:{status:"ready",summary:"Synthetic fixture",scope:"development fixture",coverage:c.coverage,limitations:c.limitations,expiresAt:new Date(Date.now()+600000).toISOString()},payload:{kind:"table",title:c.id,columns:c.columns,rows:c.rows},evidence:{sourceUrl:"https://example.invalid/synthetic",observedAt:new Date().toISOString(),revision:dataset.version}});
-  prepareAnswerEvidence(store,[{resultId:result.context.resultId,rows:c.selectedRows}],"eval","validate",policy,Date.now(),new AbortController().signal);
+  citationEvidenceView(prepareAnswerEvidence(store,[{resultId:result.context.resultId,rows:c.selectedRows}],"eval","validate",policy,Date.now(),new AbortController().signal),policy.maxEvidenceBytes);
   return {test:c,template:result};
  });
  const records=[];
@@ -34,22 +36,23 @@ export async function runEvidenceComparison(datasetInput:unknown,conditions:Evid
   const observe=(provider:FastModelProvider):FastModelProvider=>({metadata:provider.metadata,
    ...(provider.withThinking ? {withThinking:async (setting,control)=>observe(await provider.withThinking!(setting,control))} : {}),
    createProvisionalReply:async(input,control)=>{actual=provider.metadata;modelInput=structuredClone(input.context ?? null);generated=await provider.createProvisionalReply(input,control);return generated;}});
-  const roles=new RoleCatalog({version:"role-catalog-v1",roles:[{id:"writer",version:"eval-v1",bindingId:"fixed",instructions:"Answer using the explicitly selected evidence only.",toolIds:[],maxToolCalls:0,maxInputTokens:12000,outputContract:"answer-evidence-v1",evidenceLimits:{deadlineMs:policy.deadlineMs},overrides:{thinking:true}}]});
+  const roles=new RoleCatalog({version:"role-catalog-v1",roles:[{id:"writer",version:"eval-v1",bindingId:"fixed",instructions:"Answer using the explicitly selected evidence only.",toolIds:[],maxToolCalls:0,maxInputTokens:12000,outputContract:"answer-evidence-v2",evidenceLimits:{deadlineMs:policy.deadlineMs},overrides:{thinking:true}}]});
   const chat=new CapabilityChat(observe(condition.provider),new InMemoryTaskQueue(),timeline,new ContextManager(timeline,{windowTokens:16384,maxHistoryTurns:0,safetyTokens:256,fastOutputTokens:2048,deepOutputTokens:2048}),()=>({fastProvider:"evaluation",fastModel:condition.id,deepProvider:"none",deepModel:"none",generatedAtIso:new Date().toISOString()}),()=>[],undefined,roles,"native",()=>store);
   const started=Date.now();let errorCode:string|null=null;
   try{await chat.handleUserMessage({conversationId,userId:"eval",messageId:randomUUID(),text:test.prompt,timestampIso:new Date().toISOString(),referenceSelections:selections,runControls:{roleId:"writer",mode:"answer-evidence",thinking:condition.thinking}});}
   catch(error){errorCode=error instanceof Error && "code" in error ? String(error.code) : "EVALUATION_EXECUTION_FAILED";}
   const event=(await timeline.getEvents(conversationId)).find(e=>e.groundedAnswer);
-  const record={caseId:test.id,condition:condition.id,requestedThinking:condition.thinking,model:actual ?? null,modelInput,prompt:test.prompt,evidence:packet,expected:test.expected,generated:generated ?? null,answer:event?.groundedAnswer ?? null,errorCode,latencyMs:Date.now()-started};
+  const delivered=event ? {version:"delivered-answer-v1" as const,text:event.text,references:event.answerReferences} : null;
+  const record={delivered,deliveryHash:delivered ? deliveryDigest(delivered):null,caseId:test.id,condition:condition.id,requestedThinking:condition.thinking,model:actual ?? null,modelInput,prompt:test.prompt,evidence:packet,expected:test.expected,generated:generated ?? null,answer:event?.groundedAnswer ?? null,errorCode,latencyMs:Date.now()-started};
   records.push({...record,responseHash:evidenceHash(record),semanticGrade:"ungraded" as const});
  }
- return {version:"evidence-comparison-v2" as const,partition:dataset.partition,datasetHash:evidenceHash(dataset),dataset,conditions:conditionPlan,createdAt:new Date().toISOString(),records};
+ return {version:"evidence-comparison-v3" as const,partition:dataset.partition,datasetHash:evidenceHash(dataset),dataset,conditions:conditionPlan,createdAt:new Date().toISOString(),records};
 }
 export type EvidenceComparison=Awaited<ReturnType<typeof runEvidenceComparison>>;
 const gradeSchema=z.object({judge:z.object({id:z.string().min(1),kind:z.enum(["human","model"])}).strict(),ratings:z.array(z.object({responseHash:z.string().regex(/^[a-f0-9]{64}$/),grade:z.enum(["pass","fail"]),rationale:z.string().min(1)}).strict())}).strict();
 /** Bind independent ratings to the exact prompt, evidence, settings and output. */
 export function gradeEvidenceComparison(value:unknown,input:unknown){
- const header=z.object({version:z.literal("evidence-comparison-v2"),partition:z.literal("development"),datasetHash:z.string(),dataset:evidenceDatasetSchema,conditions:z.array(z.object({id:z.string().min(1),thinking:z.enum(["configured","on","off"])}).strict()).min(1).max(4),records:z.array(z.object({caseId:z.string(),condition:z.string(),requestedThinking:z.enum(["configured","on","off"]),responseHash:z.string(),semanticGrade:z.literal("ungraded")}).passthrough())}).passthrough().parse(value);
+ const header=z.object({version:z.literal("evidence-comparison-v3"),partition:z.literal("development"),datasetHash:z.string(),dataset:evidenceDatasetSchema,conditions:z.array(z.object({id:z.string().min(1),thinking:z.enum(["configured","on","off"])}).strict()).min(1).max(4),records:z.array(z.object({caseId:z.string(),condition:z.string(),requestedThinking:z.enum(["configured","on","off"]),responseHash:z.string(),semanticGrade:z.literal("ungraded")}).passthrough())}).passthrough().parse(value);
  if(header.datasetHash!==evidenceHash(header.dataset))throw Error("DATASET_HASH_MISMATCH");
  if(new Set(header.conditions.map(c=>c.id)).size!==header.conditions.length)throw Error("DUPLICATE_CONDITION");
  const expected=new Set(header.conditions.flatMap(c=>header.dataset.cases.map(t=>JSON.stringify([c.id,t.id]))));
@@ -70,8 +73,10 @@ export function gradeEvidenceComparison(value:unknown,input:unknown){
  if(grades.ratings.some(r=>!report.records.some(row=>row.responseHash===r.responseHash)))throw Error("UNKNOWN_GRADE");
  const results=report.records.map(({responseHash,semanticGrade,...record})=>{
   if(evidenceHash(record)!==responseHash)throw Error("RESPONSE_HASH_MISMATCH");
+  let deliveryValid=false;
+  try{if(record.delivered && record.answer){validateDeliveredAnswer(record.delivered,record.answer,record.evidence);deliveryValid=deliveryDigest(record.delivered)===record.deliveryHash;}}catch{}
   const rating=grades.ratings.find(r=>r.responseHash===responseHash);
-  return {caseId:record.caseId,condition:record.condition,responseHash,runtimePassed:record.errorCode===null && record.generated?.finishReason==="stop" && !!record.answer,grade:rating?.grade ?? "ungraded",rationale:rating?.rationale ?? null};
+  return {caseId:record.caseId,condition:record.condition,responseHash,runtimePassed:deliveryValid && record.errorCode===null && record.generated?.finishReason==="stop" && !!record.answer,grade:rating?.grade ?? "ungraded",rationale:rating?.rationale ?? null};
  });
- return {judge:grades.judge,results,passed:results.length>0 && results.every(r=>r.runtimePassed && r.grade==="pass")};
+ return {version:"evidence-comparison-grading-v3" as const,judge:grades.judge,results,passed:results.length>0 && results.every(r=>r.runtimePassed && r.grade==="pass")};
 }

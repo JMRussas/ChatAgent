@@ -1,5 +1,265 @@
 # Development roadmap
 
+## Current plan — reliability before feature expansion (2026-10-01)
+
+This section is the authoritative execution order. Earlier dated entries below are
+historical decisions, not competing instructions for the next step. The sports work
+remains a deliberate demonstration of the general role/tool/evidence runtime.
+
+Current state: a manual prototype with configurable roles, selected evidence,
+separate display payloads and native/graph execution comparisons. The four delivery,
+grading, review and reference-layout fixes are implemented but uncommitted; their
+last verification was 740 tests / 95 files, 26 browser tests and TypeScript build.
+These results establish covered behavior, not sustained-operation or calibrated
+factual-quality guarantees. Review the existing increment separately before a
+requested commit; preserve its changes while implementing reliability work.
+
+### 1. Bounded retention and sustained operation — in progress
+
+First slice implemented (uncommitted): coordinator retention. Reproduced capacity
+failure on the third sequential request with `maxRuns: 2`; 50 sequential requests
+now complete with bounded run/request/profile/settlement indexes and zero settled
+jobs/waiters retained. Queued/running/draining adapters remain protected. Known
+`BRIEFING_CAPACITY` errors survive the chat tool boundary; other exception details
+remain hidden. Tests cover retry conflicts/expiry, pressure, cancellation, waiters
+and reduced limits on reload. Full verification: 746 tests / 95 files and TypeScript
+build passed. No live provider calls, preview restart or commit.
+
+Settlement/eviction review gap closed: a deterministic microtask test evicts the
+completed run before either waiting continuation resumes. Both callers receive
+independent completed snapshots; new lookups fail and the replacement run completes
+with bounded indexes. A temporary mutation that re-looked up the evicted run failed
+this test with `BRIEFING_NOT_FOUND`, confirming the intended interleaving is exercised.
+The mutation was reverted; runtime behavior needed no fix. All 19 coordinator/HTTP
+tests and TypeScript build passed. No commit.
+
+Configuration: sports `coordinator.settledRunTtlMs` defaults to 300000 (five minutes),
+range 1–86400000 ms. `maxRuns` still bounds active plus retained runs (default 20).
+Cleanup is lazy on access/start/reconfiguration; under capacity pressure the oldest
+settled, fully drained run is evicted before TTL. Retained identical request IDs
+return the same run and conflicting requests fail. Retention does not extend on
+reads/retries. After eviction/expiry an old run ID returns `BRIEFING_NOT_FOUND`, and
+reusing its request ID creates new work: this is bounded process-local deduplication,
+not durable exactly-once execution. Needs-input-only settled runs are also eligible;
+there is no resume-in-place API for those runs. Reducing capacity never evicts active
+work; new admission waits for available space by returning `BRIEFING_CAPACITY`.
+
+Second slice implemented (uncommitted): lifecycle/dispatch retention. Reproduced 12
+completed turns retaining 12 lifecycle records. Explicit consumers now protect an
+in-flight submission and queued/physical deep work until dependent writes and retries
+settle. Completed turn/dispatch caches are bounded by count and lazy TTL; metrics keep
+only the configured latest entries. Recent terminal state remains available for cancel
+responses and replay; older execution objects/contexts are released. Timeline history
+is separate and is not deleted by execution-cache cleanup.
+
+`EXECUTION_RETENTION_MAX_COMPLETED` defaults to 100 completed turns and independently
+100 completed dispatch phases; `EXECUTION_RETENTION_TTL_MS` defaults to 300000;
+`EXECUTION_RETENTION_MAX_METRICS` defaults to 1000. These are construction-time settings
+requiring restart, with strict positive integer validation. Capacity pressure can evict
+before TTL. Reads do not extend TTL. Active work remains protected regardless of
+age/count. Cache eviction does not expire message identity: submissions check retained
+user events and reject reused IDs; a new question needs a fresh ID. Explicit replay
+is a separate operation that can reclaim an expired execution record. Catalog replay protects its snapshot
+while queued; if that snapshot is gone, it fails `DISPATCH_SNAPSHOT_UNAVAILABLE` and
+preserves the dead-letter record rather than choosing a different provider silently.
+
+Regression coverage includes repeated direct/failed turns, held and cancelled deep
+work, queued retries, cancelled queue entries, explicit replay/expiry, shutdown,
+delayed terminal writes and retry write failure before enqueue. The write-failure
+case now releases an orphaned replacement attempt. Deliberately ignoring lifecycle
+consumers or completing a dispatch before its retry made the new tests fail; both
+mutations were reverted. No generic eviction framework or automatic retry was added.
+
+Review fixes: replay rejects an active replacement and only cleans up the attempt
+it created; failed initial enqueue releases its task pin even if terminal writes fail.
+Historical message-ID reuse is rejected on both submission paths, with concurrent
+claim and history-read failure regressions. The history check currently reads the
+conversation timeline; a persistent store should provide an indexed existence lookup.
+
+Further review fixes: capability startup releases its task pin even when its terminal
+write fails; pre-attempt setup failure releases the submission claim for retry; queue
+discard drains remaining tasks before reporting cancellation-write errors. Regression
+tests reproduced all three failures before the fixes. Submission claims now release
+in the outer cleanup so a failed preparation cannot expose the ID prematurely.
+
+Validation after the uncommitted-change review: 767 unit/integration tests across
+97 files passed with one worker, TypeScript build passed, and all 26 browser tests
+passed. Ten lifecycle review regressions now cover the reproduced failure paths.
+The existing role-snapshot test also covers configuration capture before asynchronous
+work. No live calls or commit.
+
+Next slice: admission ledger aggregation/retention audit and sustained-memory
+measurement. Started invocation charges were deliberately preserved: execution-cache
+cleanup must not refund spend or quota. The ledger, conversation history and dead
+letters are not made bounded by this increment, so this is not a claim of bounded
+whole-process memory or completion of step 1.
+
+- Reproduce coordinator exhaustion after its configured run cap. Add configurable
+  retention for settled runs and clean associated request/profile/waiter indexes.
+  Never evict active work; define retry/idempotency behavior after retention expires.
+  Capacity errors must remain identifiable through the tool result path.
+- Separate live lifecycle/dispatch state from retained history. Release completed
+  execution objects and cloned contexts only when all dependent work and writes
+  have settled. Keep execution claims bounded and check retained user events for
+  duplicate message IDs; cache expiry must not enable duplicate execution.
+- Bound dispatch metrics and inspect admission ledgers/telemetry snapshots for
+  retained state. Keep model/subscription-specific quotas and accounting semantics.
+
+Acceptance: execute substantially more than the configured capacity sequentially;
+verify new calls continue, active jobs survive pressure, retained state plateaus,
+indexes agree, retries obey the retention contract, and cancellation/shutdown still
+settle correctly. Include concurrent completion/eviction races. Check registry sizes
+and retained contexts deterministically; supplement with a repeated-use memory
+measurement rather than relying on a brittle absolute heap assertion.
+
+### 2. Request limits and an explicit deployment boundary
+
+- Bound POST bodies by bytes while streaming, including chunked input and misleading
+  Content-Length headers. Reject oversized requests consistently and stop reading.
+- Default local operation to loopback. Define explicit access controls for any
+  nonlocal deployment, covering sensitive reads, SSE and mutating endpoints. Local
+  browser access also needs an explicit Origin/Host policy for privileged actions.
+- A userId in JSON is not authentication. Shared deployment requires authenticated
+  ownership of conversations, result handles and tasks, including event reads,
+  cancellation, configuration reload and administrative operations. A shared server
+  token alone does not establish separate user identities.
+
+Acceptance: limit-boundary/chunked-body tests, unauthorized read/write/SSE rejection,
+cross-owner denial and normal local UI operation. Document the supported local mode
+and keep shared deployment gated until its identity/ownership requirements pass.
+
+### 3. Cancellation, recovery and configuration correctness
+
+- Pass cancellation/deadlines through initial catalog admission; release reservations
+  on every aborted preparation path and stop cancelled callers waiting for quota.
+- On bridge protocol failure, terminate/drain the child and settle pending requests.
+  Define explicit restart behavior without automatically replaying uncertain work.
+  Give orphaned document tasks an operator-visible reconciliation/abandon path that
+  preserves uncertainty about external execution instead of claiming clean rollback.
+- Validate complete discovery batches before publishing inventory changes. Retain
+  last good observations without extending freshness, and expose sanitized failure
+  reasons without credentials or raw provider responses.
+- Define reload compatibility: preserve unaffected result handles/in-flight work;
+  invalidate incompatible dependencies explicitly. Scope directory revisions to
+  the relevant league/provider so an NFL read cannot invalidate NBA resolutions.
+- Make Azure/Bedrock deadlines configurable through the appropriate provider/model
+  settings; retain separate workflow bounds. Audit Claude usage inspection and make
+  its credential access/undocumented endpoint explicit and opt-in if not already so.
+
+Acceptance: cancellation while quota-blocked leaves no reservation; malformed stdout
+and process kills leave no child/promise leaks or automatic duplicate execution;
+orphaned tasks can be reconciled. Invalid timestamps cause no partial inventory write.
+Unrelated league refresh/reload preserves valid handles, while incompatible changes
+fail clearly. Verify configured deadlines and usage-inspection disabled/enabled paths.
+
+### 4. Current-state documentation and maintenance checks
+
+Planned, not implemented. The next reliability slice remains admission-ledger
+aggregation/retention and sustained-memory measurement. This documentation rollout
+follows steps 1–3; update nearby contracts and regression tests during those changes
+without waiting for the generator rollout.
+
+First increment: document `GenerationLifecycle`, `CatalogDispatch` and
+`BriefingCoordinator`, then generate a browsable reference for those modules.
+
+- Add one root `AGENTS.md` for shared maintenance conventions; tool-specific
+  instruction files should point to it. Behavioral changes update the nearby
+  contract and relevant tests. Avoid repeated session narratives in handoff files.
+- Add TypeDoc and `tsdoc.json` with `@invariant`, `@lifetime` and `@decision` block
+  tags. Module comments explain responsibility and boundaries; state owners explain
+  retained state, cleanup eligibility, cancellation, failure behavior and known
+  unbounded state. Link consequential decisions to existing or new ADRs and link
+  invariants to regression tests. Do not repeat signatures or imports in prose.
+- Enforce comment/tag presence and valid syntax for the initial three components.
+  TSDoc syntax validation alone does not enforce presence. Select/configure the
+  presence checks explicitly; do not impose a repository-wide documentation gate
+  or infer ownership solely from a Map, Set or array. Extend coverage deliberately
+  to queues, timers, subprocesses, reservations and state captured in closures.
+- Generate an invariant/lifetime index from the documented tags with source,
+  decision and test links. Custom tags alone do not produce this consolidated page;
+  include the extraction/rendering step in the implementation scope.
+- Add separate documentation check/build and dependency-graph commands, then wire
+  them into `verify:release` and CI. Use Madge for import dependencies, configure
+  TypeScript resolution and surface unresolved imports. Provide a machine-readable
+  graph and a browsable view; document any rendering dependency such as Graphviz.
+  Label it as an import graph, not runtime ownership or task flow. Publish generated
+  artifacts rather than committing regenerated HTML/diagrams after every change.
+
+Acceptance for the first increment: generated pages explain why terminal status
+alone does not allow eviction, how task/consumer pins protect physical work, why
+historical message IDs survive execution-cache expiry, and why cleanup must not
+refund quota/spend. Each claim points to its implementation and relevant tests.
+Checks reject a missing required contract/tag, malformed comment or broken required
+link in the covered scope. Generation succeeds from a clean checkout, and dependency
+resolution failures are visible. Documentation checks do not establish correctness;
+regression tests remain the behavioral evidence.
+
+Second increment: consolidate the reading path and broaden maintenance coverage.
+
+- Keep one short current roadmap, durable ADRs and a concise `CHANGELOG.md` entry
+  per meaningful change: what changed, why, validation and remaining limits. Session
+  boundaries do not define entries. The changelog does not replace outstanding-work
+  tracking. Stop appending parallel status accounts to implementation journals.
+- Inventory active specifications and unresolved commitments before archiving
+  historical journals, including the handoff. Preserve operative contracts, raw
+  evidence and attribution; check inbound links and leave pointers where needed.
+  Extract current commitments before moving dated roadmap history out of the main
+  reading path. Do not blindly apply the review's proposed archive list.
+- Rewrite README/case-study entry points around the runtime that exists, the sports
+  demonstration, supported deployment boundary and remaining limits; link to the
+  generated reference and current roadmap.
+- Run Python tests in CI, adding bridge JSON-lines coverage. Introduce consistent
+  formatting/lint checks in a separate mechanical change to keep functional diffs
+  reviewable. Review abstraction costs against demonstrated uses; do not add durable
+  state/retry machinery solely to justify the optional LangGraph dependency.
+
+Acceptance: a reader can find current purpose, setup, supported boundary, evidence
+and next work without resolving contradictory journals. Archived commitments remain
+accounted for, CI exercises both languages, and formatting changes stay separate
+from behavior changes. Expand documentation enforcement only after the pilot proves
+useful; Python documentation generation is deferred until there is a demonstrated need.
+
+### 5. Independent quality evidence, then renewed feature work
+
+- Build a small independently human-labelled held-out set covering ambiguity, team
+  resolution, unsupported sports, temporal scope, partial evidence, citation support
+  and task completion. Keep development examples separate and record rubric/model/
+  thinking settings. Human labels are outstanding work, not something the coding
+  assistant can manufacture or claim as calibration.
+- Separate runtime success, delivery integrity, factual quality and task completion.
+  Blind model comparisons where feasible; calibrate model judges against human labels.
+  Self-review remains an optional user-controlled quality-improvement step, distinct
+  from independent assessment. Do not relabel historical assistant grades.
+
+Resume provider-supported structured output after reliability/recovery gates and
+review of this increment. Any claimed factual-quality improvement needs the independent
+quality gate. Broader sports sources, automatic routing/review loops, persistent user
+memory and general durable background roles remain longer-term work. Preserve manual
+model/thinking/scope controls, model-specific budgets, payload/context separation and
+the decision not to reject answers merely because expanded display references are large.
+
+### Review interpretation and tracking
+
+Source: [deep review](deep-review-2026-10-01.md). Track each implementation with a
+reproduction, acceptance result and exact commit plus dirty-tree/source identity.
+The review names HEAD `968e47d` but reports the current 740-test working tree; its
+snapshot needs clarification before treating it as a commit-only audit. It remains
+unchanged as the reviewer's original report.
+
+Findings 1–2 map to step 1; finding 3 to step 2; findings 4–9 to step 3. Documentation,
+CI/formatting and abstraction concerns map to step 4; quality calibration to step 5.
+Dispatch retains contexts, but telemetry clones metrics/admission state, not the
+entire phase map. The Azure timeout is a confirmed fixed default; whether a specific
+answer exceeds it requires measurement. Scope drift and dependency motivations are
+interpretations, not reproduced defects. Confirm untested claims with targeted cases
+before selecting their fixes.
+
+Plan update only: no reliability implementation, deployment, migration or commit is
+claimed here. For each increment, run targeted regressions plus relevant build/CI
+checks; expand verification when changes or failures justify it.
+
+## Historical roadmap entries
+
 ## Native/graph integration comparison — 2026-09-30
 
 Twelve deterministic integration checks now run six identical scenarios on each engine

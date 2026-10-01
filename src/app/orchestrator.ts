@@ -4,7 +4,7 @@ import { generationLifecycle } from "./generationLifecycle";
 import { GenerationError, normalizeGenerationError, type GenerationResult } from "../domain/generation";
 import { randomUUID } from "node:crypto";
 import { analyzeFast } from "../domain/router";
-import type { DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
+import type { DeepResult, DeepTask, OrchestratorResponse, UserMessage } from "../domain/types";
 import type { DeepModelProvider, FastModelProvider, TaskQueue } from "../providers/interfaces";
 import type { AdaptiveRoutingCoordinator } from "../routing/adaptiveRouting";
 import { ContextBudgetError, cloneConversationContext } from "./contextBuilder";
@@ -66,7 +66,21 @@ export class ChatOrchestrator {
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
     const messageId = message.messageId ?? randomUUID();
     const lifecycle = generationLifecycle(this.queue);
-    lifecycle.claim(message.conversationId, messageId);
+    await lifecycle.claimMessage(message.conversationId, messageId, this.timelineStore);
+    const release=lifecycle.retain(message.conversationId,messageId);
+    try { return await this.handleClaimedMessage({...message,messageId}); }
+    catch(error) {
+      const attempt=lifecycle.get(message.conversationId,messageId,"fast");
+      if(attempt?.active)await attempt.finish("error",undefined,normalizeGenerationError(error).code);
+      throw error;
+    } finally {
+      this.dispatch?.complete(this.dispatch.get(lifecycle.get(message.conversationId,messageId,"fast")?.dispatchId));
+      if(!lifecycle.get(message.conversationId,messageId,"fast"))lifecycle.release(message.conversationId,messageId);
+      release();
+    }
+  }
+  private async handleClaimedMessage(message:UserMessage & {messageId:string}):Promise<OrchestratorResponse> {
+    const messageId=message.messageId, lifecycle=generationLifecycle(this.queue);
     const analysis = analyzeFast(message);
     const adaptiveDecision = this.adaptiveRouting?.decide(message, analysis);
 
@@ -83,6 +97,8 @@ export class ChatOrchestrator {
     // budget rejection leaves the timeline/queue untouched (spec 01: "before
     // appending events/enqueuing/calling providers").
     let plan: DispatchPlan | undefined;
+    let deepQueued=false;
+    try {
     const contextInput = {
       conversationId: message.conversationId,
       currentMessageId: messageId,
@@ -92,11 +108,9 @@ export class ChatOrchestrator {
     };
     const contextResult = await (this.dispatch
       ? this.dispatch.prepare(this.contextManager, contextInput).then(value => { plan = value; return value.context; })
-      : this.contextManager.prepare(contextInput))
-      .catch(error => { lifecycle.release(message.conversationId, messageId); throw error; });
+      : this.contextManager.prepare(contextInput));
 
     if (contextResult instanceof ContextBudgetError) {
-      lifecycle.release(message.conversationId, messageId);
       throw contextResult;
     }
 
@@ -111,7 +125,7 @@ export class ChatOrchestrator {
       createdAtIso: message.timestampIso
     }).catch(error => {
       this.dispatch?.release(plan?.fast); this.dispatch?.release(plan?.deep);
-      lifecycle.release(message.conversationId, messageId); throw error;
+      throw error;
     });
 
     const deepTask = routeDecision === "deep" ? {
@@ -134,9 +148,11 @@ export class ChatOrchestrator {
       try {
         await deepAttempt.queued();
         await this.queue.enqueue(deepTask);
+        deepQueued=true;
       } catch (error) {
         this.dispatch?.release(plan?.fast); this.dispatch?.release(plan?.deep);
-        await lifecycle.cancel(message.conversationId, messageId);
+        try { await lifecycle.cancel(message.conversationId, messageId); }
+        finally { lifecycle.releaseTask(deepTask.taskId); }
         throw error;
       }
     }
@@ -195,6 +211,10 @@ export class ChatOrchestrator {
       });
     }
     return { messageId, fastResponse: { provisionalReply: result.text, analysis: adaptedAnalysis, processingStatus }, ...(deepTask ? { deepTask } : {}) };
+    } finally {
+      if(!lifecycle.get(message.conversationId,messageId,"fast"))this.dispatch?.complete(plan?.fast);
+      if(!deepQueued)this.dispatch?.complete(plan?.deep);
+    }
   }
   async cancel(conversationId: string, messageId: string) {
     const lifecycle = generationLifecycle(this.queue);
@@ -230,6 +250,22 @@ export class DeepWorker {
     this.adaptiveRouting = adaptiveRouting;
   }
 
+  prepareReplay(task:DeepTask) {
+    const selected=this.dispatch?.get(task.dispatchId);
+    if(task.dispatchId && !selected)throw new GenerationError("DISPATCH_SNAPSHOT_UNAVAILABLE",false);
+    if(selected)this.dispatch!.activate(selected);
+    return () => this.dispatch?.complete(selected);
+  }
+  async discardQueued(task:DeepTask) {
+    const lifecycle=generationLifecycle(this.queue);
+    const attempt=lifecycle.get(task.conversationId,task.messageId ?? task.taskId,"deep");
+    try { if(attempt?.active)await attempt.finish("cancelled"); }
+    finally {
+      this.dispatch?.complete(this.dispatch.get(task.dispatchId));
+      lifecycle.releaseTask(task.taskId);
+    }
+  }
+
   async runSingle(): Promise<DeepResult | undefined> {
     // Both the timer and the manual endpoint share this concurrency limit.
     if (this.running) return undefined;
@@ -250,6 +286,9 @@ export class DeepWorker {
     const attempt = lifecycle.get(task.conversationId, messageId, "deep") ??
       lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId);
     const selected = this.dispatch?.get(task.dispatchId);
+    if(selected)this.dispatch!.activate(selected);
+    let requeued=false;
+    try {
     attempt.dispatchId = task.dispatchId;
     if (!attempt.active) { this.dispatch?.release(selected); this.attemptsByTaskId.delete(task.taskId); return undefined; }
     await attempt.start(this.timelineStore, selected ? this.dispatch!.metadata(selected) : fixedMetadata(this.deepProvider.metadata))
@@ -290,12 +329,24 @@ export class DeepWorker {
       if (next) {
         next.dispatchId = task.dispatchId;
         if (selected) next.model = this.dispatch!.metadata(selected);
-        if (next.active) { await next.queued(true); await this.queue.enqueue(task); }
+        if (next.active) { await next.queued(true); await this.queue.enqueue(task); requeued=true; }
         return undefined;
       }
       this.attemptsByTaskId.delete(task.taskId);
       await this.deadLetterStore.add({ task, errorMessage: failure.code, failedAtIso: nowIso() });
       return undefined;
+    }
+    } finally {
+      // Queued retries retain their pin even if cancellation wins after enqueue.
+      if(!requeued){
+        const current=lifecycle.get(task.conversationId,messageId,"deep");
+        try { if(current?.active)await current.finish("error",undefined,"WORKER_EXECUTION_FAILED"); }
+        finally {
+          this.attemptsByTaskId.delete(task.taskId);
+          this.dispatch?.complete(selected);
+          lifecycle.releaseTask(task.taskId);
+        }
+      }
     }
   }
 }

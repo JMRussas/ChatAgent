@@ -33,6 +33,7 @@ export function recordingConfig(env: NodeJS.ProcessEnv = process.env): RecorderC
 export interface RecordedEvent {
   contextBudget?: import("../../domain/contextBudgetUsage").ContextBudgetUsage;
   groundedAnswer?: {contentHash:string;artifactHash:string|null;transformed:boolean;text?:string};
+  answerReferences?: {contentHash:string;artifactHash:string|null;transformed:boolean;text?:string};
   roleExecution?: {contentHash:string;artifactHash:string|null;transformed:boolean;text?:string};
   attachedReferences?: { contentHash:string; artifactHash:string|null; transformed:boolean; count:number; text?:string };
   runControls?: import("../../app/runControls").RunControls;

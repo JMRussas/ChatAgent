@@ -1,3 +1,4 @@
+import {evidenceCitationId} from "../../src/app/evidenceCitations";
 import { test, expect } from "./fixture";
 import type { Page } from "@playwright/test";
 async function send(page: Page, prompt: string) { await page.locator("#prompt").fill(prompt); await page.getByRole("button", { name: "Send", exact: true }).click(); }
@@ -166,6 +167,7 @@ test("manual review targets a chosen answer and records requested controls",asyn
   await page.locator("#runModel").selectOption("fixed");
   await expect(page.locator("#thinkingStatus")).toContainText("Only configured");
   await page.locator("#runMode").selectOption("review");
+  await page.locator("#reviewScope").selectOption("text-only");
   await page.locator("#runTarget").selectOption({label:"Initial answer"});
   app.controls.plan={action:"answer",message:"Review: needs additional evidence"};
   await send(page,"Check factual support");
@@ -275,4 +277,28 @@ test("manual evidence answer uses attached rows without a target answer",async({
  await expect(page.locator(".answer-content").last()).toContainText("Factual quality: ungraded");
  const input=JSON.stringify(app.controls.inputs.at(-1));
  expect(input).toContain("Harbor <Comets>");expect(input).not.toContain("PRIVATE_OTHER_ROW");
+});
+
+for(const [width,unsafe] of [[390,false],[1280,false],[390,true]] as const) test(`evidence citations wrap at ${width}px (unsafe=${unsafe}) and survive replay`,async({page,app})=>{
+ await page.setViewportSize({width,height:900});
+ app.controls.referenceSourceUrl=unsafe ? "javascript:alert(1)" : "https://example.invalid/"+"x".repeat(11000);
+ app.controls.referenceCell="<img src=x onerror=alert(1)>"+"x".repeat(900);
+ app.controls.plan={action:"retrieve",calls:[{tool:"sports:list-teams",arguments:{league:"NBA"}}]};
+ await send(page,"Show teams");await expect(page.locator("#referenceRows option")).toHaveCount(2);
+ const resultId=await page.locator("#referenceResult").inputValue();
+ await page.locator("#referenceRows").selectOption("0");await page.locator("#attachRows").click();
+ await page.locator("#runMode").selectOption("answer-evidence");
+ app.controls.plan={status:"answer",scope:"selected_rows",claims:[{text:"Here is a selected team field.",citations:[evidenceCitationId(resultId,0,0),evidenceCitationId(resultId,0,0)]}],limitations:[]};
+ await send(page,"Show the selected field");
+ await expect(page.locator(".answer-content").last()).toContainText("Here is a selected team field. [1]");
+ const refs=page.locator(".answer-references").last();
+ await refs.locator("summary").focus();await page.keyboard.press("Enter");await expect(refs.locator("a")).toHaveCount(unsafe?0:1);
+ if(!unsafe)await expect(refs.locator("a")).toHaveAttribute("href",app.controls.referenceSourceUrl);
+ await expect(refs).toContainText(app.controls.referenceCell);await expect(refs.locator("img")).toHaveCount(0);
+ const layout=await refs.evaluate(el=>({width:el.getBoundingClientRect().width,scroll:el.scrollWidth,client:el.clientWidth,viewport:innerWidth}));
+ expect(layout.width).toBeLessThanOrEqual(layout.viewport);expect(layout.scroll).toBeLessThanOrEqual(layout.client+1);
+ await expect(refs).toContainText("[1] Source 1, row 1");
+ await refs.locator("summary").focus();await page.keyboard.press("Enter");await expect(refs).not.toHaveAttribute("open","");
+ await page.keyboard.press("Enter");await expect(refs).toHaveAttribute("open","");
+ await page.reload();await expect(page.locator(".answer-references").last().locator("summary")).toHaveText("References (1)");
 });

@@ -1,5 +1,146 @@
 # Next ChatAgent handoff after 01B
 
+## Current next step — sustained-operation reliability (2026-10-01)
+
+Execution order and acceptance gates now live in the
+[current roadmap](../12-development-roadmap.md#current-plan--reliability-before-feature-expansion-2026-10-01).
+Coordinator retention is implemented and uncommitted: configurable settled-run TTL,
+oldest-settled eviction under pressure, associated-index/job cleanup and preserved
+capacity error reporting. Queued/running/draining work is protected. Verification:
+746 tests / 95 files and TypeScript build passed. The subsequent settlement/eviction
+race regression also passes (19 focused coordinator/HTTP tests plus build), and a
+temporary broken-lookup mutation correctly fails it. Runtime behavior was unchanged.
+See the roadmap for retention and
+post-eviction retry semantics. Lifecycle/dispatch retention is now implemented with
+explicit consumer/task pins, bounded completed caches, bounded dispatch metrics and
+safe queued replay. Review fixes now isolate failed replay cleanup, release pins on
+combined enqueue/write failure, and reject historical message-ID reuse after cache
+eviction on both submission paths. Historical IDs remain reserved while user events
+exist; explicit replay is separate. Latest review fixes and verification are recorded
+in the current roadmap; use that status instead of the historical counts below.
+Changes are uncommitted.
+See the roadmap and `.env.example` for retention controls and
+expiry behavior. The next slice is admission-ledger aggregation/retention and sustained
+memory measurement; charges, timelines and dead letters are not compacted yet. Follow with request/access boundaries,
+cancellation/recovery/configuration fixes, documentation/CI and independent quality
+assessment. Provider-supported structured output and feature expansion are deferred.
+
+The four evidence-delivery fixes below remain implemented, tested and uncommitted.
+Coordinator retention is the first reliability implementation. Review/commit increments separately
+when requested. Earlier dated “next” statements below are historical; use the linked
+roadmap for current priorities. The external review is retained unchanged; scope and
+claim qualifications are recorded in the roadmap.
+
+Documentation maintenance is now planned in
+[roadmap step 4](../12-development-roadmap.md#4-current-state-documentation-and-maintenance-checks):
+a three-component TypeDoc/contract pilot, scoped enforcement, generated indexes and
+import graphs, followed by journal consolidation. It does not displace the next
+reliability slice. Keep future status in the current roadmap; preserve this file as
+history until its remaining commitments and inbound links have been reconciled.
+
+## Historical handoff entries
+
+## Four review findings implemented — 2026-10-01
+
+All four remediation items are implemented and uncommitted. The detailed contracts
+and acceptance scope are in [12-request-to-evidence.md](12-request-to-evidence.md#active-remediation-plan-four-deep-review-findings--2026-10-01).
+
+1. Delivered-answer validation and annotation v3 prevent text-only grades from
+   passing cited-reference quality. Text grades remain separately visible.
+2. Comparison report/grade v3 includes actual displayed text, references and delivery
+   hashes. Rejected outputs retain raw diagnostics without a delivery artifact.
+3. Manual text-only versus selected-evidence review preserves selected marker maps;
+   selected-evidence revision issues freshly validated references. Scope/effective
+   contract are observable. Ownership, expiry, cancellation and bounds remain enforced.
+4. Long references wrap inside constrained grid ancestors at mobile/desktop widths;
+   complete values, safe links, keyboard access and replay are preserved.
+
+Historical artifacts remain untouched. Reference payloads stay out of ordinary model
+history; no post-expansion size rejection was restored. Semantic quality still needs
+independent grading. Evidence review requires live owned handles from the current
+process-local store. No live provider calls or preview restart during remediation.
+
+Validation: 740 unit/integration tests across 95 files passed, TypeScript build
+passed, and all 26 browser tests passed. The five affected browser cases also passed
+after the final scope-metadata change. Coverage includes CLI grading round-trip,
+legacy/capture-policy handling, corrupted delivery, partial citation maps,
+foreign/expired/cancelled evidence, long values and safe-link rendering. An initial
+four-worker test run lost a worker; the full suite passed cleanly with two workers.
+No live model calls, historical baseline rewrites, preview restart or commit.
+
+Current follow-up: review/commit this increment when requested, then the reliability
+sequence in the roadmap. Structured-output work is deferred.
+
+## Separate answer references — 2026-10-01
+
+User direction supersedes the post-expansion size rejection described below. Answers
+now contain numbered citation markers; a separate `answerReferences` payload holds
+each cited cell once and source provenance once per result snapshot. Repeated citations
+within a claim share a marker. The UI renders an expandable References section with
+safe HTTP(S) links. Timeline replay and v1 projection retain the payload; subsequent
+model history receives answer text, not expanded source URLs or reference payloads.
+Evaluation recording hashes it separately and retains content only in answers mode.
+
+Removed the post-expansion ANSWER_TOO_LARGE check. The prior >2 MB reproduction now
+publishes a compact answer with one source and one cited-cell entry. Existing model
+output, context and selected-evidence bounds remain; no new generic pagination or
+large-payload transport mechanism is claimed. Deduplication resolves this bounded
+citation case without discarding an otherwise valid answer.
+
+Validation: 24 browser tests passed, including citation expansion and reload replay;
+focused runtime, projection and recording checks and TypeScript build passed. No live
+model rerun or preview restart. Changes remain uncommitted for review. Next remains
+provider-supported structured output for the retained malformed JSON evaluation case.
+
+## Citation-ID review fix — 2026-10-01
+
+Review reproduced an output amplification gap: compact citation-ID JSON could expand
+long source URLs repeatedly into a displayed answer exceeding the shared 1 MiB
+answer limit. The runtime now measures the final evidence-answer text and rejects
+oversized output with ANSWER_TOO_LARGE before publication or terminal answer text is
+assigned. The regression published over 2 MB before the fix and is rejected afterward.
+This also protects the legacy v1 evidence-answer rendering path.
+
+All 47 focused contract, citation, runtime, role and comparison tests pass; TypeScript
+build passes. Existing isolation, reordered-cell mapping, expiry/cancellation and v1
+compatibility checks remain intact. No live inference or preview restart was needed.
+Changes remain uncommitted. Next remains provider-supported structured output to
+address the malformed JSON case retained in the live comparison.
+
+## Citation IDs and follow-up comparison — 2026-10-01
+
+Committed the reviewed comparison runner as `968e47d`. The next increment introduces
+`answer-evidence-v2`: each selected cell has an issued citation ID, and the model copies
+those IDs instead of constructing original row/column coordinates and quotes. The
+server resolves IDs to the existing canonical citation representation before applying
+expiry, cancellation and grounding-contract checks. IDs from unselected cells or other
+results are rejected; reorderings preserve original row identity. Semantic entailment
+remains ungraded by the runtime.
+
+The model-facing view is byte-limited including citation-ID overhead, and context
+budget reporting counts that view. The comparison preflights the expanded view before
+any inference. Existing explicit v1 roles retain coordinate-based output compatibility.
+No-role evidence answers and the example evidence-writer (now version 3) use v2.
+The schema example now has an empty limitations array with instructions to add only
+specific additional limitations. No automatic repair or retry was added.
+
+Validation: full suite passed 718 tests / 93 files; subsequent focused checks passed
+16 tests including an added v1 compatibility regression. TypeScript build passed.
+A six-call local Qwen3 8B off/on comparison used the same three development cases:
+5/6 runtime and separately reviewed task criteria passed. All five parseable responses
+used valid citation IDs, including thinking-on's formerly failing selected-row case.
+Thinking-off source-instruction output had an extra closing brace; strict JSON parsing
+blocked publication. No answer copied the generic limitation placeholder. This small
+sample does not establish overall quality improvement or a preferred thinking mode.
+Separate Codex review is not human-calibrated; historical baselines remain unchanged.
+
+Artifacts: `reports/evaluations/evidence-citation-ids-20261001/`, including raw inputs,
+outputs, ratings and graded report. Nonzero evaluation/grade exit status reflects the
+retained JSON failure, not a harness crash. Next after review: investigate opt-in
+provider-supported structured output to reduce format failures and rerun the same
+cases, preserving failure records. The larger evaluation and workflow plan remains
+pending. This citation increment is uncommitted; preview has not been restarted.
+
 ## Evaluation comparison review fixes — 2026-10-01
 
 The grader previously checked only records present in the report: deleting a failed

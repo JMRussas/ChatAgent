@@ -1,3 +1,5 @@
+import {deliveryFixture} from "../helpers/deliveryFixture";
+import {deliveryDigest} from "../../src/app/deliveredAnswer";
 import { RoleCatalog } from "../../src/app/roleCatalog";
 import { ToolResultStore } from "../../src/app/toolResult";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -41,6 +43,17 @@ const annotations = (text = "answer") => ({ version: 2, rubricVersion: "rubric-v
   ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
 
 describe("evaluation recording", () => {
+  it("captures reference payloads separately according to retention settings",async()=>{
+    const answerReferences={version:"answer-references-v1" as const,sources:[{id:1,resultId:"fixture",title:"PRIVATE_REFERENCE",url:"https://example.invalid/source",observedAt:new Date().toISOString(),revision:"v1"}],citations:[{id:1,sourceId:1,row:0,column:"Score",value:"101"}]};
+    for(const capture of ["metadata","answers"] as const){
+      const recorder=await setup({capture});
+      recorder.record("c",{type:"provisional",messageId:"m",text:"101 [1]",answerReferences,createdAtIso:new Date().toISOString()});
+      await recorder.finish();const run=await readArtifact(recorder.path);
+      expect(run.trace[0].answerReferences?.contentHash).toBe(digest(JSON.stringify(answerReferences)));
+      if(capture==="metadata")expect(await readFile(recorder.path,"utf8")).not.toContain("PRIVATE_REFERENCE");
+      else expect(run.trace[0].answerReferences?.text).toContain("PRIVATE_REFERENCE");
+    }
+  });
   it("retains evidence-answer validation only under the selected capture policy",async()=>{
     const groundedAnswer={answer:{status:"insufficient_evidence" as const,reason:"PRIVATE_EVIDENCE_REASON"},evidenceLimitations:["Selected rows only"],citationChecks:"not_applicable" as const,semanticGrounding:"ungraded" as const};
     for(const capture of ["metadata","answers"] as const){
@@ -277,4 +290,37 @@ it("keeps absent quality ratings unavailable and rejects missing v2 dimensions",
   expect(scoreRecording(run, review)).toMatchObject({ passed: false, results: [{ taskCompletion: "unavailable", outcome: "unavailable" }] });
   const { taskCompletion, ...incomplete } = review.ratings[0];
   expect(() => scoreRecording(run, { ...review, ratings: [incomplete] })).toThrow();
+});
+
+it("requires delivery-bound grades for cited answers and rejects broken references",async()=>{
+ const {checked,delivery}=deliveryFixture();
+ async function record(refs:typeof delivery.references,capture:"answers"|"metadata"="answers"){
+  const recorder=await setup({capture});const text=delivery.text;
+  const base={messageId:"m",createdAtIso:new Date().toISOString(),phase:"fast" as const,attemptId:"a",model:{provider:"mock",model:"fixture"}};
+  recorder.record("c",{...base,type:"user",text:"hello",routeDecision:"direct"});
+  recorder.record("c",{...base,type:"activity",activity:"running",text:"running"});
+  recorder.record("c",{...base,type:"provisional",text,answerKind:"substantive",answerReferences:refs,groundedAnswer:checked});
+  recorder.record("c",{...base,type:"terminal",text,finishReason:"stop"});
+  await recorder.finish();return readArtifact(recorder.path);
+ }
+ const run=await record(delivery.references),legacy=annotations(delivery.text);
+ expect(scoreRecording(run,legacy)).toMatchObject({passed:false,results:[{referenceGrading:"unrated",referenceIntegrity:"valid",correctness:"pass"}]});
+ const v3={...legacy,version:3,ratings:legacy.ratings.map(r=>({...r,deliveryHash:deliveryDigest(delivery),referenceSupport:"pass"}))};
+ expect(scoreRecording(run,v3).passed).toBe(true);
+ expect(scoreRecording(await record(delivery.references,"metadata"),v3)).toMatchObject({passed:false,results:[{referenceIntegrity:"unavailable"}]});
+ const redacted=structuredClone(delivery.references);redacted.sources[0].url="https://example.invalid/?api_key=super-secret";
+ expect(scoreRecording(await record(redacted),v3)).toMatchObject({passed:false,results:[{referenceIntegrity:"unavailable"}]});
+ const changed=structuredClone(delivery.references);changed.sources[0].url="https://example.invalid/changed";
+ expect(scoreRecording(await record(changed),v3).passed).toBe(false);
+ changed.citations[0].sourceId=999;changed.citations[0].value="999";
+ const broken=await record(changed);expect(scoreRecording(broken,{...v3,ratings:v3.ratings.map(r=>({...r,deliveryHash:deliveryDigest({...delivery,references:changed})}))}).passed).toBe(false);
+});
+it("keeps insufficient-evidence empty-reference answers compatible with text grading",async()=>{
+ const text="No scores available\n\nLimitations: Selected rows only\n\nCitation checks: not_applicable. Factual quality: ungraded.";
+ const recorder=await setup({capture:"answers"});
+ const base={messageId:"m",createdAtIso:new Date().toISOString(),phase:"fast" as const,attemptId:"a",model:{provider:"mock",model:"fixture"}};
+ recorder.record("c",{...base,type:"user",text:"hello",routeDecision:"direct"});recorder.record("c",{...base,type:"activity",activity:"running",text:"running"});
+ recorder.record("c",{...base,type:"provisional",text,answerKind:"substantive",answerReferences:{version:"answer-references-v1",sources:[],citations:[]},groundedAnswer:{answer:{status:"insufficient_evidence",reason:"No scores available"},evidenceLimitations:["Selected rows only"],citationChecks:"not_applicable",semanticGrounding:"ungraded"}});
+ recorder.record("c",{...base,type:"terminal",text,finishReason:"stop"});await recorder.finish();
+ expect(scoreRecording(await readArtifact(recorder.path),annotations(text))).toMatchObject({passed:true,results:[{referenceGrading:"not_applicable",referenceIntegrity:"valid"}]});
 });

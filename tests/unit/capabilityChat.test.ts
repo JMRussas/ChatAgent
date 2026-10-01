@@ -24,7 +24,7 @@ describe("capability-based conversation", () => {
     await a.chat.handleUserMessage({...message,messageId:"review",text:"Check the claims",runControls:{mode:"review",thinking:"configured",bindingId:"fixed",targetMessageId:"one"}});
     expect(a.generate.mock.calls[1][0].context?.systemInstruction).toContain("Original answer");
     expect(execute).not.toHaveBeenCalled();
-    expect((await a.timeline.getEvents("c")).filter(e=>e.type === "provisional").map(e=>e.text)).toEqual(["Original answer","Review: needs evidence"]);
+    expect((await a.timeline.getEvents("c")).filter(e=>e.type === "provisional").map(e=>e.text)).toEqual(["Original answer","Review: needs evidence\n\nText-only review: citations and factual grounding were not verified."]);
     a.generate.mockResolvedValueOnce({text:JSON.stringify({action:"retrieve",calls:[{tool:tool.id,arguments:{}}]}),finishReason:"stop"});
     await expect(a.chat.handleUserMessage({...message,messageId:"bad-review",runControls:{mode:"review",thinking:"configured",targetMessageId:"one"}})).rejects.toThrow("REVIEW_PLAN_INVALID");
     expect(execute).not.toHaveBeenCalled();
@@ -111,4 +111,14 @@ describe("capability-based conversation", () => {
     a.generate.mockResolvedValueOnce({ text: '{"action":', finishReason: "length" });
     await expect(a.chat.handleUserMessage(message)).rejects.toThrow();
   });
+});
+
+it.each(["BRIEFING_CAPACITY", "private provider secret"])("reports safe capacity errors while hiding other tool exceptions: %s", async failure => {
+  const tool: CapabilityTool = {id:"test:read",description:"Read",inputSchema:{},validate:v=>v,
+    execute:async()=>{throw Error(failure);}};
+  const a = app({action:"retrieve",calls:[{tool:tool.id,arguments:{}}]},[tool]);
+  await a.chat.handleUserMessage(message);await a.chat.whenIdle();
+  const result = (await a.timeline.getEvents("c")).find(e=>e.type==="refined")!.text;
+  expect(result).toContain(failure==="BRIEFING_CAPACITY" ? "BRIEFING_CAPACITY":"TOOL_EXECUTION_FAILED");
+  expect(result).not.toContain("private provider secret");
 });

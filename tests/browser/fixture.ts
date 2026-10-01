@@ -1,3 +1,4 @@
+import {toolResultSchema} from "../../src/app/toolResult";
 import { RoleCatalog } from "../../src/app/roleCatalog";
 import { createLiveBriefing } from "../../src/sports/liveBriefing";
 import { readFileSync } from "node:fs";
@@ -15,7 +16,7 @@ import { GenerationError, type GenerationControl, type GenerationResult } from "
 
 async function runtime() {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
-  const controls: { worker: boolean; plan: unknown | null; inputs: unknown[] } = { worker: true, plan: null, inputs: [] };
+  const controls: { worker: boolean; plan: unknown | null; inputs: unknown[]; referenceSourceUrl?:string; referenceCell?:string } = { worker: true, plan: null, inputs: [] };
   async function generate(phase: string, text: string, control?: GenerationControl): Promise<GenerationResult> {
     if (phase === "fast") await control?.onDelta(`Draft: ${text}`);
     if (phase === "fast" && text.includes("cite")) return { text: `Draft: ${text}`, finishReason: "stop" };
@@ -42,7 +43,13 @@ async function runtime() {
   const legacy = new ChatOrchestrator(fast, queue, timeline);
   const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async input => { controls.inputs.push(input); return { text: JSON.stringify(controls.plan), finishReason: "stop" }; } }, queue, timeline,
     new ContextManager(timeline, { windowTokens: 16384, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
-    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools(),undefined,new RoleCatalog({version:"role-catalog-v1",roles:[
+    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools().map(tool=>({...tool,execute:async (args,user,request,signal,conversation)=>{
+      const result=await tool.execute(args,user,request,signal,conversation);
+      if(!controls.referenceSourceUrl)return result;
+      const parsed=toolResultSchema.parse(result);
+      if(controls.referenceCell && parsed.payload)parsed.payload.rows[0][0]=controls.referenceCell;
+      return sports.http.directory!.results.put(user,conversation!,{...parsed,evidence:{...parsed.evidence,sourceUrl:controls.referenceSourceUrl}});
+    }})),undefined,new RoleCatalog({version:"role-catalog-v1",roles:[
       {id:"writer",version:"1",bindingId:"fixed",instructions:"Use selected evidence only.",toolIds:[],maxToolCalls:0,maxInputTokens:6000},
       {id:"researcher",version:"1",bindingId:"fixed",instructions:"Find evidence.",toolIds:["sports:list-teams","sports:find-games"],maxToolCalls:2,maxInputTokens:6000}
     ]}),"native",()=>sports.http.directory?.results);

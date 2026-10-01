@@ -78,6 +78,10 @@ export class EvaluationRecorder {
           return {contentHash:digest(raw),artifactHash:captured === undefined ? null : digest(captured),transformed:captured !== undefined && captured !== raw,count:event.attachedReferences.length,...(captured === undefined ? {} : {text:captured})};
         })()} : {}),
         ...(event.contextBudget ? {contextBudget:event.contextBudget} : {}),
+        ...(event.answerReferences ? {answerReferences:(()=>{
+          const raw=JSON.stringify(event.answerReferences),captured=this.config.capture === "answers" ? redact(raw) : undefined;
+          return {contentHash:digest(raw),artifactHash:captured === undefined ? null : digest(captured),transformed:captured !== undefined && captured !== raw,...(captured === undefined ? {} : {text:captured})};
+        })()} : {}),
         ...(event.groundedAnswer ? {groundedAnswer:(()=>{
           const raw=JSON.stringify(event.groundedAnswer),captured=this.config.capture === "answers" ? redact(raw) : undefined;
           return {contentHash:digest(raw),artifactHash:captured === undefined ? null : digest(captured),transformed:captured !== undefined && captured !== raw,...(captured === undefined ? {} : {text:captured})};
