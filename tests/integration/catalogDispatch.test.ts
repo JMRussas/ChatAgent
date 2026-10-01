@@ -208,6 +208,35 @@ describe("catalog dispatch integration", () => {
     await expect(r.service.submitMessage(message())).rejects.toThrow("QUOTA_EXHAUSTED");
     expect(r.calls.get("b")!.fast.createProvisionalReply).not.toHaveBeenCalled();
   });
+  it("excludes a binding whose quota pool exceeds the configured pool limit", async () => {
+    vi.stubEnv("ADMISSION_MAX_QUOTA_POOLS", "1");
+    try {
+      const r = runtime([entry("a"), entry("b")]);
+      r.policy.bindings.a = resources({
+        quota: { poolId: "first", unit: "requests", remaining: 1, evidence }
+      });
+      r.policy.bindings.b = resources({
+        quota: { poolId: "second", unit: "requests", remaining: 5, evidence }
+      });
+      expect((await r.service.submitMessage(message())).fastResponse.provisionalReply).toBe("a");
+      // The exhausted pool keeps its slot; the other identifier cannot displace it.
+      await expect(
+        r.service.submitMessage(message("Explain code", "turn-2"))
+      ).rejects.toMatchObject({
+        code: "NO_ELIGIBLE_MODEL",
+        exclusions: [
+          { bindingId: entryBindingId(r.catalog.models[0]), reasons: ["QUOTA_EXHAUSTED"] },
+          { bindingId: entryBindingId(r.catalog.models[1]), reasons: ["QUOTA_POOL_CAPACITY"] }
+        ]
+      });
+      expect(r.calls.get("b")!.fast.createProvisionalReply).not.toHaveBeenCalled();
+      expect(r.dispatch.telemetry().accounting?.quotaPools).toEqual([
+        { poolId: "first", units: 1 }
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
   it("RES-05/06: cancellation releases queued work while retaining in-flight usage as unsettled", async () => {
     const fast = {
       createProvisionalReply: vi.fn(

@@ -168,6 +168,9 @@ failed-task records together with the slots reserved by queued, running and
 replayed deep tasks, so a failure always has room to be recorded. Records are
 never evicted; they leave by replay or explicit discard. A full store returns 503
 `DEAD_LETTER_CAPACITY` for new deep-routed messages until an operator acts.
+Catalog admission tracks at most `ADMISSION_MAX_QUOTA_POOLS` distinct quota pools.
+Consumed pool totals are never evicted; a further pool ID is excluded with
+`QUOTA_POOL_CAPACITY` ([details](docs/implementation/04-dispatch.md#configuration)).
 
 See the roadmap for the remaining durable-retention work.
 

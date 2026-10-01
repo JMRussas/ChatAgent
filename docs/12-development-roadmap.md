@@ -8,22 +8,24 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
-Conversation retention and dead-letter admission are implemented, including review
-fixes for overflow terminal publication, protocol identity allocation and dead-letter
-snapshot/byte accounting. The working baseline is the latest commit on this branch
-(`git log -1`); older commit hashes and validation counts below describe prior slices.
+Conversation retention, dead-letter admission and quota-pool cardinality limits are
+implemented, including review fixes for overflow terminal publication, protocol
+identity allocation and dead-letter snapshot/byte accounting. The working baseline
+is the latest commit on this branch (`git log -1`); older commit hashes and
+validation counts below describe prior slices. The quota-pool slice includes the
+review fix: explicit constructor limits are validated and copied, so invalid
+values or caller mutation cannot bypass the cap.
 
-**Next implementation:** bound distinct quota-pool aggregates in `ResourceAdmission`.
-Inspect pool identity/fingerprint and admission/reload behavior first. Add manual
-capacity limits and atomic backpressure without evicting consumed allowance or
-letting renamed pools reset it. Preserve existing exact accounting. Cover repeated
-pools, new pools at capacity, conflicting fingerprints, configuration churn and
-settlement/release behavior. Rolling-window reconciliation belongs to step 3.
-
-Step 1 remains open: inventory remaining pending work/timers/buffers, address expiry
+**Next implementation:** finish the step 1 inventory. Enumerate remaining pending
+work, timers and buffers (deep task queue direct enqueues, pending summary
+snapshots, active admission reservations, compute-pool keys, payload references)
+with owner, limit, cleanup trigger and dependent references. Then address expiry
 UI and coordinated identity retirement boundaries, and run the assembled-runtime
-sustained-memory gate. Do not infer whole-process memory bounds from individual
-store limits. Keep self-graded quality separate from calibrated factual evaluation.
+sustained-memory gate, including a quota-pool cardinality workload separate from
+the one-pool ledger benchmark. Rolling-window reconciliation belongs to step 3.
+
+Do not infer whole-process memory bounds from individual store limits. Keep
+self-graded quality separate from calibrated factual evaluation.
 
 Use Node **24.21.0** from `.node-version`; the machine-wide Windows 24.15.0 runtime
 has a reproduced native crash. Switch PATH to the pinned runtime before using npm.
@@ -322,6 +324,52 @@ dispatch release, and HTTP responses. Seven temporary mutations (replay without
 claim, each missing release, skipped reservation, ignored byte limit) each failed
 these tests and were reverted. No live provider calls or runtime restart.
 
+Quota-pool slice implemented: `ResourceAdmission` tracks at most
+`ADMISSION_MAX_QUOTA_POOLS` distinct pools (default 100, range 1–10000, read at
+construction, documented in `.env.example`). Pool identity is the configured
+`poolId`; the fingerprint is a hash of the whole quota snapshot, so a changed
+allowance or refreshed evidence for a retained pool still fails with
+`QUOTA_SNAPSHOT_CONFLICT`. The dispatch policy is read once at startup and never
+reloaded, so the assembled runtime only encounters pools declared there; startup
+now fails when the policy declares more distinct pools than the limit. The limit
+bounds the ledger itself against callers and future reload paths.
+
+A pool occupies a slot from reservation, not from settlement, so started work
+always has room to record its consumption. The slot is permanent once started
+work settles, including a zero-unit report. Releasing the last unstarted
+reservation of a pool with no settled work frees the slot. Nothing is expired or
+evicted. A further pool is rejected with `QUOTA_POOL_CAPACITY` during validation,
+before any reservation exists, so a batch is all-or-nothing and accounting is
+unchanged. The bounded quota wait does not retry it. Selection reports the binding
+as excluded and other bindings remain eligible; with none left the request returns
+the existing 503 `NO_ELIGIBLE_MODEL` with exclusions. `retentionStats().quotaPools`
+now counts occupied slots, including pools with only live reservations. Exact
+decimal accounting is unchanged.
+
+**Explicit limitation:** the ledger cannot distinguish a renamed pool from a new
+one. Within the limit, a new `poolId` is admitted with its own declared allowance;
+it never resets, refunds or displaces a retained total, and churn ends in
+`QUOTA_POOL_CAPACITY` rather than eviction. Binding one identifier to one real
+account is the operator's responsibility until step 3 defines authoritative pool
+identity. A full ledger has no operator release path: recovery requires a restart,
+which discards every total. The limit counts pools, not bytes; `poolId` length is
+unbounded by schema. Active reservations and compute-pool keys are bounded only by
+upstream admission.
+
+Validation: 847 tests across 103 files passed on Node 24.21.0, including 11 new
+ledger regressions and one dispatch integration test; formatting/TypeScript checks
+and all 26 browser tests passed. Regressions cover repeated pools, a new pool at
+capacity, atomic batches, live/released/started reservations, settlement at
+capacity, conflicting fingerprints, 50 renamed identifiers with expiring diagnostic
+rows, the non-waiting rejection, unmetered requests, limit validation and the
+startup policy check, invalid explicit constructor limits and caller mutation.
+Three temporary mutations (no capacity check, live
+reservations holding no slot, waiting on pool capacity) each failed these tests
+and were reverted. The first of six full-suite runs failed 4 tests in 4 files under
+roughly double the usual test time; the output was not captured and five subsequent
+runs, two repeating the same format/lint/test sequence, passed. Treat that as an
+unexplained transient, not as resolved. No live provider calls or runtime restart.
+
 Retained-state inventory and remaining boundaries:
 
 | State / owner                                                      | Limit and cleanup                                                           | Outstanding work                                                             |
@@ -332,7 +380,7 @@ Retained-state inventory and remaining boundaries:
 | Source identity index and summary memory / `ContextManager` stores | Cleared with expired conversation; summary publication cancelled            | Custom store retention contracts; measure pending summary snapshots          |
 | Dead letters / `InMemoryDeadLetterStore`                           | Records plus reserved slots capped by count/bytes; no expiry or eviction    | Sustained assembled-runtime measurement; operator visibility of a full store |
 | Deep task queue / `InMemoryTaskQueue`                              | Admitted tasks bounded by dead-letter reservations; no limit of its own     | Direct enqueues bypass admission; include in pending-work inventory          |
-| Quota aggregates / `ResourceAdmission`                             | One exact total/fingerprint per encountered pool                            | Bound distinct pool cardinality without resetting consumed allowance         |
+| Quota aggregates / `ResourceAdmission`                             | Distinct pools capped at admission; totals/fingerprints never evicted       | Authoritative pool identity (step 3); operator recovery for a full ledger    |
 | Execution/dispatch/coordinator caches                              | Previously bounded by count/TTL with dependent work protected               | Assembled-runtime load, timers, pending work and payload-reference inventory |
 
 1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six

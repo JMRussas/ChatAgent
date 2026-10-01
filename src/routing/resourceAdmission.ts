@@ -1,6 +1,11 @@
 import { decimalUnits, decimalNumber, decimalTelemetry } from "./decimalAccounting";
 import { createHash } from "node:crypto";
 import { loadExecutionRetention, type ExecutionRetention } from "../config/executionRetention";
+import {
+  loadQuotaPoolLimits,
+  quotaPoolLimitsSchema,
+  type QuotaPoolLimits
+} from "../config/quotaPoolLimits";
 import { randomUUID } from "node:crypto";
 import type { BindingResources, DispatchPolicy } from "../config/dispatchConfig";
 
@@ -79,6 +84,11 @@ const quotaKey = (quota: NonNullable<BindingResources["quota"]>) =>
  * spend and one quota fingerprint/total per encountered pool survive that expiry.
  * Pool identities are configuration-owned: changing a snapshot still fails closed;
  * this does not implement rolling-window reconciliation or late usage reports.
+ * Distinct pools are capped: a pool holds a slot while it has a live reservation
+ * and permanently once started work settles against it. Totals are never evicted,
+ * so a pool identifier beyond the cap is rejected instead of displacing consumption.
+ * The ledger cannot tell a renamed pool from a new one: within the cap a new
+ * identifier gets its own declared allowance and leaves every existing total intact.
  * Restart loses this ledger: it is not an account-wide cap. */
 export class ResourceAdmission {
   private charges = new Map<string, Charge>();
@@ -94,8 +104,28 @@ export class ResourceAdmission {
     readonly policy: DispatchPolicy,
     private now: () => number = Date.now,
     private retention: ExecutionRetention = loadExecutionRetention(),
-    private retentionClock = Date.now
-  ) {}
+    private retentionClock = Date.now,
+    private quotaPoolLimits: QuotaPoolLimits = loadQuotaPoolLimits()
+  ) {
+    this.quotaPoolLimits = quotaPoolLimitsSchema.parse(quotaPoolLimits);
+    // Fail at startup rather than let arrival order decide which bindings are usable.
+    const declared = new Set(
+      Object.values(policy.bindings).flatMap((b) => (b.quota ? [b.quota.poolId] : []))
+    ).size;
+    if (declared > this.quotaPoolLimits.maxPools)
+      throw new Error(
+        `Dispatch policy declares ${declared} quota pools; ADMISSION_MAX_QUOTA_POOLS allows ${this.quotaPoolLimits.maxPools}`
+      );
+  }
+  /** Pools holding a slot: retained totals plus pools with a live reservation. */
+  private trackedQuotaPools(charges: Iterable<Charge> = this.charges.values()) {
+    const pools = new Set(this.quotaTotals.keys());
+    for (const c of charges) {
+      const quota = c.request.resources?.quota;
+      if (quota && c.status !== "released") pools.add(quota.poolId);
+    }
+    return pools;
+  }
   private prune() {
     for (const [id, item] of this.recent) {
       if (
@@ -117,7 +147,7 @@ export class ResourceAdmission {
       active: this.charges.size,
       recent: this.recent.size,
       computePools: this.running.size,
-      quotaPools: this.quotaTotals.size
+      quotaPools: this.trackedQuotaPools().size
     };
   }
   /** Process-lifetime consumption, independent of recent-history expiry. No refunds. */
@@ -143,6 +173,7 @@ export class ResourceAdmission {
   }
   private validate(requests: ResourceRequest[]) {
     const staged = [...this.charges.values()].filter((c) => c.status !== "released");
+    const pools = this.trackedQuotaPools(staged);
     for (const request of requests) {
       for (const n of [request.inputTokens, request.outputTokens])
         if (!Number.isSafeInteger(n) || n < 0) throw new AdmissionError("INVALID_TOKEN_BUDGET");
@@ -177,6 +208,10 @@ export class ResourceAdmission {
       )
         throw new AdmissionError("SPEND_LIMIT");
       if (r.quota) {
+        // Claim the slot at reservation: settlement must always have room to record.
+        if (!pools.has(r.quota.poolId) && pools.size >= this.quotaPoolLimits.maxPools)
+          throw new AdmissionError("QUOTA_POOL_CAPACITY");
+        pools.add(r.quota.poolId);
         const same = staged.filter((c) => c.request.resources?.quota?.poolId === r.quota!.poolId);
         // Refuse conflicting snapshots instead of treating refresh as a refund.
         const consumed = this.quotaTotals.get(r.quota.poolId);

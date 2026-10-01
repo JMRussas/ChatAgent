@@ -176,6 +176,22 @@ controls whether busy compute pools fail immediately or wait up to `waitTimeoutM
 Queued tasks reserve cost/quota but do not occupy compute slots until execution.
 A wait cannot invent fresh quota: exhausted/unchanged snapshots eventually fail.
 
+The ledger tracks at most `ADMISSION_MAX_QUOTA_POOLS` distinct quota pools (default
+100, range 1–10000, read at construction). A pool occupies a slot while any
+reservation for it is live, and permanently once started work settles against it,
+including a zero-unit report. Releasing the last unstarted reservation of a pool with
+no settled work frees its slot. Retained totals and fingerprints are never expired or
+evicted. A request for a further pool fails with `QUOTA_POOL_CAPACITY` before any
+reservation is created; the whole batch is rejected, nothing waits on it, and
+selection reports the binding as excluded while other bindings stay eligible.
+Changed snapshots of a retained pool still fail with `QUOTA_SNAPSHOT_CONFLICT`.
+Startup fails when the policy itself declares more distinct pools than the limit.
+The ledger cannot tell a renamed pool from a new one: within the limit a new
+`poolId` is admitted with its own declared allowance, and the old total stays
+retained. Keeping one identifier per real account or allowance is the operator's
+responsibility. Recovery from a full ledger currently requires a restart, which
+also discards every total.
+
 The registry reuses existing adapters and configured credentials; it adds no CLI,
 image or tool execution. Explicit image/action payloads are rejected. JSON output
 requests require declared structuredOutput support and are checked for valid JSON
