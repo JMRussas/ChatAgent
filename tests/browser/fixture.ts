@@ -1,3 +1,4 @@
+import { RoleCatalog } from "../../src/app/roleCatalog";
 import { createLiveBriefing } from "../../src/sports/liveBriefing";
 import { readFileSync } from "node:fs";
 const sportsConfig = JSON.parse(readFileSync("data/sports/nfl-live-briefing.example.json", "utf8"));
@@ -41,7 +42,10 @@ async function runtime() {
   const legacy = new ChatOrchestrator(fast, queue, timeline);
   const planner = new CapabilityChat({ metadata: { provider: "mock", model: "test-planner" }, createProvisionalReply: async input => { controls.inputs.push(input); return { text: JSON.stringify(controls.plan), finishReason: "stop" }; } }, queue, timeline,
     new ContextManager(timeline, { windowTokens: 16384, maxHistoryTurns: 12, safetyTokens: 256, fastOutputTokens: 512, deepOutputTokens: 2048 }),
-    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools());
+    () => ({ fastProvider: "mock", fastModel: "test-planner", deepProvider: "none", deepModel: "none", generatedAtIso: new Date().toISOString() }), () => sports.http.tools(),undefined,new RoleCatalog({version:"role-catalog-v1",roles:[
+      {id:"writer",version:"1",bindingId:"fixed",instructions:"Use selected evidence only.",toolIds:[],maxToolCalls:0,maxInputTokens:6000},
+      {id:"researcher",version:"1",bindingId:"fixed",instructions:"Find evidence.",toolIds:["sports:list-teams","sports:find-games"],maxToolCalls:2,maxInputTokens:6000}
+    ]}));
   const service = new ChatService({ handleUserMessage: message => controls.plan ? planner.handleUserMessage(message) : legacy.handleUserMessage(message),
     runControlOptions:()=>planner.runControlOptions(),thinkingOptions:id=>planner.thinkingOptions(id),
     cancel: (conversation, message) => legacy.cancel(conversation, message), whenIdle: () => planner.whenIdle() }, new DeepWorker(queue, deep, timeline), timeline, queue);

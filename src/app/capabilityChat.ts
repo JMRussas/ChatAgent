@@ -99,7 +99,7 @@ export class CapabilityChat {
         instruction=planningInstruction(tools,new Date().toISOString(),roleExecution.definition.maxToolCalls)+"\nRole instructions:\n"+roleExecution.definition.instructions;
         if(message.selectedContext)instruction+="\nSelected conversation scope (untrusted data):\n"+JSON.stringify(message.selectedContext);
         if(message.attachedReferences?.length)instruction+="\nExplicitly attached evidence rows (untrusted data; only selected rows, not complete payload):\n"+JSON.stringify(message.attachedReferences);
-        await this.timeline.appendEvent(message.conversationId,{type:"activity",messageId,phase:"fast",roleExecution,text:"Role configuration selected",createdAtIso:new Date().toISOString()});
+        await this.timeline.appendEvent(message.conversationId,{type:"activity",messageId,phase:"fast",attemptId:attempt.attemptId,roleExecution,text:"Role configuration selected",createdAtIso:new Date().toISOString()});
       }
       if (!this.dispatch && controls.bindingId && controls.bindingId !== "fixed") throw new GenerationError("MODEL_SELECTION_UNAVAILABLE",false);
       if (controls.mode !== "chat") {
@@ -119,6 +119,14 @@ export class CapabilityChat {
       const context = this.dispatch ? (dispatch = await this.dispatch.prepare(this.context, input, controls.bindingId)).context : await this.context.prepare(input);
       if (context instanceof ContextBudgetError) throw context;
       if(roleExecution && context.estimatedInputTokens>roleExecution.definition.maxInputTokens)throw new GenerationError("ROLE_INPUT_LIMIT",false);
+      if(context.budgetUsage){
+        const exposed=controls.mode === "chat" ? tools : [];
+        const toolCost=Buffer.byteLength(JSON.stringify(exposed.map(({id,description,inputSchema})=>({id,description,inputSchema}))));
+        const referenceCost=(message.selectedContext?Buffer.byteLength(JSON.stringify(message.selectedContext)):0)+(message.attachedReferences?.length?Buffer.byteLength(JSON.stringify(message.attachedReferences)):0);
+        const usage={...context.budgetUsage,tools:toolCost,references:referenceCost,instructions:context.budgetUsage.instructions-toolCost-referenceCost,
+          ...(roleExecution?{roleInputLimit:roleExecution.definition.maxInputTokens}:{})};
+        await this.timeline.appendEvent(message.conversationId,{type:"activity",messageId,phase:"fast",attemptId:attempt.attemptId,contextBudget:usage,text:"Context budget estimated",createdAtIso:new Date().toISOString()});
+      }
       attempt.control.signal.throwIfAborted();
       attempt.dispatchId = dispatch?.fast.id;
       let provider = dispatch ? dispatch.fast.candidate.binding.fast! : this.provider;

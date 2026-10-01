@@ -1,5 +1,30 @@
 # Next ChatAgent handoff after 01B
 
+## Role UI review fix — 2026-09-30
+
+Role and context-budget metadata now carry the real generation attempt ID. They no
+longer create a separate nonterminating UI activity/timer. Regression tests cover
+successful and failed role turns with metadata, asserting one completed attempt.
+Validation: 54 focused tests and TypeScript build passed. The manual-role UI slice
+and this correction are ready to commit; next is the bounded framework comparison.
+
+
+## Manual role UI and admitted context budgets — 2026-09-30
+
+Role execution and review fixes committed as `df65366`. The next slice adds a manual
+role picker, definition inspection, restricted model/thinking options and individually
+selectable allowed tools. An additive context estimate accompanies each admitted
+planner call in the timeline, v1 events and evaluation recording; the UI shows the
+latest call's breakdown and reserves. It is not provider token usage or a preflight
+preview of unsent edits. Role choices reset on reload. No automatic role selection,
+trimming or output-reserve changes were added.
+
+Validation: 666 tests / 87 files and 22 browser tests passed; TypeScript build passed.
+Next: bounded LangChain/LangGraph adapter comparison. Preflight estimation and richer
+tool grouping remain follow-ups. No live calls or preview restart. This new UI slice
+is uncommitted pending review.
+
+
 ## Role review corrections — 2026-09-30
 
 Mock-only startup retains its normal orchestrator even when a role catalog is loaded;

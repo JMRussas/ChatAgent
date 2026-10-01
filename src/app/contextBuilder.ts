@@ -300,6 +300,9 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
     includedTurnIds: includedPairs.map((t) => t.messageId),
     omittedTurnIds: omittedPairIds,
     estimatedInputTokens,
+    budgetUsage:{method:"utf8-conservative-v1",windowTokens:input.budget.windowTokens,outputReserve,safetyReserve:input.budget.safetyTokens,
+      availableInputTokens,totalInputTokens:estimatedInputTokens,instructions:instructionCost,tools:0,references:0,
+      currentMessage:currentUserCost,history:pairsTotal,activeTasks:unresolvedTotal,memory:memoryTotal},
     budgetMethod: "utf8-conservative-v1"
   };
 }

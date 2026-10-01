@@ -1,5 +1,21 @@
 # Evaluation Plan
 
+## Manual role UI and admitted context budgets — 2026-09-30
+
+Role execution and review fixes committed as `df65366`. The next slice adds a manual
+role picker, definition inspection, restricted model/thinking options and individually
+selectable allowed tools. An additive context estimate accompanies each admitted
+planner call in the timeline, v1 events and evaluation recording; the UI shows the
+latest call's breakdown and reserves. It is not provider token usage or a preflight
+preview of unsent edits. Role choices reset on reload. No automatic role selection,
+trimming or output-reserve changes were added.
+
+Validation: 666 tests / 87 files and 22 browser tests passed; TypeScript build passed.
+Next: bounded LangChain/LangGraph adapter comparison. Preflight estimation and richer
+tool grouping remain follow-ups. No live calls or preview restart. This new UI slice
+is uncommitted pending review.
+
+
 ## Role catalog and enforced tool exposure — implemented 2026-09-30
 
 Opt-in role configuration now packages model binding, instructions, tool allowlist,

@@ -394,6 +394,12 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       <form id="composer" class="composer">
         <fieldset id="runControls" hidden>
           <legend>Manual run controls</legend>
+          <label>Role <select id="runRole"><option value="">No role — configured planner</option></select></label>
+          <details id="roleDetails" hidden><summary>Role definition and allowed tools</summary>
+            <pre id="roleDescription" style="white-space:pre-wrap"></pre>
+            <label>Expose selected tools (deselect to narrow) <select id="roleTools" multiple size="5"></select></label>
+            <p>Review and revise expose no tools, regardless of this selection.</p>
+          </details>
           <label>Model <select id="runModel"><option value="">Configured routing</option></select></label>
           <label>Thinking <select id="runThinking"><option value="configured">Configured</option></select></label>
           <span id="thinkingStatus" role="status"></span>
@@ -401,6 +407,10 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
           <label>Answer <select id="runTarget"><option value="">Select a completed text answer</option></select></label>
           <p>Review is a separate model call using your selected model. It does not rewrite the answer or run tools. Enter review criteria or revision feedback in the prompt.</p>
         </fieldset>
+        <details><summary>Latest admitted model-call budget (estimated)</summary>
+          <p id="contextBudgetStatus">No admitted model-call estimate in this conversation.</p>
+          <p>Conservative UTF-8 byte estimates, not provider token usage. Editing controls does not recalculate this past call. Oversized requests are rejected before generation.</p>
+        </details>
         <fieldset>
           <legend>References for this turn</legend>
           <label>Result <select id="referenceResult"></select></label>
@@ -587,6 +597,9 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       }
     }
     function renderThread() {
+      const budgetEvent=[...state.events].reverse().find(e=>e.contextBudget);
+      const b=budgetEvent?.contextBudget;
+      $("contextBudgetStatus").textContent=b ? "Message "+budgetEvent.messageId+": input "+b.totalInputTokens+" / "+b.availableInputTokens+" available; window "+b.windowTokens+". Instructions/framing "+b.instructions+", tool definitions "+b.tools+", selected references/scope "+b.references+", current message "+b.currentMessage+", history "+b.history+", active tasks "+b.activeTasks+", memory "+b.memory+". Output reserve "+b.outputReserve+", safety reserve "+b.safetyReserve+(b.roleInputLimit?"; role input limit "+b.roleInputLimit:"")+"." : "No admitted model-call estimate in this conversation.";
       if (typeof refreshReferenceChoices === "function") refreshReferenceChoices();
       const targets = state.events.filter(e => ["provisional","refined"].includes(e.type) && e.processingStatus === "complete" && e.answerKind !== "acknowledgment");
       const unique = [...new Map(targets.map(e=>[e.messageId,e])).values()];
@@ -796,6 +809,7 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
 
       const referenceSelections = [...selectedReferences].map(([resultId,rows])=>({resultId,rows}));
       const runControls = $("runControls").hidden ? undefined : {
+        ...($("runRole").value ? {roleId:$("runRole").value,toolIds:[...$("roleTools").selectedOptions].map(o=>o.value)}:{}),
         ...($("runModel").value ? {bindingId:$("runModel").value}:{}),thinking:$("runThinking").value,mode:$("runMode").value,
         ...($("runMode").value !== "chat" ? {targetMessageId:$("runTarget").value}:{})};
       if (runControls?.mode !== "chat" && runControls && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
@@ -879,19 +893,38 @@ export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unkno
       state.userId = String(userIdInput.value || "").trim();
     });
 
-    fetch("/run-controls").then(r=>r.json()).then(data=>{
-      if(!data.models?.length)return;
-      $("runControls").hidden=false;
-      for(const model of data.models){const option=document.createElement("option");option.value=model.bindingId;option.textContent=model.provider+"/"+model.model;$("runModel").appendChild(option);}
-    }).catch(()=>{});
-    let thinkingRequest=0;
-    $("runModel").onchange=async()=>{
-      const version=++thinkingRequest;$("runThinking").replaceChildren(new Option("Configured","configured"));$("thinkingStatus").textContent="Checking supported settings…";
-      try{const r=await fetch("/run-controls/thinking?bindingId="+encodeURIComponent($("runModel").value));const data=await r.json();if(version!==thinkingRequest)return;
+    let roleOptions=[],modelOptions=[],thinkingRequest=0;
+    const selectedRole=()=>roleOptions.find(r=>r.id===$("runRole").value);
+    const refreshThinking=async()=>{
+      const role=selectedRole(),version=++thinkingRequest;
+      $("runThinking").replaceChildren(new Option(role?"Role default ("+role.thinking+")":"Configured","configured"));
+      $("runThinking").disabled=!!role && !role.overrides.thinking;
+      if($("runThinking").disabled){$("thinkingStatus").textContent="Thinking is defined by this role.";return;}
+      $("thinkingStatus").textContent="Checking supported settings…";
+      try{const binding=$("runModel").value || role?.bindingId || "";
+        const r=await fetch("/run-controls/thinking?bindingId="+encodeURIComponent(binding));const data=await r.json();if(version!==thinkingRequest)return;
         for(const setting of data.options || [])if(setting!=="configured")$("runThinking").appendChild(new Option(setting,setting));
         $("thinkingStatus").textContent=data.limitation || (data.options.length===1?"Only configured thinking is available for this selection.":"Options verified by the adapter.");
       }catch{if(version===thinkingRequest)$("thinkingStatus").textContent="Could not verify thinking options.";}
     };
+    const applyRole=()=>{
+      const role=selectedRole();$("roleDetails").hidden=!role;
+      $("runModel").replaceChildren(new Option(role?"Role default: "+role.bindingId:"Configured routing",""));
+      for(const model of modelOptions)if(!role || model.bindingId===role.bindingId || role.overrides.bindingIds.includes(model.bindingId)){
+        $("runModel").appendChild(new Option(model.provider+"/"+model.model,model.bindingId));
+      }
+      $("roleTools").replaceChildren();
+      if(role){$("roleDescription").textContent=role.id+" v"+role.version+"\\nModel: "+role.bindingId+"\\nInput limit: "+role.maxInputTokens+"; tool-call limit: "+role.maxToolCalls+"\\nContext: "+role.contextPolicy+"\\nOutput: "+role.outputContract+"\\n"+role.instructions;
+        for(const id of role.toolIds){const o=new Option(id,id);o.selected=true;$("roleTools").appendChild(o);}}
+      void refreshThinking();
+    };
+    $("runRole").onchange=applyRole;$("runModel").onchange=refreshThinking;
+    fetch("/run-controls").then(r=>r.json()).then(data=>{
+      if(!data.models?.length)return;
+      $("runControls").hidden=false;roleOptions=data.roles || [];modelOptions=data.models;
+      for(const role of roleOptions)$("runRole").appendChild(new Option(role.id+" v"+role.version,role.id));
+      applyRole();
+    }).catch(()=>{});
     let contextExpiryTimer, contextRequestVersion = 0;
     const showConversationContext = context => {
       clearTimeout(contextExpiryTimer);

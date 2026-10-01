@@ -143,7 +143,7 @@ is exposed yet; changing the configured file requires restart. Service closure c
 still cancel tools captured by an existing role. Runtime model/tool IDs are checked
 when selecting a role, so a sports config change can invalidate a role for new calls.
 
-### 2. Manual role UI and context-budget visibility — next implementation
+### 2. Manual role UI and context-budget visibility — first slice implemented
 
 Select a role and inspect its model, tools, instructions, evidence policy and limits.
 Optional overrides create an explicit effective configuration rather than silently
@@ -162,7 +162,27 @@ bounded evidence; genuinely oversized input still fails. Add a canary proving un
 tool schemas and unselected payload rows never enter the prompt. Record the actual
 exposed tool IDs and configuration version for each call.
 
-### 3. Bounded LangChain/LangGraph integration comparison
+Delivered UI: role selection, read-only definition inspection, permitted model/thinking
+choices and individually selectable tools that only narrow the role. Selection resets
+on page reload and does not automatically change with topic browsing. A role catalog
+must be configured for role choices to appear; mock-only execution remains unsupported.
+
+The budget panel shows the latest admitted planner call, identified by message ID,
+using the same conservative byte estimator as admission. It separates instructions/
+framing, tool definitions, selected scope/references, current message, history, active
+tasks and memory; it also shows the window, output/safety reserves and role input cap.
+These counts are additive estimates, not provider-reported tokens. Timeline, v1 events
+and evaluation recordings retain the breakdown. Empty registry serialization accounts
+for two estimated tokens even when no tools are exposed.
+
+Limits: the display is not a preflight estimate of unsent changes. Requests rejected
+before admission have no new admitted-call breakdown; their existing error explains
+the rejection. No automatic trimming, model substitution or reserve reduction was
+introduced. The current builder conservatively reserves the larger fast/deep output
+allowance; changing that needs separate evidence about actual provider request limits.
+Interactive preflight and richer tool grouping remain follow-ups.
+
+### 3. Bounded LangChain/LangGraph integration comparison — next bounded step
 
 Inspect installed dependencies and existing Hekate/provider bridges first. Implement
 one opt-in execution adapter for the sports-research role in the live application's

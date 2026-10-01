@@ -1,3 +1,4 @@
+import {contextBudgetUsageSchema} from "../../domain/contextBudgetUsage";
 import { runControlsSchema } from "../../app/runControls";
 import { lstat, readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -7,6 +8,7 @@ import { canonical, digest, type RunArtifact } from "./contract";
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const label = z.string().max(512);
 const eventSchema = z.object({
+  contextBudget:contextBudgetUsageSchema.optional(),
   roleExecution:z.object({contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),text:z.string().optional()}).strict().optional(),
   attachedReferences:z.object({contentHash:hash,artifactHash:hash.nullable(),transformed:z.boolean(),count:z.number().int().min(1).max(3),text:z.string().optional()}).strict().optional(),
   runControls:runControlsSchema.optional(),

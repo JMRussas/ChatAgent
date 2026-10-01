@@ -45,6 +45,7 @@ export interface ContextMemory {
 }
 
 export interface ConversationContext {
+  budgetUsage?: import("./contextBudgetUsage").ContextBudgetUsage;
   version: 2;
   snapshotId: string;
   capturedAtIso: string;

@@ -241,3 +241,24 @@ test("game browser disables details for empty searches and explains unresolved n
  await expect(page.locator("#gamesStatus")).toHaveText("No matching team found. Check the team name and league.");
  await expect(page.locator("#showGameDetails")).toBeDisabled();
 });
+
+test("manual roles expose permitted tools and show the admitted context estimate",async({page,app})=>{
+ await page.locator("#runRole").selectOption("researcher");
+ await page.locator("#roleDetails summary").click();
+ await expect(page.locator("#roleDescription")).toContainText("tool-call limit: 2");
+ await expect(page.locator("#runThinking")).toBeDisabled();
+ await page.locator("#roleTools").selectOption(["sports:list-teams"]);
+ app.controls.plan={action:"retrieve",calls:[{tool:"sports:list-teams",arguments:{league:"NBA"}}]};
+ await send(page,"List the teams");await expect(page.locator(".turn table")).toContainText("Harbor");
+ const input=JSON.stringify(app.controls.inputs.at(-1));
+ expect(input).toContain("sports:list-teams");expect(input).not.toContain("sports:find-games");
+ await page.getByText("Latest admitted model-call budget (estimated)",{exact:true}).click();
+ await expect(page.locator("#contextBudgetStatus")).toContainText("role input limit 6000");
+ await page.locator("#runRole").selectOption("writer");
+ await expect(page.locator("#roleTools option")).toHaveCount(0);
+ app.controls.plan={action:"answer",message:"No evidence selected yet."};
+ await send(page,"Explain the evidence");await expect(page.locator(".answer-content").last()).toContainText("No evidence selected");
+ expect(JSON.stringify(app.controls.inputs.at(-1))).toContain("Tools: []");
+ await expect(page.locator("#contextBudgetStatus")).toContainText("tool definitions 2");
+ await page.reload();await expect(page.locator("#runRole")).toHaveValue("");
+});

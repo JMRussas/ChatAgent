@@ -1,3 +1,4 @@
+import {deriveTurns} from "../../src/ui/turnViewModel";
 import {expect,it,vi} from "vitest";
 import {RoleCatalog} from "../../src/app/roleCatalog";
 import {CapabilityChat,planningInstruction,type CapabilityTool} from "../../src/app/capabilityChat";
@@ -67,4 +68,23 @@ it("describes the effective call limit and omits retrieval for tool-free roles",
  expect(planningInstruction(a.tools,"now",2)).not.toContain("up to 3");
  expect(planningInstruction([],"now",0)).not.toContain('"action":"retrieve"');
  expect(planningInstruction([],"now",0)).toContain("Retrieval is disabled");
+});
+
+it("records an additive context budget using the effective tool subset",async()=>{
+ const a=setup({action:"answer",message:"ok"});await a.chat.handleUserMessage(msg);
+ const b=(await a.timeline.getEvents("c")).find(e=>e.contextBudget)?.contextBudget!;
+ expect(b.totalInputTokens).toBe(b.instructions+b.tools+b.references+b.currentMessage+b.history+b.activeTasks+b.memory);
+ expect(b.availableInputTokens).toBe(b.windowTokens-b.outputReserve-b.safetyReserve);
+ expect(b.totalInputTokens).toBeLessThanOrEqual(b.availableInputTokens);expect(b.roleInputLimit).toBe(5000);
+ expect(b.tools).toBe(Buffer.byteLength(JSON.stringify(a.tools.filter(t=>t.id==="allowed").map(({id,description,inputSchema})=>({id,description,inputSchema})))));
+});
+
+it.each([true,false])("metadata shares the actual attempt and terminates with it (success=%s)",async success=>{
+ const a=setup(success?{action:"answer",message:"ok"}:{action:"retrieve",calls:[{tool:"excluded",arguments:{}}]});
+ if(success)await a.chat.handleUserMessage(msg);else await expect(a.chat.handleUserMessage(msg)).rejects.toThrow();
+ const events=await a.timeline.getEvents("c");
+ const terminal=events.find(e=>e.type === "terminal")!;
+ for(const e of events.filter(e=>e.roleExecution || e.contextBudget))expect(e.attemptId).toBe(terminal.attemptId);
+ const turn=deriveTurns(events)[0];expect(turn.attempts).toHaveLength(1);expect(turn.active).toBe(false);
+ expect(turn.attempts[0].endedAt).toBeDefined();
 });
