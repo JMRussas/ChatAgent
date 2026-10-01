@@ -593,6 +593,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
 
+        await service.getTimeline(conversationId); // Expired history returns 410 before SSE headers.
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
         res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -678,6 +679,21 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           error:
             "Planning output reached its token limit. Increase the fast-model output allowance or use a model that can plan within the configured budget."
         });
+      if (
+        error instanceof GenerationError &&
+        ["CONVERSATION_EXPIRED", "CONVERSATION_CAPACITY", "CONVERSATION_HISTORY_CAPACITY"].includes(
+          error.code
+        )
+      )
+        return json(
+          res,
+          error.code === "CONVERSATION_EXPIRED"
+            ? 410
+            : error.code === "CONVERSATION_HISTORY_CAPACITY"
+              ? 413
+              : 503,
+          { error: error.code, code: error.code }
+        );
       if (error instanceof GenerationError)
         return json(
           res,

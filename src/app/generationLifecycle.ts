@@ -30,6 +30,8 @@ export class GenerationAttempt {
   writesSettled = false;
   model?: GenerationMetadata;
   dispatchId?: string;
+  private readonly emergencyTerminal?: (event: ChatTimelineEvent) => Promise<void>;
+  private readonly releaseHistory?: () => void;
   constructor(
     readonly conversationId: string,
     readonly messageId: string,
@@ -37,7 +39,23 @@ export class GenerationAttempt {
     private timeline: ConversationTimelineStore,
     readonly taskId?: string,
     private onSettled: () => void = () => {}
-  ) {}
+  ) {
+    this.releaseHistory = timeline.retainConversation?.(conversationId);
+    try {
+      this.emergencyTerminal = timeline.reserveTerminal?.(conversationId, {
+        type: "terminal",
+        text: "",
+        messageId,
+        phase,
+        attemptId: this.attemptId,
+        taskId,
+        createdAtIso: new Date().toISOString()
+      });
+    } catch (error) {
+      this.releaseHistory?.();
+      throw error;
+    }
+  }
   get active() {
     return this.status === "queued" || this.status === "running";
   }
@@ -144,10 +162,28 @@ export class GenerationAttempt {
         errorCode,
         retrying
       });
-    })().finally(() => {
-      this.writesSettled = true;
-      this.onSettled();
-    });
+    })()
+      .catch(async (error) => {
+        if (
+          error instanceof GenerationError &&
+          error.code === "CONVERSATION_HISTORY_CAPACITY" &&
+          this.emergencyTerminal
+        ) {
+          this.status = reason === "cancelled" ? "cancelled" : "error";
+          await this.emergencyTerminal({
+            type: "terminal",
+            text: "",
+            createdAtIso: new Date().toISOString(),
+            finishReason: this.status
+          });
+        }
+        throw error;
+      })
+      .finally(() => {
+        this.writesSettled = true;
+        this.releaseHistory?.();
+        this.onSettled();
+      });
     return this.completion;
   }
 }
@@ -274,14 +310,27 @@ export class GenerationLifecycle {
     taskId?: string
   ) {
     const key = this.key(conversationId, messageId);
+    // Validate/lease the history before mutating task and claim indexes.
+    const releaseHistory = timeline.retainConversation?.(conversationId);
+    let attempt: GenerationAttempt;
+    try {
+      attempt = new GenerationAttempt(conversationId, messageId, phase, timeline, taskId, () =>
+        this.settled(key)
+      );
+    } catch (error) {
+      releaseHistory?.();
+      throw error;
+    }
     this.completed.delete(key);
-    this.claimed.add(key); // Explicit replay also owns the message identity.
-    if (taskId && !this.tasks.has(taskId))
-      this.tasks.set(taskId, this.retain(conversationId, messageId));
+    this.claimed.add(key);
+    if (taskId && !this.tasks.has(taskId)) {
+      const release = this.retain(conversationId, messageId);
+      this.tasks.set(taskId, () => {
+        release();
+        releaseHistory?.();
+      });
+    } else releaseHistory?.();
     const phases = this.turns.get(key) ?? new Map<Phase, GenerationAttempt>();
-    const attempt = new GenerationAttempt(conversationId, messageId, phase, timeline, taskId, () =>
-      this.settled(key)
-    );
     phases.set(phase, attempt);
     this.turns.set(key, phases);
     if (this.closing) {

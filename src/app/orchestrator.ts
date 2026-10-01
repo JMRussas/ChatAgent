@@ -87,6 +87,14 @@ export class ChatOrchestrator {
   }
 
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
+    const releaseHistory = this.timelineStore.retainConversation?.(message.conversationId);
+    try {
+      return await this.handleRetainedMessage(message);
+    } finally {
+      releaseHistory?.();
+    }
+  }
+  private async handleRetainedMessage(message: UserMessage): Promise<OrchestratorResponse> {
     const messageId = message.messageId ?? randomUUID();
     const lifecycle = generationLifecycle(this.queue);
     await lifecycle.claimMessage(message.conversationId, messageId, this.timelineStore);
@@ -536,6 +544,13 @@ export class DeepWorker {
         await this.deadLetterStore.add({ task, errorMessage: failure.code, failedAtIso: nowIso() });
         return undefined;
       }
+    } catch (error) {
+      await this.deadLetterStore.add({
+        task,
+        errorMessage: normalizeGenerationError(error).code,
+        failedAtIso: nowIso()
+      });
+      throw error;
     } finally {
       // Queued retries retain their pin even if cancellation wins after enqueue.
       if (!requeued) {

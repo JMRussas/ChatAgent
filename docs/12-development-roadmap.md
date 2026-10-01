@@ -197,6 +197,65 @@ preserves it. This reporting change does not clamp or change admission accountin
 
 Step 1 execution order and remaining work:
 
+Conversation-retention slice implemented: history now has
+construction-time manual limits from `.env.example`: 100 retained histories,
+1000 lifetime conversation identities per registry, 24-hour idle TTL, 10000 events
+and 8 MiB of serialized event data per history. Validation rejects nonpositive or
+inconsistent limits. Limits apply to the in-memory store; custom stores must
+implement the optional retention/lease contract to offer the same guarantees.
+The existing scope-specific hardcoded cap is replaced by conversation admission.
+
+Cleanup is lazy on access/admission/stat inspection. It expires idle, unleased
+histories and retires the oldest eligible history under count pressure. Reads do
+not extend TTL; appends and final lease release start a new idle interval. Submission
+setup, generation writes, queued tasks and cancelled-but-draining physical work
+hold leases. Neither age nor capacity evicts leased history. Expiry clears timeline
+payloads, selected scope, summary memory and source identity indexes, and aborts
+pending summaries. Expired IDs stay reserved: history/model submission returns
+`CONVERSATION_EXPIRED` (HTTP 410); replay fails and preserves its dead letter.
+Ownership checks still protect retained evidence and independent document tasks.
+Per-history overflow rejects the append atomically with
+`CONVERSATION_HISTORY_CAPACITY` (413), without silently truncating active output.
+Review fixes add a separate emergency budget of at most `maxEvents` terminal
+records, each bounded to 1 KiB, reserved when generation attempts are admitted.
+Normal history limits exclude this additional bounded reserve. Overflow publishes
+an explicit compact error terminal even after the normal write chain fails; worker
+failures preserve dead letters independently of terminal-write success. Exhausted
+attempt reservations reject new attempts. Invalid/abandoned streams and unknown
+cancellations no longer allocate permanent v1 identities; streams opened before
+submission discover the mapping when the first message arrives.
+
+**Explicit limitation:** bounded identity tombstones and ownership/v1 scope indexes
+remain for the process lifetime. After 1000 distinct identities, new identities
+are rejected with `CONVERSATION_CAPACITY` (503); existing live conversations can
+continue within their history limits. The v1 scope registry has its own count cap.
+There is no automatic identity recycling or operator purge API in this slice.
+Durable ownership/deduplication and a coordinated retirement policy for external
+tasks/evidence are required before safely reclaiming these identity slots. This
+is deliberate backpressure, not a claim of indefinitely sustainable operation.
+
+Validation: 820 tests across 101 files passed on Node 24.21.0, including 17 new
+retention regressions; all 26 browser tests and formatting/TypeScript checks passed.
+Regressions exercise TTL without read renewal, pressure and identity exhaustion,
+owner protection after expiry, held submissions, actual queued/cancelled/draining
+deep work, delayed/failed writes, failed preparation, atomic overflow, replay
+restoration, dependent-store cleanup, terminal publication at event/byte capacity,
+bounded emergency reservations, rejected/abandoned stream admission and HTTP status
+codes. No live provider calls or runtime restart. The end-to-end sustained-memory
+gate remains open.
+
+Retained-state inventory and remaining boundaries:
+
+| State / owner                                                      | Limit and cleanup                                                           | Outstanding work                                                                       |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Timeline history / `InMemoryConversationTimelineStore`             | Count, serialized bytes/events, lazy TTL; leased during live work           | Sustained assembled-runtime measurement; UI treatment of history expiry                |
+| Owners and selected scope / `ChatService`                          | Owners capped; scope deleted with history                                   | Durable identity lifecycle / safe operator retirement                                  |
+| Wire scope mapping / protocol v1                                   | Capped; mapping retained to prevent expired IDs becoming fresh internal IDs | Same coordinated identity lifecycle                                                    |
+| Source identity index and summary memory / `ContextManager` stores | Cleared with expired conversation; summary publication cancelled            | Custom store retention contracts; measure pending summary snapshots                    |
+| Dead letters / `InMemoryDeadLetterStore`                           | Currently retained until explicit removal/replay                            | Next: bounded admission/retention without losing uncertain work or replay dependencies |
+| Quota aggregates / `ResourceAdmission`                             | One exact total/fingerprint per encountered pool                            | Bound distinct pool cardinality without resetting consumed allowance                   |
+| Execution/dispatch/coordinator caches                              | Previously bounded by count/TTL with dependent work protected               | Assembled-runtime load, timers, pending work and payload-reference inventory           |
+
 1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six
    completion orders, reported usage, release/cancellation, atomic rejection,
    history expiry and true overages. Fractional quota reports use the same exact

@@ -15,6 +15,7 @@ export interface SourceSnapshot {
   records: readonly SourceRecord[];
 }
 export interface SourceStore {
+  forgetConversation?(conversationId: string): void;
   capture(conversationId: string, events: readonly ChatTimelineEvent[]): SourceSnapshot;
   resolve(
     ref: SourceRef,
@@ -25,6 +26,10 @@ export interface SourceStore {
  * Capture reflects retention/deletion; previously seen IDs can never change content. */
 export class InMemorySourceStore implements SourceStore {
   private readonly originals = new Map<string, string>();
+  forgetConversation(conversationId: string) {
+    for (const key of this.originals.keys())
+      if (JSON.parse(key)[0] === conversationId) this.originals.delete(key);
+  }
   capture(conversationId: string, events: readonly ChatTimelineEvent[]): SourceSnapshot {
     const records: SourceRecord[] = [];
     for (const e of events) {

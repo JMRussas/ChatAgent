@@ -1,3 +1,4 @@
+import { loadConversationRetention } from "../config/conversationRetention";
 import { randomUUID } from "node:crypto";
 import {
   conversationScopeSchema,
@@ -91,7 +92,6 @@ export class ChatService {
   private readonly scopes = new Map<string, ConversationScope>();
   openScopedConversation(userId: string, value: unknown) {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
-    if (this.scopes.size >= 100) throw Error("CONVERSATION_SCOPE_CAPACITY");
     const scope = conversationScopeSchema.parse(value),
       conversationId = randomUUID();
     this.claimConversation(conversationId, userId);
@@ -100,6 +100,7 @@ export class ChatService {
   }
   getSelectedContext(conversationId: string, userId: string) {
     this.claimConversation(conversationId, userId, false);
+    this.timelineStore.assertConversationAvailable?.(conversationId);
     return scopeForModel(this.scopes.get(conversationId));
   }
   private readonly ownerUserIdByConversationId = new Map<string, string>();
@@ -115,7 +116,19 @@ export class ChatService {
     private readonly queue?: TaskQueue,
     private readonly deadLetterStore?: DeadLetterStore,
     private readonly adaptiveRouting?: AdaptiveRoutingCoordinator
-  ) {}
+  ) {
+    timelineStore.onConversationExpired?.((id) => this.scopes.delete(id));
+  }
+  private readonly fallbackIdentityLimit = loadConversationRetention().maxIdentities;
+  get maxConversationIdentities() {
+    return this.timelineStore.maxConversationIdentities ?? this.fallbackIdentityLimit;
+  }
+  hasConversationIdentity(conversationId: string) {
+    return this.ownerUserIdByConversationId.has(conversationId);
+  }
+  conversationRetentionStats() {
+    return { owners: this.ownerUserIdByConversationId.size, scopes: this.scopes.size };
+  }
 
   runControlOptions() {
     return this.orchestrator.runControlOptions?.() ?? { models: [] };
@@ -133,36 +146,48 @@ export class ChatService {
         false
       );
     this.claimConversation(message.conversationId, message.userId);
-    const selectedContext = this.getSelectedContext(message.conversationId, message.userId);
-    let attachedReferences: import("./referenceSelection").AttachedReference[] = [];
-    if (message.referenceSelections?.length) {
-      if (!this.resolveReferences) throw new GenerationError("REFERENCES_UNAVAILABLE", false);
-      try {
-        attachedReferences = this.resolveReferences(
-          message.referenceSelections,
-          message.userId,
-          message.conversationId
-        );
-      } catch {
-        throw new GenerationError(
-          "REFERENCE_SELECTION_UNAVAILABLE",
-          false,
-          "Selected references are expired, unavailable or too large. Refresh or detach them."
-        );
+    const releaseHistory = this.timelineStore.retainConversation?.(message.conversationId);
+    try {
+      const selectedContext = this.getSelectedContext(message.conversationId, message.userId);
+      let attachedReferences: import("./referenceSelection").AttachedReference[] = [];
+      if (message.referenceSelections?.length) {
+        if (!this.resolveReferences) throw new GenerationError("REFERENCES_UNAVAILABLE", false);
+        try {
+          attachedReferences = this.resolveReferences(
+            message.referenceSelections,
+            message.userId,
+            message.conversationId
+          );
+        } catch {
+          throw new GenerationError(
+            "REFERENCE_SELECTION_UNAVAILABLE",
+            false,
+            "Selected references are expired, unavailable or too large. Refresh or detach them."
+          );
+        }
       }
+      return await this.track(() =>
+        this.orchestrator.handleUserMessage({ ...message, selectedContext, attachedReferences })
+      );
+    } finally {
+      releaseHistory?.();
     }
-    return this.track(() =>
-      this.orchestrator.handleUserMessage({ ...message, selectedContext, attachedReferences })
-    );
   }
 
   claimConversation(conversationId: string, userId: string, claim = true): void {
     const existingOwner = this.ownerUserIdByConversationId.get(conversationId);
     if (existingOwner === undefined) {
-      if (claim) this.ownerUserIdByConversationId.set(conversationId, userId);
+      if (claim) {
+        if (this.ownerUserIdByConversationId.size >= this.maxConversationIdentities)
+          throw new GenerationError("CONVERSATION_CAPACITY", false);
+        const release = this.timelineStore.retainConversation?.(conversationId);
+        this.ownerUserIdByConversationId.set(conversationId, userId);
+        release?.();
+      }
     } else if (existingOwner !== userId) {
       throw new ConversationOwnershipConflictError(conversationId);
     }
+    if (claim) this.timelineStore.assertConversationAvailable?.(conversationId);
   }
 
   cancelMessage(conversationId: string, messageId: string) {

@@ -93,6 +93,11 @@ export class ContextManager {
     this.sources = options.sourceStore ?? new InMemorySourceStore();
     this.summaries = options.summaryStore ?? new InMemorySummaryStore();
     this.summarizer = options.summarizer ?? new ExtractiveContextSummarizer(this.config.maxTokens);
+    timelineStore.onConversationExpired?.((id) => {
+      this.jobs.get(id)?.controller.abort(new Error("CONVERSATION_EXPIRED"));
+      this.sources.forgetConversation?.(id);
+      this.summaries.forgetConversation?.(id);
+    });
   }
   getSummaryTelemetry() {
     return { ...this.counts, activeJobs: this.jobs.size };

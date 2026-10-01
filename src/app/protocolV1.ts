@@ -84,7 +84,9 @@ export function createProtocolV1Handler(service: ChatService) {
     const scope = scopeSchema.parse(body ?? Object.fromEntries(url.searchParams));
     const key = JSON.stringify([scope.accountId, scope.projectId, conversationId]);
     let internalId = conversations.get(key);
-    if (!internalId) {
+    if (submit && !internalId) {
+      if (conversations.size >= service.maxConversationIdentities)
+        throw new GenerationError("CONVERSATION_CAPACITY", false);
       internalId = randomUUID();
       conversations.set(key, internalId);
     }
@@ -92,7 +94,7 @@ export function createProtocolV1Handler(service: ChatService) {
       let result;
       try {
         result = await service.submitMessage({
-          conversationId: internalId,
+          conversationId: internalId!,
           userId: scope.accountId,
           messageId: body.messageId,
           runControls: body.runControls,
@@ -101,9 +103,12 @@ export function createProtocolV1Handler(service: ChatService) {
           timestampIso: body.clientTimestampIso
         });
       } catch (error) {
+        // Admission failures before ownership is claimed must not consume a slot.
+        if (!service.hasConversationIdentity(internalId!) && conversations.get(key) === internalId)
+          conversations.delete(key);
         // A failed generation is still an accepted turn. Let clients consume its
         // partial text and terminal event instead of treating it as a transport failure.
-        const timeline = await service.getTimeline(internalId);
+        const timeline = await service.getTimeline(internalId!);
         const terminal = timeline
           .slice()
           .reverse()
@@ -145,10 +150,12 @@ export function createProtocolV1Handler(service: ChatService) {
       return true;
     }
     if (cancel) {
-      const result = await service.cancelMessage(
-        internalId,
-        z.string().uuid().parse(decodeURIComponent(match[3]))
-      );
+      const messageId = z.string().uuid().parse(decodeURIComponent(match[3]));
+      if (!internalId) {
+        json(res, 404, { code: "MESSAGE_NOT_FOUND" });
+        return true;
+      }
+      const result = await service.cancelMessage(internalId, messageId);
       json(res, result ? 200 : 404, result ?? { code: "MESSAGE_NOT_FOUND" });
       return true;
     }
@@ -162,7 +169,7 @@ export function createProtocolV1Handler(service: ChatService) {
       json(res, 409, { code: "RUNTIME_RESTARTED" });
       return true;
     }
-    const initial = await service.getTimeline(internalId);
+    const initial = internalId ? await service.getTimeline(internalId) : [];
     if (cursor > (initial.at(-1)?.sequence ?? 0)) {
       json(res, 409, { code: "CURSOR_UNAVAILABLE" });
       return true;
@@ -177,7 +184,10 @@ export function createProtocolV1Handler(service: ChatService) {
       if (busy || res.destroyed) return;
       busy = true;
       try {
-        for (const event of await service.getTimeline(internalId!)) {
+        // A stream may open before its first submission. It owns no identity slot.
+        const currentId = conversations.get(key);
+        if (!currentId) return;
+        for (const event of await service.getTimeline(currentId)) {
           if ((event.sequence ?? 0) <= cursor) continue;
           const wire = projectTurnEvent(conversationId, event);
           if (wire)

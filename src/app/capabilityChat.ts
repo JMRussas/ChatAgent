@@ -147,6 +147,14 @@ export class CapabilityChat {
     return lifecycle.cancel(conversationId, messageId);
   }
   async handleUserMessage(message: UserMessage): Promise<OrchestratorResponse> {
+    const releaseHistory = this.timeline.retainConversation?.(message.conversationId);
+    try {
+      return await this.handleRetainedMessage(message);
+    } finally {
+      releaseHistory?.();
+    }
+  }
+  private async handleRetainedMessage(message: UserMessage): Promise<OrchestratorResponse> {
     const messageId = message.messageId ?? randomUUID(),
       lifecycle = generationLifecycle(this.queue);
     // Capture mutable configuration before the asynchronous identity check.

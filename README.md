@@ -152,6 +152,19 @@ automatically. Node and Python must run on the same OS.
 
 Further commands and API details: [runtime reference](docs/runtime-reference.md).
 
+Conversation history is process-local and bounded. `CONVERSATION_*` settings in
+`.env.example` configure history count, idle expiry, event/byte limits and lifetime
+identity capacity; changes require a restart. Expired conversations return 410 and
+require a new conversation ID. Running/queued work protects its history. Expired
+IDs retain ownership tombstones, so identity slots are not recycled: exhausting
+that configured capacity returns 503 for new conversations. History overflow
+returns 413. Each history also reserves at most `CONVERSATION_MAX_EVENTS` compact
+emergency terminal records (at most 1 KiB each), so reaching the normal event/byte
+limit can still publish a failure. This reserve is additional to the normal history
+limits; exhausted attempt reservations reject new generations. Streams opened before
+submission and unknown cancellation requests do not reserve identities.
+See the roadmap for the remaining durable-retention work.
+
 To diagnose HTTP worker exits independently of the application and Vitest, run
 `npm run diagnose:http` (25 isolated processes), or
 `npm run diagnose:http -- 100`. It stops on the first failure and reports the
