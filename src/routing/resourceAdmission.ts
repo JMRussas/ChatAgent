@@ -1,4 +1,4 @@
-import {decimalUnits,decimalNumber} from "./decimalAccounting";
+import {decimalUnits,decimalNumber,decimalTelemetry} from "./decimalAccounting";
 import {createHash} from "node:crypto";
 import {loadExecutionRetention,type ExecutionRetention} from "../config/executionRetention";
 import { randomUUID } from "node:crypto";
@@ -65,8 +65,14 @@ export class ResourceAdmission {
   }
   /** Process-lifetime consumption, independent of recent-history expiry. No refunds. */
   accounting() {
-    return {completedUsd:decimalNumber(this.spentUsd),unsettledCount:this.unsettledCount,reportedCount:this.reportedCount,
-      unpricedCount:this.unpricedCount,quotaPools:[...this.quotaTotals].map(([poolId,v])=>({poolId,units:decimalNumber(v.units)}))};
+    const spend=decimalTelemetry(this.spentUsd);
+    return {completedUsd:spend.value,
+      ...(spend.overflow ? {completedUsdOverflow:true as const,completedUsdExact:spend.exact} : {}),
+      unsettledCount:this.unsettledCount,reportedCount:this.reportedCount,
+      unpricedCount:this.unpricedCount,quotaPools:[...this.quotaTotals].map(([poolId,v])=>{
+        const quota=decimalTelemetry(v.units);
+        return {poolId,units:quota.value,...(quota.overflow ? {unitsOverflow:true as const,unitsExact:quota.exact} : {})};
+      })};
   }
   private validate(requests: ResourceRequest[]) {
     const staged = [...this.charges.values()].filter(c => c.status !== "released");

@@ -123,7 +123,12 @@ use internal BigInt units at 324 decimal places, covering the decimal spelling o
 all finite nonnegative JavaScript numbers, including Number.MIN_VALUE. Inputs are
 not rounded and no epsilon relaxes the cap. Numbers already rounded by a caller
 cannot be reconstructed. Telemetry converts totals back to numbers for display;
-those projections never feed accounting decisions.
+those projections never feed accounting decisions. Overflow-safe telemetry now keeps
+normal totals numeric. An overflowing spend total uses `completedUsd: null`,
+`completedUsdOverflow: true` and `completedUsdExact` as a decimal string; quota pool
+totals use the corresponding `units`, `unitsOverflow` and `unitsExact` fields.
+Validation requires a consistent overflow representation, and persisted telemetry
+preserves it. This reporting change does not clamp or change admission accounting.
 
 Step 1 execution order and remaining work:
 

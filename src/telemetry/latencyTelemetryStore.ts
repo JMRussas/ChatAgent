@@ -46,14 +46,26 @@ const LatencyEstimatorSnapshotSchema = z.object({
   )
 });
 
+// Null denotes overflow only when accompanied by its flag and exact decimal value.
+const overflowDecimal=z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]*[1-9])?$/)
+  .refine(value=>Number(value)===Infinity,"Expected an overflowing nonnegative decimal");
+const spendProjection=z.union([
+  z.object({completedUsd:z.number().finite().nonnegative(),completedUsdOverflow:z.never().optional(),completedUsdExact:z.never().optional()}),
+  z.object({completedUsd:z.null(),completedUsdOverflow:z.literal(true),completedUsdExact:overflowDecimal})
+]);
+const quotaProjection=z.union([
+  z.object({poolId:z.string(),units:z.number().finite().nonnegative(),unitsOverflow:z.never().optional(),unitsExact:z.never().optional()}),
+  z.object({poolId:z.string(),units:z.null(),unitsOverflow:z.literal(true),unitsExact:overflowDecimal})
+]);
+
 const RoutingTelemetrySnapshotSchema = z.object({
   dispatch: z.object({
     attempts: z.array(z.object({ bindingId: z.string(), phase: z.enum(["fast", "deep"]),
       task: z.enum(["conversation", "coding", "summarization", "extraction", "reasoning"]), size: z.string(),
       attemptId: z.string(), result: z.string(), elapsedMs: z.number().finite().nonnegative() })),
-    accounting:z.object({completedUsd:z.number().finite().nonnegative(),unsettledCount:z.number().int().nonnegative(),
+    accounting:z.intersection(spendProjection,z.object({unsettledCount:z.number().int().nonnegative(),
       reportedCount:z.number().int().nonnegative(),unpricedCount:z.number().int().nonnegative(),
-      quotaPools:z.array(z.object({poolId:z.string(),units:z.number().finite().nonnegative()}))}).optional(),
+      quotaPools:z.array(quotaProjection)})).optional(),
     reservations: z.array(z.object({ id: z.string(), status: z.enum(["reserved", "unsettled", "released", "reported"]),
       reservedUsd: z.number().finite().nonnegative().nullable(), reportedUsd: z.number().finite().nonnegative().nullable(),
       quotaUnits: z.number().finite().nonnegative().nullable(), started: z.boolean() }))
