@@ -163,6 +163,12 @@ emergency terminal records (at most 1 KiB each), so reaching the normal event/by
 limit can still publish a failure. This reserve is additional to the normal history
 limits; exhausted attempt reservations reject new generations. Streams opened before
 submission and unknown cancellation requests do not reserve identities.
+Dead letters are bounded by admission, not expiry. `DEAD_LETTER_*` settings cap
+failed-task records together with the slots reserved by queued, running and
+replayed deep tasks, so a failure always has room to be recorded. Records are
+never evicted; they leave by replay or explicit discard. A full store returns 503
+`DEAD_LETTER_CAPACITY` for new deep-routed messages until an operator acts.
+
 See the roadmap for the remaining durable-retention work.
 
 To diagnose HTTP worker exits independently of the application and Vitest, run

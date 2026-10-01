@@ -492,7 +492,15 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       if (method === "GET" && url.pathname === "/workers/deep/dead-letters") {
         const records = await service.listDeadLetters();
-        return json(res, 200, { records });
+        return json(res, 200, { records, capacity: service.deadLetterCapacity() ?? null });
+      }
+
+      const deadLetterPath = url.pathname.match(/^\/workers\/deep\/dead-letters\/([^/]+)$/);
+      if (method === "DELETE" && deadLetterPath) {
+        const taskId = decodeURIComponent(deadLetterPath[1]);
+        return (await service.discardDeadLetter(taskId))
+          ? json(res, 200, { discarded: true, taskId })
+          : json(res, 404, { error: "Dead-letter task not found" });
       }
 
       if (
@@ -681,9 +689,12 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
       if (
         error instanceof GenerationError &&
-        ["CONVERSATION_EXPIRED", "CONVERSATION_CAPACITY", "CONVERSATION_HISTORY_CAPACITY"].includes(
-          error.code
-        )
+        [
+          "CONVERSATION_EXPIRED",
+          "CONVERSATION_CAPACITY",
+          "CONVERSATION_HISTORY_CAPACITY",
+          "DEAD_LETTER_CAPACITY"
+        ].includes(error.code)
       )
         return json(
           res,
@@ -1005,7 +1016,9 @@ export async function startServer(
           timeline,
           adaptiveRouting,
           contextManager,
-          trustedFactsProvider
+          trustedFactsProvider,
+          undefined,
+          deadLetters
         )
       : new CapabilityChat(
           providers.fastProvider,

@@ -208,6 +208,15 @@ export class ChatService {
     return this.deadLetterStore.list();
   }
 
+  deadLetterCapacity() {
+    return this.deadLetterStore?.retentionStats?.();
+  }
+
+  /** Explicit operator removal; the only way besides replay that a record leaves the store. */
+  async discardDeadLetter(taskId: string): Promise<boolean> {
+    return (await this.deadLetterStore?.remove(taskId)) !== undefined;
+  }
+
   replayDeadLetter(taskId: string): Promise<boolean> {
     if (this.stopping) return Promise.reject(new GenerationError("SHUTTING_DOWN", false));
     return this.track(() => this.replay(taskId));
@@ -215,13 +224,18 @@ export class ChatService {
   private async replay(taskId: string): Promise<boolean> {
     if (!this.queue || !this.deadLetterStore) return false;
 
-    const removed = await this.deadLetterStore.remove(taskId);
+    // A claimed record keeps its slot while replayed, so restoring it cannot hit capacity.
+    const removed = await (this.deadLetterStore.claim
+      ? this.deadLetterStore.claim(taskId)
+      : this.deadLetterStore.remove(taskId));
     if (!removed) return false;
 
     const lifecycle = generationLifecycle(this.queue);
     const messageId = removed.task.messageId ?? removed.task.taskId;
-    if (lifecycle.get(removed.task.conversationId, messageId, "deep")?.status === "cancelled")
+    if (lifecycle.get(removed.task.conversationId, messageId, "deep")?.status === "cancelled") {
+      this.deadLetterStore.release?.(taskId);
       return false;
+    }
     let releaseDispatch: (() => void) | undefined;
     let replayAttempt: import("./generationLifecycle").GenerationAttempt | undefined;
     try {

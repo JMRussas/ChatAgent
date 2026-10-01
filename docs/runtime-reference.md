@@ -134,6 +134,33 @@ curl http://localhost:3100/workers/deep/dead-letters
 curl -X POST http://localhost:3100/workers/deep/dead-letters/<taskId>/replay
 ```
 
+The list response also reports `capacity`: the configured `DEAD_LETTER_MAX_RECORDS`
+/ `DEAD_LETTER_MAX_BYTES` limits and the current records, reserved slots and bytes.
+Every queued, running or replayed deep task reserves one slot sized to its serialized
+task, so its failure can always be recorded. Records never expire and are never
+evicted. When records plus reservations reach either limit, a new deep-routed
+message is rejected with `503` / `DEAD_LETTER_CAPACITY` before its user event is
+written, so the same `messageId` can be resubmitted later; direct turns continue.
+A replayed record keeps its slot until the replayed task settles. Replay still
+fails explicitly (`CONVERSATION_EXPIRED`, `DISPATCH_SNAPSHOT_UNAVAILABLE`,
+`REPLAY_CONFLICT`) and restores the record when its dependencies are gone.
+
+Dead-letter reservations own the admitted task snapshot. Provider/replay mutations
+cannot expand the stored task or change the replay input. Added records and list
+results are copied; unreserved record replacements update serialized task-byte
+accounting atomically and preserve the old record on capacity rejection. The byte
+limit covers serialized tasks, excluding failure metadata and heap overhead.
+
+Discard a dead-letter record (explicit operator decision; frees its slot):
+
+```bash
+curl -X DELETE http://localhost:3100/workers/deep/dead-letters/<taskId>
+```
+
+Discarding removes the only replayable copy of the task. The failure itself stays
+in the conversation timeline as the task's terminal error event while that history
+is retained.
+
 6. Read latency telemetry and current routing policy
 
 ```bash

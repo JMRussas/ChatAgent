@@ -142,7 +142,8 @@ export function runtime(
     adaptive,
     manager,
     undefined,
-    dispatch
+    dispatch,
+    dead
   );
   const worker = new DeepWorker(queue, unusedDeep, timeline, 2, dead, adaptive, dispatch);
   const service = new ChatService(orchestrator, worker, timeline, queue, dead, adaptive);
@@ -154,6 +155,7 @@ export function runtime(
     dispatch,
     timeline,
     queue,
+    dead,
     manager,
     orchestrator,
     worker,

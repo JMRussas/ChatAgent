@@ -79,7 +79,8 @@ export class ChatOrchestrator {
     private readonly adaptiveRouting?: AdaptiveRoutingCoordinator,
     contextManager?: ContextManager,
     trustedFactsProvider?: () => TrustedRuntimeFacts,
-    private readonly dispatch?: CatalogDispatch
+    private readonly dispatch?: CatalogDispatch,
+    private readonly deadLetterStore?: DeadLetterStore
   ) {
     this.contextManager =
       contextManager ?? new ContextManager(this.timelineStore, DEFAULT_CONTEXT_BUDGET);
@@ -136,6 +137,7 @@ export class ChatOrchestrator {
     // budget rejection leaves the timeline/queue untouched (spec 01: "before
     // appending events/enqueuing/calling providers").
     let plan: DispatchPlan | undefined;
+    let deepTask: DeepTask | undefined;
     let deepQueued = false;
     try {
       const contextInput = {
@@ -158,6 +160,24 @@ export class ChatOrchestrator {
 
       const context = contextResult;
 
+      deepTask =
+        routeDecision === "deep"
+          ? {
+              taskId: randomUUID(),
+              messageId,
+              conversationId: message.conversationId,
+              normalizedPrompt: adaptedAnalysis.correctedText,
+              createdAtIso: nowIso(),
+              sizeBand,
+              dispatchId: plan?.deep?.id,
+              selection: plan?.deep ? structuredClone(plan.deep.candidate.selection) : undefined,
+              context: cloneConversationContext(context)
+            }
+          : undefined;
+      // Reserve failure room before the user event exists, so a full dead-letter
+      // store rejects the turn without consuming its message ID.
+      if (deepTask) this.deadLetterStore?.reserve?.(deepTask);
+
       await this.timelineStore
         .appendEvent(message.conversationId, {
           messageId,
@@ -177,21 +197,6 @@ export class ChatOrchestrator {
           this.dispatch?.release(plan?.deep);
           throw error;
         });
-
-      const deepTask =
-        routeDecision === "deep"
-          ? {
-              taskId: randomUUID(),
-              messageId,
-              conversationId: message.conversationId,
-              normalizedPrompt: adaptedAnalysis.correctedText,
-              createdAtIso: nowIso(),
-              sizeBand,
-              dispatchId: plan?.deep?.id,
-              selection: plan?.deep ? structuredClone(plan.deep.candidate.selection) : undefined,
-              context: cloneConversationContext(context)
-            }
-          : undefined;
 
       let fastAttempt = lifecycle.create(
         message.conversationId,
@@ -351,7 +356,10 @@ export class ChatOrchestrator {
     } finally {
       if (!lifecycle.get(message.conversationId, messageId, "fast"))
         this.dispatch?.complete(plan?.fast);
-      if (!deepQueued) this.dispatch?.complete(plan?.deep);
+      if (!deepQueued) {
+        this.dispatch?.complete(plan?.deep);
+        if (deepTask) this.deadLetterStore?.release?.(deepTask.taskId);
+      }
     }
   }
   async cancel(conversationId: string, messageId: string) {
@@ -402,6 +410,7 @@ export class DeepWorker {
     } finally {
       this.dispatch?.complete(this.dispatch.get(task.dispatchId));
       lifecycle.releaseTask(task.taskId);
+      this.deadLetterStore.release?.(task.taskId);
     }
   }
 
@@ -561,6 +570,8 @@ export class DeepWorker {
           this.attemptsByTaskId.delete(task.taskId);
           this.dispatch?.complete(selected);
           lifecycle.releaseTask(task.taskId);
+          // No-op once the failure became a record; otherwise the settled task frees its slot.
+          this.deadLetterStore.release?.(task.taskId);
         }
       }
     }

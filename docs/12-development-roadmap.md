@@ -6,6 +6,34 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
+### Handoff checkpoint — current execution status
+
+Conversation retention and dead-letter admission are implemented, including review
+fixes for overflow terminal publication, protocol identity allocation and dead-letter
+snapshot/byte accounting. The working baseline is the latest commit on this branch
+(`git log -1`); older commit hashes and validation counts below describe prior slices.
+
+**Next implementation:** bound distinct quota-pool aggregates in `ResourceAdmission`.
+Inspect pool identity/fingerprint and admission/reload behavior first. Add manual
+capacity limits and atomic backpressure without evicting consumed allowance or
+letting renamed pools reset it. Preserve existing exact accounting. Cover repeated
+pools, new pools at capacity, conflicting fingerprints, configuration churn and
+settlement/release behavior. Rolling-window reconciliation belongs to step 3.
+
+Step 1 remains open: inventory remaining pending work/timers/buffers, address expiry
+UI and coordinated identity retirement boundaries, and run the assembled-runtime
+sustained-memory gate. Do not infer whole-process memory bounds from individual
+store limits. Keep self-graded quality separate from calibrated factual evaluation.
+
+Use Node **24.21.0** from `.node-version`; the machine-wide Windows 24.15.0 runtime
+has a reproduced native crash. Switch PATH to the pinned runtime before using npm.
+Validate with `npm test`, `npm run format`, `npm run lint` and `npm run test:browser`.
+On this workstation the evaluated Windows executable is
+`node_modules/.cache/worker-diagnosis/new24/node.exe`; it is a local convenience,
+not a required repository artifact. Read `AGENTS.md`, preserve generated evidence,
+and keep the two excluded local review documents out of Git. No live provider
+calls or service restart were needed for these retention changes.
+
 Current state: a manual prototype with configurable roles, selected evidence,
 separate display payloads and native/graph execution comparisons. The four delivery,
 grading, review and reference-layout fixes are committed in `c9ce23f`; their
@@ -244,17 +272,68 @@ bounded emergency reservations, rejected/abandoned stream admission and HTTP sta
 codes. No live provider calls or runtime restart. The end-to-end sustained-memory
 gate remains open.
 
+Dead-letter slice implemented: the store is bounded by admission, not expiry.
+Construction-time manual limits from `.env.example`: `DEAD_LETTER_MAX_RECORDS`
+(default 100) and `DEAD_LETTER_MAX_BYTES` (default 16 MiB of serialized tasks).
+Records and reserved slots share both limits. `ChatOrchestrator` reserves a slot
+sized to the task before writing the user event; the slot is held while the task
+is queued, running, awaiting retry or replayed, becomes the record on final
+failure, and is freed on success, cancellation, shutdown discard or a failed
+submission. A full store rejects a new deep-routed message with
+`DEAD_LETTER_CAPACITY` (HTTP 503) before any timeline or queue write, so its
+message ID stays reusable and dispatch reservations are released; direct turns
+continue. Admitted queued deep tasks are therefore bounded by the same limit.
+
+Nothing expires or is evicted, because a record is the only replayable trace of
+work whose external execution is uncertain. Records leave by replay or the new
+explicit `DELETE /workers/deep/dead-letters/<taskId>`; the terminal error event
+stays in the timeline. Replay claims the record without giving up its slot, so
+a failed replay (expired conversation, missing dispatch snapshot, conflict or
+queue failure) is always restored, even at capacity and against a competing
+admission. Records keep the complete task; they do not pin conversation history
+or dispatch snapshots, so those replay failures remain explicit as before. The
+list endpoint reports limits and current usage.
+
+Review fix: reservations own task snapshots, so recording an admitted failure uses
+the originally reserved task even if a provider or replay caller mutates its copy.
+Added records and list results are defensively copied. Replacing an unreserved
+record recalculates its serialized task bytes; overflow rejects atomically, retaining
+the old record and all accounting. The byte limit measures serialized tasks, not
+JavaScript heap overhead or failure metadata. Mutation/growth and shrinking or
+rejected replacement regressions cover these contracts.
+
+**Explicit limitation:** this is deliberate backpressure. A full store blocks
+deep-routed work until an operator replays or discards, including records that
+can no longer be replayed; there is no automatic compaction, alerting or UI
+treatment. Only work admitted through `ChatOrchestrator` holds a reservation: a
+task placed directly on the queue is recorded when room exists and otherwise
+fails with `DEAD_LETTER_CAPACITY`, leaving only its timeline terminal event.
+`CapabilityChat` runs deep work inline and does not use this queue. Custom
+stores must implement the optional reserve/release/claim contract to offer the
+same guarantees. Dead letters remain process-local and are lost on restart.
+
+Validation: 835 tests across 102 files passed on Node 24.21.0, including 15 new
+dead-letter regressions; formatting/TypeScript checks and all 26 browser tests
+passed. Regressions cover count and byte limits, idempotent reservation, rejection
+before the user event, message-ID reuse after discard, queued/running/retry slots,
+replay restoration under competing admission, cancelled/discarded work, failed
+submission and terminal-write paths, 50 sequential failures with discard, catalog
+dispatch release, and HTTP responses. Seven temporary mutations (replay without
+claim, each missing release, skipped reservation, ignored byte limit) each failed
+these tests and were reverted. No live provider calls or runtime restart.
+
 Retained-state inventory and remaining boundaries:
 
-| State / owner                                                      | Limit and cleanup                                                           | Outstanding work                                                                       |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Timeline history / `InMemoryConversationTimelineStore`             | Count, serialized bytes/events, lazy TTL; leased during live work           | Sustained assembled-runtime measurement; UI treatment of history expiry                |
-| Owners and selected scope / `ChatService`                          | Owners capped; scope deleted with history                                   | Durable identity lifecycle / safe operator retirement                                  |
-| Wire scope mapping / protocol v1                                   | Capped; mapping retained to prevent expired IDs becoming fresh internal IDs | Same coordinated identity lifecycle                                                    |
-| Source identity index and summary memory / `ContextManager` stores | Cleared with expired conversation; summary publication cancelled            | Custom store retention contracts; measure pending summary snapshots                    |
-| Dead letters / `InMemoryDeadLetterStore`                           | Currently retained until explicit removal/replay                            | Next: bounded admission/retention without losing uncertain work or replay dependencies |
-| Quota aggregates / `ResourceAdmission`                             | One exact total/fingerprint per encountered pool                            | Bound distinct pool cardinality without resetting consumed allowance                   |
-| Execution/dispatch/coordinator caches                              | Previously bounded by count/TTL with dependent work protected               | Assembled-runtime load, timers, pending work and payload-reference inventory           |
+| State / owner                                                      | Limit and cleanup                                                           | Outstanding work                                                             |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Timeline history / `InMemoryConversationTimelineStore`             | Count, serialized bytes/events, lazy TTL; leased during live work           | Sustained assembled-runtime measurement; UI treatment of history expiry      |
+| Owners and selected scope / `ChatService`                          | Owners capped; scope deleted with history                                   | Durable identity lifecycle / safe operator retirement                        |
+| Wire scope mapping / protocol v1                                   | Capped; mapping retained to prevent expired IDs becoming fresh internal IDs | Same coordinated identity lifecycle                                          |
+| Source identity index and summary memory / `ContextManager` stores | Cleared with expired conversation; summary publication cancelled            | Custom store retention contracts; measure pending summary snapshots          |
+| Dead letters / `InMemoryDeadLetterStore`                           | Records plus reserved slots capped by count/bytes; no expiry or eviction    | Sustained assembled-runtime measurement; operator visibility of a full store |
+| Deep task queue / `InMemoryTaskQueue`                              | Admitted tasks bounded by dead-letter reservations; no limit of its own     | Direct enqueues bypass admission; include in pending-work inventory          |
+| Quota aggregates / `ResourceAdmission`                             | One exact total/fingerprint per encountered pool                            | Bound distinct pool cardinality without resetting consumed allowance         |
+| Execution/dispatch/coordinator caches                              | Previously bounded by count/TTL with dependent work protected               | Assembled-runtime load, timers, pending work and payload-reference inventory |
 
 1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six
    completion orders, reported usage, release/cancellation, atomic rejection,
