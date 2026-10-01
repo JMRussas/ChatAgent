@@ -14,6 +14,13 @@ These results establish covered behavior, not sustained-operation or calibrated
 factual-quality guarantees. Review the existing increment separately before a
 subsequent increment; preserve its changes while implementing reliability work.
 
+Formatting maintenance is pulled forward before further retention implementation:
+finish the overflow fix, add pinned Prettier tooling and a format gate in `lint`,
+format maintained files in a mechanical commit, then record that commit in
+`.git-blame-ignore-revs`. Generated evidence, measurements and local review files
+are excluded; Python formatting remains separate. CI already calls `lint` through
+`verify:release`. Resume the remaining step 1 work after this formatting increment.
+
 ### 1. Bounded retention and sustained operation — in progress
 
 First slice committed in `c9ce23f`: coordinator retention. Reproduced capacity
