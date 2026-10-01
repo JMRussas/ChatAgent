@@ -1,5 +1,35 @@
 # Request-to-evidence contracts and acceptance gates
 
+## Bounded retrieval-to-answer contract — 2026-09-30
+
+Review fixed a deadline gap: answer validation now requires the workflow ledger
+and rejects outputs at or after its deadline, even when evidence remains valid.
+Regressions reproduced the issue for both answer and insufficient-evidence output
+before the fix. All 702 tests / 90 files and TypeScript build pass. This remains
+a contract-only increment; no live calls or preview restart were performed.
+
+The contract and synthetic development fixtures are implemented in
+`src/app/retrievalAnswerContract.ts` and `data/evals/retrieval-answer.v1.json`.
+Runtime wiring is still pending. The contract bounds a workflow to at most two
+model attempts and three tool attempts under one deadline; provider admission
+continues to apply independently. Evidence contains explicitly selected, owned,
+unexpired rows only, with source coverage, provenance and server-owned limitations.
+Unavailable evidence is rejected and the complete serialized packet is byte-limited.
+
+Answer validation checks selected row/cell identity and exact quoted values. It does
+not grade semantic entailment: a deliberately false claim with a real citation passes
+citation checks and remains semantically ungraded. Insufficient-evidence responses
+have no applicable citation check. These synthetic cases are development regressions,
+not held-out quality results or a substitute for the planned end-to-end evaluation.
+
+Next: wire an opt-in manual answer-from-selected-evidence stage, extending the role
+output contract first. Keep the answer call tool-free, recheck ownership/expiry and
+provider admission before inference, reserve attempts before starting them, and carry
+one deadline through execution and publication. Cancellation must drain owned work
+and suppress late output. No automatic full-payload injection, review/retry loop or
+second call is enabled by this contract. General background roles and persistent
+memory remain later plan items.
+
 Status: operation contracts and provider-backed NBA/NFL team resolution are implemented.
 Team-list payload/context separation and direct table delivery are now implemented.
 Minimal topic browsing with scoped conversations and opt-in team references is

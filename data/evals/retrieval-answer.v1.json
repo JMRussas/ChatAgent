@@ -1,0 +1,13 @@
+{
+  "version": "retrieval-answer-fixtures-v1",
+  "partition": "development",
+  "description": "Synthetic contract fixtures, not historical games or a held-out model benchmark.",
+  "columns": ["Home", "Away", "Status", "Home score", "Away score"],
+  "rows": [["Harbor Comets", "Ridge Owls", "final", "101", "98"], ["UNSELECTED_TEAM", "Other", "scheduled", "Unknown", "Unknown"]],
+  "cases": [
+    {"id": "exact-score", "claim": "Harbor Comets scored 101.", "row": 0, "column": 3, "quote": "101", "citationExpected": "pass", "semanticExpected": "supported"},
+    {"id": "wrong-score", "claim": "Harbor Comets scored 110.", "row": 0, "column": 3, "quote": "110", "citationExpected": "fail", "semanticExpected": "unsupported"},
+    {"id": "unselected-row", "claim": "Another game is scheduled.", "row": 1, "column": 2, "quote": "scheduled", "citationExpected": "fail", "semanticExpected": "outside_scope"},
+    {"id": "real-citation-false-claim", "claim": "Harbor Comets scored 500.", "row": 0, "column": 3, "quote": "101", "citationExpected": "pass", "semanticExpected": "unsupported"}
+  ]
+}
