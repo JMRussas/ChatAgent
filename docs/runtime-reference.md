@@ -150,6 +150,9 @@ cannot expand the stored task or change the replay input. Added records and list
 results are copied; unreserved record replacements update serialized task-byte
 accounting atomically and preserve the old record on capacity rejection. The byte
 limit covers serialized tasks, excluding failure metadata and heap overhead.
+The worker also records failures during attempt creation after dequeue, including
+expired history. Direct queue enqueues bypass reservation; their failure records
+remain subject to available dead-letter capacity.
 
 Discard a dead-letter record (explicit operator decision; frees its slot):
 

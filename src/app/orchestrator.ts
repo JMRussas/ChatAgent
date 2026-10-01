@@ -431,13 +431,15 @@ export class DeepWorker {
 
     const lifecycle = generationLifecycle(this.queue);
     const messageId = task.messageId ?? task.taskId;
-    const attempt =
-      lifecycle.get(task.conversationId, messageId, "deep") ??
-      lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId);
     const selected = this.dispatch?.get(task.dispatchId);
-    if (selected) this.dispatch!.activate(selected);
     let requeued = false;
     try {
+      // Attempt creation can reject expired or full histories after dequeue.
+      // Keep it inside recovery so the task remains available as a dead letter.
+      const attempt =
+        lifecycle.get(task.conversationId, messageId, "deep") ??
+        lifecycle.create(task.conversationId, messageId, "deep", this.timelineStore, task.taskId);
+      if (selected) this.dispatch!.activate(selected);
       attempt.dispatchId = task.dispatchId;
       if (!attempt.active) {
         this.dispatch?.release(selected);

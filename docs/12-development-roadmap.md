@@ -16,13 +16,20 @@ validation counts below describe prior slices. The quota-pool slice includes the
 review fix: explicit constructor limits are validated and copied, so invalid
 values or caller mutation cannot bypass the cap.
 
-**Next implementation:** finish the step 1 inventory. Enumerate remaining pending
-work, timers and buffers (deep task queue direct enqueues, pending summary
-snapshots, active admission reservations, compute-pool keys, payload references)
-with owner, limit, cleanup trigger and dependent references. Then address expiry
-UI and coordinated identity retirement boundaries, and run the assembled-runtime
-sustained-memory gate, including a quota-pool cardinality workload separate from
-the one-pool ledger benchmark. Rolling-window reconciliation belongs to step 3.
+The step 1 retained-state inventory is complete: see "Retained-state inventory"
+under step 1. It enumerates every process-lifetime store, pending-work registry,
+timer and buffer with its owner, limit, cleanup trigger and dependent references.
+It is a code-read enumeration backed by regression tests, not a measurement.
+Review also fixed a worker recovery gap: attempt creation after dequeue now runs
+inside dead-letter recovery, so expired history cannot silently lose a task. The boundaries it found are listed there as
+open; none of the candidate bounds is decided or implemented.
+
+**Next implementation:** address expiry UI and coordinated identity retirement
+boundaries, then run the assembled-runtime sustained-memory gate, including a
+quota-pool cardinality workload separate from the one-pool ledger benchmark. The
+gate must drive the live `CapabilityChat` runtime concurrently, because that
+runtime does not pass through dead-letter admission (inventory finding 1).
+Rolling-window reconciliation belongs to step 3.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
@@ -370,24 +377,162 @@ roughly double the usual test time; the output was not captured and five subsequ
 runs, two repeating the same format/lint/test sequence, passed. Treat that as an
 unexplained transient, not as resolved. No live provider calls or runtime restart.
 
-Retained-state inventory and remaining boundaries:
+#### Retained-state inventory
 
-| State / owner                                                      | Limit and cleanup                                                           | Outstanding work                                                             |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Timeline history / `InMemoryConversationTimelineStore`             | Count, serialized bytes/events, lazy TTL; leased during live work           | Sustained assembled-runtime measurement; UI treatment of history expiry      |
-| Owners and selected scope / `ChatService`                          | Owners capped; scope deleted with history                                   | Durable identity lifecycle / safe operator retirement                        |
-| Wire scope mapping / protocol v1                                   | Capped; mapping retained to prevent expired IDs becoming fresh internal IDs | Same coordinated identity lifecycle                                          |
-| Source identity index and summary memory / `ContextManager` stores | Cleared with expired conversation; summary publication cancelled            | Custom store retention contracts; measure pending summary snapshots          |
-| Dead letters / `InMemoryDeadLetterStore`                           | Records plus reserved slots capped by count/bytes; no expiry or eviction    | Sustained assembled-runtime measurement; operator visibility of a full store |
-| Deep task queue / `InMemoryTaskQueue`                              | Admitted tasks bounded by dead-letter reservations; no limit of its own     | Direct enqueues bypass admission; include in pending-work inventory          |
-| Quota aggregates / `ResourceAdmission`                             | Distinct pools capped at admission; totals/fingerprints never evicted       | Authoritative pool identity (step 3); operator recovery for a full ledger    |
-| Execution/dispatch/coordinator caches                              | Previously bounded by count/TTL with dependent work protected               | Assembled-runtime load, timers, pending work and payload-reference inventory |
+Inventory complete (2026-10-01). Scope: server-process state in `src` outside the
+offline `eval`/`bench` command-line tools; browser page state is excluded. Limits
+are the defaults in `.env.example` or the configuration schema. "Lazy" means the
+cleanup runs on the next access to that owner, never on a timer, so an idle
+process keeps expired entries until something touches the store. Custom timeline,
+source, summary or dead-letter stores that omit the optional retention contracts
+provide none of these limits.
+
+Which runtime owns deep work matters for every row below. `startServer` builds
+`ChatOrchestrator` only for the mock pair without catalog dispatch. Every live or
+catalog configuration builds `CapabilityChat`, which runs retrieval inline, never
+enqueues a deep task and is not given the dead-letter store. In that runtime the
+deep queue stays empty and `DEAD_LETTER_*` admission never applies.
+
+Retained stores (survive the work that created them):
+
+| State / owner                                                                      | Limit                                                                   | Cleanup trigger                                                   | Dependent references                                                              |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Timeline history / `InMemoryConversationTimelineStore`                             | 100 histories, 1000 identities; 10000 events and 8 MiB per history      | Lazy idle TTL (24 h) and count pressure; never while leased       | Leases from submissions, attempts and queued tasks; expiry listeners              |
+| Owners and selected scope / `ChatService`                                          | Owners ≤ identity limit; scopes ≤ live histories                        | Scope on history expiry; owners never                             | Ownership guards retained evidence and external document tasks                    |
+| Wire scope mapping / protocol v1                                                   | ≤ identity limit                                                        | Only when a first submission fails before ownership               | Keeps an expired wire ID from becoming a fresh internal ID                        |
+| Source identity index / `InMemorySourceStore`                                      | One entry per user/answer event of a live history; no limit of its own  | History expiry (scans every key)                                  | Summary memory resolves its references through it                                 |
+| Summary memory / `InMemorySummaryStore`                                            | One per live history, ≤ `CONTEXT_SUMMARY_MAX_TOKENS` bytes              | History expiry                                                    | Source references into the index                                                  |
+| Dead letters / `InMemoryDeadLetterStore`                                           | Records plus reservations ≤ 100 and 16 MiB of serialized tasks          | Replay or operator DELETE; reservations on task settlement        | Own task snapshot including context; pins neither history nor dispatch snapshot   |
+| Quota aggregates / `ResourceAdmission.quotaTotals`                                 | ≤ 100 pools                                                             | Never; a pool with only unstarted reservations frees on release   | Fingerprint of the configured quota snapshot                                      |
+| Admission diagnostics / `ResourceAdmission.recent`                                 | 100 rows, 5 min                                                         | Lazy on archive or stats                                          | Compact views only; no request payload                                            |
+| Completed turns / `GenerationLifecycle`                                            | 100 turns, 5 min; live turns protected                                  | Lazy, after consumers and writes settle                           | Each attempt keeps its answer text (≤ 1 MiB), model metadata and timeline handle  |
+| Completed dispatch phases and metrics / `CatalogDispatch`                          | 100 phases, 5 min; 1000 metrics                                         | Lazy, after `complete()`                                          | Per phase: 2 + fallbacks context copies, catalog entry clones, provider bindings  |
+| Briefing runs / `BriefingCoordinator`                                              | `maxRuns` 20 (active plus settled); settled TTL 5 min                   | Lazy; pressure evicts the oldest drained run                      | Request, profile and waiter indexes; evidence results                             |
+| Tool results / `ToolResultStore`                                                   | `maxSnapshots` 100 records; oldest evicted                              | Lazy expiry on put/get; cleared on reload or close                | Owner and conversation check; rows are also copied into timeline `payloadResults` |
+| Directory cache, resolution and game snapshots / `TeamDirectory`, `GameOperations` | 2 directories (1 MB response each); 100 + 100 snapshots                 | Lazy TTL on the next lookup or search; cleared on reload or close | Snapshots bind user, conversation and registry revision                           |
+| Shared source cache / `SharedSportsSource`, `SportsRequestBudget`                  | 20 entries (15 s), 4 pending reads, 5 start times per minute            | Lazy on read                                                      | Waiter count cancels the shared read when the last caller leaves                  |
+| Model observations / `InventoryStore`                                              | One per binding a provider has ever listed; no limit                    | Overwritten on refresh; vanished bindings become tombstones       | Cloned into every catalog `prepare`                                               |
+| Latency samples / `InMemoryLatencyEstimator`                                       | 1000 samples per provider/model/route/size bucket                       | Oldest samples dropped on record                                  | Persisted in the telemetry file                                                   |
+| CLI pool keys and inspection cache / `CliRunner`, `ClaudeInspectionCache`          | One key per busy pool; one cached and one pending inspection            | Key deleted at zero; inspection TTL 5–30 s                        | Shared by every CLI adapter of the account                                        |
+| Evaluation trace / `EvaluationRecorder` (opt-in)                                   | `EVAL_MAX_EVENTS` 10000, `EVAL_MAX_BYTES` 10 MiB; then drops and counts | Retention timer (7 d) or `finish()`                               | Turn and call indexes ≤ recorded events                                           |
+
+Pending work (exists only while something is in flight):
+
+| State / owner                                                    | Limit                                                                          | Cleanup trigger                                               | Dependent references                                                               |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| In-flight requests / `ChatService.inFlight`, server `responses`  | None; one per open request                                                     | Settlement; socket close                                      | Request body, a history lease, one history clone plus its source snapshot          |
+| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | None; one per in-flight message                                                | Attempt settlement and consumer release                       | Attempt buffers, history lease, emergency terminal reservation                     |
+| Deep task queue / `InMemoryTaskQueue`                            | None of its own; admitted tasks ≤ dead-letter slots; direct enqueues unbounded | Worker dequeue (one task per 500 ms tick); shutdown discard   | Task with context; if admitted: slot snapshot, task pin, history lease, phase      |
+| Retry counters / `DeepWorker.attemptsByTaskId`                   | One integer per task awaiting retry                                            | Success, cancellation or final failure                        | None                                                                               |
+| Inline retrieval work / `CapabilityChat.pending`                 | None; ≤ 3 tool calls per turn, each bounded by its tool's limits               | Work settlement, then `releaseTask`                           | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
+| Pending summary snapshots / `ContextManager.jobs`, `pending`     | One job per conversation, each ≤ `CONTEXT_SUMMARY_TIMEOUT_MS` (5 s)            | Completion, timeout, supersession, history expiry, shutdown   | Cloned events, source snapshot and prefix; no history lease                        |
+| Active admission reservations / `ResourceAdmission.charges`      | None of its own; one per prepared phase, fallback or summary call              | `release` if unstarted, `finish` if started                   | Cloned request and resources; quota-pool slot; spend toward `SPEND_LIMIT`          |
+| Compute-pool keys / `ResourceAdmission.running`                  | One key per pool with started work; ≤ declared compute pools                   | Deleted when the pool's count returns to zero                 | The started reservations it counts                                                 |
+| Live dispatch phases / `CatalogDispatch.phases`                  | None of its own; one per prepared phase                                        | `complete()` by the owning workflow, then count/TTL retention | Same payload as a completed phase, plus its reservation ticket                     |
+| Admission waiters / `reserveWithWait`, `begin`                   | Count unlimited; each ≤ `waitTimeoutMs` (≤ 120 s)                              | Grant, timeout, or abort (`begin` only)                       | One 10 ms poll timer each                                                          |
+| Briefing jobs and waiters / `BriefingCoordinator`                | Jobs ≤ runs × plan tasks, 2 running; waiters unlimited per run                 | Settlement, deadline (30 s) or cancellation                   | Per-job timer and `AbortController`; a draining job protects its run from eviction |
+| Document-task requests / `PythonDocumentTasks.pending`           | 32                                                                             | Response, 30 s timeout or bridge failure                      | One timer each; the child's stdout line buffer has no length limit                 |
+| Discovery refreshes / `InventoryStore.inFlight`                  | One per connection, 4 concurrent                                               | Settlement, 10 s timeout or shutdown                          | One `AbortController` each                                                         |
+| CLI generations / `CliRunner`                                    | `CLI_MAX_CONCURRENCY` (1) running per pool; waiting callers unlimited          | `CLI_TIMEOUT_MS` (120 s), completion or cancellation          | Child process; stdout ≤ `CLI_MAX_OUTPUT_BYTES` (1 MiB)                             |
+| Telemetry saves / `FileLatencyTelemetryStore.pendingSave`        | None; one queued per 5 s tick while a write stalls                             | Each write completing                                         | One serialized snapshot per queued save                                            |
+| Event streams (v1 and legacy SSE)                                | None; one per open connection                                                  | Client close; shutdown `closeStreams`                         | Two timers each; the legacy stream also keeps a serialized copy of the timeline    |
+
+Timers. Three process-lifetime intervals run in `startServer` and are cleared by
+`stopBackground` on shutdown or server close: telemetry save (5 s), deep-worker
+tick (500 ms) and discovery refresh (5 min). Every other timer belongs to one unit
+of pending work and is cleared when that work settles: SSE poll (100 ms v1, 350 ms
+legacy) and 15 s heartbeat per connection; a ≤ 50 ms delta flush per attempt; the
+summary timeout per job; the workflow deadline per evidence or review turn; 10 ms
+admission and CLI polls; the deadline per briefing job; provider and adapter
+request deadlines; 30 s per document-task request; 10 s per discovery refresh.
+Only the evaluation retention timer and the document-bridge kill timer are
+unreferenced, so a clean exit depends on the shutdown path clearing the rest.
+
+Buffers and payload references. Stored answers are capped at 1 MiB per attempt,
+provider stream frames at 1 MiB, CLI output at 1 MiB, sports responses at 1–2 MB
+and the evaluation trace at `EVAL_MAX_BYTES`. A streamed answer is written to
+history as deltas, an answer event and a terminal event, so it costs about three
+times its size, all counted by `CONVERSATION_MAX_BYTES`. The following copies of
+conversation data are not counted by that limit: the source identity index, the
+summary memory, each pending summary snapshot, the per-request history clone, the
+context copies in queued tasks, dead-letter slots and dispatch phases, and the
+serialized timeline each legacy SSE connection keeps. HTTP request bodies are read
+without a size limit (step 2).
+
+Open boundaries found by the inventory. None is implemented; each needs a decision
+before or during the sustained-memory gate:
+
+1. **The live runtime has no admission limit on concurrent turns.** In-flight
+   requests, live turns, inline retrieval work, reservations and live dispatch
+   phases are limited only by request arrival and per-call timeouts. Dead-letter
+   backpressure covers the mock `ChatOrchestrator` runtime only. This belongs with
+   step 2 request limits; the gate must drive `CapabilityChat` concurrently rather
+   than infer its bound from the dead-letter tests.
+2. **The deep queue has no limit of its own and cancellation does not remove an
+   entry.** A direct `enqueue` holds no slot, lease or task pin until dequeued and
+   nothing limits how many accumulate; no `src` caller does this, so it is an
+   embedder and test contract today. A cancelled queued task keeps its queue entry,
+   dead-letter slot, task pin, history lease and dispatch phase until the serial
+   worker reaches it, which can be behind a long-running task. Candidates: a queue
+   capacity equal to the dead-letter record limit, and removal on cancel.
+3. **Count-bounded caches pin payload bytes.** At defaults the completed-turn cache
+   can hold 100 turns × 2 attempts × 1 MiB of answer text that history already
+   stores, although only `status`, `active`, `dispatchId` and `taskId` are read
+   after settlement. Each retained dispatch phase keeps the candidate's ranking
+   context and one per fallback candidate, which are read only during ranking;
+   replay needs only `phase.context`. `ToolResultStore` is limited to 100 records
+   whose schema allows 1000 × 20 cells of 1000 characters. Candidates: release
+   attempt text and ranking contexts at settlement; a byte limit on tool results.
+4. **Event streams are unbounded per connection and in number.** There is no
+   connection limit and `res.write` backpressure is ignored. The legacy stream
+   re-sends the whole timeline on every change and keeps a serialized copy; the
+   v1 stream clones the whole timeline every 100 ms to find new events. Both scale
+   with `CONVERSATION_MAX_BYTES` per connection. Belongs with step 2.
+5. **Telemetry saves are not coalesced.** Each tick serializes a snapshot and
+   chains it behind the previous write, so a stalled disk queues one snapshot per
+   tick. Candidate: skip a tick while a save is pending.
+6. **Model observations are never deleted.** A binding a provider stops listing
+   becomes an `installed: "no"` tombstone, and the Ollama and Bedrock listings have
+   no size limit, so the map grows with every distinct model name a provider
+   reports. Azure listing stops at 20 pages.
+7. **Several owners expose no count for the gate.** `CapabilityChat.pending`,
+   `ChatService.inFlight`, open event streams, `InventoryStore`, `ToolResultStore`,
+   `TeamDirectory`, `GameOperations` and `SharedSportsSource` have no
+   `retentionStats()`. The gate's deterministic registry assertions need accessors
+   for these or must rely on heap samples alone.
+
+Unchanged boundaries carried from the earlier slices: UI treatment of history
+expiry; durable identity lifecycle and safe operator retirement for owners and
+the wire scope mapping; operator visibility and recovery for a full dead-letter
+store or quota ledger; authoritative pool identity (step 3); cancellation through
+initial catalog admission (step 3: `prepare` passes no signal to the admission
+wait).
+
+Inventory validation: `tests/integration/retentionInventory.test.ts` adds four
+regressions for the claims that were not already covered: direct enqueues hold no
+slot, lease or pin and a failure past dead-letter capacity leaves only its
+terminal event; a cancelled queued task holds its slot, pin and lease until
+dequeued and then releases all of them without calling the provider; summary jobs
+stay at one per conversation across repeated and superseding prepares and are
+aborted by history expiry; a dequeued task whose history expired is recorded as a
+dead letter without calling the provider or leaking pins. Two temporary mutations (no abort of a superseded
+summary job; no dead-letter release when the worker settles a task) each failed
+these tests and were reverted. Reservation and compute-pool cleanup were already
+covered by `tests/unit/admissionRetention.test.ts`. The remaining rows were read
+from code and are not exercised by a test or a measurement.
+
+Latest review validation (2026-10-01): 851 tests across 104 files and all 26 browser
+tests passed using Windows Node 24.21.0. The four inventory regressions include the
+worker recovery fix above. Formatting and lint passed. No live provider calls or
+sustained assembled-runtime memory measurement were performed.
 
 1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six
    completion orders, reported usage, release/cancellation, atomic rejection,
    history expiry and true overages. Fractional quota reports use the same exact
    arithmetic. Invalid amounts are rejected by the conversion helper.
-2. **Inventory and bound remaining retained state.** Cover conversation history,
+2. **Inventory complete; bounding in progress.** Conversation history, dead
+   letters and quota pools are bounded; the open boundaries are listed in the
+   inventory above. Original scope: cover conversation history,
    dead letters, ownership indexes, quota-pool aggregates and other ID-keyed stores,
    pending work, timers and buffers discovered during the inventory. For each,
    record its owner, size/count limits, expiry or durable-storage policy, cleanup
