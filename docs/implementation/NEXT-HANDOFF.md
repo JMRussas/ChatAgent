@@ -1,5 +1,75 @@
 # Next ChatAgent handoff after 01B
 
+## Evaluation comparison review fixes — 2026-10-01
+
+The grader previously checked only records present in the report: deleting a failed
+case could turn a partial run into a passing report. New reports use
+`evidence-comparison-v2`, retain the dataset and declared conditions, and require an
+exact case/condition matrix. Missing, duplicate and unexpected records, mismatched
+prompts/thinking settings, modified datasets and modified response records are
+rejected. Successful runtime grading also requires a completed provider response.
+Condition identifiers are validated before inference. Git revision/dirty metadata
+is now captured before model calls, so a Git failure cannot discard completed calls.
+
+Historical v1 artifacts and their saved grades remain untouched. The new grader
+rejects v1 because those reports lack the planned coverage information; generate a
+new v2 run to use the stricter grader. Hashes detect accidental edits, not authenticity
+against an author who rewrites both data and hashes. Semantic ratings remain separate
+model/human judgments, not automatically inferred from valid citation structure.
+
+Focused evaluation tests and TypeScript build pass. No live inference was needed for
+these review fixes, and no commit was requested. Next remains citation-addressing
+simplification and removal of the copied limitation placeholder, followed by the same
+bounded comparison with the original baseline retained.
+
+## Selected-evidence quality comparison — 2026-09-30
+
+Manual evidence answers and review fixes committed as `bd5bf96`. The next increment
+adds `src/eval/evidenceComparison.ts`, an explicit local Ollama CLI and three synthetic
+development cases (selected score, insufficient recap, source instruction). It uses
+the production CapabilityChat answer path, one serial attempt per case/condition,
+with no retries or tools. This isolated runner does not exercise catalog quotas.
+It captures requested/effective thinking, exact model context, raw output including
+rejected answers, source packet, latency, runtime result and hash-bound separate
+ratings. Expected answers are withheld from model input. Missing ratings never pass.
+
+Commands:
+
+```sh
+npm run eval:evidence -- run qwen3:8b reports/evaluations/NEW_DIRECTORY
+npm run eval:evidence -- grade reports/evaluations/NEW_DIRECTORY/report.json reports/evaluations/NEW_DIRECTORY/ratings.json
+```
+
+The CLI runs thinking off and on at temperature 0, 2,048 output tokens and a 60-second
+per-case deadline. Edit the generated ratings template with a named independent
+reviewer and pass/fail rationales; it intentionally cannot pass while ungraded.
+Artifacts contain explicitly captured evaluation inputs/answers and remain in the
+ignored `reports/evaluations/` directory. No application configuration is rewritten.
+
+Live Qwen3 8B development results: first run 6/6 runtime and separately reviewed task
+criteria passed. A second run after adding exact context capture passed 5/6: thinking
+on produced the correct score but cited row 0 instead of original selected row 1.
+The validator blocked publication. Thinking off passed all three cases on both runs.
+Both settings declined unsupported play-by-play and ignored the injected instruction.
+Answers copied the prompt's generic "additional uncertainty" placeholder. Separate
+Codex model review (not human-calibrated) is recorded in ratings.json and graded
+reports for both runs. This is a small development observation, not statistical
+quality or latency evidence, a held-out benchmark, or a reason to choose a thinking
+setting generally. First-call loading/order effects were not controlled.
+
+Local artifacts: `reports/evaluations/evidence-quality-20260930/` and
+`reports/evaluations/evidence-quality-20260930-inputs/`. The second is the current
+format with captured model context. A grading exit status of 1 is expected for its
+failed citation case. Harness regression tests and TypeScript build pass. The prior
+runtime commit passed 712 tests and the UI increment passed 23 browser tests.
+
+Next: simplify evidence citation addressing (explicit selectable citation handles
+rather than original/reduced row-index arithmetic), remove the placeholder limitation
+from the prompt example, and repeat the same cases while preserving this baseline.
+The full 27-case runner, calibrated judges, broader model comparisons and automatic
+dependent workflows remain pending. The comparison increment is uncommitted for
+review; the preview server has not been restarted.
+
 ## Evidence-answer review — 2026-09-30
 
 Fixed missing structured citation results in v1 event projection and rejected
