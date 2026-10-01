@@ -15,25 +15,37 @@ export class BedrockDiscoveryAdapter implements DiscoveryAdapter {
     if (!connection.region) return [];
 
     const client = new BedrockClient({ region: connection.region, maxAttempts: 1 });
-    const response = await client.send(new ListFoundationModelsCommand({}), { abortSignal: signal });
+    const response = await client.send(new ListFoundationModelsCommand({}), {
+      abortSignal: signal
+    });
     const observedAtIso = new Date().toISOString();
 
     return (response.modelSummaries ?? [])
-      .filter((summary): summary is typeof summary & { modelId: string } => typeof summary.modelId === "string")
-      .map((summary) => ({
-        bindingId: bindingKey(connection.connectionId, "bedrock-converse", summary.modelId),
-        connectionId: connection.connectionId,
-        model: summary.modelId,
-        observedAtIso,
-        source: "bedrock-list-foundation-models",
-        installed: "yes",
-        // Listing permission (bedrock:ListFoundationModels) does not imply
-        // invoke permission (bedrock:InvokeModel) -- this API cannot tell us
-        // that, and a billed invoke probe is explicitly out of scope.
-        access: "unknown",
-        health: summary.modelLifecycle?.status === "ACTIVE" ? "reachable"
-          : summary.modelLifecycle?.status === "LEGACY" ? "unreachable" : "unknown",
-        apiCompatibility: ["bedrock-converse"]
-      } satisfies DiscoveryObservation));
+      .filter(
+        (summary): summary is typeof summary & { modelId: string } =>
+          typeof summary.modelId === "string"
+      )
+      .map(
+        (summary) =>
+          ({
+            bindingId: bindingKey(connection.connectionId, "bedrock-converse", summary.modelId),
+            connectionId: connection.connectionId,
+            model: summary.modelId,
+            observedAtIso,
+            source: "bedrock-list-foundation-models",
+            installed: "yes",
+            // Listing permission (bedrock:ListFoundationModels) does not imply
+            // invoke permission (bedrock:InvokeModel) -- this API cannot tell us
+            // that, and a billed invoke probe is explicitly out of scope.
+            access: "unknown",
+            health:
+              summary.modelLifecycle?.status === "ACTIVE"
+                ? "reachable"
+                : summary.modelLifecycle?.status === "LEGACY"
+                  ? "unreachable"
+                  : "unknown",
+            apiCompatibility: ["bedrock-converse"]
+          }) satisfies DiscoveryObservation
+      );
   }
 }

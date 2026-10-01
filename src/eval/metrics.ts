@@ -31,10 +31,16 @@ export function summarizeRecords(records: EvalRecord[]): EvalSummary {
   return {
     avgLatency: avg(records.map((r) => r.responseLatencyMs)),
     avgScore: avg(records.map((r) => r.evaluatorScore)),
-    citationRateAll: records.length === 0 ? 0 : records.filter((r) => r.usedCitation).length / records.length,
+    citationRateAll:
+      records.length === 0 ? 0 : records.filter((r) => r.usedCitation).length / records.length,
     deepCitationRate:
-      deepRecords.length === 0 ? 1 : deepRecords.filter((r) => r.usedCitation).length / deepRecords.length,
-    deepRouteRate: records.length === 0 ? 0 : records.filter((r) => r.routeDecision === "deep").length / records.length,
+      deepRecords.length === 0
+        ? 1
+        : deepRecords.filter((r) => r.usedCitation).length / deepRecords.length,
+    deepRouteRate:
+      records.length === 0
+        ? 0
+        : records.filter((r) => r.routeDecision === "deep").length / records.length,
     avgRetriesDeep: deepRecords.length === 0 ? 0 : avg(deepRetries),
     deadLetterRateDeep: deepRecords.length === 0 ? 0 : deepDeadLetters / deepRecords.length
   };

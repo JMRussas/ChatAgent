@@ -61,7 +61,9 @@ export class AdaptiveRoutingCoordinator {
       fastPrediction.p95 > this.maxFastP95Ms
     ) {
       routeDecision = "deep";
-      reasons.push(`Adaptive p95 guardrail moved route to deep (${Math.round(fastPrediction.p95)}ms predicted).`);
+      reasons.push(
+        `Adaptive p95 guardrail moved route to deep (${Math.round(fastPrediction.p95)}ms predicted).`
+      );
     }
 
     return {
@@ -71,7 +73,11 @@ export class AdaptiveRoutingCoordinator {
     };
   }
 
-  recordFastLatency(route: "direct" | "deep" | "clarify", sizeBand: PromptSizeBand, latencyMs: number): void {
+  recordFastLatency(
+    route: "direct" | "deep" | "clarify",
+    sizeBand: PromptSizeBand,
+    latencyMs: number
+  ): void {
     this.estimator.recordLatency(
       {
         provider: this.fastProfile.provider,

@@ -14,48 +14,96 @@ const config: RuntimeProviderConfig = {
   deep: { provider: "mock", model: "deep", temperature: 0 }
 };
 function catalog(fast?: number, deep?: number) {
-  return modelCatalogSchema.parse({ version: 1, models: [
-    ...["fast", "deep"].map((model, index) => ({
-      ...data.models.find(entry => entry.id === "mock-default")!, id: model, model,
-      limits: { contextTokens: [fast, deep][index] }
-    })),
-    { ...data.models.find(entry => entry.id === "mock-default")!, id: "unselected", model: "unselected", limits: { contextTokens: 100 } },
-    { ...data.models.find(entry => entry.id === "mock-default")!, id: "other-provider", provider: "ollama", model: "fast", limits: { contextTokens: 100 } }
-  ] });
+  return modelCatalogSchema.parse({
+    version: 1,
+    models: [
+      ...["fast", "deep"].map((model, index) => ({
+        ...data.models.find((entry) => entry.id === "mock-default")!,
+        id: model,
+        model,
+        limits: { contextTokens: [fast, deep][index] }
+      })),
+      {
+        ...data.models.find((entry) => entry.id === "mock-default")!,
+        id: "unselected",
+        model: "unselected",
+        limits: { contextTokens: 100 }
+      },
+      {
+        ...data.models.find((entry) => entry.id === "mock-default")!,
+        id: "other-provider",
+        provider: "ollama",
+        model: "fast",
+        limits: { contextTokens: 100 }
+      }
+    ]
+  });
 }
 
 describe("selected model context limits", () => {
   it.each([
-    [4096, 6000, 4096], [6000, 4096, 4096],
-    [16000, 32000, 8192], [undefined, 4096, 4096],
+    [4096, 6000, 4096],
+    [6000, 4096, 4096],
+    [16000, 32000, 8192],
+    [undefined, 4096, 4096],
     [undefined, undefined, 8192]
   ])("resolves fast=%s deep=%s to window=%s", (fast, deep, expected) => {
-    expect(loadContextBudgetConfigFromEnv({}, { config, catalog: catalog(fast, deep) }).windowTokens).toBe(expected);
+    expect(
+      loadContextBudgetConfigFromEnv({}, { config, catalog: catalog(fast, deep) }).windowTokens
+    ).toBe(expected);
   });
 
   it("keeps the application bound for unlisted selections", () => {
-    const unlisted = { ...config, fast: { ...config.fast, model: "missing-fast" }, deep: { ...config.deep, model: "missing-deep" } };
-    expect(loadContextBudgetConfigFromEnv({}, { config: unlisted, catalog: catalog(4096, 4096) }).windowTokens).toBe(8192);
+    const unlisted = {
+      ...config,
+      fast: { ...config.fast, model: "missing-fast" },
+      deep: { ...config.deep, model: "missing-deep" }
+    };
+    expect(
+      loadContextBudgetConfigFromEnv({}, { config: unlisted, catalog: catalog(4096, 4096) })
+        .windowTokens
+    ).toBe(8192);
   });
 
   it("rejects reserves consuming the selected model window", () => {
-    expect(() => loadContextBudgetConfigFromEnv({}, { config, catalog: catalog(2048, 8192) }))
-      .toThrow(/effective context window \(2048/);
+    expect(() =>
+      loadContextBudgetConfigFromEnv({}, { config, catalog: catalog(2048, 8192) })
+    ).toThrow(/effective context window \(2048/);
   });
 
   it("rejects a turn that fits the application but not the model before any provider or timeline work", async () => {
     const timeline = new InMemoryConversationTimelineStore();
     const queue = new InMemoryTaskQueue();
     let calls = 0;
-    const fast = { createProvisionalReply: async () => { calls++; return { text: "answer", finishReason: "stop" as const }; } };
+    const fast = {
+      createProvisionalReply: async () => {
+        calls++;
+        return { text: "answer", finishReason: "stop" as const };
+      }
+    };
     const budget = loadContextBudgetConfigFromEnv({}, { config, catalog: catalog(4096, 8192) });
-    const orchestrator = new ChatOrchestrator(fast, queue, timeline, undefined, new ContextManager(timeline, budget));
-    const message = { conversationId: "c", userId: "u", text: "x".repeat(2000), timestampIso: "2026-09-25T00:00:00Z" };
-    await expect(orchestrator.handleUserMessage(message)).rejects.toBeInstanceOf(ContextBudgetError);
+    const orchestrator = new ChatOrchestrator(
+      fast,
+      queue,
+      timeline,
+      undefined,
+      new ContextManager(timeline, budget)
+    );
+    const message = {
+      conversationId: "c",
+      userId: "u",
+      text: "x".repeat(2000),
+      timestampIso: "2026-09-25T00:00:00Z"
+    };
+    await expect(orchestrator.handleUserMessage(message)).rejects.toBeInstanceOf(
+      ContextBudgetError
+    );
     expect(calls).toBe(0);
     expect(await timeline.getEvents("c")).toEqual([]);
     expect(queue.size()).toBe(0);
-    await expect(new ChatOrchestrator(fast, queue, timeline).handleUserMessage(message)).resolves.toBeDefined();
+    await expect(
+      new ChatOrchestrator(fast, queue, timeline).handleUserMessage(message)
+    ).resolves.toBeDefined();
     expect(calls).toBe(1);
   });
 });

@@ -56,8 +56,14 @@ export function normalizeThresholds(input: CompareThresholds): CompareThresholds
       "maxFirstResponseP95RegressionMs",
       input.maxFirstResponseP95RegressionMs
     ),
-    maxFinalLatencyP95RegressionMs: requireFinite("maxFinalLatencyP95RegressionMs", input.maxFinalLatencyP95RegressionMs),
-    maxDeadLetterRateRegression: requireFinite("maxDeadLetterRateRegression", input.maxDeadLetterRateRegression),
+    maxFinalLatencyP95RegressionMs: requireFinite(
+      "maxFinalLatencyP95RegressionMs",
+      input.maxFinalLatencyP95RegressionMs
+    ),
+    maxDeadLetterRateRegression: requireFinite(
+      "maxDeadLetterRateRegression",
+      input.maxDeadLetterRateRegression
+    ),
     minQualityDelta: requireFinite("minQualityDelta", input.minQualityDelta)
   };
 
@@ -80,7 +86,10 @@ export function normalizeThresholds(input: CompareThresholds): CompareThresholds
   return normalized;
 }
 
-function buildCompatibilityIssues(baseline: BenchmarkSummaryFile, candidate: BenchmarkSummaryFile): string[] {
+function buildCompatibilityIssues(
+  baseline: BenchmarkSummaryFile,
+  candidate: BenchmarkSummaryFile
+): string[] {
   const issues: string[] = [];
 
   if (baseline.mode !== candidate.mode) {
@@ -142,7 +151,10 @@ function toMap(summaries: BenchmarkSummary[]): Map<string, BenchmarkSummary> {
   return new Map(summaries.map((s) => [s.profile.name, s]));
 }
 
-export function computeDeltas(baseline: BenchmarkSummaryFile, candidate: BenchmarkSummaryFile): BenchmarkDelta[] {
+export function computeDeltas(
+  baseline: BenchmarkSummaryFile,
+  candidate: BenchmarkSummaryFile
+): BenchmarkDelta[] {
   const baseByProfile = toMap(baseline.summaries);
   const candidateByProfile = toMap(candidate.summaries);
 
@@ -163,7 +175,10 @@ export function computeDeltas(baseline: BenchmarkSummaryFile, candidate: Benchma
   });
 }
 
-export function evaluateDeltas(deltas: BenchmarkDelta[], thresholds: CompareThresholds): CompareReport {
+export function evaluateDeltas(
+  deltas: BenchmarkDelta[],
+  thresholds: CompareThresholds
+): CompareReport {
   const gates: GateResult[] = [];
 
   for (const d of deltas) {

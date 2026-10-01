@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { classifyTask, classifyTaskRequirements, type ModelTask } from "../../src/routing/taskClassifier";
+import {
+  classifyTask,
+  classifyTaskRequirements,
+  type ModelTask
+} from "../../src/routing/taskClassifier";
 
 const corpus: [string, ModelTask][] = [
   ["Explain this code", "coding"],
@@ -54,32 +58,66 @@ describe("spec 04 task classification corpus", () => {
 
   it("keeps short and complex coding task identity independent of route", () => {
     for (const routeDecision of ["direct", "deep"] as const) {
-      expect(classifyTaskRequirements({ text: "Explain code", routeDecision, inputTokens: 50, outputTokens: 100 }))
-        .toEqual({ task: "coding", requiredCapabilities: [], inputTokens: 50, outputTokens: 100 });
+      expect(
+        classifyTaskRequirements({
+          text: "Explain code",
+          routeDecision,
+          inputTokens: 50,
+          outputTokens: 100
+        })
+      ).toEqual({ task: "coding", requiredCapabilities: [], inputTokens: 50, outputTokens: 100 });
     }
   });
 
   it("uses conversation without eventual-task capabilities for clarification", () => {
-    expect(classifyTaskRequirements({ text: "Debug code and return JSON", routeDecision: "clarify", inputTokens: 50, outputTokens: 100 }))
-      .toMatchObject({ task: "conversation", requiredCapabilities: [] });
+    expect(
+      classifyTaskRequirements({
+        text: "Debug code and return JSON",
+        routeDecision: "clarify",
+        inputTokens: 50,
+        outputTokens: 100
+      })
+    ).toMatchObject({ task: "conversation", requiredCapabilities: [] });
   });
 
   it("requires structured output even when coding or summary wins precedence", () => {
     for (const text of ["Debug code and return JSON", "Summarize as JSON"]) {
-      expect(classifyTaskRequirements({ text, routeDecision: "direct", inputTokens: 50, outputTokens: 100 }).requiredCapabilities)
-        .toEqual(["structuredOutput"]);
+      expect(
+        classifyTaskRequirements({
+          text,
+          routeDecision: "direct",
+          inputTokens: 50,
+          outputTokens: 100
+        }).requiredCapabilities
+      ).toEqual(["structuredOutput"]);
     }
   });
 
   it("does not infer action capabilities from mentions of tools, images or JSON", () => {
-    expect(classifyTaskRequirements({ text: "Explain tools, vision, images and JSON", routeDecision: "direct", inputTokens: 50, outputTokens: 100 }).requiredCapabilities)
-      .toEqual([]);
+    expect(
+      classifyTaskRequirements({
+        text: "Explain tools, vision, images and JSON",
+        routeDecision: "direct",
+        inputTokens: 50,
+        outputTokens: 100
+      }).requiredCapabilities
+    ).toEqual([]);
   });
 
-  it.each([-1, 0.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1])("rejects invalid token counts: %s", count => {
-    for (const field of ["inputTokens", "outputTokens"] as const) {
-      expect(() => classifyTaskRequirements({ text: "Hello", routeDecision: "direct", inputTokens: 0, outputTokens: 0, [field]: count }))
-        .toThrow("nonnegative safe integers");
+  it.each([-1, 0.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid token counts: %s",
+    (count) => {
+      for (const field of ["inputTokens", "outputTokens"] as const) {
+        expect(() =>
+          classifyTaskRequirements({
+            text: "Hello",
+            routeDecision: "direct",
+            inputTokens: 0,
+            outputTokens: 0,
+            [field]: count
+          })
+        ).toThrow("nonnegative safe integers");
+      }
     }
-  });
+  );
 });

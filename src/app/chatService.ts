@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { conversationScopeSchema, scopeForModel, type ConversationScope } from "./conversationScope";
+import {
+  conversationScopeSchema,
+  scopeForModel,
+  type ConversationScope
+} from "./conversationScope";
 import { GenerationError } from "../domain/generation";
 import { generationLifecycle } from "./generationLifecycle";
 import { ChatOrchestrator, DeepWorker } from "./orchestrator";
-import type { ChatTimelineEvent, DeepResult, OrchestratorResponse, UserMessage } from "../domain/types";
+import type {
+  ChatTimelineEvent,
+  DeepResult,
+  OrchestratorResponse,
+  UserMessage
+} from "../domain/types";
 import type { DeadLetterRecord, DeadLetterStore } from "./deadLetterStore";
 import type { AdaptiveRoutingCoordinator } from "../routing/adaptiveRouting";
 import type { ConversationTimelineStore } from "./timelineStore";
@@ -27,8 +36,12 @@ export class ConversationOwnershipConflictError extends Error {
 export class ChatService {
   private stopping = false;
   private readonly inFlight = new Set<Promise<unknown>>();
-  get isShuttingDown() { return this.stopping; }
-  stopAccepting() { this.stopping = true; }
+  get isShuttingDown() {
+    return this.stopping;
+  }
+  stopAccepting() {
+    this.stopping = true;
+  }
   private track<T>(work: () => Promise<T>): Promise<T> {
     const pending = Promise.resolve().then(work);
     this.inFlight.add(pending);
@@ -44,42 +57,59 @@ export class ChatService {
     if (!this.queue) return;
     const lifecycle = generationLifecycle(this.queue);
     lifecycle.closeAdmissions();
-    await Promise.all(lifecycle.registeredTurns().map(turn => this.orchestrator.cancel(turn.conversationId, turn.messageId)));
+    await Promise.all(
+      lifecycle
+        .registeredTurns()
+        .map((turn) => this.orchestrator.cancel(turn.conversationId, turn.messageId))
+    );
   }
   async discardPending(): Promise<void> {
     if (this.queue) {
       let task;
-      const errors:unknown[]=[];
-      while ((task=await this.queue.dequeue())) {
-        try { await this.worker.discardQueued(task); }
-        catch(error) { errors.push(error); }
+      const errors: unknown[] = [];
+      while ((task = await this.queue.dequeue())) {
+        try {
+          await this.worker.discardQueued(task);
+        } catch (error) {
+          errors.push(error);
+        }
       }
-      if(errors.length)throw new AggregateError(errors,"Queued task cleanup failed");
+      if (errors.length) throw new AggregateError(errors, "Queued task cleanup failed");
     }
   }
-  resolveReferences?: (selections:unknown,userId:string,conversationId:string) => import("./referenceSelection").AttachedReference[];
-  detachTeamReference(conversationId:string,userId:string) {
-    this.claimConversation(conversationId,userId,false);
-    const scope=this.scopes.get(conversationId);if(scope)scope.reference=null;
-    return this.getSelectedContext(conversationId,userId);
+  resolveReferences?: (
+    selections: unknown,
+    userId: string,
+    conversationId: string
+  ) => import("./referenceSelection").AttachedReference[];
+  detachTeamReference(conversationId: string, userId: string) {
+    this.claimConversation(conversationId, userId, false);
+    const scope = this.scopes.get(conversationId);
+    if (scope) scope.reference = null;
+    return this.getSelectedContext(conversationId, userId);
   }
   private readonly scopes = new Map<string, ConversationScope>();
   openScopedConversation(userId: string, value: unknown) {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
     if (this.scopes.size >= 100) throw Error("CONVERSATION_SCOPE_CAPACITY");
-    const scope = conversationScopeSchema.parse(value), conversationId = randomUUID();
+    const scope = conversationScopeSchema.parse(value),
+      conversationId = randomUUID();
     this.claimConversation(conversationId, userId);
     this.scopes.set(conversationId, structuredClone(scope));
-    return {conversationId, context:scopeForModel(scope)};
+    return { conversationId, context: scopeForModel(scope) };
   }
   getSelectedContext(conversationId: string, userId: string) {
-    this.claimConversation(conversationId,userId,false);
+    this.claimConversation(conversationId, userId, false);
     return scopeForModel(this.scopes.get(conversationId));
   }
   private readonly ownerUserIdByConversationId = new Map<string, string>();
 
   constructor(
-    private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & { whenIdle?: () => Promise<void>; runControlOptions?: () => unknown; thinkingOptions?: (bindingId?:string) => Promise<unknown> },
+    private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & {
+      whenIdle?: () => Promise<void>;
+      runControlOptions?: () => unknown;
+      thinkingOptions?: (bindingId?: string) => Promise<unknown>;
+    },
     private readonly worker: DeepWorker,
     private readonly timelineStore: ConversationTimelineStore,
     private readonly queue?: TaskQueue,
@@ -87,20 +117,43 @@ export class ChatService {
     private readonly adaptiveRouting?: AdaptiveRoutingCoordinator
   ) {}
 
-  runControlOptions() { return this.orchestrator.runControlOptions?.() ?? {models:[]}; }
-  thinkingOptions(bindingId?:string) { return this.orchestrator.thinkingOptions?.(bindingId) ?? Promise.resolve({options:["configured"]}); }
+  runControlOptions() {
+    return this.orchestrator.runControlOptions?.() ?? { models: [] };
+  }
+  thinkingOptions(bindingId?: string) {
+    return (
+      this.orchestrator.thinkingOptions?.(bindingId) ?? Promise.resolve({ options: ["configured"] })
+    );
+  }
   async submitMessage(message: UserMessage): Promise<OrchestratorResponse> {
     if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
-    if (message.runControls && !this.orchestrator.runControlOptions) throw new GenerationError(message.runControls.roleId ? "ROLE_EXECUTION_UNSUPPORTED" : "RUN_CONTROLS_UNSUPPORTED",false);
+    if (message.runControls && !this.orchestrator.runControlOptions)
+      throw new GenerationError(
+        message.runControls.roleId ? "ROLE_EXECUTION_UNSUPPORTED" : "RUN_CONTROLS_UNSUPPORTED",
+        false
+      );
     this.claimConversation(message.conversationId, message.userId);
-    const selectedContext = this.getSelectedContext(message.conversationId,message.userId);
+    const selectedContext = this.getSelectedContext(message.conversationId, message.userId);
     let attachedReferences: import("./referenceSelection").AttachedReference[] = [];
-    if(message.referenceSelections?.length){
-      if(!this.resolveReferences)throw new GenerationError("REFERENCES_UNAVAILABLE",false);
-      try {attachedReferences=this.resolveReferences(message.referenceSelections,message.userId,message.conversationId);}
-      catch {throw new GenerationError("REFERENCE_SELECTION_UNAVAILABLE",false,"Selected references are expired, unavailable or too large. Refresh or detach them.");}
+    if (message.referenceSelections?.length) {
+      if (!this.resolveReferences) throw new GenerationError("REFERENCES_UNAVAILABLE", false);
+      try {
+        attachedReferences = this.resolveReferences(
+          message.referenceSelections,
+          message.userId,
+          message.conversationId
+        );
+      } catch {
+        throw new GenerationError(
+          "REFERENCE_SELECTION_UNAVAILABLE",
+          false,
+          "Selected references are expired, unavailable or too large. Refresh or detach them."
+        );
+      }
     }
-    return this.track(() => this.orchestrator.handleUserMessage({...message,selectedContext,attachedReferences}));
+    return this.track(() =>
+      this.orchestrator.handleUserMessage({ ...message, selectedContext, attachedReferences })
+    );
   }
 
   claimConversation(conversationId: string, userId: string, claim = true): void {
@@ -110,7 +163,6 @@ export class ChatService {
     } else if (existingOwner !== userId) {
       throw new ConversationOwnershipConflictError(conversationId);
     }
-
   }
 
   cancelMessage(conversationId: string, messageId: string) {
@@ -143,22 +195,35 @@ export class ChatService {
 
     const lifecycle = generationLifecycle(this.queue);
     const messageId = removed.task.messageId ?? removed.task.taskId;
-    if (lifecycle.get(removed.task.conversationId, messageId, "deep")?.status === "cancelled") return false;
-    let releaseDispatch:(()=>void)|undefined;
-    let replayAttempt:import("./generationLifecycle").GenerationAttempt|undefined;
+    if (lifecycle.get(removed.task.conversationId, messageId, "deep")?.status === "cancelled")
+      return false;
+    let releaseDispatch: (() => void) | undefined;
+    let replayAttempt: import("./generationLifecycle").GenerationAttempt | undefined;
     try {
-      if(["fast","deep"].some(phase=>lifecycle.get(removed.task.conversationId,messageId,phase as "fast"|"deep")?.active))
-        throw new GenerationError("REPLAY_CONFLICT",false);
-      releaseDispatch=this.worker.prepareReplay(removed.task);
-      const attempt = replayAttempt = lifecycle.create(removed.task.conversationId, messageId, "deep", this.timelineStore, removed.task.taskId);
-      attempt.dispatchId=removed.task.dispatchId;
+      if (
+        ["fast", "deep"].some(
+          (phase) =>
+            lifecycle.get(removed.task.conversationId, messageId, phase as "fast" | "deep")?.active
+        )
+      )
+        throw new GenerationError("REPLAY_CONFLICT", false);
+      releaseDispatch = this.worker.prepareReplay(removed.task);
+      const attempt = (replayAttempt = lifecycle.create(
+        removed.task.conversationId,
+        messageId,
+        "deep",
+        this.timelineStore,
+        removed.task.taskId
+      ));
+      attempt.dispatchId = removed.task.dispatchId;
       await attempt.queued();
       await this.queue.enqueue(removed.task);
-    } catch(error) {
+    } catch (error) {
       releaseDispatch?.();
-      try { if(replayAttempt?.active)await replayAttempt.finish("error",undefined,"REPLAY_FAILED"); }
-      finally {
-        if(replayAttempt)lifecycle.releaseTask(removed.task.taskId);
+      try {
+        if (replayAttempt?.active) await replayAttempt.finish("error", undefined, "REPLAY_FAILED");
+      } finally {
+        if (replayAttempt) lifecycle.releaseTask(removed.task.taskId);
         await this.deadLetterStore.add(removed);
       }
       throw error;
@@ -195,7 +260,8 @@ export class ChatService {
       .getLatencyEstimates()
       .filter((e) => e.bucket.route === "direct" && e.bucket.sizeBand === "medium");
 
-    const directP95 = estimates.length === 0 ? current : estimates.reduce((max, e) => Math.max(max, e.p95), 0);
+    const directP95 =
+      estimates.length === 0 ? current : estimates.reduce((max, e) => Math.max(max, e.p95), 0);
 
     let next = current;
     if (queueDepth > 5 || directP95 > current * 1.2) {

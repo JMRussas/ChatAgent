@@ -1,82 +1,134 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BriefingCoordinator } from "../../src/sports/briefingCoordinator";
 import { defaultNbaProfile } from "../../src/sports/briefingConfig";
-import { FixtureSportsSource, type SportsSource, type SourceResult } from "../../src/sports/sources";
+import {
+  FixtureSportsSource,
+  type SportsSource,
+  type SourceResult
+} from "../../src/sports/sources";
 import games from "../../data/sports/games.fixture.json";
 import news from "../../data/sports/news.fixture.json";
 import availability from "../../data/sports/availability.fixture.json";
 const request = { now: games.capturedAt, timezone: "UTC", team: games.supportedTeams[0] };
-const registry = () => new Map<string, SportsSource>([
-  ["games", new FixtureSportsSource(games)], ["news", new FixtureSportsSource(news)],
-  ["availability", new FixtureSportsSource(availability)]
-]);
+const registry = () =>
+  new Map<string, SportsSource>([
+    ["games", new FixtureSportsSource(games)],
+    ["news", new FixtureSportsSource(news)],
+    ["availability", new FixtureSportsSource(availability)]
+  ]);
 function gate() {
   let release!: () => void;
-  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const fixture = new FixtureSportsSource(games);
-  const read = vi.fn(async (q: Parameters<SportsSource["read"]>[0]) => { await barrier; return fixture.read(q); });
+  const read = vi.fn(async (q: Parameters<SportsSource["read"]>[0]) => {
+    await barrier;
+    return fixture.read(q);
+  });
   return { release, adapter: { read } };
 }
 const coordinators: BriefingCoordinator[] = [];
 function coordinator(sources = registry(), options = {}) {
-  const instance = new BriefingCoordinator(sources, options); coordinators.push(instance); return instance;
+  const instance = new BriefingCoordinator(sources, options);
+  coordinators.push(instance);
+  return instance;
 }
-afterEach(() => { for (const c of coordinators.splice(0)) c.close(); vi.useRealTimers(); });
+afterEach(() => {
+  for (const c of coordinators.splice(0)) c.close();
+  vi.useRealTimers();
+});
 describe("briefing coordinator", () => {
   it("publishes one task while another is held and preserves source attribution", async () => {
-    const held = gate(), sources = registry(); sources.set("held", held.adapter);
-    const profile = defaultNbaProfile(); profile.tasks[0].sources = [{ ...profile.tasks[0].sources[0], adapterId: "held" }];
-    const c = coordinator(sources), run = c.start("user", "request", request, profile);
+    const held = gate(),
+      sources = registry();
+    sources.set("held", held.adapter);
+    const profile = defaultNbaProfile();
+    profile.tasks[0].sources = [{ ...profile.tasks[0].sources[0], adapterId: "held" }];
+    const c = coordinator(sources),
+      run = c.start("user", "request", request, profile);
     await vi.waitFor(() => expect(c.snapshot("user", run.id).tasks[1].status).toBe("complete"));
     expect(c.snapshot("user", run.id).tasks[0].status).toBe("running");
-    held.release(); const final = await c.wait("user", run.id);
-    expect(final.tasks.map(t => t.status)).toEqual(["complete", "complete"]);
+    held.release();
+    const final = await c.wait("user", run.id);
+    expect(final.tasks.map((t) => t.status)).toEqual(["complete", "complete"]);
     expect(final.tasks[0].results[0].adapterId).toBe("held");
     expect(final.tasks[0].checkpointCandidate).toBe("2026-09-30T12:00:00.000Z");
   });
   it("deduplicates identical starts, rejects conflicting reuse and isolates users", async () => {
-    const c = coordinator(), profile = defaultNbaProfile();
+    const c = coordinator(),
+      profile = defaultNbaProfile();
     const first = c.start("a", "request", request, profile);
     expect(c.start("a", "request", request, profile).id).toBe(first.id);
-    expect(() => c.start("a", "request", { ...request, timezone: "America/New_York" }, profile)).toThrow("BRIEFING_REQUEST_CONFLICT");
+    expect(() =>
+      c.start("a", "request", { ...request, timezone: "America/New_York" }, profile)
+    ).toThrow("BRIEFING_REQUEST_CONFLICT");
     expect(c.start("b", "request", request, profile).id).not.toBe(first.id);
     expect(() => c.cancel("b", first.id)).toThrow("BRIEFING_NOT_FOUND");
-    const final = await c.wait("a", first.id); final.tasks[0].results.length = 0;
+    const final = await c.wait("a", first.id);
+    final.tasks[0].results.length = 0;
     expect(c.snapshot("a", first.id).tasks[0].results.length).toBeGreaterThan(0);
   });
   it("cancels a queued task without cancelling the running task", async () => {
-    const held = gate(), sources = registry(); sources.set("games", held.adapter);
+    const held = gate(),
+      sources = registry();
+    sources.set("games", held.adapter);
     const c = coordinator(sources, { maxConcurrentTasks: 1 });
     const run = c.start("user", "request", request, defaultNbaProfile());
-    expect(run.tasks.map(t => t.status)).toEqual(["running", "queued"]);
+    expect(run.tasks.map((t) => t.status)).toEqual(["running", "queued"]);
     c.cancel("user", run.id, run.tasks[1].id);
     expect(c.snapshot("user", run.id).tasks[0].status).toBe("running");
-    held.release(); const final = await c.wait("user", run.id);
-    expect(final.tasks.map(t => t.status)).toEqual(["complete", "cancelled"]);
+    held.release();
+    const final = await c.wait("user", run.id);
+    expect(final.tasks.map((t) => t.status)).toEqual(["complete", "cancelled"]);
     expect(held.adapter.read).toHaveBeenCalledTimes(1);
   });
   it("bounds deadline waiting even when an adapter ignores abort, without freeing its physical slot", async () => {
     vi.useFakeTimers();
-    const held = gate(), sources = registry(); sources.set("games", held.adapter);
+    const held = gate(),
+      sources = registry();
+    sources.set("games", held.adapter);
     const c = coordinator(sources, { maxConcurrentTasks: 1, taskTimeoutMs: 50 });
     const run = c.start("user", "request", request, defaultNbaProfile());
     await vi.advanceTimersByTimeAsync(51);
-    expect((await c.wait("user", run.id)).tasks.map(t => t.status)).toEqual(["deadline", "deadline"]);
+    expect((await c.wait("user", run.id)).tasks.map((t) => t.status)).toEqual([
+      "deadline",
+      "deadline"
+    ]);
     const next = c.start("user", "next", request, defaultNbaProfile());
     expect(next.tasks[0].status).toBe("queued");
     expect(held.adapter.read).toHaveBeenCalledTimes(1);
-    held.release(); await vi.advanceTimersByTimeAsync(1);
+    held.release();
+    await vi.advanceTimersByTimeAsync(1);
     expect(c.snapshot("user", run.id).tasks[0].results).toEqual([]);
-    expect((await c.wait("user", next.id)).tasks.every(t => t.status === "complete")).toBe(true);
+    expect((await c.wait("user", next.id)).tasks.every((t) => t.status === "complete")).toBe(true);
   });
   it("retains partial and failed outcomes and never advances their checkpoints", async () => {
-    const sources = registry(); sources.set("news", { read: async () => { throw new Error("private provider detail"); } });
-    sources.set("availability", new FixtureSportsSource({ ...availability, coverage: "unavailable", records: [], errorCode: "ACCESS_DENIED" }));
-    const c = coordinator(sources), run = c.start("user", "request", request, defaultNbaProfile());
+    const sources = registry();
+    sources.set("news", {
+      read: async () => {
+        throw new Error("private provider detail");
+      }
+    });
+    sources.set(
+      "availability",
+      new FixtureSportsSource({
+        ...availability,
+        coverage: "unavailable",
+        records: [],
+        errorCode: "ACCESS_DENIED"
+      })
+    );
+    const c = coordinator(sources),
+      run = c.start("user", "request", request, defaultNbaProfile());
     const final = await c.wait("user", run.id);
-    expect(final.tasks.every(t => t.status === "partial" && t.checkpointCandidate === null)).toBe(true);
+    expect(final.tasks.every((t) => t.status === "partial" && t.checkpointCandidate === null)).toBe(
+      true
+    );
     expect(JSON.stringify(final)).not.toContain("private provider detail");
-    const profile = defaultNbaProfile(); profile.tasks = [profile.tasks[0]]; profile.tasks[0].sources = [profile.tasks[0].sources[1]];
+    const profile = defaultNbaProfile();
+    profile.tasks = [profile.tasks[0]];
+    profile.tasks[0].sources = [profile.tasks[0].sources[1]];
     const failed = await c.wait("user", c.start("user", "failed", request, profile).id);
     expect(failed.tasks[0].status).toBe("failed");
   });
@@ -86,55 +138,89 @@ describe("briefing coordinator", () => {
     expect((await c.wait("user", run.id)).tasks[1].status).toBe("needs-input");
     expect(c.start("user", "new", request, defaultNbaProfile()).id).not.toBe(run.id);
     expect(() => c.snapshot("user", run.id)).toThrow("BRIEFING_NOT_FOUND");
-    expect(() => coordinator(new Map()).start("user", "request", request, defaultNbaProfile())).toThrow("SPORTS_ADAPTER_MISSING");
-    c.close(); expect(() => c.start("user", "request", request, defaultNbaProfile())).toThrow("BRIEFING_CLOSED");
+    expect(() =>
+      coordinator(new Map()).start("user", "request", request, defaultNbaProfile())
+    ).toThrow("SPORTS_ADAPTER_MISSING");
+    c.close();
+    expect(() => c.start("user", "request", request, defaultNbaProfile())).toThrow(
+      "BRIEFING_CLOSED"
+    );
   });
   it("discards late results after cancellation and rejects mismatched result queries", async () => {
-    const held = gate(), sources = registry(); sources.set("games", held.adapter);
-    const profile = defaultNbaProfile(); profile.tasks = [profile.tasks[0]];
-    const c = coordinator(sources), run = c.start("user", "request", request, profile);
-    c.cancel("user", run.id); expect((await c.wait("user", run.id)).tasks[0].status).toBe("cancelled");
-    held.release(); await Promise.resolve(); await Promise.resolve();
+    const held = gate(),
+      sources = registry();
+    sources.set("games", held.adapter);
+    const profile = defaultNbaProfile();
+    profile.tasks = [profile.tasks[0]];
+    const c = coordinator(sources),
+      run = c.start("user", "request", request, profile);
+    c.cancel("user", run.id);
+    expect((await c.wait("user", run.id)).tasks[0].status).toBe("cancelled");
+    held.release();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(c.snapshot("user", run.id).tasks[0].results).toEqual([]);
-    const wrong = registry(); wrong.set("games", { read: async q => {
-      const result: SourceResult = await new FixtureSportsSource(games).read(q); result.query.limit = 1; return result;
-    } });
-    const other = coordinator(wrong); const result = await other.wait("user", other.start("user", "request", request, profile).id);
+    const wrong = registry();
+    wrong.set("games", {
+      read: async (q) => {
+        const result: SourceResult = await new FixtureSportsSource(games).read(q);
+        result.query.limit = 1;
+        return result;
+      }
+    });
+    const other = coordinator(wrong);
+    const result = await other.wait("user", other.start("user", "request", request, profile).id);
     expect(result.tasks[0].status).toBe("partial");
     expect(result.tasks[0].errors).toEqual([{ adapterId: "games", code: "SOURCE_READ_FAILED" }]);
   });
 });
 
 it("reclaims settled runs and all associated indexes under sustained use", async () => {
-  const c = coordinator(registry(), {maxRuns: 2});
+  const c = coordinator(registry(), { maxRuns: 2 });
   let last = "";
   for (let i = 0; i < 50; i++) {
     const run = c.start("user", `request-${i}`, request, defaultNbaProfile());
     await c.wait("user", run.id);
     last = run.id;
-    expect(c.retentionStats()).toMatchObject({runs: Math.min(i+1,2), requests: Math.min(i+1,2), profiles: Math.min(i+1,2), settled: Math.min(i+1,2), jobs: 0, waiters: 0});
+    expect(c.retentionStats()).toMatchObject({
+      runs: Math.min(i + 1, 2),
+      requests: Math.min(i + 1, 2),
+      profiles: Math.min(i + 1, 2),
+      settled: Math.min(i + 1, 2),
+      jobs: 0,
+      waiters: 0
+    });
   }
   expect(c.start("user", "request-49", request, defaultNbaProfile()).id).toBe(last);
 });
 
 it("expires retry identity without extending it on reads, and cleans all indexes", async () => {
   vi.useFakeTimers();
-  const c = coordinator(registry(), {maxRuns: 2, settledRunTtlMs: 100});
+  const c = coordinator(registry(), { maxRuns: 2, settledRunTtlMs: 100 });
   const run = c.start("user", "retry", request, defaultNbaProfile());
   await c.wait("user", run.id);
   await vi.advanceTimersByTimeAsync(99);
   expect(c.start("user", "retry", request, defaultNbaProfile()).id).toBe(run.id);
   await vi.advanceTimersByTimeAsync(1);
   expect(() => c.snapshot("user", run.id)).toThrow("BRIEFING_NOT_FOUND");
-  expect(c.retentionStats()).toMatchObject({runs:0, requests:0, profiles:0, settled:0, jobs:0, waiters:0});
+  expect(c.retentionStats()).toMatchObject({
+    runs: 0,
+    requests: 0,
+    profiles: 0,
+    settled: 0,
+    jobs: 0,
+    waiters: 0
+  });
   const next = c.start("user", "retry", request, defaultNbaProfile());
   expect(next.id).not.toBe(run.id);
   await c.wait("user", next.id);
 });
 it("protects running and cancelled-but-draining adapters under retention pressure", async () => {
   vi.useFakeTimers();
-  const held = gate(), sources = registry(); sources.set("games", held.adapter);
-  const c = coordinator(sources, {maxRuns:1, settledRunTtlMs:10});
+  const held = gate(),
+    sources = registry();
+  sources.set("games", held.adapter);
+  const c = coordinator(sources, { maxRuns: 1, settledRunTtlMs: 10 });
   const run = c.start("user", "held", request, defaultNbaProfile());
   const waiting = c.wait("user", run.id);
   expect(() => c.start("user", "new", request, defaultNbaProfile())).toThrow("BRIEFING_CAPACITY");
@@ -143,22 +229,32 @@ it("protects running and cancelled-but-draining adapters under retention pressur
   await vi.advanceTimersByTimeAsync(20);
   expect(c.start("user", "held", request, defaultNbaProfile()).id).toBe(run.id);
   expect(() => c.start("user", "new", request, defaultNbaProfile())).toThrow("BRIEFING_CAPACITY");
-  held.release();await vi.advanceTimersByTimeAsync(1);
+  held.release();
+  await vi.advanceTimersByTimeAsync(1);
   const next = c.start("user", "new", request, defaultNbaProfile());
   expect((await c.wait("user", next.id)).settled).toBe(true);
 });
 it("cleans retained snapshots when the configured run cap is lowered", async () => {
-  const c = coordinator(registry(), {maxRuns:3});
+  const c = coordinator(registry(), { maxRuns: 3 });
   const first = c.start("user", "first", request, defaultNbaProfile());
   const waits = [c.wait("user", first.id), c.wait("user", first.id)];
   await Promise.all(waits);
-  for (const id of ["second", "third"]) await c.wait("user",c.start("user",id,request,defaultNbaProfile()).id);
-  c.configure(registry(), {maxRuns:1}, "v2");
-  expect(c.retentionStats()).toMatchObject({runs:1,requests:1,profiles:1,settled:1,jobs:0,waiters:0});
+  for (const id of ["second", "third"])
+    await c.wait("user", c.start("user", id, request, defaultNbaProfile()).id);
+  c.configure(registry(), { maxRuns: 1 }, "v2");
+  expect(c.retentionStats()).toMatchObject({
+    runs: 1,
+    requests: 1,
+    profiles: 1,
+    settled: 1,
+    jobs: 0,
+    waiters: 0
+  });
   expect((await waits[0]).id).toBe(first.id);
   expect(() => c.snapshot("user", first.id)).toThrow("BRIEFING_NOT_FOUND");
-  const retried = c.start("user","first",request,defaultNbaProfile());
-  expect(retried.id).not.toBe(first.id);await c.wait("user",retried.id);
+  const retried = c.start("user", "first", request, defaultNbaProfile());
+  expect(retried.id).not.toBe(first.id);
+  await c.wait("user", retried.id);
 });
 
 it("delivers settled snapshots when capacity eviction precedes waiter continuations", async () => {
@@ -169,22 +265,28 @@ it("delivers settled snapshots when capacity eviction precedes waiter continuati
   let evict!: () => void;
   let firstRead = true;
   const sources = registry();
-  sources.set("games", {read: (query, signal) => {
-    const result = fixture.read(query, signal);
-    if (firstRead) {
-      firstRead = false;
-      // The first microtask queues eviction behind execute's await continuation.
-      // execute settles the run and queues its waiters; eviction is already ahead
-      // of those waiters. No private coordinator methods or timers are mocked.
-      queueMicrotask(() => queueMicrotask(evict));
+  sources.set("games", {
+    read: (query, signal) => {
+      const result = fixture.read(query, signal);
+      if (firstRead) {
+        firstRead = false;
+        // The first microtask queues eviction behind execute's await continuation.
+        // execute settles the run and queues its waiters; eviction is already ahead
+        // of those waiters. No private coordinator methods or timers are mocked.
+        queueMicrotask(() => queueMicrotask(evict));
+      }
+      return result;
     }
-    return result;
-  }});
-  const c = coordinator(sources, {maxRuns:1});
+  });
+  const c = coordinator(sources, { maxRuns: 1 });
   const first = c.start("user", "first", request, profile);
   let delivered = 0;
-  const waits = [c.wait("user", first.id), c.wait("user", first.id)]
-    .map(promise => promise.then(run => { delivered++; return run; }));
+  const waits = [c.wait("user", first.id), c.wait("user", first.id)].map((promise) =>
+    promise.then((run) => {
+      delivered++;
+      return run;
+    })
+  );
   const evicted = new Promise<string>((resolve, reject) => {
     evict = () => {
       try {
@@ -193,16 +295,29 @@ it("delivers settled snapshots when capacity eviction precedes waiter continuati
         const next = c.start("user", "next", request, profile);
         expect(() => c.snapshot("user", first.id)).toThrow("BRIEFING_NOT_FOUND");
         resolve(next.id);
-      } catch (error) { reject(error); }
+      } catch (error) {
+        reject(error);
+      }
     };
   });
   const [nextId, snapshots] = await Promise.all([evicted, Promise.all(waits)]);
   expect(snapshots[0]).toEqual(snapshots[1]);
-  expect(snapshots[0]).toMatchObject({id:first.id, settled:true, tasks:[{status:"complete"}]});
+  expect(snapshots[0]).toMatchObject({
+    id: first.id,
+    settled: true,
+    tasks: [{ status: "complete" }]
+  });
   expect(snapshots[0].tasks[0].results).toHaveLength(1);
   snapshots[0].tasks[0].results.length = 0;
   expect(snapshots[1].tasks[0].results).toHaveLength(1);
   await expect(c.wait("user", first.id)).rejects.toThrow("BRIEFING_NOT_FOUND");
   expect((await c.wait("user", nextId)).settled).toBe(true);
-  expect(c.retentionStats()).toMatchObject({runs:1, requests:1, profiles:1, settled:1, jobs:0, waiters:0});
+  expect(c.retentionStats()).toMatchObject({
+    runs: 1,
+    requests: 1,
+    profiles: 1,
+    settled: 1,
+    jobs: 0,
+    waiters: 0
+  });
 });

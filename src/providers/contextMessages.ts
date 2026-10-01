@@ -18,9 +18,19 @@ export interface SystemAndMessages {
  * own transport (a leading system message for Azure/Ollama, a separate `system`
  * field for Bedrock).
  */
-export function buildSystemAndMessages(context: ConversationContext, role: "fast" | "deep"): SystemAndMessages {
+export function buildSystemAndMessages(
+  context: ConversationContext,
+  role: "fast" | "deep"
+): SystemAndMessages {
   return {
-    system: renderContextSystem(context.systemInstruction, context.roleInstructions[role], context.activeTasks, context.memory, context.resolvedSources, context.unavailableSources),
+    system: renderContextSystem(
+      context.systemInstruction,
+      context.roleInstructions[role],
+      context.activeTasks,
+      context.memory,
+      context.resolvedSources,
+      context.unavailableSources
+    ),
     messages: context.messages.map((m) => ({ role: m.role, content: m.content }))
   };
 }

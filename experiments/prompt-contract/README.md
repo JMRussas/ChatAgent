@@ -18,13 +18,13 @@ are excluded from model-visible fields unless they are source identity/revision.
 
 Five paired conditions:
 
-| Variant | Presentation | Interpretation |
-|---|---|---|
-| legacy | First pilot's system instruction plus full prose and question | Continuity baseline; different instructions/placement |
-| flat | New contract's literal text values, no section headings | Identical-content control |
-| tgr | Same text/order as flat, with Task, Guidelines, Response Framework and Context headings | Primary comparison: section organization |
-| json | Same full-word values in a nested typed object | Serialization comparison |
-| xml | Same full-word values in explicit nested elements | Serialization comparison |
+| Variant | Presentation                                                                            | Interpretation                                        |
+| ------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| legacy  | First pilot's system instruction plus full prose and question                           | Continuity baseline; different instructions/placement |
+| flat    | New contract's literal text values, no section headings                                 | Identical-content control                             |
+| tgr     | Same text/order as flat, with Task, Guidelines, Response Framework and Context headings | Primary comparison: section organization              |
+| json    | Same full-word values in a nested typed object                                          | Serialization comparison                              |
+| xml     | Same full-word values in explicit nested elements                                       | Serialization comparison                              |
 
 There is no semantic compression or shortened logical notation in this experiment.
 The same source prose is retained verbatim in every condition. JSON and XML differ

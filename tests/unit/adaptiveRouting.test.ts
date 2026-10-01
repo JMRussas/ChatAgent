@@ -44,7 +44,10 @@ describe("adaptive routing", () => {
       { provider: "azure", model: "deep" }
     );
 
-    const decision = coordinator.decide(msg("find latest inflation data with sources"), baseAnalysis("direct"));
+    const decision = coordinator.decide(
+      msg("find latest inflation data with sources"),
+      baseAnalysis("direct")
+    );
     expect(decision.routeDecision).toBe("deep");
   });
 

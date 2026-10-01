@@ -19,27 +19,52 @@ describe("ChatService conversation ownership", () => {
     const { service } = buildService();
 
     await expect(
-      service.submitMessage({ conversationId: "conv-a", userId: "alice", text: "hello", timestampIso: new Date().toISOString() })
+      service.submitMessage({
+        conversationId: "conv-a",
+        userId: "alice",
+        text: "hello",
+        timestampIso: new Date().toISOString()
+      })
     ).resolves.toBeDefined();
   });
 
   it("lets the same userId keep submitting to the conversation it owns", async () => {
     const { service } = buildService();
 
-    await service.submitMessage({ conversationId: "conv-a", userId: "alice", text: "hello", timestampIso: new Date().toISOString() });
+    await service.submitMessage({
+      conversationId: "conv-a",
+      userId: "alice",
+      text: "hello",
+      timestampIso: new Date().toISOString()
+    });
 
     await expect(
-      service.submitMessage({ conversationId: "conv-a", userId: "alice", text: "again", timestampIso: new Date().toISOString() })
+      service.submitMessage({
+        conversationId: "conv-a",
+        userId: "alice",
+        text: "again",
+        timestampIso: new Date().toISOString()
+      })
     ).resolves.toBeDefined();
   });
 
   it("rejects a different userId submitting to an already-claimed conversation with 409-mapped error, before reading context or appending events", async () => {
     const { service, timeline } = buildService();
 
-    await service.submitMessage({ conversationId: "conv-shared", userId: "alice", text: "hello", timestampIso: new Date().toISOString() });
+    await service.submitMessage({
+      conversationId: "conv-shared",
+      userId: "alice",
+      text: "hello",
+      timestampIso: new Date().toISOString()
+    });
 
     await expect(
-      service.submitMessage({ conversationId: "conv-shared", userId: "bob", text: "hi", timestampIso: new Date().toISOString() })
+      service.submitMessage({
+        conversationId: "conv-shared",
+        userId: "bob",
+        text: "hi",
+        timestampIso: new Date().toISOString()
+      })
     ).rejects.toBeInstanceOf(ConversationOwnershipConflictError);
 
     const events = await timeline.getEvents("conv-shared");

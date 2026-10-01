@@ -15,7 +15,8 @@ export interface SourceRef {
   contentHash: string;
 }
 
-export type ActiveTaskState = "queued" | "running" | "retrying" | "failed" | "cancelled" | "incomplete";
+export type ActiveTaskState =
+  "queued" | "running" | "retrying" | "failed" | "cancelled" | "incomplete";
 
 export interface ActiveTaskContext {
   messageId: string;

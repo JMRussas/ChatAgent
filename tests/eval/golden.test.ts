@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildGoldenReport, goldenSuiteSchema, renderGoldenReportMarkdown } from "../../src/eval/golden";
+import {
+  buildGoldenReport,
+  goldenSuiteSchema,
+  renderGoldenReportMarkdown
+} from "../../src/eval/golden";
 
 describe("golden evaluation", () => {
   it("validates golden prompt suite schema", () => {

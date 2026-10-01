@@ -19,12 +19,23 @@ it("ADR protocol fixture type-checks against its declared wire interfaces", () =
   try {
     const path = join(directory, "fixture.ts");
     // Compile the actual documentation, so interface and example drift fails CI.
-    writeFileSync(path, `${interfaces}\nconst fixture = ${fixture.trim()} satisfies {
+    writeFileSync(
+      path,
+      `${interfaces}\nconst fixture = ${fixture.trim()} satisfies {
       conversationId: string; request: SubmitTurnRequest;
       response: SubmitTurnResponse; events: TurnEvent[];
-    };`);
-    const program = ts.createProgram([path], { noEmit: true, strict: true, types: [], target: ts.ScriptTarget.ES2022, skipLibCheck: true });
-    const errors = ts.getPreEmitDiagnostics(program).map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+    };`
+    );
+    const program = ts.createProgram([path], {
+      noEmit: true,
+      strict: true,
+      types: [],
+      target: ts.ScriptTarget.ES2022,
+      skipLibCheck: true
+    });
+    const errors = ts
+      .getPreEmitDiagnostics(program)
+      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
     expect(errors).toEqual([]);
   } finally {
     rmSync(directory, { recursive: true, force: true });

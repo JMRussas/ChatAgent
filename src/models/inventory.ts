@@ -20,12 +20,15 @@ export interface ModelObservation {
 }
 
 /** Adapters may cap validity; absent expiry uses the inventory's configured TTL. */
-export type DiscoveryObservation = Omit<ModelObservation, "expiresAtIso"> & { expiresAtIso?: string };
+export type DiscoveryObservation = Omit<ModelObservation, "expiresAtIso"> & {
+  expiresAtIso?: string;
+};
 export interface DiscoveryAdapter {
   discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]>;
 }
 
-export type Readiness = "disabled" | "unsupported-adapter" | "unchecked" | "stale" | "denied" | "unavailable" | "ready";
+export type Readiness =
+  "disabled" | "unsupported-adapter" | "unchecked" | "stale" | "denied" | "unavailable" | "ready";
 
 /**
  * Precedence is significant and matches spec 03 exactly: disabled,
@@ -46,13 +49,19 @@ export function computeReadiness(input: {
   if (!obs) return "unchecked";
   if (obs.expiresAtIso <= input.nowIso) return "stale";
   if (obs.access === "denied") return "denied";
-  if (obs.installed !== "yes" || obs.health !== "reachable" || obs.access !== "allowed") return "unavailable";
+  if (obs.installed !== "yes" || obs.health !== "reachable" || obs.access !== "allowed")
+    return "unavailable";
   return "ready";
 }
 
 /** apiKinds with an implemented request-mapping adapter (spec 03/04 boundary: cataloging a
  * transport is not the same as this app being able to send it a chat request). */
-const IMPLEMENTED_CHAT_ADAPTERS: ReadonlySet<ApiKind> = new Set(["mock", "ollama-chat", "azure-openai-chat", "bedrock-converse"]);
+const IMPLEMENTED_CHAT_ADAPTERS: ReadonlySet<ApiKind> = new Set([
+  "mock",
+  "ollama-chat",
+  "azure-openai-chat",
+  "bedrock-converse"
+]);
 export function isChatAdapterImplemented(apiKind: ApiKind): boolean {
   return IMPLEMENTED_CHAT_ADAPTERS.has(apiKind);
 }
@@ -102,7 +111,9 @@ export class InventoryStore {
     const existing = this.inFlight.get(connection.connectionId);
     if (existing) return existing;
 
-    const promise = this.doRefresh(connection).finally(() => this.inFlight.delete(connection.connectionId));
+    const promise = this.doRefresh(connection).finally(() =>
+      this.inFlight.delete(connection.connectionId)
+    );
     this.inFlight.set(connection.connectionId, promise);
     return promise;
   }
@@ -122,10 +133,14 @@ export class InventoryStore {
       // Global TTL is an upper bound, never an extension of adapter validity.
       for (const observation of results) {
         const observed = Date.parse(observation.observedAtIso);
-        const adapterExpiry = observation.expiresAtIso === undefined ? Infinity : Date.parse(observation.expiresAtIso);
+        const adapterExpiry =
+          observation.expiresAtIso === undefined ? Infinity : Date.parse(observation.expiresAtIso);
         // Invalid explicit validity fails closed instead of becoming fresh evidence.
-        const expiresAtIso = new Date(Number.isFinite(adapterExpiry) || adapterExpiry === Infinity
-          ? Math.min(observed + this.config.ttlMs, adapterExpiry) : observed).toISOString();
+        const expiresAtIso = new Date(
+          Number.isFinite(adapterExpiry) || adapterExpiry === Infinity
+            ? Math.min(observed + this.config.ttlMs, adapterExpiry)
+            : observed
+        ).toISOString();
         const stamped = { ...observation, expiresAtIso };
         this.observations.set(stamped.bindingId, stamped);
         seen.add(stamped.bindingId);
@@ -135,8 +150,18 @@ export class InventoryStore {
       // bindings for this connection as absent rather than leaving stale "yes".
       const nowIso = this.now().toISOString();
       for (const [bindingId, observation] of this.observations) {
-        if (observation.connectionId === connection.connectionId && observation.installed === "yes" && !seen.has(bindingId)) {
-          this.observations.set(bindingId, { ...observation, installed: "no", health: "unreachable", observedAtIso: nowIso, expiresAtIso: nowIso });
+        if (
+          observation.connectionId === connection.connectionId &&
+          observation.installed === "yes" &&
+          !seen.has(bindingId)
+        ) {
+          this.observations.set(bindingId, {
+            ...observation,
+            installed: "no",
+            health: "unreachable",
+            observedAtIso: nowIso,
+            expiresAtIso: nowIso
+          });
         }
       }
     } catch {

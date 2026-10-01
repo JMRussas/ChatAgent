@@ -13,32 +13,60 @@ import { FixtureSportsSource, type SportsSource } from "../../src/sports/sources
 import games from "../../data/sports/games.fixture.json";
 const request = { now: games.capturedAt, timezone: "UTC", team: games.supportedTeams[0] };
 const cleanups: (() => Promise<void>)[] = [];
-afterEach(async () => { for (const close of cleanups.splice(0)) await close(); });
+afterEach(async () => {
+  for (const close of cleanups.splice(0)) await close();
+});
 async function app(enabled = true) {
   let release!: () => void;
-  const gate = new Promise<void>(resolve => { release = resolve; });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const signals: AbortSignal[] = [];
   const read = vi.fn<SportsSource["read"]>(async (query, signal) => {
-    signals.push(signal!); await gate; return new FixtureSportsSource(games).read(query);
+    signals.push(signal!);
+    await gate;
+    return new FixtureSportsSource(games).read(query);
   });
-  const profile = defaultNbaProfile(); profile.tasks.forEach(task => { task.sources = [task.sources[0]]; });
-  const coordinator = new BriefingCoordinator(new Map([["games", { read }]]), { maxConcurrentTasks: 1, taskTimeoutMs: 3000, maxRuns: 2 });
-  const timeline = new InMemoryConversationTimelineStore(), queue = new InMemoryTaskQueue();
-  const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
-    new DeepWorker(queue, new MockDeepProvider(), timeline), timeline, queue);
+  const profile = defaultNbaProfile();
+  profile.tasks.forEach((task) => {
+    task.sources = [task.sources[0]];
+  });
+  const coordinator = new BriefingCoordinator(new Map([["games", { read }]]), {
+    maxConcurrentTasks: 1,
+    taskTimeoutMs: 3000,
+    maxRuns: 2
+  });
+  const timeline = new InMemoryConversationTimelineStore(),
+    queue = new InMemoryTaskQueue();
+  const service = new ChatService(
+    new ChatOrchestrator(new MockFastProvider(), queue, timeline),
+    new DeepWorker(queue, new MockDeepProvider(), timeline),
+    timeline,
+    queue
+  );
   const briefings = new BriefingHttp(coordinator, profile);
   const server = createChatServer(service, { briefings: enabled ? briefings : undefined });
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   let closed = false;
   const close = async () => {
-    if (closed) return; closed = true;
-    await new Promise<void>((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections(); });
-    coordinator.close(); release();
+    if (closed) return;
+    closed = true;
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+      server.closeAllConnections();
+    });
+    coordinator.close();
+    release();
   };
   cleanups.push(close);
   async function post(body: unknown, path = "/briefings") {
-    const response = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(2000) });
+    const response = await fetch(base + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(2000)
+    });
     return { status: response.status, body: await response.json() };
   }
   return { post, release, close, read, signals, coordinator, service, briefings };
@@ -46,9 +74,20 @@ async function app(enabled = true) {
 describe("briefing HTTP integration", () => {
   it("retrieves only the confirmed supported scope", async () => {
     const a = await app();
-    const body = { userId: "u", requestId: "sports-1", league: "NBA", kind: "games", request: { ...request, team: null, lastSuccessful: { league: games.window.fromInclusive, team: games.window.fromInclusive } } };
+    const body = {
+      userId: "u",
+      requestId: "sports-1",
+      league: "NBA",
+      kind: "games",
+      request: {
+        ...request,
+        team: null,
+        lastSuccessful: { league: games.window.fromInclusive, team: games.window.fromInclusive }
+      }
+    };
     const started = await a.post(body, "/sports/chat");
-    expect(started.status).toBe(202); expect(started.body.tasks).toHaveLength(1);
+    expect(started.status).toBe(202);
+    expect(started.body.tasks).toHaveLength(1);
     a.release();
     const finished = await a.coordinator.wait("u", started.body.id);
     expect(finished.tasks[0].results[0].evidence.records.length).toBeGreaterThan(0);
@@ -60,10 +99,16 @@ describe("briefing HTTP integration", () => {
     a.briefings.reload = vi.fn(async () => ({ version: "version", changed: true }));
     expect((await a.post({ path: "other-file" }, "/briefings/config/reload")).status).toBe(400);
     expect(a.briefings.reload).not.toHaveBeenCalled();
-    expect((await a.post({}, "/briefings/config/reload")).body).toEqual({ version: "version", changed: true });
-    a.briefings.reload = async () => { throw new Error("secret configuration"); };
+    expect((await a.post({}, "/briefings/config/reload")).body).toEqual({
+      version: "version",
+      changed: true
+    });
+    a.briefings.reload = async () => {
+      throw new Error("secret configuration");
+    };
     const failed = await a.post({}, "/briefings/config/reload");
-    expect(failed.status).toBe(400); expect(JSON.stringify(failed.body)).not.toContain("secret");
+    expect(failed.status).toBe(400);
+    expect(JSON.stringify(failed.body)).not.toContain("secret");
   });
 
   it("accepts background work promptly and answers foreground chat before source completion", async () => {
@@ -71,41 +116,72 @@ describe("briefing HTTP integration", () => {
     const start = await a.post({ op: "start", userId: "user", requestId: "request", request });
     expect(start.status).toBe(202);
     const run = start.body as BriefingRun;
-    expect(run.tasks.map(t => t.status)).toEqual(["running", "queued"]);
-    const chat = await a.post({ conversationId: "foreground", userId: "user", text: "Hello there" }, "/messages");
-    expect(chat.status).toBe(200); expect(chat.body.fastResponse.provisionalReply).toContain("Quick answer:");
+    expect(run.tasks.map((t) => t.status)).toEqual(["running", "queued"]);
+    const chat = await a.post(
+      { conversationId: "foreground", userId: "user", text: "Hello there" },
+      "/messages"
+    );
+    expect(chat.status).toBe(200);
+    expect(chat.body.fastResponse.provisionalReply).toContain("Quick answer:");
     const status = await a.post({ op: "status", userId: "user", runId: run.id });
     expect(status.body.tasks[0].status).toBe("running");
-    const cancelled = await a.post({ op: "cancel", userId: "user", runId: run.id, taskId: run.tasks[1].id });
-    expect(cancelled.body.tasks.map((t: { status: string }) => t.status)).toEqual(["running", "cancelled"]);
-    a.release(); await a.coordinator.wait("user", run.id);
+    const cancelled = await a.post({
+      op: "cancel",
+      userId: "user",
+      runId: run.id,
+      taskId: run.tasks[1].id
+    });
+    expect(cancelled.body.tasks.map((t: { status: string }) => t.status)).toEqual([
+      "running",
+      "cancelled"
+    ]);
+    a.release();
+    await a.coordinator.wait("user", run.id);
     const final = await a.post({ op: "status", userId: "user", runId: run.id });
     expect(final.body.tasks[0].status).toBe("complete");
     expect(final.body.tasks[0].results[0].evidence.mode).toBe("synthetic");
     expect(a.read).toHaveBeenCalledTimes(1);
   });
   it("enforces ownership, idempotency, conflict and capacity across HTTP", async () => {
-    const a = await app(), body = { op: "start", userId: "user", requestId: "request", request };
-    const first = await a.post(body); expect((await a.post(body)).body.id).toBe(first.body.id);
+    const a = await app(),
+      body = { op: "start", userId: "user", requestId: "request", request };
+    const first = await a.post(body);
+    expect((await a.post(body)).body.id).toBe(first.body.id);
     expect(a.read).toHaveBeenCalledTimes(1);
-    expect((await a.post({ ...body, request: { ...request, timezone: "America/New_York" } })).status).toBe(409);
-    for (const op of ["status", "cancel"]) expect((await a.post({ op, userId: "other", runId: first.body.id })).status).toBe(404);
+    expect(
+      (await a.post({ ...body, request: { ...request, timezone: "America/New_York" } })).status
+    ).toBe(409);
+    for (const op of ["status", "cancel"])
+      expect((await a.post({ op, userId: "other", runId: first.body.id })).status).toBe(404);
     expect((await a.post({ ...body, requestId: "second" })).status).toBe(202);
     expect((await a.post({ ...body, requestId: "third" })).status).toBe(429);
   });
   it("rejects malformed input, profile overrides and future checkpoints", async () => {
-    const a = await app(), body = { op: "start", userId: "user", requestId: "request", request };
+    const a = await app(),
+      body = { op: "start", userId: "user", requestId: "request", request };
     expect((await a.post({ ...body, profile: defaultNbaProfile() })).status).toBe(400);
-    expect((await a.post({ ...body, request: { ...request, timezone: "invalid" } })).status).toBe(400);
+    expect((await a.post({ ...body, request: { ...request, timezone: "invalid" } })).status).toBe(
+      400
+    );
     expect((await a.post({ op: "cancel", userId: "user", runId: "wrong" })).status).toBe(400);
-    expect((await a.post({ ...body, request: { ...request, lastSuccessful: { league: "2027-01-01T00:00:00Z" } } })).body.code).toBe("INVALID_CHECKPOINT");
+    expect(
+      (
+        await a.post({
+          ...body,
+          request: { ...request, lastSuccessful: { league: "2027-01-01T00:00:00Z" } }
+        })
+      ).body.code
+    ).toBe("INVALID_CHECKPOINT");
     expect(a.read).not.toHaveBeenCalled();
   });
   it("disables the route without injection and rejects admission during shutdown", async () => {
     const off = await app(false);
     expect((await off.post({ op: "start" })).body.code).toBe("BRIEFINGS_DISABLED");
-    const a = await app(); a.service.stopAccepting();
-    expect((await a.post({ op: "start", userId: "user", requestId: "request", request })).body.code).toBe("SHUTTING_DOWN");
+    const a = await app();
+    a.service.stopAccepting();
+    expect(
+      (await a.post({ op: "start", userId: "user", requestId: "request", request })).body.code
+    ).toBe("SHUTTING_DOWN");
     expect(a.read).not.toHaveBeenCalled();
   });
   it("closes without waiting forever on a source that ignores abort and suppresses its late result", async () => {
@@ -114,6 +190,6 @@ describe("briefing HTTP integration", () => {
     await a.close();
     expect(a.signals[0].aborted).toBe(true);
     const run = await a.coordinator.wait("user", start.body.id);
-    expect(run.tasks.every(t => t.status === "cancelled" && t.results.length === 0)).toBe(true);
+    expect(run.tasks.every((t) => t.status === "cancelled" && t.results.length === 0)).toBe(true);
   });
 });

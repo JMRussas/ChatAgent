@@ -21,7 +21,11 @@ function resolveOllamaDeepTimeoutMs(): number {
   return parsePositiveIntEnv(process.env.OLLAMA_DEEP_TIMEOUT_MS, 10_000, 500, 240_000);
 }
 
-export function buildFastProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): FastModelProvider {
+export function buildFastProvider(
+  config: RuntimeProviderConfig,
+  contextBudget: ContextBudgetConfig,
+  thinking: VerifiedThinking
+): FastModelProvider {
   const fast = config.fast;
 
   if (fast.provider === "mock") return new MockFastProvider();
@@ -55,12 +59,23 @@ export function buildFastProvider(config: RuntimeProviderConfig, contextBudget: 
   }
 
   if (!config.bedrock) {
-    throw new Error("CHAT_FAST_PROVIDER=bedrock requires BEDROCK_REGION to be set (see .env.example).");
+    throw new Error(
+      "CHAT_FAST_PROVIDER=bedrock requires BEDROCK_REGION to be set (see .env.example)."
+    );
   }
-  return new BedrockFastProvider(config.bedrock.region, fast.model, fast.temperature, contextBudget.fastOutputTokens);
+  return new BedrockFastProvider(
+    config.bedrock.region,
+    fast.model,
+    fast.temperature,
+    contextBudget.fastOutputTokens
+  );
 }
 
-export function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig, thinking: VerifiedThinking): DeepModelProvider {
+export function buildDeepProvider(
+  config: RuntimeProviderConfig,
+  contextBudget: ContextBudgetConfig,
+  thinking: VerifiedThinking
+): DeepModelProvider {
   const deep = config.deep;
 
   if (deep.provider === "mock") return new MockDeepProvider();
@@ -94,14 +109,27 @@ export function buildDeepProvider(config: RuntimeProviderConfig, contextBudget: 
   }
 
   if (!config.bedrock) {
-    throw new Error("CHAT_DEEP_PROVIDER=bedrock requires BEDROCK_REGION to be set (see .env.example).");
+    throw new Error(
+      "CHAT_DEEP_PROVIDER=bedrock requires BEDROCK_REGION to be set (see .env.example)."
+    );
   }
-  return new BedrockDeepProvider(config.bedrock.region, deep.model, deep.temperature, contextBudget.deepOutputTokens);
+  return new BedrockDeepProvider(
+    config.bedrock.region,
+    deep.model,
+    deep.temperature,
+    contextBudget.deepOutputTokens
+  );
 }
 
-export function buildProviderPair(config: RuntimeProviderConfig, contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv({
-  ...process.env, CHAT_FAST_PROVIDER: config.fast.provider, CHAT_DEEP_PROVIDER: config.deep.provider
-}), thinking: VerifiedThinking = {}): ProviderPair {
+export function buildProviderPair(
+  config: RuntimeProviderConfig,
+  contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv({
+    ...process.env,
+    CHAT_FAST_PROVIDER: config.fast.provider,
+    CHAT_DEEP_PROVIDER: config.deep.provider
+  }),
+  thinking: VerifiedThinking = {}
+): ProviderPair {
   return {
     fastProvider: buildFastProvider(config, contextBudget, thinking),
     deepProvider: buildDeepProvider(config, contextBudget, thinking)

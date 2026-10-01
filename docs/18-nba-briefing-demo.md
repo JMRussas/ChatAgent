@@ -14,7 +14,6 @@ Registry context size needs attention for smaller models: the browser fixture re
 16K instead of 8K with the expanded registry. Runtime budget checks remain enforced.
 No live provider/model calls or preview restart performed for this increment.
 
-
 ## Reference selection increment — 2026-09-30
 
 Manual-control lifecycle fixes committed as `ffa1089`. Explicit bounded table-row
@@ -24,7 +23,6 @@ context. Reference hashes/content follow evaluation capture policy. Payload grad
 remains separate from production review. Next: general game search and specific-game
 details, including latest-completed selection. See the
 [current handoff](implementation/NEXT-HANDOFF.md) for verification and limitations.
-
 
 ## Manual controls increment — 2026-09-30
 
@@ -38,7 +36,6 @@ Requested controls and effective model metadata are recorded. Validation: 637 te
 reference attachment/detachment and payload-review evidence, followed by game search.
 See [handoff](implementation/NEXT-HANDOFF.md) for limits and remaining work.
 
-
 ## Latest increment — 2026-09-30
 
 Review fixes committed as `1e2d60d`: versioned API payload delivery, close-race guard,
@@ -49,7 +46,6 @@ scope unchanged. Expired reference content is excluded from new model calls.
 Validation: 632 tests, 13 browser tests and build passed. No model-quality claim.
 Next: manual model/thinking/review controls and broader reference management.
 See [current handoff](implementation/NEXT-HANDOFF.md) for scope and limitations.
-
 
 ## Active plan: payload separation and manual topic workflows — 2026-09-30
 
@@ -90,14 +86,12 @@ scoped conversations/reference selection, then manual controls and general game 
 
 ## Historical implementation journal
 
-
 Current increment (2026-09-30): provider-backed NBA/NFL team directories are wired
 into the live tool registry, with configurable cache/selection limits, shared
 account admission, and conversation-bound candidate selection. Directory capability
 is separate from game/news capability. Next is bounded latest-completed-game
 composition; the end-to-end acceptance example is still pending. See the latest
 [handoff](implementation/NEXT-HANDOFF.md) for verification and limitations.
-
 
 ## Current priority: general contracts and resource-specific policies — 2026-09-30
 
@@ -127,7 +121,6 @@ Game-specific reporting is an explicit later capability rather than an assumed p
 of league RSS. Resource waits/retries must follow the applicable binding policy.
 
 See [contracts, resource policies and evaluation gates](implementation/12-request-to-evidence.md).
-
 
 ## Next priority: tools that accept user-level requests — 2026-09-30
 
@@ -181,7 +174,6 @@ source policies remain configuration. General web search, MLB, persistent memory
 dependent model plans and topic-board UI remain later work. Review and evaluate each
 slice as implemented; this plan update changes no runtime behavior.
 
-
 ## Model capability planning replaces live keyword routing — 2026-09-30
 
 Live `startServer` chat now uses `CapabilityChat` through the shared ChatService,
@@ -232,7 +224,6 @@ Next: review/evaluate plan correctness across paraphrases, unavailable capabilit
 ambiguous context and misleading history; then add general retrieval and dependent
 workflows through the same registry. Do not add topic-specific routing keyword lists.
 
-
 ## Sports chat safeguard and capability-planning direction — 2026-09-30
 
 Recognized sports questions now bypass mock/model completion. MLB/Sox requests explain
@@ -265,7 +256,6 @@ across those runs); TypeScript build and ten browser tests pass. Tests cover the
 unsupported response, confirmed evidence retrieval, league mismatch, disabled sources,
 mock completion labels and continued composer availability. No live sports API/model
 calls were needed.
-
 
 ## Manual live configuration reload — 2026-09-30
 
@@ -300,7 +290,6 @@ versions/retries, retained budgets/cooldowns, in-flight source isolation, shutdo
 and HTTP rejection of client overrides. No live provider quota was consumed.
 Next: task UI and evidence-backed follow-ups; bounded delayed admission when the
 request budget is exhausted remains separate work.
-
 
 ## Live briefing composition — 2026-09-30
 
@@ -339,7 +328,6 @@ states; source-backed model follow-ups and bounded delayed admission when the bu
 separate work. No automatic refresh, durable state, ranking or team-news inference
 is implemented by this composition.
 
-
 ## RSS news ingestion — 2026-09-30
 
 Adapted the forex application's configurable RSS ingestion pattern into TypeScript's
@@ -376,7 +364,6 @@ Validation: 587 tests / 77 files and TypeScript build pass.
 Next: compose the games/news adapters into a live briefing registry and profile,
 then expose task progress and evidence in the UI. Team relevance and significant-news
 ranking remain separate work; this adapter does not claim either.
-
 
 ## Shared request admission and cache — 2026-09-30
 
@@ -416,7 +403,6 @@ Next: news ingestion, then task UI and source-backed model follow-ups. Automatic
 refresh should not be enabled until admission-denied work has an explicit scheduling
 policy and the required sources are available.
 
-
 ## 2026-09-30: NFL is the first active-season live target
 
 NBA remains supported. The user requested NFL access using the existing account.
@@ -453,7 +439,6 @@ request spacing is per adapter instance, not account-wide or shared between sepa
 CLI runs. Keep combined traffic within the user's five-per-minute allowance.
 Next: news ingestion, bounded shared caching/request admission, and task UI/model
 follow-ups. No further access prerequisite is needed for the verified NFL games path.
-
 
 Decision journal — 2026-09-30. The user selected sports as the concrete workflow
 for ongoing interaction, background work, relevant memory and fresh evidence.

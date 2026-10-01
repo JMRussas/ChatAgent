@@ -1,6 +1,56 @@
 [
-  {"protocolVersion":"1.0","conversationId":"11111111-1111-4111-8111-111111111111","messageId":"22222222-2222-4222-8222-222222222222","attemptId":"fast-attempt","sequence":2,"type":"delta","phase":"fast","text":"early","usage":null,"createdAtIso":"2026-09-25T00:00:00Z"},
-  {"protocolVersion":"1.0","conversationId":"11111111-1111-4111-8111-111111111111","messageId":"22222222-2222-4222-8222-222222222222","attemptId":"fast-attempt","sequence":3,"type":"terminal","phase":"fast","text":"early","finishReason":"error","retrying":false,"usage":null,"createdAtIso":"2026-09-25T00:00:00Z"},
-  {"protocolVersion":"1.0","conversationId":"11111111-1111-4111-8111-111111111111","messageId":"22222222-2222-4222-8222-222222222222","attemptId":"deep-attempt","sequence":4,"type":"answer","phase":"deep","answerRevision":4,"text":"better","answerKind":"substantive","usage":null,"createdAtIso":"2026-09-25T00:00:00Z"},
-  {"protocolVersion":"1.0","conversationId":"11111111-1111-4111-8111-111111111111","messageId":"22222222-2222-4222-8222-222222222222","attemptId":"deep-attempt","sequence":5,"type":"terminal","phase":"deep","text":"better","finishReason":"stop","retrying":false,"usage":null,"createdAtIso":"2026-09-25T00:00:00Z"}
+  {
+    "protocolVersion": "1.0",
+    "conversationId": "11111111-1111-4111-8111-111111111111",
+    "messageId": "22222222-2222-4222-8222-222222222222",
+    "attemptId": "fast-attempt",
+    "sequence": 2,
+    "type": "delta",
+    "phase": "fast",
+    "text": "early",
+    "usage": null,
+    "createdAtIso": "2026-09-25T00:00:00Z"
+  },
+  {
+    "protocolVersion": "1.0",
+    "conversationId": "11111111-1111-4111-8111-111111111111",
+    "messageId": "22222222-2222-4222-8222-222222222222",
+    "attemptId": "fast-attempt",
+    "sequence": 3,
+    "type": "terminal",
+    "phase": "fast",
+    "text": "early",
+    "finishReason": "error",
+    "retrying": false,
+    "usage": null,
+    "createdAtIso": "2026-09-25T00:00:00Z"
+  },
+  {
+    "protocolVersion": "1.0",
+    "conversationId": "11111111-1111-4111-8111-111111111111",
+    "messageId": "22222222-2222-4222-8222-222222222222",
+    "attemptId": "deep-attempt",
+    "sequence": 4,
+    "type": "answer",
+    "phase": "deep",
+    "answerRevision": 4,
+    "text": "better",
+    "answerKind": "substantive",
+    "usage": null,
+    "createdAtIso": "2026-09-25T00:00:00Z"
+  },
+  {
+    "protocolVersion": "1.0",
+    "conversationId": "11111111-1111-4111-8111-111111111111",
+    "messageId": "22222222-2222-4222-8222-222222222222",
+    "attemptId": "deep-attempt",
+    "sequence": 5,
+    "type": "terminal",
+    "phase": "deep",
+    "text": "better",
+    "finishReason": "stop",
+    "retrying": false,
+    "usage": null,
+    "createdAtIso": "2026-09-25T00:00:00Z"
+  }
 ]

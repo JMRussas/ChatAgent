@@ -1,7 +1,15 @@
 import type { FastAnalysis, UserMessage } from "./types";
 
 const DATA_KEYWORDS = ["latest", "current", "look up", "search", "cite", "source"];
-const CLARIFY_KEYWORDS = ["this", "that", "they", "do it", "same as before", "this one", "that one"];
+const CLARIFY_KEYWORDS = [
+  "this",
+  "that",
+  "they",
+  "do it",
+  "same as before",
+  "this one",
+  "that one"
+];
 
 export function detectNeedsExternalData(text: string): boolean {
   const lower = text.toLowerCase();

@@ -26,13 +26,13 @@ is an integration observation, not a prohibition on connecting them.
 
 ## Ownership direction
 
-| Concern | Proposed owner |
-|---|---|
-| Conversation, streaming, conversational context and generation lifecycle | ChatRuntime |
-| Persistent objectives, scheduling, priorities, dependencies and specialist coordination | Hekate, subject to a current source audit |
-| Presentation and explicit user actions | Iris/web clients |
-| Durable source records and retrieval infrastructure | Pluggable backend; evaluate existing Hekate context-store |
-| Interpretation of telemetry and proposals for improved policies | Separate evaluation process, initially alongside orchestration |
+| Concern                                                                                 | Proposed owner                                                 |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Conversation, streaming, conversational context and generation lifecycle                | ChatRuntime                                                    |
+| Persistent objectives, scheduling, priorities, dependencies and specialist coordination | Hekate, subject to a current source audit                      |
+| Presentation and explicit user actions                                                  | Iris/web clients                                               |
+| Durable source records and retrieval infrastructure                                     | Pluggable backend; evaluate existing Hekate context-store      |
+| Interpretation of telemetry and proposals for improved policies                         | Separate evaluation process, initially alongside orchestration |
 
 Prefer evaluating Hekate's existing architecture before creating another
 orchestration repository. Do not copy its gods into ChatRuntime or move working
@@ -53,12 +53,12 @@ side-effect prevention are distinct requirements from checkpointing a graph.
 
 ## Context policies by layer
 
-| Layer | Required context | Retrieval policy |
-|---|---|---|
-| Fast response | Recent dialogue, constraints, concise actual task status, unresolved questions | Small bounded lookups; avoid mandatory planning calls |
+| Layer         | Required context                                                                  | Retrieval policy                                                  |
+| ------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Fast response | Recent dialogue, constraints, concise actual task status, unresolved questions    | Small bounded lookups; avoid mandatory planning calls             |
 | Orchestration | Objectives, revisions, dependencies, deadlines, capabilities and resource budgets | Retrieve detailed task evidence and relevant experience on demand |
-| Specialist | Assignment, acceptance criteria, relevant artifacts, domain evidence and tools | Deeper bounded iterative retrieval |
-| Verification | Original requirements, actual outputs, source evidence and independent checks | Retrieve evidence needed to challenge the result |
+| Specialist    | Assignment, acceptance criteria, relevant artifacts, domain evidence and tools    | Deeper bounded iterative retrieval                                |
+| Verification  | Original requirements, actual outputs, source evidence and independent checks     | Retrieve evidence needed to challenge the result                  |
 
 Use separate managers or strategies over common identity, provenance, scope
 and storage contracts. Do not assemble one global prompt for all agents.

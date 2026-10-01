@@ -133,18 +133,18 @@ in that follow-up; 01B now has separate [acceptance evidence](01b-evidence.md).
 
 Add `tests/unit/contextBuilder.test.ts`, provider request-shape cases and HTTP cases:
 
-| Case | Required result |
-|---|---|
-| Completed direct answer followed by “why?” | Prior user/assistant pair then current user, once each |
-| Provisional then refined for A | Only A's refined text enters B's history |
-| A pending when B begins | A request/status in activeTasks; no provisional answer; later completion does not alter B snapshot |
-| Activities and failed turns | No activity/retry/failure text becomes model conversation |
-| Three eligible pairs, budget for two | Oldest pair omitted; order and current text preserved |
-| Non-ASCII input and large instructions | UTF-8 estimate includes both; overflow returns 413, zero calls |
-| Mutation of fast-provider input | Deep task's copied snapshot stays unchanged |
-| Same conversation, different userId | 409 and unchanged timeline/context |
-| Empty/noop timeline | Current message works without fabricated history |
-| Each adapter | Correct role order, output cap, and verified runtime facts in request |
+| Case                                       | Required result                                                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Completed direct answer followed by “why?” | Prior user/assistant pair then current user, once each                                             |
+| Provisional then refined for A             | Only A's refined text enters B's history                                                           |
+| A pending when B begins                    | A request/status in activeTasks; no provisional answer; later completion does not alter B snapshot |
+| Activities and failed turns                | No activity/retry/failure text becomes model conversation                                          |
+| Three eligible pairs, budget for two       | Oldest pair omitted; order and current text preserved                                              |
+| Non-ASCII input and large instructions     | UTF-8 estimate includes both; overflow returns 413, zero calls                                     |
+| Mutation of fast-provider input            | Deep task's copied snapshot stays unchanged                                                        |
+| Same conversation, different userId        | 409 and unchanged timeline/context                                                                 |
+| Empty/noop timeline                        | Current message works without fabricated history                                                   |
+| Each adapter                               | Correct role order, output cap, and verified runtime facts in request                              |
 
 Run common checks. Optional live follow-up exercise is separate evidence; do not
 assert that system instructions alone eliminate hallucinations.

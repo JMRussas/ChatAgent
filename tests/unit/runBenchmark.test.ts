@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeBenchmarkMode, shouldRunBenchmarkCli, validateBenchmarkPrompts } from "../../src/bench/runBenchmark";
+import {
+  normalizeBenchmarkMode,
+  shouldRunBenchmarkCli,
+  validateBenchmarkPrompts
+} from "../../src/bench/runBenchmark";
 import { pathToFileURL } from "node:url";
 
 describe("run benchmark config validation", () => {
@@ -41,8 +45,11 @@ describe("run benchmark config validation", () => {
     const moduleUrl = "file:///repo/src/bench/runBenchmark.ts";
     expect(shouldRunBenchmarkCli(undefined, moduleUrl)).toBe(false);
     expect(shouldRunBenchmarkCli("C:/repo/src/bench/other.ts", moduleUrl)).toBe(false);
-    expect(shouldRunBenchmarkCli("C:/repo/src/bench/runBenchmark.ts", pathToFileURL("C:/repo/src/bench/runBenchmark.ts").href)).toBe(
-      true
-    );
+    expect(
+      shouldRunBenchmarkCli(
+        "C:/repo/src/bench/runBenchmark.ts",
+        pathToFileURL("C:/repo/src/bench/runBenchmark.ts").href
+      )
+    ).toBe(true);
   });
 });

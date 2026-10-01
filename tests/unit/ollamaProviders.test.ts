@@ -4,20 +4,34 @@ import { sampleContext } from "../helpers/contextFixtures";
 
 describe("ollama providers", () => {
   it("verifies per-run thinking options without mutating the shared provider", async () => {
-    global.fetch=vi.fn(async()=>Response.json({thinking:{values:[true]}})) as typeof fetch;
-    const provider=new OllamaFastProvider("http://localhost:11434","test",0);
+    global.fetch = vi.fn(async () =>
+      Response.json({ thinking: { values: [true] } })
+    ) as typeof fetch;
+    const provider = new OllamaFastProvider("http://localhost:11434", "test", 0);
     expect(await provider.thinkingOptions()).toEqual(["on"]);
-    const selected=await provider.withThinking("on");
+    const selected = await provider.withThinking("on");
     expect(selected.metadata?.reasoningEnabled).toBe(true);
     expect(provider.metadata.reasoningEnabled).toBeUndefined();
     await expect(provider.withThinking("off")).rejects.toThrow("THINKING_CONFIG_UNSUPPORTED");
   });
   it("cancels thinking verification before inference", async () => {
-    let observed:AbortSignal|undefined;
-    global.fetch=vi.fn(async(_url,init)=>new Promise<Response>((_resolve,reject)=>{observed=init?.signal as AbortSignal;observed.addEventListener("abort",()=>reject(Error("aborted")));})) as typeof fetch;
-    const controller=new AbortController();
-    const pending=new OllamaFastProvider("http://localhost:11434","test",0).withThinking("on",{signal:controller.signal,attemptId:"a",onDelta:async()=>{}});
-    controller.abort();await expect(pending).rejects.toThrow("CANCELLED");expect(observed?.aborted).toBe(true);
+    let observed: AbortSignal | undefined;
+    global.fetch = vi.fn(
+      async (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          observed = init?.signal as AbortSignal;
+          observed.addEventListener("abort", () => reject(Error("aborted")));
+        })
+    ) as typeof fetch;
+    const controller = new AbortController();
+    const pending = new OllamaFastProvider("http://localhost:11434", "test", 0).withThinking("on", {
+      signal: controller.signal,
+      attemptId: "a",
+      onDelta: async () => {}
+    });
+    controller.abort();
+    await expect(pending).rejects.toThrow("CANCELLED");
+    expect(observed?.aborted).toBe(true);
   });
   const originalFetch = global.fetch;
 
@@ -34,7 +48,13 @@ describe("ollama providers", () => {
 
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const provider = new OllamaFastProvider("http://localhost:11434", "llama3.1:8b", 0.2, 10_000, 300);
+    const provider = new OllamaFastProvider(
+      "http://localhost:11434",
+      "llama3.1:8b",
+      0.2,
+      10_000,
+      300
+    );
 
     const result = await provider.createProvisionalReply({
       message: {
@@ -70,10 +90,21 @@ describe("ollama providers", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const provider = new OllamaFastProvider("http://localhost:11434", "llama3.1:8b", 0.2, 10_000, 512);
+    const provider = new OllamaFastProvider(
+      "http://localhost:11434",
+      "llama3.1:8b",
+      0.2,
+      10_000,
+      512
+    );
 
     await provider.createProvisionalReply({
-      message: { conversationId: "c1", userId: "u1", text: "Why?", timestampIso: new Date().toISOString() },
+      message: {
+        conversationId: "c1",
+        userId: "u1",
+        text: "Why?",
+        timestampIso: new Date().toISOString()
+      },
       correctedText: "Why?",
       routeDecision: "direct",
       context: sampleContext()

@@ -24,7 +24,6 @@ coverage and live model quality evidence. The whole-plan status table below (han
 and roadmap) remains applicable; step 3 has stronger deterministic coverage, while
 quality evaluation, general background roles and persistent memory remain incomplete.
 
-
 ## Manual role UI and admitted context budgets — 2026-09-30
 
 Role execution and review fixes committed as `df65366`. The next slice adds a manual
@@ -40,7 +39,6 @@ Next: bounded LangChain/LangGraph adapter comparison. Preflight estimation and r
 tool grouping remain follow-ups. No live calls or preview restart. This new UI slice
 is uncommitted pending review.
 
-
 ## Role catalog and enforced tool exposure — implemented 2026-09-30
 
 Opt-in role configuration now packages model binding, instructions, tool allowlist,
@@ -54,7 +52,6 @@ select with `runControls.roleId`. See [configuration and limits](implementation/
 Next: manual role picker and context-budget visibility. LangChain migration,
 background role coordination, automatic role selection and role-file hot reload are
 not implemented. This increment makes no live-model quality claim.
-
 
 ## Active direction: versioned role containers — 2026-09-30
 
@@ -76,7 +73,6 @@ and 21 browser tests plus build passed. No role runtime or framework migration h
 been implemented. Persistent user profiles and semantic retrieval remain longer-term,
 starting with manual context selection and an inspection of Hekate storage for reuse.
 
-
 ## Reference selection increment — 2026-09-30
 
 Manual-control lifecycle fixes committed as `ffa1089`. Explicit bounded table-row
@@ -86,7 +82,6 @@ context. Reference hashes/content follow evaluation capture policy. Payload grad
 remains separate from production review. Next: general game search and specific-game
 details, including latest-completed selection. See the
 [current handoff](implementation/NEXT-HANDOFF.md) for verification and limitations.
-
 
 ## Manual controls increment — 2026-09-30
 
@@ -100,7 +95,6 @@ Requested controls and effective model metadata are recorded. Validation: 637 te
 reference attachment/detachment and payload-review evidence, followed by game search.
 See [handoff](implementation/NEXT-HANDOFF.md) for limits and remaining work.
 
-
 ## Latest increment — 2026-09-30
 
 Review fixes committed as `1e2d60d`: versioned API payload delivery, close-race guard,
@@ -111,7 +105,6 @@ scope unchanged. Expired reference content is excluded from new model calls.
 Validation: 632 tests, 13 browser tests and build passed. No model-quality claim.
 Next: manual model/thinking/review controls and broader reference management.
 See [current handoff](implementation/NEXT-HANDOFF.md) for scope and limitations.
-
 
 ## Active plan: payload separation and manual topic workflows — 2026-09-30
 
@@ -169,7 +162,6 @@ scoped conversations/reference selection, then manual controls and general game 
 
 ## Historical implementation journal
 
-
 ## Current priority: general contracts and resource-specific policies — 2026-09-30
 
 This supersedes earlier next-step ordering and incorporates the plan review plus the
@@ -199,7 +191,6 @@ of league RSS. Resource waits/retries must follow the applicable binding policy.
 
 See [contracts, resource policies and evaluation gates](implementation/12-request-to-evidence.md).
 
-
 ## Next evaluation: named team to sourced game answer — 2026-09-30
 
 Apply evaluation to the richer tool work in the [sports plan](18-nba-briefing-demo.md).
@@ -226,7 +217,6 @@ human/model rubric judgments separate. Repeat live model cases and retain versio
 plans, tool traces, latency and request counts; do not treat a few smoke checks or a
 passing runtime suite as a factual-quality benchmark. These are planned evaluations.
 
-
 ## Current application: NBA briefings
 
 The [NBA demo](18-nba-briefing-demo.md) is the selected workflow for multitask
@@ -235,7 +225,6 @@ follow-ups, temporal ambiguity, preference overrides and partial-source failures
 Keep the coordination and deep-quality measures below; implement them alongside
 bounded sports slices rather than an abstract benchmark first. No live comparison
 or memory accuracy claim follows from the initial offline planner.
-
 
 ## Current priority: multitask sessions (2026-09-30)
 
@@ -263,17 +252,21 @@ Build a seed set of 60 prompts split evenly:
 ## Metrics
 
 1. Routing accuracy
+
 - Did router pick expected route?
 
 2. User-perceived latency
+
 - Time to first meaningful response
 
 3. Deep-answer quality
+
 - Relevance (1-5)
 - Factuality (1-5)
 - Citation quality (binary + spot-check)
 
 4. Cost efficiency
+
 - Average tokens/request by route
 - Provider cost estimate per 1K conversations
 
@@ -283,6 +276,7 @@ Build a seed set of 60 prompts split evenly:
 2. Capture route decision, latency, and outputs
 3. Score via rubric (human + optional evaluator model)
 4. Compare configurations:
+
 - Azure-fast + Azure-deep
 - Azure-fast + Bedrock-deep
 - Bedrock-fast + Bedrock-deep

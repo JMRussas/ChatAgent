@@ -1,4 +1,9 @@
-import { GenerationError, httpGenerationError, type GenerationControl, type GenerationResult } from "../domain/generation";
+import {
+  GenerationError,
+  httpGenerationError,
+  type GenerationControl,
+  type GenerationResult
+} from "../domain/generation";
 import { AnswerCollector, parseFrame, sseData, withGenerationDeadline } from "./streaming";
 import { buildSystemAndMessages } from "./contextMessages";
 import type { ConversationContext } from "../domain/context";
@@ -54,7 +59,12 @@ async function callAzureChat(args: {
         return collector.finish(finish);
       }
       const frame = parseFrame(data);
-      if (frame.error || !Array.isArray(frame.choices) || frame.choices.some((item: unknown) => !item || typeof item !== "object")) throw new GenerationError("INVALID_STREAM", false);
+      if (
+        frame.error ||
+        !Array.isArray(frame.choices) ||
+        frame.choices.some((item: unknown) => !item || typeof item !== "object")
+      )
+        throw new GenerationError("INVALID_STREAM", false);
       const choice = frame.choices.find((item: any) => item.index === 0);
       if (!choice) continue; // Usage and prompt-filter frames contain no answer.
       if (choice.delta?.content != null) {
@@ -64,12 +74,15 @@ async function callAzureChat(args: {
       if (choice.finish_reason != null) finish = choice.finish_reason;
     }
     throw new GenerationError("INVALID_STREAM", false);
-
   });
 }
 
 /** Legacy current-prompt-only shape, used only when no ConversationContext is supplied. */
-function legacyFastMessages(input: { message: UserMessage; correctedText: string; routeDecision: string }): AzureChatMessage[] {
+function legacyFastMessages(input: {
+  message: UserMessage;
+  correctedText: string;
+  routeDecision: string;
+}): AzureChatMessage[] {
   const prompt = [
     "You are the fast-response layer in a dual-path chatbot.",
     `Route: ${input.routeDecision}`,
@@ -102,7 +115,9 @@ function contextDeepMessages(context: ConversationContext): AzureChatMessage[] {
 }
 
 export class AzureFastProvider implements FastModelProvider {
-  get metadata() { return { provider: "azure", model: this.deployment }; }
+  get metadata() {
+    return { provider: "azure", model: this.deployment };
+  }
   constructor(
     private readonly endpoint: string,
     private readonly apiKey: string,
@@ -113,12 +128,15 @@ export class AzureFastProvider implements FastModelProvider {
     private readonly maxOutputTokens?: number
   ) {}
 
-  async createProvisionalReply(input: {
-    message: UserMessage;
-    correctedText: string;
-    routeDecision: "direct" | "deep" | "clarify";
-    context?: ConversationContext;
-  }, control?: GenerationControl): Promise<GenerationResult> {
+  async createProvisionalReply(
+    input: {
+      message: UserMessage;
+      correctedText: string;
+      routeDecision: "direct" | "deep" | "clarify";
+      context?: ConversationContext;
+    },
+    control?: GenerationControl
+  ): Promise<GenerationResult> {
     const messages = input.context ? contextFastMessages(input.context) : legacyFastMessages(input);
 
     return callAzureChat({
@@ -136,7 +154,9 @@ export class AzureFastProvider implements FastModelProvider {
 }
 
 export class AzureDeepProvider implements DeepModelProvider {
-  get metadata() { return { provider: "azure", model: this.deployment }; }
+  get metadata() {
+    return { provider: "azure", model: this.deployment };
+  }
   constructor(
     private readonly endpoint: string,
     private readonly apiKey: string,
@@ -149,7 +169,9 @@ export class AzureDeepProvider implements DeepModelProvider {
 
   async resolveDeepTask(input: DeepTask, control?: GenerationControl): Promise<DeepResult> {
     const start = Date.now();
-    const messages = input.context ? contextDeepMessages(input.context) : legacyDeepMessages(input.normalizedPrompt);
+    const messages = input.context
+      ? contextDeepMessages(input.context)
+      : legacyDeepMessages(input.normalizedPrompt);
 
     const result = await callAzureChat({
       endpoint: this.endpoint,

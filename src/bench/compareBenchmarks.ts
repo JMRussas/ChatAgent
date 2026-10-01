@@ -1,12 +1,25 @@
 import "../config/loadEnv";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { compareBenchmarkFiles, normalizeThresholds, renderCompareMarkdown, type BenchmarkSummaryFile } from "./compareCore";
+import {
+  compareBenchmarkFiles,
+  normalizeThresholds,
+  renderCompareMarkdown,
+  type BenchmarkSummaryFile
+} from "./compareCore";
 
 async function readSummary(path: string): Promise<BenchmarkSummaryFile> {
   const raw = await readFile(path, "utf8");
   const value = JSON.parse(raw);
-  if (["chatagent-live-benchmark-v1", "chatagent-live-benchmark-v2", "chatagent-linked-benchmark-v1"].includes(value.schemaVersion)) {
-    throw new Error("Live observation reports are not comparison eligible: configuration compatibility and quality evidence are required.");
+  if (
+    [
+      "chatagent-live-benchmark-v1",
+      "chatagent-live-benchmark-v2",
+      "chatagent-linked-benchmark-v1"
+    ].includes(value.schemaVersion)
+  ) {
+    throw new Error(
+      "Live observation reports are not comparison eligible: configuration compatibility and quality evidence are required."
+    );
   }
   return value as BenchmarkSummaryFile;
 }
@@ -25,7 +38,10 @@ async function main() {
   const candidatePath = process.env.BENCH_CANDIDATE_PATH ?? "reports/benchmark-summary.json";
   const outputPath = process.env.BENCH_COMPARE_OUT ?? "reports/benchmark-compare.md";
 
-  const [baseline, candidate] = await Promise.all([readSummary(baselinePath), readSummary(candidatePath)]);
+  const [baseline, candidate] = await Promise.all([
+    readSummary(baselinePath),
+    readSummary(candidatePath)
+  ]);
 
   const report = compareBenchmarkFiles(baseline, candidate, normalizeThresholds(readThresholds()));
   const markdown = renderCompareMarkdown(report);

@@ -55,7 +55,9 @@ describe("orchestrator", () => {
 
     expect(result.fastResponse.analysis.routeDecision).toBe("clarify");
     expect(result.fastResponse.processingStatus).toBe("complete");
-    expect(result.fastResponse.provisionalReply).toContain("I can help. Can you add one more detail");
+    expect(result.fastResponse.provisionalReply).toContain(
+      "I can help. Can you add one more detail"
+    );
     expect(result.deepTask).toBeUndefined();
     expect(queue.size()).toBe(0);
   });
@@ -84,7 +86,9 @@ describe("orchestrator", () => {
 
     let capturedFastContext: ConversationContext | undefined;
     class CapturingFastProvider implements FastModelProvider {
-      async createProvisionalReply(input: { context?: ConversationContext }): Promise<GenerationResult> {
+      async createProvisionalReply(input: {
+        context?: ConversationContext;
+      }): Promise<GenerationResult> {
         capturedFastContext = input.context;
         return { text: "provisional", finishReason: "stop" };
       }
@@ -105,16 +109,32 @@ describe("orchestrator", () => {
     expect(capturedFastContext).not.toBe(task!.context);
 
     // Mutating the fast provider's copy must never affect the queued task's snapshot.
-    (capturedFastContext!.messages as unknown as unknown[]).push({ role: "user", content: "injected", messageId: "x" });
+    (capturedFastContext!.messages as unknown as unknown[]).push({
+      role: "user",
+      content: "injected",
+      messageId: "x"
+    });
     expect(task!.context!.messages).not.toEqual(capturedFastContext!.messages);
   });
 
   it("rejects an oversized turn before appending events or enqueuing work (413 CONTEXT_TOO_LARGE)", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
-    const tinyBudget = { windowTokens: 10, maxHistoryTurns: 12, safetyTokens: 0, fastOutputTokens: 1, deepOutputTokens: 1 };
+    const tinyBudget = {
+      windowTokens: 10,
+      maxHistoryTurns: 12,
+      safetyTokens: 0,
+      fastOutputTokens: 1,
+      deepOutputTokens: 1
+    };
     const contextManager = new ContextManager(timeline, tinyBudget);
-    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline, undefined, contextManager);
+    const orchestrator = new ChatOrchestrator(
+      new MockFastProvider(),
+      queue,
+      timeline,
+      undefined,
+      contextManager
+    );
 
     await expect(
       orchestrator.handleUserMessage({

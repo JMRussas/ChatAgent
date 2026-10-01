@@ -9,7 +9,10 @@ interface RuntimeModeInfo {
   deepModel?: string;
 }
 
-export function renderHomePageHtml(runtimeMode: RuntimeModeInfo = { mode: "unknown" }, documentTasks = false): string {
+export function renderHomePageHtml(
+  runtimeMode: RuntimeModeInfo = { mode: "unknown" },
+  documentTasks = false
+): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
   return `<!doctype html>

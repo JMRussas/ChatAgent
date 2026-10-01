@@ -7,15 +7,18 @@ export interface FastModelProvider {
   thinkingOptions?(control?: GenerationControl): Promise<("on" | "off")[]>;
   withThinking?(value: "on" | "off", control?: GenerationControl): Promise<FastModelProvider>;
   metadata?: GenerationMetadata;
-  createProvisionalReply(input: {
-    message: UserMessage;
-    correctedText: string;
-    routeDecision: "direct" | "deep" | "clarify";
-    // Optional so direct/legacy callers (existing adapter unit tests) keep
-    // using each adapter's current-prompt-only fallback; every orchestrated
-    // call carries one (spec 01).
-    context?: ConversationContext;
-  }, control?: GenerationControl): Promise<GenerationResult>;
+  createProvisionalReply(
+    input: {
+      message: UserMessage;
+      correctedText: string;
+      routeDecision: "direct" | "deep" | "clarify";
+      // Optional so direct/legacy callers (existing adapter unit tests) keep
+      // using each adapter's current-prompt-only fallback; every orchestrated
+      // call carries one (spec 01).
+      context?: ConversationContext;
+    },
+    control?: GenerationControl
+  ): Promise<GenerationResult>;
 }
 
 export interface DeepModelProvider {
@@ -47,6 +50,10 @@ export class InMemoryTaskQueue implements TaskQueue {
 /** The current chat input is text-only. Reject action/input payloads explicitly
  * rather than silently stripping them and implying the action was performed. */
 export function rejectUnsupportedInputs(input: unknown): void {
-  if (input && typeof input === "object" && ["images", "attachments", "tools", "actions"].some(key => key in input))
+  if (
+    input &&
+    typeof input === "object" &&
+    ["images", "attachments", "tools", "actions"].some((key) => key in input)
+  )
     throw new GenerationError("CAPABILITY_UNSUPPORTED", false);
 }

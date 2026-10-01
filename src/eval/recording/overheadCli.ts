@@ -9,7 +9,19 @@ try {
   if (execution !== "timeline" && execution !== "http") throw new Error("Invalid execution");
   if (capture !== "metadata" && capture !== "answers") throw new Error("Invalid capture");
   await mkdir(dirname(output), { recursive: true });
-  const report = await measureRecorderOverhead({ root: dirname(output), pairs: 20, warmupPairs: 2, turns: 20, capture, execution }, await codeIdentity());
+  const report = await measureRecorderOverhead(
+    { root: dirname(output), pairs: 20, warmupPairs: 2, turns: 20, capture, execution },
+    await codeIdentity()
+  );
   await writeFile(output, JSON.stringify(report, null, 2), { flag: "wx" });
-  console.log(JSON.stringify({ output, mode: report.mode, pairs: report.pairs.length, summary: report.summary }, null, 2));
-} catch { console.error("EVAL_OVERHEAD_FAILED"); process.exitCode = 1; }
+  console.log(
+    JSON.stringify(
+      { output, mode: report.mode, pairs: report.pairs.length, summary: report.summary },
+      null,
+      2
+    )
+  );
+} catch {
+  console.error("EVAL_OVERHEAD_FAILED");
+  process.exitCode = 1;
+}

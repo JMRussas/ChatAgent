@@ -1,5 +1,9 @@
 /** Maps over items with at most `limit` concurrent in-flight calls to `fn`. */
-export async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
   const results: R[] = new Array(items.length);
   const queue = items.map((item, index) => ({ item, index }));
   const workerCount = Math.max(1, Math.min(limit, queue.length || 1));

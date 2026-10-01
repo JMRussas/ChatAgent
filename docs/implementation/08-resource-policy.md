@@ -11,13 +11,13 @@ billing. Implement metadata in 03, admission/selection in 04, CLI enforcement in
 
 ## Independent facts per binding
 
-| Dimension | Required meaning |
-|---|---|
-| Transport | Adapter/API kind, connectionId, model binding and revision; how a request is sent. |
+| Dimension | Required meaning                                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Transport | Adapter/API kind, connectionId, model binding and revision; how a request is sent.                                                                                 |
 | Execution | local-device, self-hosted-remote, managed-cloud, hybrid, or unknown; where inference actually occurs. Record processing scope/region separately, possibly unknown. |
-| Billing | Components such as metered usage, subscription, provisioned capacity, owned compute or unknown; combinations are allowed. |
-| Quota | Account/pool identity, unit, observed allowance/usage/reset and freshness; unavailable values stay unknown. |
-| Compute | Resource pool, concurrency, memory capacity and measured load where observable; include owned or rented GPUs. |
+| Billing   | Components such as metered usage, subscription, provisioned capacity, owned compute or unknown; combinations are allowed.                                          |
+| Quota     | Account/pool identity, unit, observed allowance/usage/reset and freshness; unavailable values stay unknown.                                                        |
+| Compute   | Resource pool, concurrency, memory capacity and measured load where observable; include owned or rented GPUs.                                                      |
 
 Execution and billing evidence carry source, observed/configured time, and expiry
 when observational. Apply evidence per binding: models behind the same localhost
@@ -93,16 +93,16 @@ required for offline acceptance.
 
 ## Required contract fixtures and traceability
 
-| ID | Fixture and expected outcome |
-|---|---|
-| RES-01 | Two Ollama bindings on localhost: verified local weights and cloud-backed model. Local-only admits the former and excludes the latter; unknown execution also fails. |
-| RES-02 | CLI subscription has included capacity but exhausted/unknown quota. No invented free/unlimited access; apply the configured quota policy and no hidden API fallback. |
+| ID     | Fixture and expected outcome                                                                                                                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RES-01 | Two Ollama bindings on localhost: verified local weights and cloud-backed model. Local-only admits the former and excludes the latter; unknown execution also fails.          |
+| RES-02 | CLI subscription has included capacity but exhausted/unknown quota. No invented free/unlimited access; apply the configured quota policy and no hidden API fallback.          |
 | RES-03 | Remote self-hosted GPU and provisioned cloud binding. Preserve compute/fixed costs separately from incremental inference charges; neither implies local or per-token billing. |
-| RES-04 | Missing/stale price versus verified zero incremental cost. Different admission outcomes under strict monetary policy; zero is never the default for unknown. |
-| RES-05 | Concurrent fast/deep turns share a nearly exhausted pool. Atomic reservation prevents both spending the same remaining budget; retries/summary jobs use that pool too. |
-| RES-06 | Cancellation after provider acceptance with missing usage. Reservation remains unsettled; no false zero charge or immediate restoration of allowance. |
-| RES-07 | Quota exhaustion with paid fallback forbidden. No fallback call; emit truthful bounded-wait or terminal status. |
-| RES-08 | Public metadata and per-turn UI distinguish execution/billing/unknowns without leaking account secrets; legacy catalog migration infers neither locality nor zero cost. |
+| RES-04 | Missing/stale price versus verified zero incremental cost. Different admission outcomes under strict monetary policy; zero is never the default for unknown.                  |
+| RES-05 | Concurrent fast/deep turns share a nearly exhausted pool. Atomic reservation prevents both spending the same remaining budget; retries/summary jobs use that pool too.        |
+| RES-06 | Cancellation after provider acceptance with missing usage. Reservation remains unsettled; no false zero charge or immediate restoration of allowance.                         |
+| RES-07 | Quota exhaustion with paid fallback forbidden. No fallback call; emit truthful bounded-wait or terminal status.                                                               |
+| RES-08 | Public metadata and per-turn UI distinguish execution/billing/unknowns without leaking account secrets; legacy catalog migration infers neither locality nor zero cost.       |
 
 Each implementing milestone maps its applicable IDs to named tests and results.
 Outstanding cases remain explicitly open; document live evidence separately from

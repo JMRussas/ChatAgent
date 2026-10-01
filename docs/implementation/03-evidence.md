@@ -9,7 +9,7 @@ enforcement described in 08-resource-policy.md (RES-02/05/06/07, 04+) remain sep
 ## Contracts and behavior
 
 - `src/models/connections.ts`: a `Connection` names one addressable way to reach a
-  provider (`apiKind`, optional `baseUrl`/`region`, a credential *reference* --
+  provider (`apiKind`, optional `baseUrl`/`region`, a credential _reference_ --
   an env var name, never a value) plus declared `resourceFacts` (execution scope,
   billing components), `quota`, and `compute` facts. These are always declared
   policy facts from explicit env vars (`<PROVIDER>_EXECUTION_SCOPE`,
@@ -53,7 +53,7 @@ Protocol facts checked 2026-09-29, against installed versions/current official d
   metadata, with context length under `model_info["<family>.context_length"]`
   (not a fixed key -- varies by architecture, e.g. `llama.context_length`).
 - [Ollama cloud docs](https://github.com/ollama/ollama/blob/main/docs/cloud.mdx):
-  the *only* documented signal distinguishing a cloud-backed model in local
+  the _only_ documented signal distinguishing a cloud-backed model in local
   listings is the `:cloud` name suffix convention -- there is no separate API
   field. This is why execution scope is a **declared connection fact**, not
   something the Ollama discovery adapter infers from a model name.
@@ -69,7 +69,7 @@ Protocol facts checked 2026-09-29, against installed versions/current official d
   `ListFoundationModelsResponse.modelSummaries: FoundationModelSummary[]`, with
   `modelId`, `modelName?`, `providerName?`, `inferenceTypesSupported?`, and
   `modelLifecycle?.status` (`ACTIVE` | `LEGACY`). This is the Bedrock
-  *control-plane* client, distinct from `@aws-sdk/client-bedrock-runtime`
+  _control-plane_ client, distinct from `@aws-sdk/client-bedrock-runtime`
   (already a dependency, used for actual inference).
 
 No live cloud discovery was run (no Azure ARM or AWS credentials configured in
@@ -79,20 +79,20 @@ faked. All three adapters have fixture-based unit tests using mocked
 
 ## Acceptance mapping
 
-| Spec 03 requirement | Test file and test names |
-|---|---|
-| Unit fixtures for all three discovery adapters, no real cloud calls | `discovery/ollamaDiscovery.test.ts`, `discovery/azureDiscovery.test.ts`, `discovery/bedrockDiscovery.test.ts` (all `fetch`/SDK-mocked) |
-| Two endpoints offering the same model produce separate bindings | `connections.test.ts`: `produces a distinct binding key per connection/apiKind/model combination`; `modelCatalog.test.ts`: `two connections offering the same model produce separate bindings` |
-| V1 catalog migration preserves selections, emits valid v2 in memory, never rewrites the file | `modelCatalog.test.ts`: `v1 -> v2: derives a stable connectionId/apiKind per entry without rewriting the catalog file (RES-08)` |
-| Partial provider failure leaves other connections usable; timeout obeys AbortSignal | `inventory.test.ts`: `a partial provider failure leaves other connections usable`, `obeys the discovery timeout via AbortSignal` |
-| Fake clock expiration makes ready become stale; a failed refresh cannot renew it | `inventory.test.ts`: `fake-clock expiration makes a ready binding become stale, and a failed refresh cannot renew it`, `a failed refresh retains the prior observation without extending its expiration` |
-| Listed-but-unauthorized models are not ready; disappeared models become unavailable | `inventory.test.ts`: readiness-precedence suite (`unavailable when health is unreachable or access is merely unknown`), `a full successful listing marks a previously-seen, now-disappeared binding unavailable` |
-| Discovery never overwrites preferences/enables new models; public JSON has no credentials | `modelCatalog.test.ts`: `lists a discovered-but-uncurated model separately, always disabled, never auto-curated`, `reports active and unlisted models without exposing provider credentials or claiming health`; `connections.test.ts`: `references credentials by name only, never by value` |
-| GET /models integration test: fresh ready local fixture + stale cloud fixture | `tests/integration/server.test.ts`: `serves fresh-ready local and stale cloud fixtures with distinct availability over GET /models (spec 03)` |
-| RES-01: two Ollama bindings, verified local vs. cloud-backed, no locality/URL inference | `connections.test.ts`: `never infers execution scope or billing from a localhost URL or provider name (RES-08)`, `supports two bindings on localhost with different declared execution (RES-01 data-model requirement)` |
-| RES-03: remote self-hosted GPU + owned/rented compute kept separate from incremental billing | `connections.test.ts`: `represents owned/rented compute separately from incremental billing components (RES-03)`; `modelCatalog.test.ts`: `surfaces declared execution/billing/compute facts from the connection, never inferred (RES-01/03)` |
-| RES-04: missing/stale price vs. verified zero cost are different states, zero never a default | `modelCatalog.test.ts`: `never coerces a missing price into zero, and distinguishes it from a verified zero-cost entry (RES-04)` |
-| RES-08: public metadata distinguishes execution/billing/unknowns without leaking secrets; migration infers neither locality nor zero cost | `connections.test.ts`, `modelCatalog.test.ts` (RES-08-tagged cases above) |
+| Spec 03 requirement                                                                                                                       | Test file and test names                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit fixtures for all three discovery adapters, no real cloud calls                                                                       | `discovery/ollamaDiscovery.test.ts`, `discovery/azureDiscovery.test.ts`, `discovery/bedrockDiscovery.test.ts` (all `fetch`/SDK-mocked)                                                                                                                                                        |
+| Two endpoints offering the same model produce separate bindings                                                                           | `connections.test.ts`: `produces a distinct binding key per connection/apiKind/model combination`; `modelCatalog.test.ts`: `two connections offering the same model produce separate bindings`                                                                                                |
+| V1 catalog migration preserves selections, emits valid v2 in memory, never rewrites the file                                              | `modelCatalog.test.ts`: `v1 -> v2: derives a stable connectionId/apiKind per entry without rewriting the catalog file (RES-08)`                                                                                                                                                               |
+| Partial provider failure leaves other connections usable; timeout obeys AbortSignal                                                       | `inventory.test.ts`: `a partial provider failure leaves other connections usable`, `obeys the discovery timeout via AbortSignal`                                                                                                                                                              |
+| Fake clock expiration makes ready become stale; a failed refresh cannot renew it                                                          | `inventory.test.ts`: `fake-clock expiration makes a ready binding become stale, and a failed refresh cannot renew it`, `a failed refresh retains the prior observation without extending its expiration`                                                                                      |
+| Listed-but-unauthorized models are not ready; disappeared models become unavailable                                                       | `inventory.test.ts`: readiness-precedence suite (`unavailable when health is unreachable or access is merely unknown`), `a full successful listing marks a previously-seen, now-disappeared binding unavailable`                                                                              |
+| Discovery never overwrites preferences/enables new models; public JSON has no credentials                                                 | `modelCatalog.test.ts`: `lists a discovered-but-uncurated model separately, always disabled, never auto-curated`, `reports active and unlisted models without exposing provider credentials or claiming health`; `connections.test.ts`: `references credentials by name only, never by value` |
+| GET /models integration test: fresh ready local fixture + stale cloud fixture                                                             | `tests/integration/server.test.ts`: `serves fresh-ready local and stale cloud fixtures with distinct availability over GET /models (spec 03)`                                                                                                                                                 |
+| RES-01: two Ollama bindings, verified local vs. cloud-backed, no locality/URL inference                                                   | `connections.test.ts`: `never infers execution scope or billing from a localhost URL or provider name (RES-08)`, `supports two bindings on localhost with different declared execution (RES-01 data-model requirement)`                                                                       |
+| RES-03: remote self-hosted GPU + owned/rented compute kept separate from incremental billing                                              | `connections.test.ts`: `represents owned/rented compute separately from incremental billing components (RES-03)`; `modelCatalog.test.ts`: `surfaces declared execution/billing/compute facts from the connection, never inferred (RES-01/03)`                                                 |
+| RES-04: missing/stale price vs. verified zero cost are different states, zero never a default                                             | `modelCatalog.test.ts`: `never coerces a missing price into zero, and distinguishes it from a verified zero-cost entry (RES-04)`                                                                                                                                                              |
+| RES-08: public metadata distinguishes execution/billing/unknowns without leaking secrets; migration infers neither locality nor zero cost | `connections.test.ts`, `modelCatalog.test.ts` (RES-08-tagged cases above)                                                                                                                                                                                                                     |
 
 Readiness precedence itself (`disabled` > `unsupported-adapter` > `unchecked` >
 `stale` > `denied` > `unavailable` > `ready`) is exhaustively covered by

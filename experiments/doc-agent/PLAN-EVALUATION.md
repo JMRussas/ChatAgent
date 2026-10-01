@@ -21,6 +21,7 @@ The same per-call input and output caps apply; actual token use is measured, not
 forced equal. Plan generation adds a small document-index-only request.
 
 Evaluation:
+
 - Structural: completed, expected answer status, required source cited.
 - Manual answer review against pinned passages: factual support, coverage of all
   requested parts, distinction between proposal and implementation, uncertainty

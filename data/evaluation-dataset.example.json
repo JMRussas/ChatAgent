@@ -2,6 +2,9 @@
   "version": "example-v1",
   "prompts": [
     { "id": "arithmetic", "text": "What is 2 + 2?" },
-    { "id": "tradeoffs", "text": "Compare and design code for a complex distributed system with detailed tradeoffs" }
+    {
+      "id": "tradeoffs",
+      "text": "Compare and design code for a complex distributed system with detailed tradeoffs"
+    }
   ]
 }

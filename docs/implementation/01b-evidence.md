@@ -69,20 +69,20 @@ Full worker/provider draining remains spec 06, not a claim made by this hook.
 
 `tests/unit/contextMemory.test.ts` covers:
 
-| Requirement | Executed offline coverage |
-|---|---|
-| Under threshold / off | Exact history, zero jobs/calls, unchanged timeline |
-| Background threshold | Turn-count and ratio triggers; current response returns before deferred jobs; newest four remain exact |
-| No implicit inference calls | Extractive port makes zero calls; model mode requires explicit injection/binding; independent request budgets |
-| Immutable sources | Timeline deep-copy isolation, original lookup, source-copy isolation, scope/hash limits |
-| Invalid results | Missing/cross-conversation/wrong-hash refs, fabricated tool provenance, malformed/oversized output |
-| Timeout / revision races | Fake timer deadline, retained prior memory, deferred out-of-order completions, CAS rejection and coalescing |
-| Refinement / correction | Future memory invalidation; already queued deep context survives fast-provider mutation and later updates |
-| Provenance / conflicts | User/assistant distinction, disputed competing directives/constraints, unsupported supersedes rejection |
-| Verification requests | Bounded exact excerpts, explicit oversized/missing sources, no duplicate current text |
-| Pending work | Request and running state retained; unfinished answer and activity prose absent from provider history |
-| Data/budget boundary | Instruction-like delimiter text remains quoted data; tight/Unicode budgets, no overlapping exact-memory sources |
-| Shutdown | Pending jobs cancelled/settled before the server close callback |
+| Requirement                 | Executed offline coverage                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Under threshold / off       | Exact history, zero jobs/calls, unchanged timeline                                                              |
+| Background threshold        | Turn-count and ratio triggers; current response returns before deferred jobs; newest four remain exact          |
+| No implicit inference calls | Extractive port makes zero calls; model mode requires explicit injection/binding; independent request budgets   |
+| Immutable sources           | Timeline deep-copy isolation, original lookup, source-copy isolation, scope/hash limits                         |
+| Invalid results             | Missing/cross-conversation/wrong-hash refs, fabricated tool provenance, malformed/oversized output              |
+| Timeout / revision races    | Fake timer deadline, retained prior memory, deferred out-of-order completions, CAS rejection and coalescing     |
+| Refinement / correction     | Future memory invalidation; already queued deep context survives fast-provider mutation and later updates       |
+| Provenance / conflicts      | User/assistant distinction, disputed competing directives/constraints, unsupported supersedes rejection         |
+| Verification requests       | Bounded exact excerpts, explicit oversized/missing sources, no duplicate current text                           |
+| Pending work                | Request and running state retained; unfinished answer and activity prose absent from provider history           |
+| Data/budget boundary        | Instruction-like delimiter text remains quoted data; tight/Unicode budgets, no overlapping exact-memory sources |
+| Shutdown                    | Pending jobs cancelled/settled before the server close callback                                                 |
 
 The existing provider mapping, context ownership, generation and HTTP regressions
 also run in the common release gate. Final validation: **239 tests / 40 files passed**, TypeScript checking and build

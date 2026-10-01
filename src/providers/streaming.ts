@@ -1,14 +1,34 @@
-import { GenerationError, normalizeGenerationError, type GenerationControl, type GenerationResult } from "../domain/generation";
+import {
+  GenerationError,
+  normalizeGenerationError,
+  type GenerationControl,
+  type GenerationResult
+} from "../domain/generation";
 export const MAX_ANSWER_BYTES = 1024 * 1024;
 const MAX_FRAME_BYTES = 1024 * 1024;
 
 /** Deadline covers headers and body; abort also releases a stalled reader. */
-export async function withGenerationDeadline<T>(label: string, timeoutMs: number, control: GenerationControl | undefined, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+export async function withGenerationDeadline<T>(
+  label: string,
+  timeoutMs: number,
+  control: GenerationControl | undefined,
+  operation: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
   const controller = new AbortController();
   const cancel = () => controller.abort(new GenerationError("CANCELLED", false));
   if (control?.signal.aborted) cancel();
   else control?.signal.addEventListener("abort", cancel, { once: true });
-  const timer = setTimeout(() => controller.abort(new GenerationError("PROVIDER_TIMEOUT", true, `${label} request timed out after ${timeoutMs}ms`)), timeoutMs);
+  const timer = setTimeout(
+    () =>
+      controller.abort(
+        new GenerationError(
+          "PROVIDER_TIMEOUT",
+          true,
+          `${label} request timed out after ${timeoutMs}ms`
+        )
+      ),
+    timeoutMs
+  );
   try {
     controller.signal.throwIfAborted();
     return await operation(controller.signal);
@@ -22,10 +42,15 @@ export async function withGenerationDeadline<T>(label: string, timeoutMs: number
   }
 }
 
-export async function* streamLines(response: Response, signal: AbortSignal): AsyncGenerator<string> {
+export async function* streamLines(
+  response: Response,
+  signal: AbortSignal
+): AsyncGenerator<string> {
   if (!response.body) throw new GenerationError("INVALID_STREAM", false);
   const reader = response.body.getReader();
-  const cancel = () => { void reader.cancel().catch(() => undefined); };
+  const cancel = () => {
+    void reader.cancel().catch(() => undefined);
+  };
   signal.addEventListener("abort", cancel, { once: true });
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let buffer = "";
@@ -34,16 +59,21 @@ export async function* streamLines(response: Response, signal: AbortSignal): Asy
       signal.throwIfAborted();
       const { done, value } = await reader.read();
       signal.throwIfAborted();
-      try { buffer += decoder.decode(value, { stream: !done }); }
-      catch { throw new GenerationError("INVALID_STREAM", false); }
+      try {
+        buffer += decoder.decode(value, { stream: !done });
+      } catch {
+        throw new GenerationError("INVALID_STREAM", false);
+      }
       let newline: number;
       while ((newline = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, newline).replace(/\r$/, "");
         buffer = buffer.slice(newline + 1);
-        if (Buffer.byteLength(line) > MAX_FRAME_BYTES) throw new GenerationError("STREAM_TOO_LARGE", false);
+        if (Buffer.byteLength(line) > MAX_FRAME_BYTES)
+          throw new GenerationError("STREAM_TOO_LARGE", false);
         yield line;
       }
-      if (Buffer.byteLength(buffer) > MAX_FRAME_BYTES) throw new GenerationError("STREAM_TOO_LARGE", false);
+      if (Buffer.byteLength(buffer) > MAX_FRAME_BYTES)
+        throw new GenerationError("STREAM_TOO_LARGE", false);
       if (done) break;
     }
     if (buffer) yield buffer.replace(/\r$/, "");
@@ -58,7 +88,9 @@ export function parseFrame(text: string): any {
     const value = JSON.parse(text);
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
     return value;
-  } catch { throw new GenerationError("INVALID_STREAM", false); }
+  } catch {
+    throw new GenerationError("INVALID_STREAM", false);
+  }
 }
 export async function* sseData(response: Response, signal: AbortSignal): AsyncGenerator<string> {
   let data: string[] = [];
@@ -66,7 +98,8 @@ export async function* sseData(response: Response, signal: AbortSignal): AsyncGe
   for await (const line of streamLines(response, signal)) {
     if (line === "") {
       if (data.length) yield data.join("\n");
-      data = []; bytes = 0;
+      data = [];
+      bytes = 0;
     } else if (line.startsWith("data:")) {
       const part = line.slice(5).replace(/^ /, "");
       bytes += Buffer.byteLength(part) + 1;
@@ -90,8 +123,10 @@ export class AnswerCollector {
     await this.control?.onDelta(text);
   }
   finish(reason: unknown): GenerationResult {
-    if (reason === "length" || reason === "max_tokens") return { text: this.text, finishReason: "length" };
-    if (!["stop", "end_turn", "stop_sequence"].includes(String(reason))) throw new GenerationError("UNSUPPORTED_FINISH", false);
+    if (reason === "length" || reason === "max_tokens")
+      return { text: this.text, finishReason: "length" };
+    if (!["stop", "end_turn", "stop_sequence"].includes(String(reason)))
+      throw new GenerationError("UNSUPPORTED_FINISH", false);
     if (!this.text.trim()) throw new GenerationError("EMPTY_RESPONSE", false);
     return { text: this.text, finishReason: "stop" };
   }

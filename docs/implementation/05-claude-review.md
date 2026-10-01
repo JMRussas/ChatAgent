@@ -19,7 +19,6 @@ cancellation and timeout were rerun; each observed three processes and zero
 survivors. No account settings changed. Next remains spec 06 verification and
 evaluation mode.
 
-
 ## 2026-09-30: Claude live acceptance complete
 
 Claude 2.1.285 through the local Hekate bridge passed catalog selection and a live
@@ -62,7 +61,6 @@ fixtures that assumed the first catalog entry was mock and isolated startup test
 from local routing configuration.
 
 Next: **spec 06 lifecycle/verification and evaluation mode**, then the sports demo.
-
 
 ## 2026-09-29 correction: account setting stays enabled
 

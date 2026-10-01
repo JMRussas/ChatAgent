@@ -1,83 +1,90 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChatAgent Class Map</title>
-<style>
-  :root{
-    --bg:#F5F6F4; --surface:#FFFFFF; --ink:#1B1E23; --muted:#63696F;
-    --line:#C7CBC5; --port:#1F5C86; --adapter:#3F6F52; --risk:#A34A2A;
-    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,'SF Mono',monospace;
-    color-scheme:light;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --bg:#14171A; --surface:#1C2024; --ink:#E7E9EA; --muted:#9AA0A6;
-      --line:#33383D; --port:#6FB3E0; --adapter:#7FBF9B; --risk:#E08A63;
-      color-scheme:dark;
-    }
-  }
-  :root[data-theme="dark"]{
-    --bg:#14171A; --surface:#1C2024; --ink:#E7E9EA; --muted:#9AA0A6;
-    --line:#33383D; --port:#6FB3E0; --adapter:#7FBF9B; --risk:#E08A63;
-    color-scheme:dark;
-  }
-  body{ background:var(--bg); color:var(--ink); font-family:var(--sans); margin:0; padding-inline:16px; }
-  .wrap{ max-width:1400px; margin:0 auto; padding-block:40px 64px; }
-  h1{ font-size:26px; font-weight:600; letter-spacing:-0.01em; margin:0 0 6px; }
-  h2{ font-size:18px; font-weight:600; margin:40px 0 6px; }
-  .kicker{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--port); margin:0 0 14px; }
-  .lede,.note{ font-size:15px; line-height:1.6; color:var(--muted); max-width:72ch; margin:0 0 8px; }
-  .lede strong,.note strong{ color:var(--ink); font-weight:600; }
-  code{ font-family:var(--mono); font-size:.92em; }
-  .figwrap{ margin-top:14px; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
-  .scrollbox{ overflow-x:auto; padding:16px; }
-  .scrollbox svg{ display:block; max-width:none; }
-  figcaption{ padding:14px 20px 18px; font-size:12.5px; line-height:1.6; color:var(--muted); border-top:1px solid var(--line); }
-  figcaption b{ color:var(--ink); font-weight:600; }
-  .toc{ font-size:14px; line-height:1.8; color:var(--muted); margin:0 0 8px; padding-left:20px; }
-  .toc a{ color:var(--port); text-decoration:none; }
-  .risk{ color:var(--risk); }
-  pre.mermaid{ font-family:var(--mono); font-size:12px; color:var(--muted); white-space:pre; }
-</style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatAgent Class Map</title>
+    <style>
+      :root{
+        --bg:#F5F6F4; --surface:#FFFFFF; --ink:#1B1E23; --muted:#63696F;
+        --line:#C7CBC5; --port:#1F5C86; --adapter:#3F6F52; --risk:#A34A2A;
+        --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,'SF Mono',monospace;
+        color-scheme:light;
+      }
+      @media (prefers-color-scheme: dark){
+        :root:not([data-theme="light"]){
+          --bg:#14171A; --surface:#1C2024; --ink:#E7E9EA; --muted:#9AA0A6;
+          --line:#33383D; --port:#6FB3E0; --adapter:#7FBF9B; --risk:#E08A63;
+          color-scheme:dark;
+        }
+      }
+      :root[data-theme="dark"]{
+        --bg:#14171A; --surface:#1C2024; --ink:#E7E9EA; --muted:#9AA0A6;
+        --line:#33383D; --port:#6FB3E0; --adapter:#7FBF9B; --risk:#E08A63;
+        color-scheme:dark;
+      }
+      body{ background:var(--bg); color:var(--ink); font-family:var(--sans); margin:0; padding-inline:16px; }
+      .wrap{ max-width:1400px; margin:0 auto; padding-block:40px 64px; }
+      h1{ font-size:26px; font-weight:600; letter-spacing:-0.01em; margin:0 0 6px; }
+      h2{ font-size:18px; font-weight:600; margin:40px 0 6px; }
+      .kicker{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--port); margin:0 0 14px; }
+      .lede,.note{ font-size:15px; line-height:1.6; color:var(--muted); max-width:72ch; margin:0 0 8px; }
+      .lede strong,.note strong{ color:var(--ink); font-weight:600; }
+      code{ font-family:var(--mono); font-size:.92em; }
+      .figwrap{ margin-top:14px; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+      .scrollbox{ overflow-x:auto; padding:16px; }
+      .scrollbox svg{ display:block; max-width:none; }
+      figcaption{ padding:14px 20px 18px; font-size:12.5px; line-height:1.6; color:var(--muted); border-top:1px solid var(--line); }
+      figcaption b{ color:var(--ink); font-weight:600; }
+      .toc{ font-size:14px; line-height:1.8; color:var(--muted); margin:0 0 8px; padding-left:20px; }
+      .toc a{ color:var(--port); text-decoration:none; }
+      .risk{ color:var(--risk); }
+      pre.mermaid{ font-family:var(--mono); font-size:12px; color:var(--muted); white-space:pre; }
+    </style>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap"
+    />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="kicker">
+        Architecture reference · chatruntime · updated 2026-10-01 at commit 968e47d plus the
+        uncommitted retention changes in the working tree
+      </p>
+      <h1>ChatAgent Class Map</h1>
+      <p class="lede">
+        The application layer still depends on <strong>interfaces, never on a vendor</strong>, but
+        the 2026-09-25 picture of three classes and six ports is out of date. The runtime now has
+        two orchestrators selected at startup, a generation lifecycle registry, a context manager
+        with background summarization, an optional catalog dispatch path with discovery and
+        admission, a CLI bridge to Claude, an optional Python sidecar, and a sports evidence
+        subsystem exposed to the model as capability tools. Each diagram below is Mermaid source, so
+        it can be edited as text and diffed. Line and file references were verified against the code
+        on the date above.
+      </p>
+      <ol class="toc">
+        <li><a href="#root">Composition root</a></li>
+        <li><a href="#app">Application layer</a></li>
+        <li><a href="#lifecycle">Generation attempt lifecycle</a></li>
+        <li><a href="#ports">Model and storage ports</a></li>
+        <li><a href="#dispatch">Catalog dispatch, discovery and the CLI bridge</a></li>
+        <li><a href="#sports">Sports evidence and capability tools</a></li>
+        <li><a href="#sidecar">Python documentation sidecar</a></li>
+        <li><a href="#domain">Domain data</a></li>
+      </ol>
 
-<div class="wrap">
-  <p class="kicker">Architecture reference · chatruntime · updated 2026-10-01 at commit 968e47d plus the uncommitted retention changes in the working tree</p>
-  <h1>ChatAgent Class Map</h1>
-  <p class="lede">
-    The application layer still depends on <strong>interfaces, never on a vendor</strong>, but the
-    2026-09-25 picture of three classes and six ports is out of date. The runtime now has two
-    orchestrators selected at startup, a generation lifecycle registry, a context manager with
-    background summarization, an optional catalog dispatch path with discovery and admission, a
-    CLI bridge to Claude, an optional Python sidecar, and a sports evidence subsystem exposed to
-    the model as capability tools. Each diagram below is Mermaid source, so it can be edited as
-    text and diffed. Line and file references were verified against the code on the date above.
-  </p>
-  <ol class="toc">
-    <li><a href="#root">Composition root</a></li>
-    <li><a href="#app">Application layer</a></li>
-    <li><a href="#lifecycle">Generation attempt lifecycle</a></li>
-    <li><a href="#ports">Model and storage ports</a></li>
-    <li><a href="#dispatch">Catalog dispatch, discovery and the CLI bridge</a></li>
-    <li><a href="#sports">Sports evidence and capability tools</a></li>
-    <li><a href="#sidecar">Python documentation sidecar</a></li>
-    <li><a href="#domain">Domain data</a></li>
-  </ol>
-
-  <!-- ===================================================================== -->
-  <h2 id="root">1. Composition root — <code>src/server.ts startServer(port)</code></h2>
-  <p class="note">
-    One function constructs everything. Three environment decisions change the object graph:
-    <strong>routing mode</strong> (<code>MODEL_ROUTING_MODE=fixed|catalog</code>), whether both
-    providers are <strong>mock</strong>, and which <strong>optional sidecars</strong> are configured.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="root">1. Composition root — <code>src/server.ts startServer(port)</code></h2>
+      <p class="note">
+        One function constructs everything. Three environment decisions change the object graph:
+        <strong>routing mode</strong> (<code>MODEL_ROUTING_MODE=fixed|catalog</code>), whether both
+        providers are <strong>mock</strong>, and which <strong>optional sidecars</strong> are
+        configured.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 flowchart TB
   classDef opt stroke-dasharray: 4 3
   classDef root stroke-width:2px
@@ -126,27 +133,30 @@ flowchart TB
   HTTP --> RT[createRuntimeHandle<br/>bounded shutdown: stopBackground · drain · persist]
   RT --> TIMERS[setInterval: telemetry save · deep worker auto-run · discovery refresh]
 </pre>
-    </div>
-    <figcaption>
-      <b>Dashed nodes are optional</b> and only exist when the named environment variable is set.
-      The mock-only demo (<code>npm run dev</code> with no overrides) builds the solid path with
-      <b>ChatOrchestrator</b>; any live provider or catalog mode builds <b>CapabilityChat</b> instead
-      (<code>server.ts:629-631</code>). <b>DeepWorker</b> is shared by both. The deep worker only drains
-      the queue when <code>DEEP_WORKER_AUTO_RUN</code> is on or <code>POST /workers/deep/run-once</code> is called.
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          <b>Dashed nodes are optional</b> and only exist when the named environment variable is
+          set. The mock-only demo (<code>npm run dev</code> with no overrides) builds the solid path
+          with <b>ChatOrchestrator</b>; any live provider or catalog mode builds
+          <b>CapabilityChat</b> instead (<code>server.ts:629-631</code>). <b>DeepWorker</b> is
+          shared by both. The deep worker only drains the queue when
+          <code>DEEP_WORKER_AUTO_RUN</code> is on or <code>POST /workers/deep/run-once</code> is
+          called.
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="app">2. Application layer — <code>src/app/</code></h2>
-  <p class="note">
-    <strong>ChatService</strong> is the facade the HTTP layer talks to. It owns conversation
-    scoping and ownership claims and tracks in-flight work for shutdown. The two orchestrators
-    share one structural type (<code>handleUserMessage</code>, <code>cancel</code>) and one
-    <strong>GenerationLifecycle</strong> registry, looked up per <code>TaskQueue</code> instance.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="app">2. Application layer — <code>src/app/</code></h2>
+      <p class="note">
+        <strong>ChatService</strong> is the facade the HTTP layer talks to. It owns conversation
+        scoping and ownership claims and tracks in-flight work for shutdown. The two orchestrators
+        share one structural type (<code>handleUserMessage</code>, <code>cancel</code>) and one
+        <strong>GenerationLifecycle</strong> registry, looked up per
+        <code>TaskQueue</code> instance.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 classDiagram
   direction TB
 
@@ -293,32 +303,36 @@ classDiagram
   CatalogDispatch --> ContextManager : capture per candidate window
   CapabilityChat --> RoleCatalog : resolve run controls
 </pre>
-    </div>
-    <figcaption>
-      <b>What changed since 2026-09-25.</b> <b>CapabilityChat</b> (<code>src/app/capabilityChat.ts</code>)
-      replaced keyword routing on the live path with a model-produced, schema-validated plan over a
-      tool registry. <b>GenerationLifecycle</b> and <b>GenerationAttempt</b> own per-attempt state,
-      cancellation and streaming deltas; orchestrators still append user and configuration events directly.
-      <b>ContextManager</b> replaced the raw history pass-through.
-      <b>Retention</b> (uncommitted working tree on 2026-10-01): completed turns and dispatch phases
-      are now time- and count-bounded through <code>src/config/executionRetention.ts</code>; the
-      orchestrators hold a <code>retain()</code> pin for the duration of a request and queued deep
-      tasks pin their turn until the worker settles them. Cache expiry does not permit reuse of
-      message IDs still present in conversation history.
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          <b>What changed since 2026-09-25.</b>
+          <b>CapabilityChat</b> (<code>src/app/capabilityChat.ts</code>) replaced keyword routing on
+          the live path with a model-produced, schema-validated plan over a tool registry.
+          <b>GenerationLifecycle</b> and <b>GenerationAttempt</b> own per-attempt state,
+          cancellation and streaming deltas; orchestrators still append user and configuration
+          events directly. <b>ContextManager</b> replaced the raw history pass-through.
+          <b>Retention</b> (uncommitted working tree on 2026-10-01): completed turns and dispatch
+          phases are now time- and count-bounded through
+          <code>src/config/executionRetention.ts</code>; the orchestrators hold a
+          <code>retain()</code> pin for the duration of a request and queued deep tasks pin their
+          turn until the worker settles them. Cache expiry does not permit reuse of message IDs
+          still present in conversation history.
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="lifecycle">3. Generation attempt lifecycle — <code>src/app/generationLifecycle.ts</code></h2>
-  <p class="note">
-    Every fast or deep phase of a turn is one <strong>GenerationAttempt</strong>. A retry creates a
-    new attempt with a new <code>attemptId</code>; the old one finishes with <code>error</code> and
-    <code>retrying = true</code>. Terminal state is claimed synchronously before any await, so
-    cancellation and completion cannot both win.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="lifecycle">
+        3. Generation attempt lifecycle — <code>src/app/generationLifecycle.ts</code>
+      </h2>
+      <p class="note">
+        Every fast or deep phase of a turn is one <strong>GenerationAttempt</strong>. A retry
+        creates a new attempt with a new <code>attemptId</code>; the old one finishes with
+        <code>error</code> and <code>retrying = true</code>. Terminal state is claimed synchronously
+        before any await, so cancellation and completion cannot both win.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 stateDiagram-v2
   direction LR
   [*] --> queued : lifecycle.create()
@@ -344,25 +358,29 @@ stateDiagram-v2
     then a terminal event
   end note
 </pre>
-    </div>
-    <figcaption>
-      Timeline event types emitted along the way: <b>activity</b> (queued, running, retrying),
-      <b>delta</b>, <b>provisional</b> or <b>refined</b>, <b>terminal</b>. The UI projection
-      (<code>src/ui/turnViewModel.ts</code>) is tested to be unchanged by any event arriving after terminal.
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          Timeline event types emitted along the way: <b>activity</b> (queued, running, retrying),
+          <b>delta</b>, <b>provisional</b> or <b>refined</b>, <b>terminal</b>. The UI projection
+          (<code>src/ui/turnViewModel.ts</code>) is tested to be unchanged by any event arriving
+          after terminal.
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="ports">4. Model and storage ports — <code>src/providers/interfaces.ts</code>, <code>src/app/*Store.ts</code></h2>
-  <p class="note">
-    The left side is what the application layer holds; the right side is what the composition root
-    constructs. Every live adapter now streams through one shared transport kernel
-    (<code>src/providers/streaming.ts</code>): a single deadline covering headers and body, user
-    abort distinguished from timeout, frame and answer byte caps.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="ports">
+        4. Model and storage ports — <code>src/providers/interfaces.ts</code>,
+        <code>src/app/*Store.ts</code>
+      </h2>
+      <p class="note">
+        The left side is what the application layer holds; the right side is what the composition
+        root constructs. Every live adapter now streams through one shared transport kernel
+        (<code>src/providers/streaming.ts</code>): a single deadline covering headers and body, user
+        abort distinguished from timeout, frame and answer byte caps.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 classDiagram
   direction LR
 
@@ -479,27 +497,31 @@ classDiagram
   InMemorySourceStore ..|> SourceStore
   InMemorySummaryStore ..|> SummaryStore
 </pre>
-    </div>
-    <figcaption>
-      <b>Corrections to the old map.</b> <code>createProvisionalReply</code> returns a
-      <b>GenerationResult</b> (text plus finish reason), not a string. Ollama uses
-      <code>/api/chat</code>, not <code>/api/generate</code>. Default timeouts are 10 s, not 15 s, and only
-      Ollama's are environment-tunable. <span class="risk">Still true:</span> every real deep adapter
-      reports <code>citations: []</code>; only the mock returns one. Evidence on the live path comes from
-      capability tools (section 6), not from the provider.
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          <b>Corrections to the old map.</b> <code>createProvisionalReply</code> returns a
+          <b>GenerationResult</b> (text plus finish reason), not a string. Ollama uses
+          <code>/api/chat</code>, not <code>/api/generate</code>. Default timeouts are 10 s, not 15
+          s, and only Ollama's are environment-tunable. <span class="risk">Still true:</span> every
+          real deep adapter reports <code>citations: []</code>; only the mock returns one. Evidence
+          on the live path comes from capability tools (section 6), not from the provider.
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="dispatch">5. Catalog dispatch, discovery and the CLI bridge — <code>src/routing/</code>, <code>src/models/</code>, <code>src/providers/cli/</code></h2>
-  <p class="note">
-    Present only in <code>MODEL_ROUTING_MODE=catalog</code>. The catalog is curated data; the
-    inventory is fresh observation; readiness is derived from observation and never from
-    configuration. Selection ranks bindings by task requirements, retained context fit and policy.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="dispatch">
+        5. Catalog dispatch, discovery and the CLI bridge — <code>src/routing/</code>,
+        <code>src/models/</code>, <code>src/providers/cli/</code>
+      </h2>
+      <p class="note">
+        Present only in <code>MODEL_ROUTING_MODE=catalog</code>. The catalog is curated data; the
+        inventory is fresh observation; readiness is derived from observation and never from
+        configuration. Selection ranks bindings by task requirements, retained context fit and
+        policy.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 classDiagram
   direction TB
 
@@ -596,27 +618,29 @@ classDiagram
   CliAdapterRegistry *-- CliAdapter
   ProviderRegistry --> CliAdapterRegistry : registerCli wraps adapter as fast/deep binding
 </pre>
-    </div>
-    <figcaption>
-      The CLI path is the only place an executable is launched for chat. <b>CliRunner</b> never uses a
-      shell; the conversation goes over stdin, and tests inject shell payloads to prove nothing runs.
-      <span class="risk">Known gaps:</span> <code>CatalogDispatch.prepare()</code> waits on admission without a
-      signal (<code>catalogDispatch.ts:75</code>); discovery failures are swallowed without a cause
-      (<code>inventory.ts:142</code>).
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          The CLI path is the only place an executable is launched for chat. <b>CliRunner</b> never
+          uses a shell; the conversation goes over stdin, and tests inject shell payloads to prove
+          nothing runs. <span class="risk">Known gaps:</span>
+          <code>CatalogDispatch.prepare()</code> waits on admission without a signal
+          (<code>catalogDispatch.ts:75</code>); discovery failures are swallowed without a cause
+          (<code>inventory.ts:142</code>).
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="sports">6. Sports evidence and capability tools — <code>src/sports/</code></h2>
-  <p class="note">
-    Live chat does not search the web. <strong>CapabilityChat</strong> asks the model for a plan over the
-    tools <strong>BriefingHttp</strong> exposes; each tool reads a bounded, attributed
-    <strong>SourceResult</strong> with explicit coverage and freshness. The shared
-    <strong>SportsRequestBudget</strong> admits five BALLDONTLIE starts per rolling minute process-wide.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="sports">6. Sports evidence and capability tools — <code>src/sports/</code></h2>
+      <p class="note">
+        Live chat does not search the web. <strong>CapabilityChat</strong> asks the model for a plan
+        over the tools <strong>BriefingHttp</strong> exposes; each tool reads a bounded, attributed
+        <strong>SourceResult</strong> with explicit coverage and freshness. The shared
+        <strong>SportsRequestBudget</strong> admits five BALLDONTLIE starts per rolling minute
+        process-wide.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 classDiagram
   direction TB
 
@@ -714,30 +738,30 @@ classDiagram
   TeamDirectory ..|> CapabilityTool : tools() produce
   GameOperations ..|> CapabilityTool : tools() produce
 </pre>
-    </div>
-    <figcaption>
-      HTTP surface: <code>POST /briefings</code>, <code>POST /briefings/config/reload</code>,
-      <code>POST /sports/games</code>, <code>GET /sports/team-directories</code>,
-      <code>POST /sports/conversations|teams|results|chat</code>. All are unauthenticated;
-      <code>userId</code> is client-supplied. Each league tool call starts a new coordinator run
-      (<code>briefingHttp.ts:46</code>). At commit 968e47d runs were never evicted, so the 21st call
-      failed process-wide with <code>BRIEFING_CAPACITY</code>; the uncommitted working tree adds
-      <code>settledRunTtlMs</code> pruning that makes room before the capacity check. The
-      <code>sports:*</code> tools bypass the coordinator entirely.
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          HTTP surface: <code>POST /briefings</code>, <code>POST /briefings/config/reload</code>,
+          <code>POST /sports/games</code>, <code>GET /sports/team-directories</code>,
+          <code>POST /sports/conversations|teams|results|chat</code>. All are unauthenticated;
+          <code>userId</code> is client-supplied. Each league tool call starts a new coordinator run
+          (<code>briefingHttp.ts:46</code>). At commit 968e47d runs were never evicted, so the 21st
+          call failed process-wide with <code>BRIEFING_CAPACITY</code>; the uncommitted working tree
+          adds <code>settledRunTtlMs</code> pruning that makes room before the capacity check. The
+          <code>sports:*</code> tools bypass the coordinator entirely.
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="sidecar">7. Python documentation sidecar — <code>experiments/doc-agent/</code></h2>
-  <p class="note">
-    Optional, enabled by <code>DOC_TASK_PYTHON</code>. Node and Python exchange one JSON object per
-    line over stdin and stdout; no user text ever reaches a shell. The graph itself is documented
-    in <code>experiments/doc-agent/LANGGRAPH.md</code>, whose flowchart matches
-    <code>graph_agent.py:181-189</code>.
-  </p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="sidecar">7. Python documentation sidecar — <code>experiments/doc-agent/</code></h2>
+      <p class="note">
+        Optional, enabled by <code>DOC_TASK_PYTHON</code>. Node and Python exchange one JSON object
+        per line over stdin and stdout; no user text ever reaches a shell. The graph itself is
+        documented in <code>experiments/doc-agent/LANGGRAPH.md</code>, whose flowchart matches
+        <code>graph_agent.py:181-189</code>.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 classDiagram
   direction LR
 
@@ -788,21 +812,24 @@ classDiagram
   DurableRun --> GraphAgent : ainvoke with checkpointer
   GraphAgent --> Retrieval : bounded tools
 </pre>
-    </div>
-    <figcaption>
-      Node side: <code>POST /document-tasks</code> with <code>op</code> start, status, cancel or resume;
-      errors map to 429, 409, 404, 400 or 503 by code (<code>server.ts:477</code>).
-      <span class="risk">Known gap:</span> an <code>uncertain</code> task has no operator exit; the UI shows
-      no actions for it (<code>documentTaskPanel.ts:140</code>).
-    </figcaption>
-  </figure>
+        </div>
+        <figcaption>
+          Node side: <code>POST /document-tasks</code> with <code>op</code> start, status, cancel or
+          resume; errors map to 429, 409, 404, 400 or 503 by code (<code>server.ts:477</code>).
+          <span class="risk">Known gap:</span> an <code>uncertain</code> task has no operator exit;
+          the UI shows no actions for it (<code>documentTaskPanel.ts:140</code>).
+        </figcaption>
+      </figure>
 
-  <!-- ===================================================================== -->
-  <h2 id="domain">8. Domain data — <code>src/domain/</code></h2>
-  <p class="note">Attributes only, no behavior. Fields marked <em>optional</em> are absent on the mock-only path.</p>
-  <figure class="figwrap">
-    <div class="scrollbox">
-<pre class="mermaid">
+      <!-- ===================================================================== -->
+      <h2 id="domain">8. Domain data — <code>src/domain/</code></h2>
+      <p class="note">
+        Attributes only, no behavior. Fields marked <em>optional</em> are absent on the mock-only
+        path.
+      </p>
+      <figure class="figwrap">
+        <div class="scrollbox">
+          <pre class="mermaid">
 classDiagram
   direction LR
 
@@ -885,41 +912,40 @@ classDiagram
   ChatTimelineEvent o-- GenerationMetadata
   GenerationControl ..> GenerationResult : produces via onDelta
 </pre>
+        </div>
+        <figcaption>
+          Token budgeting is UTF-8 byte counting labelled <code>utf8-conservative-v1</code>; it is
+          not a provider tokenizer and the code says so (<code>contextBuilder.ts:28</code>).
+        </figcaption>
+      </figure>
     </div>
-    <figcaption>
-      Token budgeting is UTF-8 byte counting labelled <code>utf8-conservative-v1</code>; it is not a
-      provider tokenizer and the code says so (<code>contextBuilder.ts:28</code>).
-    </figcaption>
-  </figure>
 
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js"></script>
-<script>
-  (function () {
-    var dark = false;
-    try {
-      var forced = document.documentElement.getAttribute("data-theme");
-      dark = forced === "dark" || (forced !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    } catch (e) { dark = false; }
-    if (!window.mermaid) {
-      document.querySelectorAll("pre.mermaid").forEach(function (el) {
-        el.insertAdjacentHTML("beforebegin", "<p class=\"note risk\">Mermaid did not load; the diagram source is shown below.</p>");
-      });
-      return;
-    }
-    mermaid.initialize({
-      startOnLoad: true,
-      securityLevel: "strict",
-      theme: dark ? "dark" : "neutral",
-      fontFamily: "IBM Plex Sans, system-ui, sans-serif",
-      // Render at natural size inside the horizontal scrollbox so text stays legible;
-      // the widest diagrams are about 4000 px.
-      flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: false },
-      class: { useMaxWidth: false },
-      state: { useMaxWidth: false }
-    });
-  })();
-</script>
-</body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js"></script>
+    <script>
+      (function () {
+        var dark = false;
+        try {
+          var forced = document.documentElement.getAttribute("data-theme");
+          dark = forced === "dark" || (forced !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        } catch (e) { dark = false; }
+        if (!window.mermaid) {
+          document.querySelectorAll("pre.mermaid").forEach(function (el) {
+            el.insertAdjacentHTML("beforebegin", "<p class=\"note risk\">Mermaid did not load; the diagram source is shown below.</p>");
+          });
+          return;
+        }
+        mermaid.initialize({
+          startOnLoad: true,
+          securityLevel: "strict",
+          theme: dark ? "dark" : "neutral",
+          fontFamily: "IBM Plex Sans, system-ui, sans-serif",
+          // Render at natural size inside the horizontal scrollbox so text stays legible;
+          // the widest diagrams are about 4000 px.
+          flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: false },
+          class: { useMaxWidth: false },
+          state: { useMaxWidth: false }
+        });
+      })();
+    </script>
+  </body>
 </html>

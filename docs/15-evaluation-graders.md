@@ -14,15 +14,15 @@ approach, independent of a particular hosted evaluation product.
 
 ## Code-based graders
 
-| Method | Example in this project | What it does not establish |
-| --- | --- | --- |
-| Exact match | Selected game ID equals the fixture game ID | The explanation is helpful |
-| Regex or normalized match | A required citation identifier is present | The citation supports the claim |
-| Binary regression tests | Previously failing cancellation test passes; existing tests remain green | Overall model quality improved |
-| Static analysis | Provider wrapper type-checks | Runtime behavior or answer correctness |
-| Outcome verification | After cancellation, fixture child and grandchild no longer exist | Every real CLI behaves identically |
-| Tool-call verification | Schedule tool received the correct league and date | Calling that tool was sufficient |
-| Transcript analysis | Number of calls, retries, latency and reported token usage | Shorter or cheaper always means better |
+| Method                    | Example in this project                                                  | What it does not establish             |
+| ------------------------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| Exact match               | Selected game ID equals the fixture game ID                              | The explanation is helpful             |
+| Regex or normalized match | A required citation identifier is present                                | The citation supports the claim        |
+| Binary regression tests   | Previously failing cancellation test passes; existing tests remain green | Overall model quality improved         |
+| Static analysis           | Provider wrapper type-checks                                             | Runtime behavior or answer correctness |
+| Outcome verification      | After cancellation, fixture child and grandchild no longer exist         | Every real CLI behaves identically     |
+| Tool-call verification    | Schedule tool received the correct league and date                       | Calling that tool was sufficient       |
+| Transcript analysis       | Number of calls, retries, latency and reported token usage               | Shorter or cheaper always means better |
 
 “Fail-to-pass” means a test exposing the original bug now succeeds. “Pass-to-pass”
 means previously working behavior still succeeds. Neither term requires a model
@@ -40,13 +40,13 @@ A judge is another model call. Give it the question, answer, relevant evidence,
 and a narrow grading instruction. Its verdict is a measurement to validate,
 not independent ground truth.
 
-| Method | Example instruction | Main tradeoff |
-| --- | --- | --- |
-| Rubric scoring | Score clarity 0–2 using the anchors below | Detailed feedback; vague scales produce inconsistent scores |
-| Natural-language assertion | Does the answer distinguish a scheduled game from a completed game? | Focused pass/fail; borderline cases need examples |
-| Pairwise comparison | Which of answers A and B better answers this question using the supplied evidence? Allow a tie | Useful for comparing orchestration changes; order and length can influence preferences |
-| Reference-based evaluation | Check these claims against this recorded game record and accepted answer | Grounded grading; a stale or incomplete reference makes the verdict unreliable |
-| Multi-judge consensus | Obtain independent verdicts and flag disagreements | More coverage and expense; shared model biases can survive a majority vote |
+| Method                     | Example instruction                                                                            | Main tradeoff                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Rubric scoring             | Score clarity 0–2 using the anchors below                                                      | Detailed feedback; vague scales produce inconsistent scores                            |
+| Natural-language assertion | Does the answer distinguish a scheduled game from a completed game?                            | Focused pass/fail; borderline cases need examples                                      |
+| Pairwise comparison        | Which of answers A and B better answers this question using the supplied evidence? Allow a tie | Useful for comparing orchestration changes; order and length can influence preferences |
+| Reference-based evaluation | Check these claims against this recorded game record and accepted answer                       | Grounded grading; a stale or incomplete reference makes the verdict unreliable         |
+| Multi-judge consensus      | Obtain independent verdicts and flag disagreements                                             | More coverage and expense; shared model biases can survive a majority vote             |
 
 These methods overlap: a judge can apply a rubric against a reference, and several
 judges can each do pairwise comparisons. Reference-based grading can also be

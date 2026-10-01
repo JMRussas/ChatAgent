@@ -37,7 +37,10 @@ function keyOf(bucket: LatencyBucket): string {
 
 function quantile(sortedValues: number[], q: number): number {
   if (sortedValues.length === 0) return 0;
-  const idx = Math.max(0, Math.min(sortedValues.length - 1, Math.ceil(q * sortedValues.length) - 1));
+  const idx = Math.max(
+    0,
+    Math.min(sortedValues.length - 1, Math.ceil(q * sortedValues.length) - 1)
+  );
   return sortedValues[idx];
 }
 

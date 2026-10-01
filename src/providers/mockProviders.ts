@@ -4,11 +4,14 @@ import type { DeepModelProvider, FastModelProvider } from "./interfaces";
 
 export class MockFastProvider implements FastModelProvider {
   readonly metadata = { provider: "mock", model: "mock-v1" };
-  async createProvisionalReply(input: {
-    message: UserMessage;
-    correctedText: string;
-    routeDecision: "direct" | "deep" | "clarify";
-  }, control?: GenerationControl): Promise<GenerationResult> {
+  async createProvisionalReply(
+    input: {
+      message: UserMessage;
+      correctedText: string;
+      routeDecision: "direct" | "deep" | "clarify";
+    },
+    control?: GenerationControl
+  ): Promise<GenerationResult> {
     const emit = async (text: string): Promise<GenerationResult> => {
       control?.signal.throwIfAborted();
       await control?.onDelta(text);

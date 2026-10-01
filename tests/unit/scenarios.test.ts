@@ -6,7 +6,7 @@ it("versions expected outcomes separately from the prompts sent to the model", a
   const { dataset, conversationGroups } = scenarioDataset(plan);
   expect(dataset.prompts).toHaveLength(10);
   expect(conversationGroups).toEqual(plan.scenarios.flatMap((s: { id: string }) => [s.id, s.id]));
-  expect(dataset.prompts.every(p => Object.keys(p).sort().join() === "id,text")).toBe(true);
+  expect(dataset.prompts.every((p) => Object.keys(p).sort().join() === "id,text")).toBe(true);
   expect(JSON.stringify(dataset)).not.toContain("taskCompletion");
   plan.scenarios[1].id = plan.scenarios[0].id;
   expect(() => scenarioDataset(plan)).toThrow("Duplicate scenario");

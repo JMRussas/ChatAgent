@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { renderBenchmarkMarkdown, runProfileBenchmark, summarizeBenchmark } from "../../src/bench/benchmarkCore";
+import {
+  renderBenchmarkMarkdown,
+  runProfileBenchmark,
+  summarizeBenchmark
+} from "../../src/bench/benchmarkCore";
 
 describe("benchmark core", () => {
   it("produces deterministic run records and summary", () => {

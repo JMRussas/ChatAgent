@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseBooleanEnv, parseBoundedNumberEnv, parseFiniteNumberEnv, parsePositiveIntEnv } from "../../src/config/runtimeEnv";
+import {
+  parseBooleanEnv,
+  parseBoundedNumberEnv,
+  parseFiniteNumberEnv,
+  parsePositiveIntEnv
+} from "../../src/config/runtimeEnv";
 
 describe("runtime env parsing", () => {
   it("uses fallback for missing or invalid finite numbers", () => {

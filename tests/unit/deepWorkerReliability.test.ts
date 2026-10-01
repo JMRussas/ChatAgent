@@ -82,8 +82,11 @@ describe("deep worker reliability", () => {
     expect(failed.length).toBe(1);
     expect(failed[0].errorMessage).toContain("PROVIDER_UNAVAILABLE");
     const events = await timeline.getEvents("conv-dead-letter");
-    expect(events.filter((event) => event.type === "activity" && event.phase === "deep").map((event) => event.activity))
-      .toEqual(["queued", "running", "retrying", "running"]);
+    expect(
+      events
+        .filter((event) => event.type === "activity" && event.phase === "deep")
+        .map((event) => event.activity)
+    ).toEqual(["queued", "running", "retrying", "running"]);
     expect(new Set(events.map((event) => event.messageId)).size).toBe(1);
   });
 });

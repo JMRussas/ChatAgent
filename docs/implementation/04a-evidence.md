@@ -14,14 +14,14 @@ This is lexical classification, not general semantic intent or negation detectio
 
 All named cases are in `tests/unit/taskClassifier.test.ts` (52 passing tests):
 
-| Requirement | Evidence |
-|---|---|
+| Requirement                                                                   | Evidence                                                                                                                            |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Spec 04 acceptance 2: classification precedence and substring false positives | `spec 04 task classification corpus` table: 43 cases, including resource, encode, barcode, precedence, code fences and stack traces |
-| Task identity independent of direct/deep route | `keeps short and complex coding task identity independent of route` |
-| Clarification uses conversation | `uses conversation without eventual-task capabilities for clarification` |
-| Explicit JSON output adds structuredOutput | `requires structured output even when coding or summary wins precedence` |
-| Ordinary mentions do not require action capabilities | `does not infer action capabilities from mentions of tools, images or JSON` |
-| Validated input/output counts | `rejects invalid token counts` with negative, fractional, infinite, NaN and unsafe-integer inputs |
+| Task identity independent of direct/deep route                                | `keeps short and complex coding task identity independent of route`                                                                 |
+| Clarification uses conversation                                               | `uses conversation without eventual-task capabilities for clarification`                                                            |
+| Explicit JSON output adds structuredOutput                                    | `requires structured output even when coding or summary wins precedence`                                                            |
+| Ordinary mentions do not require action capabilities                          | `does not infer action capabilities from mentions of tools, images or JSON`                                                         |
+| Validated input/output counts                                                 | `rejects invalid token counts` with negative, fractional, infinite, NaN and unsafe-integer inputs                                   |
 
 Validation on Windows Node 24.15.0, invoked from WSL:
 

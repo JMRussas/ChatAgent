@@ -61,7 +61,9 @@ export interface ChatTimelineEvent {
   /** Deduplicated display payload; never injected into model history. */
   answerReferences?: import("../app/answerReferences").AnswerReferences;
   /** Structured validation result for UI/evaluation, excluded from model history. */
-  groundedAnswer?: ReturnType<typeof import("../app/retrievalAnswerContract").validateGroundedAnswer>;
+  groundedAnswer?: ReturnType<
+    typeof import("../app/retrievalAnswerContract").validateGroundedAnswer
+  >;
   contextBudget?: import("./contextBudgetUsage").ContextBudgetUsage;
   roleExecution?: import("../app/roleCatalog").RoleExecution;
   /** UI/evaluation only; never serialize into model history. */
@@ -70,7 +72,10 @@ export interface ChatTimelineEvent {
   selectedContext?: UserMessage["selectedContext"];
   runControls?: import("../app/runControls").RunControls;
   capabilityPlan?: unknown;
-  selections?: { fast: import("../routing/modelSelector").ModelSelection; deep?: import("../routing/modelSelector").ModelSelection };
+  selections?: {
+    fast: import("../routing/modelSelector").ModelSelection;
+    deep?: import("../routing/modelSelector").ModelSelection;
+  };
   activity?: "queued" | "thinking" | "running" | "generating" | "retrying" | "failed";
   phase?: "fast" | "deep";
   attemptId?: string;

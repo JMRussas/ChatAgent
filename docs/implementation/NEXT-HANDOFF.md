@@ -281,7 +281,6 @@ passed in the preceding increment; this fix changes no UI code. The graph adapte
 remains default, with no live-model quality or performance claim. Next: bounded
 retrieval-to-answer contracts and deterministic grounding fixtures. No preview restart.
 
-
 ## Native/graph integration comparison — 2026-09-30
 
 Twelve deterministic integration checks now run six identical scenarios on each engine
@@ -306,7 +305,6 @@ coverage and live model quality evidence. The whole-plan status table below (han
 and roadmap) remains applicable; step 3 has stronger deterministic coverage, while
 quality evaluation, general background roles and persistent memory remain incomplete.
 
-
 ## Whole-plan checkpoint and graph comparison start — 2026-09-30
 
 Committed `eb50551`: manual role UI/context-budget display and metadata attempt-ID
@@ -315,16 +313,16 @@ success and failure. The next framework increment is uncommitted: an opt-in Type
 LangGraph model/validate adapter behind ROLE_PLANNER_ENGINE, used only by selected
 roles. Native is default. Existing provider bridges/tool executor remain shared.
 
-| Plan area | Actual state |
-| --- | --- |
-| Sports foundation | Provider directories, bounded NBA/NFL search, shared quotas, basic details and configured news retrieval implemented; exhaustive latest-game selection and richer statistics remain incomplete. |
-| Payloads and manual evidence | Direct UI tables, owned/expiring references, bounded row attachment and explicit review/revision implemented. |
-| 1. Role containers | Implemented and committed: versioned definitions, model/tool enforcement, limits and recording. |
-| 2. Manual role UI/budgets | Implemented and committed first slice. Budget is latest admitted-call evidence; unsent preflight, richer grouping and role-file hot reload remain follow-ups. |
-| 3. Framework comparison | Started with a one-model-call graph and deterministic parity checks; broader parity/adoption gate remains open. |
-| 4. Grounded reporting/evaluation | Runtime/contract tests and manual review exist. Full 27-case session runner, independent payload/answer quality grading and calibrated model comparisons remain pending. |
-| 5. Layer-one background roles | Existing background retrieval/document work exists. General role-job coordination, durable multi-task scheduling and restart/replay semantics remain pending. |
-| Longer-term profiles/memory | Topic scope and explicit references exist; editable persistent profiles, semantic retrieval and automatic context selection remain pending. |
+| Plan area                        | Actual state                                                                                                                                                                                    |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sports foundation                | Provider directories, bounded NBA/NFL search, shared quotas, basic details and configured news retrieval implemented; exhaustive latest-game selection and richer statistics remain incomplete. |
+| Payloads and manual evidence     | Direct UI tables, owned/expiring references, bounded row attachment and explicit review/revision implemented.                                                                                   |
+| 1. Role containers               | Implemented and committed: versioned definitions, model/tool enforcement, limits and recording.                                                                                                 |
+| 2. Manual role UI/budgets        | Implemented and committed first slice. Budget is latest admitted-call evidence; unsent preflight, richer grouping and role-file hot reload remain follow-ups.                                   |
+| 3. Framework comparison          | Started with a one-model-call graph and deterministic parity checks; broader parity/adoption gate remains open.                                                                                 |
+| 4. Grounded reporting/evaluation | Runtime/contract tests and manual review exist. Full 27-case session runner, independent payload/answer quality grading and calibrated model comparisons remain pending.                        |
+| 5. Layer-one background roles    | Existing background retrieval/document work exists. General role-job coordination, durable multi-task scheduling and restart/replay semantics remain pending.                                   |
+| Longer-term profiles/memory      | Topic scope and explicit references exist; editable persistent profiles, semantic retrieval and automatic context selection remain pending.                                                     |
 
 We have a usable manual prototype, not a completed autonomous or production system.
 No live quality gate or framework performance claim has been made. Next bounded work:
@@ -333,7 +331,6 @@ cancellation before adding dependent tool loops. No preview restart or live call
 Validation for the comparison start: 677 tests / 88 files, 22 browser tests and
 TypeScript build passed. The graph increment remains uncommitted for review.
 
-
 ## Role UI review fix — 2026-09-30
 
 Role and context-budget metadata now carry the real generation attempt ID. They no
@@ -341,7 +338,6 @@ longer create a separate nonterminating UI activity/timer. Regression tests cove
 successful and failed role turns with metadata, asserting one completed attempt.
 Validation: 54 focused tests and TypeScript build passed. The manual-role UI slice
 and this correction are ready to commit; next is the bounded framework comparison.
-
 
 ## Manual role UI and admitted context budgets — 2026-09-30
 
@@ -358,7 +354,6 @@ Next: bounded LangChain/LangGraph adapter comparison. Preflight estimation and r
 tool grouping remain follow-ups. No live calls or preview restart. This new UI slice
 is uncommitted pending review.
 
-
 ## Role review corrections — 2026-09-30
 
 Mock-only startup retains its normal orchestrator even when a role catalog is loaded;
@@ -366,7 +361,6 @@ role requests there fail explicitly with ROLE_EXECUTION_UNSUPPORTED. Planning pr
 now state the role's effective call limit and omit retrieval instructions when no tools
 are exposed. Regression checks cover real mock startup and generated prompt limits.
 Next: manual role selection and context-budget visibility.
-
 
 ## Role catalog and enforced tool exposure — implemented 2026-09-30
 
@@ -384,7 +378,6 @@ not implemented. This increment makes no live-model quality claim.
 Validation: 662 tests across 87 files passed, followed by 22 recording tests
 after adding the role-capture regression (663 tests total). TypeScript build and
 21 browser tests passed. No live provider calls, preview restart or commit.
-
 
 ## Active direction: versioned role containers — 2026-09-30
 
@@ -406,7 +399,6 @@ and 21 browser tests plus build passed. No role runtime or framework migration h
 been implemented. Persistent user profiles and semantic retrieval remain longer-term,
 starting with manual context selection and an inspection of Hekate storage for reuse.
 
-
 ## Game-operation review fixes — 2026-09-30
 
 Reviewed `e06676a`. Game search now rechecks cancellation/closure after directory
@@ -420,7 +412,6 @@ The large full tool registry remains a documented constraint for small context w
 this review does not claim to resolve registry size or live model quality.
 Validation: 22 focused unit tests, 21 browser tests and TypeScript build passed.
 No live provider calls or preview restart.
-
 
 ## Bounded game search and snapshot details — 2026-09-30
 
@@ -437,7 +428,6 @@ Registry context size needs attention for smaller models: the browser fixture re
 Validation: 643 tests across 86 files passed, followed by all five game-operation
 tests after adding a cancellation regression (644 tests total). TypeScript build and
 20 browser tests passed. No live provider/model calls or preview restart performed.
-
 
 ## Explicit reference rows and payload review — 2026-09-30
 
@@ -464,7 +454,6 @@ nonselected-row exclusion, row detach and topic-preserving team detach. No live 
 or preview restart. Next: general game search and specific-game detail operations,
 including latest-completed selection, using the same payload/reference contracts.
 
-
 ## Manual-control review fixes — 2026-09-30
 
 Early control failures retain a user timeline event. Thinking verification propagates
@@ -472,7 +461,6 @@ cancellation and dispatch ownership is established before the metadata await. Th
 locks submission before context refresh, preventing duplicate requests. Validation:
 17 focused unit tests, duplicate-submit browser regression and TypeScript build.
 Next: explicit bounded reference rows and payload review against selected evidence.
-
 
 ## Manual run controls implemented — 2026-09-30
 
@@ -501,7 +489,6 @@ live model/provider calls or preview restart. Next: broader explicit reference
 management (attach/detach bounded evidence, including payload review), then general
 game search and specific-game detail views. Persistence/automation remain deferred.
 
-
 ## Scope review corrections — 2026-09-30
 
 The UI restores active conversation/user IDs from tab-scoped session storage.
@@ -510,7 +497,6 @@ Evaluation events record the effective selected-context hash and attachment stat
 answer capture optionally retains redacted context, with integrity validation.
 Validation: 21 recording tests, 15 browser tests and TypeScript build passed.
 Next implementation: explicit per-run model selection and manual review controls.
-
 
 ## Topic browsing and explicit team references — 2026-09-30
 
@@ -539,7 +525,6 @@ foreign/invalid row rejection and exclusion of unselected rows. No live provider
 calls or preview restart performed. Next: manual model/thinking/review controls and
 broader explicit reference management, followed by general game search.
 
-
 ## Review corrections — 2026-09-30
 
 Versioned answer events now include user payloads inline, so clients can render them
@@ -548,7 +533,6 @@ before publishing. Text-only grading explicitly reports payload-bearing turns as
 unrated instead of allowing a quality pass; payload-bound grading remains future work.
 Validation: 38 focused regression/integration tests and TypeScript build passed.
 Next: topic navigation and explicit scoped conversation/reference selection.
-
 
 ## Active plan: payload separation and manual topic workflows — 2026-09-30
 
@@ -589,7 +573,6 @@ scoped conversations/reference selection, then manual controls and general game 
 
 ## Historical implementation journal
 
-
 ## Provider team resolution implemented — 2026-09-30
 
 Live capability registry now includes `sports:resolve-team` and `sports:select-team`.
@@ -625,7 +608,6 @@ game tools still accept provider IDs. This slice does not establish the full Pat
 acceptance example. Typo/fuzzy matching and active-team filtering remain unimplemented;
 matching is exact after case/punctuation/Unicode normalization of provider aliases.
 
-
 ## Current priority: general contracts and resource-specific policies — 2026-09-30
 
 This supersedes earlier next-step ordering and incorporates the plan review plus the
@@ -658,7 +640,6 @@ calls were made; runtime/UI behavior is unchanged, so no browser rerun was neede
 
 See [contracts, resource policies and evaluation gates](12-request-to-evidence.md).
 
-
 ## Next task: team resolution and latest completed game — 2026-09-30
 
 User observed that the planner asks for the Patriots' provider ID. Fix the tool
@@ -666,6 +647,7 @@ abstraction, not the user's wording. This supersedes the prior “planner evalua
 first, then more retrieval” ordering; review/evaluation now accompany each tool slice.
 
 Implementation order:
+
 1. Verify team-directory access; implement provider-backed, cached name resolution
    with explicit unique/ambiguous/not-found/unavailable outcomes.
 2. Implement `find_latest_completed_game(league, team, as_of?)`, composing resolution
@@ -686,7 +668,6 @@ Detailed contracts and scope: [sports plan](../18-nba-briefing-demo.md).
 This is planned work only. General search/MLB, dependent model plans, semantic memory
 and the topic/task UI remain later work. Existing capability planner and source
 adapters provide the foundation; they do not yet satisfy this acceptance example.
-
 
 ## Model capability planning replaces live keyword routing — 2026-09-30
 
@@ -738,7 +719,6 @@ Next: review/evaluate plan correctness across paraphrases, unavailable capabilit
 ambiguous context and misleading history; then add general retrieval and dependent
 workflows through the same registry. Do not add topic-specific routing keyword lists.
 
-
 ## Sports chat safeguard and capability-planning direction — 2026-09-30
 
 Recognized sports questions now bypass mock/model completion. MLB/Sox requests explain
@@ -771,7 +751,6 @@ across those runs); TypeScript build and ten browser tests pass. Tests cover the
 unsupported response, confirmed evidence retrieval, league mismatch, disabled sources,
 mock completion labels and continued composer availability. No live sports API/model
 calls were needed.
-
 
 ## Manual live configuration reload — 2026-09-30
 
@@ -806,7 +785,6 @@ versions/retries, retained budgets/cooldowns, in-flight source isolation, shutdo
 and HTTP rejection of client overrides. No live provider quota was consumed.
 Next: task UI and evidence-backed follow-ups; bounded delayed admission when the
 request budget is exhausted remains separate work.
-
 
 ## Live briefing composition — 2026-09-30
 
@@ -845,7 +823,6 @@ states; source-backed model follow-ups and bounded delayed admission when the bu
 separate work. No automatic refresh, durable state, ranking or team-news inference
 is implemented by this composition.
 
-
 ## 2026-09-30: configurable RSS news source
 
 Added `RssNewsSource` and `sports:news` with an ESPN NFL example. Reused forex's RSS
@@ -863,7 +840,6 @@ team inference, automatic refresh or UI integration is claimed. Validation: 587 
 Next: compose games and news into an injected live registry/profile, preserving the
 shared BALLDONTLIE budget. Then task UI and evidence-backed follow-ups. RSS cache and
 refresh policy remain to be wired; default HTTP activation is still opt-in.
-
 
 ## 2026-09-30: shared sports admission/cache
 
@@ -891,7 +867,6 @@ Next: news ingestion, then task UI and source-backed model follow-ups. Do not cl
 account-wide cross-process throttling or full briefing coverage. See
 [cache/budget semantics](../18-nba-briefing-demo.md).
 
-
 ## 2026-09-30: NFL adapter and existing-key access verified
 
 User authorized NFL using the same BALLDONTLIE account/key. Added league-specific
@@ -918,7 +893,6 @@ combined free-tier load under five requests/minute; separate adapter instances o
 CLI processes do not currently coordinate that allowance. NFL is the active-season
 demo target, with NBA still supported. See [updated sports plan](../18-nba-briefing-demo.md).
 
-
 ## 2026-09-30: prepare BALLDONTLIE games integration
 
 User selected BALLDONTLIE preparation with no existing provider account. Added an
@@ -944,7 +918,6 @@ pass. Seven new adapter tests cover authentication preflight, normalization, fil
 pagination disclosure, lifecycle/score handling, bounds/errors, rate limiting and
 abort/timeout. No browser code changed; no authenticated live verification ran.
 
-
 ## 2026-09-30: briefing HTTP integration and foreground overlap
 
 Optional `BriefingHttp` now exposes start/status/cancel via `POST /briefings`.
@@ -968,7 +941,6 @@ Next: verified live-source integration (access, coverage and server-controlled c
 then task UI and source-backed model follow-ups. No automatic model retrieval, user
 preference, new subscription, live adapter or authentication is supplied here. See
 [HTTP setup and limitations](../runtime-reference.md#optional-nba-briefing-http-boundary).
-
 
 ## 2026-09-30: bounded briefing coordinator and runnable fixtures
 
@@ -998,7 +970,6 @@ duplicate-start behavior, bounded shutdown and source attribution. Then live-sou
 integration and task UI. See [coordinator limits](../18-nba-briefing-demo.md): in-memory
 runs, no eviction/resume, and cooperative cancellation limits remain explicit.
 
-
 ## 2026-09-30: configurable briefing profiles before coordination
 
 User requested configurability rather than hard-coded prototype choices. Added
@@ -1015,7 +986,6 @@ bounded coordinator using these bindings and per-task run state, cancellation,
 duplicate-start handling and independent results. Persisted checkpoints must include
 profile/user/team identity; none are written by this slice. UI and live settings are
 unchanged.
-
 
 ## 2026-09-30: normalized sports evidence and fixture adapters
 
@@ -1037,7 +1007,6 @@ duplicate-start handling and independent league/team results. Use these adapters
 fixture tests, including a quick foreground interaction while background work is
 held. No live-source connection, model call, UI change or multiple-worker capability
 is implied by this slice. See [source semantics and limits](../18-nba-briefing-demo.md).
-
 
 ## 2026-09-30: NBA briefing is the active demonstration
 
@@ -1062,7 +1031,6 @@ data candidate; NBA news is a primary news source, not a verified ingestion API.
 Live access/entitlements and ingestion remain to be verified. Forum-like task threads
 replace historical latency as the planned primary workspace. Memory begins with
 explicit preferences; email is a later reuse case. Do not reactivate doc-agent work.
-
 
 ## 2026-09-30: prioritize multitask coordination evaluation
 
@@ -1479,7 +1447,6 @@ The existing live benchmark still has its historical measurement limitations;
 these recorder tests do not establish answer quality or performance improvement.
 Spec 06 as a whole remains in progress.
 
-
 ## 2026-09-30: spec 06A runtime lifecycle complete
 
 `startServer` now returns the bound server/address and an idempotent `shutdown()`.
@@ -1502,7 +1469,6 @@ followed by honest live benchmark comparisons and browser acceptance. Spec 06 as
 whole remains in progress; EVAL-01–06, browser gates, and live quality comparisons
 are not claimed complete by these lifecycle tests.
 
-
 ## 2026-09-30: review findings fixed
 
 All three findings from the review of `4e0bea1` are addressed:
@@ -1521,7 +1487,6 @@ failure/timeout, and a non-Sonnet binding with different quota settings. Live
 cancellation and timeout were rerun; each observed three processes and zero
 survivors. No account settings changed. Next remains spec 06 verification and
 evaluation mode.
-
 
 ## 2026-09-30: Claude live acceptance complete
 
@@ -1551,7 +1516,6 @@ The latter two verify Windows process-tree cleanup. Each command can use live
 subscription capacity. They require the configured local dispatch policy.
 
 Next: **spec 06 lifecycle/verification and evaluation mode**, then the sports demo.
-
 
 ## 2026-09-29: account setting correction and optional headroom admission
 

@@ -1,4 +1,4 @@
-import {rolePlannerEngine} from "./app/rolePlanner";
+import { rolePlannerEngine } from "./app/rolePlanner";
 import { loadRoleCatalog } from "./app/roleCatalog";
 import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
@@ -34,7 +34,11 @@ import { InMemoryDeadLetterStore } from "./app/deadLetterStore";
 import { InMemoryConversationTimelineStore } from "./app/timelineStore";
 import { loadContextBudgetConfigFromEnv, type ContextBudgetConfig } from "./config/contextConfig";
 import { parseBooleanEnv, parseBoundedNumberEnv, parsePositiveIntEnv } from "./config/runtimeEnv";
-import { describeProviderConfig, loadRuntimeProviderConfigFromEnv, type RuntimeProviderConfig } from "./config/providerConfig";
+import {
+  describeProviderConfig,
+  loadRuntimeProviderConfigFromEnv,
+  type RuntimeProviderConfig
+} from "./config/providerConfig";
 import type { UserMessage } from "./domain/types";
 import { InMemoryTaskQueue } from "./providers/interfaces";
 import { buildFastProvider, buildProviderPair } from "./providers/providerFactory";
@@ -126,7 +130,9 @@ interface ServerOptions {
   documentTasks?: DocumentTasks;
   // A function, not a static value: discovery observations change over the
   // process lifetime, so each request must recompute readiness from current data.
-  modelCatalog?: () => Omit<ReturnType<typeof describeModelCatalog>, "routingMode"> & { routingMode: "catalog" | "fixed-fast-deep" };
+  modelCatalog?: () => Omit<ReturnType<typeof describeModelCatalog>, "routingMode"> & {
+    routingMode: "catalog" | "fixed-fast-deep";
+  };
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
   dispatchTelemetry?: () => ReturnType<CatalogDispatch["telemetry"]>;
@@ -156,7 +162,7 @@ class HttpRequestError extends Error {
 }
 
 const MessageBodySchema = z.object({
-  referenceSelections:referenceSelectionsSchema.optional(),
+  referenceSelections: referenceSelectionsSchema.optional(),
   runControls: runControlsSchema.optional(),
   messageId: z.string().uuid().optional(),
   conversationId: z.string().min(1),
@@ -212,9 +218,10 @@ function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown)
 }
 
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
-  service.resolveReferences=(selections,userId,conversationId)=>{
-    const store=options.briefings?.directory?.results;if(!store)throw Error("REFERENCES_UNAVAILABLE");
-    return selectReferences(store,selections,userId,conversationId);
+  service.resolveReferences = (selections, userId, conversationId) => {
+    const store = options.briefings?.directory?.results;
+    if (!store) throw Error("REFERENCES_UNAVAILABLE");
+    return selectReferences(store, selections, userId, conversationId);
   };
   const protocolV1 = createProtocolV1Handler(service);
   const responses = new Set<ServerResponse>();
@@ -222,13 +229,15 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     responses.add(res);
     res.once("close", () => responses.delete(res));
     try {
-      if (service.isShuttingDown) return json(res, 503, { code: "SHUTTING_DOWN", error: "Runtime is shutting down" });
+      if (service.isShuttingDown)
+        return json(res, 503, { code: "SHUTTING_DOWN", error: "Runtime is shutting down" });
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
 
       if (await protocolV1(req, res, url, () => parseJsonBody(req))) return;
 
-      if (method === "GET" && url.pathname === "/telemetry/evaluation") return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });
+      if (method === "GET" && url.pathname === "/telemetry/evaluation")
+        return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });
       if (method === "GET" && url.pathname === "/") {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -238,87 +247,213 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       if (method === "POST" && url.pathname === "/briefings/config/reload") {
         if (!options.briefings?.reload) return json(res, 404, { code: "BRIEFING_RELOAD_DISABLED" });
-        z.object({}).strict().parse(requireObjectBody(await parseJsonBody(req)));
-        try { return json(res, 200, await options.briefings.reload()); }
-        catch { return json(res, 400, { code: "SPORTS_BRIEFING_RELOAD_FAILED", error: "Configuration unchanged; check the configured file" }); }
+        z.object({})
+          .strict()
+          .parse(requireObjectBody(await parseJsonBody(req)));
+        try {
+          return json(res, 200, await options.briefings.reload());
+        } catch {
+          return json(res, 400, {
+            code: "SPORTS_BRIEFING_RELOAD_FAILED",
+            error: "Configuration unchanged; check the configured file"
+          });
+        }
       }
 
       if (method === "POST" && url.pathname === "/briefings") {
-        if (!options.briefings) return json(res, 404, { code: "BRIEFINGS_DISABLED", error: "Briefings are disabled" });
+        if (!options.briefings)
+          return json(res, 404, { code: "BRIEFINGS_DISABLED", error: "Briefings are disabled" });
         const result = options.briefings.request(requireObjectBody(await parseJsonBody(req)));
         return json(res, result.status, result.body);
       }
 
       if (method === "POST" && url.pathname === "/document-tasks") {
-        if (!options.documentTasks) return json(res, 404, { error: "Documentation tasks are disabled" });
-        const body = z.object({
-          op: z.enum(["start", "list", "status", "resume", "cancel"]),
-          conversationId: z.string().min(1).max(200), userId: z.string().min(1).max(200),
-          requestId: z.string().uuid().optional(), taskId: z.string().regex(/^[0-9a-f]{32}$/).optional(),
-          question: z.string().trim().min(1).max(2000).optional()
-        }).parse(requireObjectBody(await parseJsonBody(req)));
-        if (body.op === "start" && (!body.requestId || !body.question)) throw new HttpRequestError(400, "Start requires requestId and question");
-        if (!["start", "list"].includes(body.op) && !body.taskId) throw new HttpRequestError(400, "Task ID required");
+        if (!options.documentTasks)
+          return json(res, 404, { error: "Documentation tasks are disabled" });
+        const body = z
+          .object({
+            op: z.enum(["start", "list", "status", "resume", "cancel"]),
+            conversationId: z.string().min(1).max(200),
+            userId: z.string().min(1).max(200),
+            requestId: z.string().uuid().optional(),
+            taskId: z
+              .string()
+              .regex(/^[0-9a-f]{32}$/)
+              .optional(),
+            question: z.string().trim().min(1).max(2000).optional()
+          })
+          .parse(requireObjectBody(await parseJsonBody(req)));
+        if (body.op === "start" && (!body.requestId || !body.question))
+          throw new HttpRequestError(400, "Start requires requestId and question");
+        if (!["start", "list"].includes(body.op) && !body.taskId)
+          throw new HttpRequestError(400, "Task ID required");
         service.claimConversation(body.conversationId, body.userId, body.op === "start");
         const result = await options.documentTasks.request(body);
         return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
       }
 
       if (method === "POST" && url.pathname === "/sports/games") {
-        const body=z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200),operation:z.enum(["search","details"]),input:z.unknown()}).strict().parse(requireObjectBody(await parseJsonBody(req)));
-        const games=options.briefings?.gameOperations;if(!games)return json(res,404,{error:"Game operations disabled"});
-        service.claimConversation(body.conversationId,body.userId);
-        const controller=new AbortController(),cancel=()=>controller.abort();res.once("close",cancel);
-        try{return json(res,200,body.operation === "search" ? await games.search(body.input,body.userId,body.conversationId,controller.signal) : games.details(body.input,body.userId,body.conversationId));}
-        catch(error){if(error instanceof z.ZodError)throw error;return json(res,409,{error:"Game operation unavailable. Check scope, references and configured limits."});}
-        finally{res.removeListener("close",cancel);}
+        const body = z
+          .object({
+            userId: z.string().min(1).max(200),
+            conversationId: z.string().min(1).max(200),
+            operation: z.enum(["search", "details"]),
+            input: z.unknown()
+          })
+          .strict()
+          .parse(requireObjectBody(await parseJsonBody(req)));
+        const games = options.briefings?.gameOperations;
+        if (!games) return json(res, 404, { error: "Game operations disabled" });
+        service.claimConversation(body.conversationId, body.userId);
+        const controller = new AbortController(),
+          cancel = () => controller.abort();
+        res.once("close", cancel);
+        try {
+          return json(
+            res,
+            200,
+            body.operation === "search"
+              ? await games.search(body.input, body.userId, body.conversationId, controller.signal)
+              : games.details(body.input, body.userId, body.conversationId)
+          );
+        } catch (error) {
+          if (error instanceof z.ZodError) throw error;
+          return json(res, 409, {
+            error: "Game operation unavailable. Check scope, references and configured limits."
+          });
+        } finally {
+          res.removeListener("close", cancel);
+        }
       }
       if (method === "GET" && url.pathname === "/sports/team-directories") {
-        return json(res, 200, { leagues: options.briefings?.directory?.leagues() ?? [], topics: options.briefings?.directory?.topics() ?? [], gameLeagues: options.briefings?.gameOperations?.leagues() ?? [] });
+        return json(res, 200, {
+          leagues: options.briefings?.directory?.leagues() ?? [],
+          topics: options.briefings?.directory?.topics() ?? [],
+          gameLeagues: options.briefings?.gameOperations?.leagues() ?? []
+        });
       }
       if (method === "POST" && url.pathname === "/conversation-context/detach") {
-        const body=z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200)}).strict().parse(requireObjectBody(await parseJsonBody(req)));
-        return json(res,200,{context:service.detachTeamReference(body.conversationId,body.userId) ?? null});
+        const body = z
+          .object({
+            userId: z.string().min(1).max(200),
+            conversationId: z.string().min(1).max(200)
+          })
+          .strict()
+          .parse(requireObjectBody(await parseJsonBody(req)));
+        return json(res, 200, {
+          context: service.detachTeamReference(body.conversationId, body.userId) ?? null
+        });
       }
       if (method === "POST" && url.pathname === "/conversation-context") {
-        const body = z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200)}).strict().parse(requireObjectBody(await parseJsonBody(req)));
-        return json(res,200,{context:service.getSelectedContext(body.conversationId,body.userId) ?? null});
+        const body = z
+          .object({
+            userId: z.string().min(1).max(200),
+            conversationId: z.string().min(1).max(200)
+          })
+          .strict()
+          .parse(requireObjectBody(await parseJsonBody(req)));
+        return json(res, 200, {
+          context: service.getSelectedContext(body.conversationId, body.userId) ?? null
+        });
       }
       if (method === "POST" && url.pathname === "/sports/conversations") {
-        const body = z.object({userId:z.string().min(1).max(200),conversationId:z.string().min(1).max(200),resultId:z.string().uuid(),row:z.number().int().min(0).max(999),attachReference:z.boolean()}).strict().parse(requireObjectBody(await parseJsonBody(req)));
+        const body = z
+          .object({
+            userId: z.string().min(1).max(200),
+            conversationId: z.string().min(1).max(200),
+            resultId: z.string().uuid(),
+            row: z.number().int().min(0).max(999),
+            attachReference: z.boolean()
+          })
+          .strict()
+          .parse(requireObjectBody(await parseJsonBody(req)));
         const directory = options.briefings?.directory;
-        if (!directory) return json(res,404,{error:"Directories disabled"});
-        service.claimConversation(body.conversationId,body.userId,false);
+        if (!directory) return json(res, 404, { error: "Directories disabled" });
+        service.claimConversation(body.conversationId, body.userId, false);
         try {
-          const scope = directory.selectTopic(body.resultId,body.row,body.userId,body.conversationId,body.attachReference);
-          return json(res,201,service.openScopedConversation(body.userId,scope));
-        } catch { return json(res,409,{error:"Cannot open topic. Refresh the directory; the reference may have expired or conversation capacity may be full."}); }
+          const scope = directory.selectTopic(
+            body.resultId,
+            body.row,
+            body.userId,
+            body.conversationId,
+            body.attachReference
+          );
+          return json(res, 201, service.openScopedConversation(body.userId, scope));
+        } catch {
+          return json(res, 409, {
+            error:
+              "Cannot open topic. Refresh the directory; the reference may have expired or conversation capacity may be full."
+          });
+        }
       }
       if (method === "POST" && ["/sports/teams", "/sports/results"].includes(url.pathname)) {
         const directory = options.briefings?.directory;
         if (!directory) return json(res, 404, { error: "Team directories are disabled" });
-        const body = z.object({ userId:z.string().min(1).max(200), conversationId:z.string().min(1).max(200),
-          league:z.enum(["NBA","NFL"]).optional(), resultId:z.string().uuid().optional() }).strict().parse(requireObjectBody(await parseJsonBody(req)));
-        service.claimConversation(body.conversationId, body.userId, url.pathname === "/sports/teams");
+        const body = z
+          .object({
+            userId: z.string().min(1).max(200),
+            conversationId: z.string().min(1).max(200),
+            league: z.enum(["NBA", "NFL"]).optional(),
+            resultId: z.string().uuid().optional()
+          })
+          .strict()
+          .parse(requireObjectBody(await parseJsonBody(req)));
+        service.claimConversation(
+          body.conversationId,
+          body.userId,
+          url.pathname === "/sports/teams"
+        );
         if (url.pathname === "/sports/results") {
           if (!body.resultId) throw new HttpRequestError(400, "Result ID required");
-          try { return json(res, 200, directory.results.get(body.resultId, body.userId, body.conversationId)); }
-          catch { return json(res, 404, {error:"Result unavailable or expired"}); }
+          try {
+            return json(
+              res,
+              200,
+              directory.results.get(body.resultId, body.userId, body.conversationId)
+            );
+          } catch {
+            return json(res, 404, { error: "Result unavailable or expired" });
+          }
         }
         if (!body.league) throw new HttpRequestError(400, "League required");
         const controller = new AbortController();
-        const cancel = () => controller.abort(); res.once("close", cancel);
-        try { return json(res, 200, await directory.list({league:body.league},body.userId,body.conversationId,controller.signal)); }
-        catch { return json(res, 503, {error:"Directory unavailable. No complete team list was retrieved."}); }
-        finally { res.removeListener("close", cancel); }
+        const cancel = () => controller.abort();
+        res.once("close", cancel);
+        try {
+          return json(
+            res,
+            200,
+            await directory.list(
+              { league: body.league },
+              body.userId,
+              body.conversationId,
+              controller.signal
+            )
+          );
+        } catch {
+          return json(res, 503, {
+            error: "Directory unavailable. No complete team list was retrieved."
+          });
+        } finally {
+          res.removeListener("close", cancel);
+        }
       }
 
       if (method === "POST" && url.pathname === "/sports/chat") {
-        if (!options.briefings) return json(res, 404, { error: "Sports retrieval is not enabled on this server." });
-        try { return json(res, 202, options.briefings.startChat(requireObjectBody(await parseJsonBody(req)))); }
-        catch (error) {
+        if (!options.briefings)
+          return json(res, 404, { error: "Sports retrieval is not enabled on this server." });
+        try {
+          return json(
+            res,
+            202,
+            options.briefings.startChat(requireObjectBody(await parseJsonBody(req)))
+          );
+        } catch (error) {
           if (error instanceof z.ZodError) throw error;
-          return json(res, 400, { error: "Cannot start this scope. Check the configured league, source, team ID and date window." });
+          return json(res, 400, {
+            error:
+              "Cannot start this scope. Check the configured league, source, team ID and date window."
+          });
         }
       }
 
@@ -332,16 +467,21 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           userId: body.userId,
           text: body.text,
           runControls: body.runControls,
-          referenceSelections:body.referenceSelections,
+          referenceSelections: body.referenceSelections,
           timestampIso: body.timestampIso ?? new Date().toISOString()
         });
 
         return json(res, 200, response);
       }
 
-      const cancelPath = url.pathname.match(/^\/conversations\/([^/]+)\/messages\/([^/]+)\/cancel$/);
+      const cancelPath = url.pathname.match(
+        /^\/conversations\/([^/]+)\/messages\/([^/]+)\/cancel$/
+      );
       if (method === "POST" && cancelPath) {
-        const state = await service.cancelMessage(decodeURIComponent(cancelPath[1]), decodeURIComponent(cancelPath[2]));
+        const state = await service.cancelMessage(
+          decodeURIComponent(cancelPath[1]),
+          decodeURIComponent(cancelPath[2])
+        );
         return state ? json(res, 200, state) : json(res, 404, { error: "Message not found" });
       }
 
@@ -355,7 +495,11 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, 200, { records });
       }
 
-      if (method === "POST" && url.pathname.startsWith("/workers/deep/dead-letters/") && url.pathname.endsWith("/replay")) {
+      if (
+        method === "POST" &&
+        url.pathname.startsWith("/workers/deep/dead-letters/") &&
+        url.pathname.endsWith("/replay")
+      ) {
         const parts = url.pathname.split("/");
         const taskId = parts[4];
 
@@ -386,13 +530,34 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
       }
 
-      if (method === "GET" && url.pathname === "/run-controls") return json(res,200,service.runControlOptions());
+      if (method === "GET" && url.pathname === "/run-controls")
+        return json(res, 200, service.runControlOptions());
       if (method === "GET" && url.pathname === "/run-controls/thinking") {
-        try { return json(res,200,await service.thinkingOptions(url.searchParams.get("bindingId") ?? undefined)); }
-        catch { return json(res,200,{options:["configured"],limitation:"Thinking options could not be verified"}); }
+        try {
+          return json(
+            res,
+            200,
+            await service.thinkingOptions(url.searchParams.get("bindingId") ?? undefined)
+          );
+        } catch {
+          return json(res, 200, {
+            options: ["configured"],
+            limitation: "Thinking options could not be verified"
+          });
+        }
       }
       if (method === "GET" && url.pathname === "/models") {
-        return json(res, 200, options.modelCatalog?.() ?? { version: 1, routingMode: "fixed-fast-deep", models: [], discovered: [], unlistedSelections: [] });
+        return json(
+          res,
+          200,
+          options.modelCatalog?.() ?? {
+            version: 1,
+            routingMode: "fixed-fast-deep",
+            models: [],
+            discovered: [],
+            unlistedSelections: []
+          }
+        );
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/tune") {
@@ -409,14 +574,22 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, 200, { policy });
       }
 
-      if (method === "GET" && url.pathname.startsWith("/conversations/") && url.pathname.endsWith("/events")) {
+      if (
+        method === "GET" &&
+        url.pathname.startsWith("/conversations/") &&
+        url.pathname.endsWith("/events")
+      ) {
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
         const events = await service.getTimeline(conversationId);
         return json(res, 200, { events });
       }
 
-      if (method === "GET" && url.pathname.startsWith("/conversations/") && url.pathname.endsWith("/events/stream")) {
+      if (
+        method === "GET" &&
+        url.pathname.startsWith("/conversations/") &&
+        url.pathname.endsWith("/events/stream")
+      ) {
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
 
@@ -472,15 +645,51 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
 
       return json(res, 404, { error: "Not found" });
     } catch (error) {
-      if (res.headersSent) { res.destroy(); return; }
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
       if (error instanceof DocumentTaskError) {
-        const status = error.code === "CAPACITY_FULL" ? 429 : error.code === "OWNER_MISMATCH" || error.code === "REQUEST_CONFLICT" || error.code === "NOT_RESUMABLE" ? 409 : error.code === "TASK_NOT_FOUND" ? 404 : error.code.startsWith("INVALID_") ? 400 : 503;
+        const status =
+          error.code === "CAPACITY_FULL"
+            ? 429
+            : error.code === "OWNER_MISMATCH" ||
+                error.code === "REQUEST_CONFLICT" ||
+                error.code === "NOT_RESUMABLE"
+              ? 409
+              : error.code === "TASK_NOT_FOUND"
+                ? 404
+                : error.code.startsWith("INVALID_")
+                  ? 400
+                  : 503;
         return json(res, status, { error: "Documentation task request failed", code: error.code });
       }
-      if (error instanceof ModelSelectionError) return json(res, 503, { error: error.message, code: error.code, exclusions: error.exclusions });
-      if (error instanceof DuplicateMessageError) return json(res, 409, { error: error.message, code: error.code });
-      if (error instanceof GenerationError && error.code === "CAPABILITY_PLAN_TRUNCATED") return json(res, 502, { code: error.code, error: "Planning output reached its token limit. Increase the fast-model output allowance or use a model that can plan within the configured budget." });
-      if (error instanceof GenerationError) return json(res, error.code === "SHUTTING_DOWN" ? 503 : error.code === "CONTEXT_TOO_LARGE" ? 413 : error.code === "CAPABILITY_UNSUPPORTED" ? 400 : 502, { error: "Generation failed", code: error.code });
+      if (error instanceof ModelSelectionError)
+        return json(res, 503, {
+          error: error.message,
+          code: error.code,
+          exclusions: error.exclusions
+        });
+      if (error instanceof DuplicateMessageError)
+        return json(res, 409, { error: error.message, code: error.code });
+      if (error instanceof GenerationError && error.code === "CAPABILITY_PLAN_TRUNCATED")
+        return json(res, 502, {
+          code: error.code,
+          error:
+            "Planning output reached its token limit. Increase the fast-model output allowance or use a model that can plan within the configured budget."
+        });
+      if (error instanceof GenerationError)
+        return json(
+          res,
+          error.code === "SHUTTING_DOWN"
+            ? 503
+            : error.code === "CONTEXT_TOO_LARGE"
+              ? 413
+              : error.code === "CAPABILITY_UNSUPPORTED"
+                ? 400
+                : 502,
+          { error: "Generation failed", code: error.code }
+        );
       if (error instanceof HttpRequestError) {
         return json(res, error.statusCode, { error: error.message });
       }
@@ -504,26 +713,46 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
   const close = server.close.bind(server);
   // Node's close callback must not announce completion before internal jobs settle.
   server.close = ((callback?: (error?: Error) => void) => {
-    if (!shutdown) { options.documentTasks?.close(); options.briefings?.close(); }
+    if (!shutdown) {
+      options.documentTasks?.close();
+      options.briefings?.close();
+    }
     shutdown ??= options.shutdown?.() ?? Promise.resolve();
-    close(error => { void shutdown!.then(() => callback?.(error), failure => callback?.(failure)); });
+    close((error) => {
+      void shutdown!.then(
+        () => callback?.(error),
+        (failure) => callback?.(failure)
+      );
+    });
     return server;
   }) as typeof server.close;
-  return Object.assign(server, { closeStreams: () => {
-    for (const response of responses) if (String(response.getHeader("Content-Type")).startsWith("text/event-stream")) response.end();
-  } });
+  return Object.assign(server, {
+    closeStreams: () => {
+      for (const response of responses)
+        if (String(response.getHeader("Content-Type")).startsWith("text/event-stream"))
+          response.end();
+    }
+  });
 }
 
-export async function startServer(port: number, extensions: { briefings?: BriefingHttp } = {}): Promise<RuntimeHandle> {
-  const briefings = extensions.briefings ?? await loadLiveBriefingFromEnv(process.env);
+export async function startServer(
+  port: number,
+  extensions: { briefings?: BriefingHttp } = {}
+): Promise<RuntimeHandle> {
+  const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
   const summaryConfig = loadSummaryConfig();
   if (summaryConfig.mode === "model" && process.env.CONTEXT_SUMMARY_MODEL_BINDING !== "fast")
-    throw new Error("CONTEXT_SUMMARY_MODE=model requires CONTEXT_SUMMARY_MODEL_BINDING=fast (explicit extra model calls)");
+    throw new Error(
+      "CONTEXT_SUMMARY_MODE=model requires CONTEXT_SUMMARY_MODEL_BINDING=fast (explicit extra model calls)"
+    );
   const catalog = await loadModelCatalog(process.env.MODEL_CATALOG_PATH);
   const dispatchConfig = await loadDispatchConfig();
-  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(process.env, dispatchConfig.mode === "fixed" ? { config, catalog } : undefined);
+  const contextBudget: ContextBudgetConfig = loadContextBudgetConfigFromEnv(
+    process.env,
+    dispatchConfig.mode === "fixed" ? { config, catalog } : undefined
+  );
   const thinking = await verifyThinkingConfig(config);
   const providers = buildProviderPair(config, contextBudget, thinking);
   const estimator = new InMemoryLatencyEstimator();
@@ -538,87 +767,211 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
     model: config.deep.model
   };
 
-  seedPriorsForProfile(estimator, fastProfile, "direct", baseP95ByProvider(fastProfile.provider, "direct"));
-  seedPriorsForProfile(estimator, fastProfile, "clarify", baseP95ByProvider(fastProfile.provider, "clarify"));
-  seedPriorsForProfile(estimator, fastProfile, "deep", baseP95ByProvider(fastProfile.provider, "deep"));
-  seedPriorsForProfile(estimator, deepProfile, "deep", baseP95ByProvider(deepProfile.provider, "deep"));
+  seedPriorsForProfile(
+    estimator,
+    fastProfile,
+    "direct",
+    baseP95ByProvider(fastProfile.provider, "direct")
+  );
+  seedPriorsForProfile(
+    estimator,
+    fastProfile,
+    "clarify",
+    baseP95ByProvider(fastProfile.provider, "clarify")
+  );
+  seedPriorsForProfile(
+    estimator,
+    fastProfile,
+    "deep",
+    baseP95ByProvider(fastProfile.provider, "deep")
+  );
+  seedPriorsForProfile(
+    estimator,
+    deepProfile,
+    "deep",
+    baseP95ByProvider(deepProfile.provider, "deep")
+  );
 
   const adaptiveRouting = new AdaptiveRoutingCoordinator(estimator, fastProfile, deepProfile, {
     maxFastP95Ms: parseBoundedNumberEnv(process.env.ROUTING_MAX_FAST_P95_MS, 1000, 400, 5000)
   });
 
-  const telemetryStore = new FileLatencyTelemetryStore(process.env.TELEMETRY_STORE_PATH ?? "data/latency-telemetry.json");
+  const telemetryStore = new FileLatencyTelemetryStore(
+    process.env.TELEMETRY_STORE_PATH ?? "data/latency-telemetry.json"
+  );
   const existingSnapshot = await telemetryStore.load();
   if (existingSnapshot) {
     adaptiveRouting.hydrateState(existingSnapshot);
   }
   if (process.env.ROUTING_MAX_FAST_P95_MS !== undefined) {
-    adaptiveRouting.setMaxFastP95Ms(parseBoundedNumberEnv(process.env.ROUTING_MAX_FAST_P95_MS, 1000, 400, 5000));
+    adaptiveRouting.setMaxFastP95Ms(
+      parseBoundedNumberEnv(process.env.ROUTING_MAX_FAST_P95_MS, 1000, 400, 5000)
+    );
   }
 
   const discoveryConfig = loadDiscoveryConfigFromEnv();
-  const connections: Connection[] = defaultConnectionsFromEnv(config, process.env, dispatchConfig.mode === "catalog" ? catalog.models.flatMap(e => e.provider === "cli" ? [] : [e.provider]) : []);
+  const connections: Connection[] = defaultConnectionsFromEnv(
+    config,
+    process.env,
+    dispatchConfig.mode === "catalog"
+      ? catalog.models.flatMap((e) => (e.provider === "cli" ? [] : [e.provider]))
+      : []
+  );
   const discoveryAdapters: Partial<Record<Connection["apiKind"], DiscoveryAdapter>> = {
-    "mock": { discover: async connection => catalog.models.filter(e => e.provider === "mock").map(entry => ({
-      bindingId: entryBindingId(entry), connectionId: connection.connectionId, model: entry.model,
-      observedAtIso: new Date().toISOString(), source: "synthetic-mock-adapter",
-      installed: "yes" as const, access: "allowed" as const, health: "reachable" as const, apiCompatibility: ["mock"]
-    })) },
+    mock: {
+      discover: async (connection) =>
+        catalog.models
+          .filter((e) => e.provider === "mock")
+          .map((entry) => ({
+            bindingId: entryBindingId(entry),
+            connectionId: connection.connectionId,
+            model: entry.model,
+            observedAtIso: new Date().toISOString(),
+            source: "synthetic-mock-adapter",
+            installed: "yes" as const,
+            access: "allowed" as const,
+            health: "reachable" as const,
+            apiCompatibility: ["mock"]
+          }))
+    },
     "ollama-chat": new OllamaDiscoveryAdapter(),
     "azure-openai-chat": new AzureDiscoveryAdapter(),
     "bedrock-converse": new BedrockDiscoveryAdapter()
   };
-  const registry = dispatchConfig.mode === "catalog" ? await buildProviderRegistry(catalog, connections, config, contextBudget) : undefined;
+  const registry =
+    dispatchConfig.mode === "catalog"
+      ? await buildProviderRegistry(catalog, connections, config, contextBudget)
+      : undefined;
   const claudeBridge = connectHekateClaude(catalog, registry, contextBudget);
   connections.push(...claudeBridge.connections);
   if (claudeBridge.discovery) discoveryAdapters.cli = claudeBridge.discovery;
   const inventoryStore = new InventoryStore(discoveryAdapters, discoveryConfig);
-  const dispatch = registry ? new CatalogDispatch(catalog, registry, dispatchConfig.policy, contextBudget, () => inventoryStore.listObservations()) : undefined;
+  const dispatch = registry
+    ? new CatalogDispatch(catalog, registry, dispatchConfig.policy, contextBudget, () =>
+        inventoryStore.listObservations()
+      )
+    : undefined;
   const buildCatalogResponse = () => {
-    const view = describeModelCatalog(catalog, config, { connections, observations: inventoryStore.listObservations(), implementedBindingIds: claudeBridge.bindingIds });
-    return { ...view, routingMode: dispatch ? "catalog" as const : "fixed-fast-deep" as const,
-      models: dispatch ? view.models.map(model => ({ ...model, selectedRoles: [],
-        resourceFacts: dispatch.policy.bindings[model.id]?.facts ?? model.resourceFacts,
-        resourceEvidenceKind: dispatch.policy.bindings[model.id]?.evidence.kind ?? "unknown"
-      })) : view.models };
+    const view = describeModelCatalog(catalog, config, {
+      connections,
+      observations: inventoryStore.listObservations(),
+      implementedBindingIds: claudeBridge.bindingIds
+    });
+    return {
+      ...view,
+      routingMode: dispatch ? ("catalog" as const) : ("fixed-fast-deep" as const),
+      models: dispatch
+        ? view.models.map((model) => ({
+            ...model,
+            selectedRoles: [],
+            resourceFacts: dispatch.policy.bindings[model.id]?.facts ?? model.resourceFacts,
+            resourceEvidenceKind: dispatch.policy.bindings[model.id]?.evidence.kind ?? "unknown"
+          }))
+        : view.models
+    };
   };
 
   const recorder = await startEvaluationRecording({
-    routingMode: dispatchConfig.mode, orchestration: "fast-deep", fast: config.fast, deep: config.deep,
-    budget: contextBudget, thinking, summary: summaryConfig, hardware: { platform: platform(), arch: arch() },
-    endpointDigests: [config.azure?.endpoint, config.ollama?.baseUrl, config.bedrock?.region].map(value => value ? digest(value) : null),
-    catalog: catalog.models.map(({ id, provider, model, enabled, roles, tasks, capabilities, limits, routingPriority }) =>
-      ({ id, provider, model, enabled, roles, tasks, capabilities, limits, routingPriority })),
+    routingMode: dispatchConfig.mode,
+    orchestration: "fast-deep",
+    fast: config.fast,
+    deep: config.deep,
+    budget: contextBudget,
+    thinking,
+    summary: summaryConfig,
+    hardware: { platform: platform(), arch: arch() },
+    endpointDigests: [config.azure?.endpoint, config.ollama?.baseUrl, config.bedrock?.region].map(
+      (value) => (value ? digest(value) : null)
+    ),
+    catalog: catalog.models.map(
+      ({ id, provider, model, enabled, roles, tasks, capabilities, limits, routingPriority }) => ({
+        id,
+        provider,
+        model,
+        enabled,
+        roles,
+        tasks,
+        capabilities,
+        limits,
+        routingPriority
+      })
+    ),
     dispatchPolicyDigest: digest(JSON.stringify(dispatchConfig.policy)),
     resourcePolicy: {
       allowedExecutionScopes: dispatchConfig.policy.allowedExecutionScopes,
       allowedBillingComponents: dispatchConfig.policy.allowedBillingComponents,
-      maxIncrementalUsd: dispatchConfig.policy.maxIncrementalUsd, unknownCostAction: dispatchConfig.policy.unknownCostAction,
-      quotaExhaustionAction: dispatchConfig.policy.quotaExhaustionAction, waitTimeoutMs: dispatchConfig.policy.waitTimeoutMs,
-      bindings: Object.fromEntries(Object.entries(dispatchConfig.policy.bindings).map(([id, resource]) => [id, {
-        facts: resource.facts, quotaAdmission: resource.quotaAdmission ?? null,
-        maxInvocationUsd: resource.incremental?.maxInvocationUsd ?? null,
-        quota: resource.quota ? { unit: resource.quota.unit, remaining: resource.quota.remaining, poolDigest: digest(resource.quota.poolId) } : null,
-        concurrency: resource.compute?.concurrency ?? null
-      }]))
+      maxIncrementalUsd: dispatchConfig.policy.maxIncrementalUsd,
+      unknownCostAction: dispatchConfig.policy.unknownCostAction,
+      quotaExhaustionAction: dispatchConfig.policy.quotaExhaustionAction,
+      waitTimeoutMs: dispatchConfig.policy.waitTimeoutMs,
+      bindings: Object.fromEntries(
+        Object.entries(dispatchConfig.policy.bindings).map(([id, resource]) => [
+          id,
+          {
+            facts: resource.facts,
+            quotaAdmission: resource.quotaAdmission ?? null,
+            maxInvocationUsd: resource.incremental?.maxInvocationUsd ?? null,
+            quota: resource.quota
+              ? {
+                  unit: resource.quota.unit,
+                  remaining: resource.quota.remaining,
+                  poolDigest: digest(resource.quota.poolId)
+                }
+              : null,
+            concurrency: resource.compute?.concurrency ?? null
+          }
+        ])
+      )
     },
-    cliLimits: process.env.HEKATE_CLI_ROOT ? cliLimits() : null, worker: resolveDeepWorkerAutoRunConfig(process.env),
-    generation: Object.fromEntries(["CLI_TIMEOUT_MS", "CLI_MAX_OUTPUT_BYTES", "CLI_MAX_CONCURRENCY", "HEKATE_CLAUDE_USAGE_POLICY",
-      "CHAT_FAST_MAX_OUTPUT_TOKENS", "CHAT_DEEP_MAX_OUTPUT_TOKENS", "DEEP_WORKER_AUTO_RUN", "DEEP_WORKER_INTERVAL_MS"].map(key => [key, process.env[key] ?? null]))
+    cliLimits: process.env.HEKATE_CLI_ROOT ? cliLimits() : null,
+    worker: resolveDeepWorkerAutoRunConfig(process.env),
+    generation: Object.fromEntries(
+      [
+        "CLI_TIMEOUT_MS",
+        "CLI_MAX_OUTPUT_BYTES",
+        "CLI_MAX_CONCURRENCY",
+        "HEKATE_CLAUDE_USAGE_POLICY",
+        "CHAT_FAST_MAX_OUTPUT_TOKENS",
+        "CHAT_DEEP_MAX_OUTPUT_TOKENS",
+        "DEEP_WORKER_AUTO_RUN",
+        "DEEP_WORKER_INTERVAL_MS"
+      ].map((key) => [key, process.env[key] ?? null])
+    )
   });
   const queue = new InMemoryTaskQueue();
   const timeline = new InMemoryConversationTimelineStore(recorder?.record);
   const deadLetters = new InMemoryDeadLetterStore();
-  let summaryModel = summaryConfig.mode === "model"
-    ? buildFastProvider(config, { ...contextBudget, fastOutputTokens: summaryConfig.maxTokens }, thinking) : undefined;
+  let summaryModel =
+    summaryConfig.mode === "model"
+      ? buildFastProvider(
+          config,
+          { ...contextBudget, fastOutputTokens: summaryConfig.maxTokens },
+          thinking
+        )
+      : undefined;
   if (summaryModel && dispatch) {
-    const entry = catalog.models.find(e => e.provider === config.fast.provider && e.model === config.fast.model);
+    const entry = catalog.models.find(
+      (e) => e.provider === config.fast.provider && e.model === config.fast.model
+    );
     if (!entry) throw new Error("Catalog summary binding must be curated");
-    summaryModel = dispatch.wrapSummary(summaryModel, entryBindingId(entry), summaryConfig.maxTokens);
+    summaryModel = dispatch.wrapSummary(
+      summaryModel,
+      entryBindingId(entry),
+      summaryConfig.maxTokens
+    );
   }
-  const summaryProvider = summaryModel ? new ModelContextSummarizer(summaryModel,
-    contextBudget.windowTokens, summaryConfig.maxTokens, contextBudget.safetyTokens) : undefined;
-  const contextManager = new ContextManager(timeline, contextBudget, { config: summaryConfig, summarizer: summaryProvider });
+  const summaryProvider = summaryModel
+    ? new ModelContextSummarizer(
+        summaryModel,
+        contextBudget.windowTokens,
+        summaryConfig.maxTokens,
+        contextBudget.safetyTokens
+      )
+    : undefined;
+  const contextManager = new ContextManager(timeline, contextBudget, {
+    config: summaryConfig,
+    summarizer: summaryProvider
+  });
   const trustedFactsProvider = () => ({
     fastProvider: config.fast.provider,
     fastModel: config.fast.model,
@@ -626,15 +979,50 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
     deepModel: config.deep.model,
     generatedAtIso: new Date().toISOString()
   });
-  const plannerEngine=rolePlannerEngine();
-  const roleCatalog=await loadRoleCatalog(process.env.ROLE_CATALOG_PATH);
-  const orchestrator = config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
-    ? new ChatOrchestrator(providers.fastProvider, queue, timeline, adaptiveRouting, contextManager, trustedFactsProvider)
-    : new CapabilityChat(providers.fastProvider, queue, timeline, contextManager, trustedFactsProvider, () => briefings?.tools() ?? [], dispatch, roleCatalog, plannerEngine, () => briefings?.directory?.results);
-  const worker = new DeepWorker(queue, providers.deepProvider, timeline, 2, deadLetters, adaptiveRouting, dispatch);
-  const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptiveRouting);
+  const plannerEngine = rolePlannerEngine();
+  const roleCatalog = await loadRoleCatalog(process.env.ROLE_CATALOG_PATH);
+  const orchestrator =
+    config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
+      ? new ChatOrchestrator(
+          providers.fastProvider,
+          queue,
+          timeline,
+          adaptiveRouting,
+          contextManager,
+          trustedFactsProvider
+        )
+      : new CapabilityChat(
+          providers.fastProvider,
+          queue,
+          timeline,
+          contextManager,
+          trustedFactsProvider,
+          () => briefings?.tools() ?? [],
+          dispatch,
+          roleCatalog,
+          plannerEngine,
+          () => briefings?.directory?.results
+        );
+  const worker = new DeepWorker(
+    queue,
+    providers.deepProvider,
+    timeline,
+    2,
+    deadLetters,
+    adaptiveRouting,
+    dispatch
+  );
+  const service = new ChatService(
+    orchestrator,
+    worker,
+    timeline,
+    queue,
+    deadLetters,
+    adaptiveRouting
+  );
 
-  const saveTelemetry = () => telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
+  const saveTelemetry = () =>
+    telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
 
   const autoRunConfig = resolveDeepWorkerAutoRunConfig(process.env);
 
@@ -647,16 +1035,23 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
   };
 
   const runtimeMode = resolveRuntimeModeInfo(config);
-  const documentTasks = process.env.DOC_TASK_PYTHON ? new PythonDocumentTasks(
-    process.env.DOC_TASK_PYTHON, resolve("experiments/doc-agent/chat_bridge.py"),
-    resolve(process.env.DOC_TASK_ROOT ?? "data/document-tasks"), process.env.DOC_TASK_MODEL ?? "gemma4:26b"
-  ) : undefined;
-
+  const documentTasks = process.env.DOC_TASK_PYTHON
+    ? new PythonDocumentTasks(
+        process.env.DOC_TASK_PYTHON,
+        resolve("experiments/doc-agent/chat_bridge.py"),
+        resolve(process.env.DOC_TASK_ROOT ?? "data/document-tasks"),
+        process.env.DOC_TASK_MODEL ?? "gemma4:26b"
+      )
+    : undefined;
 
   const server = createChatServer(service, {
-    briefings, documentTasks, runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode, modelCatalog: buildCatalogResponse,
+    briefings,
+    documentTasks,
+    runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
+    modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
-    evaluationStatus: () => recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
+    evaluationStatus: () =>
+      recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry()
   });
   // Do not report success or start background work until the port is bound.
@@ -665,9 +1060,13 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
       documentTasks?.close();
       briefings?.close();
       recorder?.invalidate("EVAL_STARTUP_FAILED");
-      reject(error.code === "EADDRINUSE"
-        ? new Error(`Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`)
-        : error);
+      reject(
+        error.code === "EADDRINUSE"
+          ? new Error(
+              `Port ${port} is already in use. This server did not start. Stop the existing server or choose a different PORT.`
+            )
+          : error
+      );
     };
     server.once("error", onError);
     server.listen(port, () => {
@@ -676,7 +1075,12 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
     });
   });
 
-  const telemetrySaveIntervalMs = parsePositiveIntEnv(process.env.TELEMETRY_SAVE_INTERVAL_MS, 5000, 250, 60_000);
+  const telemetrySaveIntervalMs = parsePositiveIntEnv(
+    process.env.TELEMETRY_SAVE_INTERVAL_MS,
+    5000,
+    250,
+    60_000
+  );
   const timer = setInterval(() => {
     void saveTelemetry().catch(() => console.warn("Telemetry save failed"));
   }, telemetrySaveIntervalMs);
@@ -706,12 +1110,18 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
     inventoryStore.shutdown();
   };
   const runtime = createRuntimeHandle(server, service, {
-    config: shutdownConfig, stopBackground,
+    config: shutdownConfig,
+    stopBackground,
     onTimeout: () => recorder?.invalidate("EVAL_RUNTIME_SHUTDOWN_TIMEOUT"),
-    stopInternal: () => contextManager.shutdown(), persist: async () => {
+    stopInternal: () => contextManager.shutdown(),
+    persist: async () => {
       const results = await Promise.allSettled([saveTelemetry(), recorder?.finish()]);
       const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
-      if (failures.length) throw new AggregateError(failures.map(r => r.reason), "RUNTIME_PERSISTENCE_FAILED");
+      if (failures.length)
+        throw new AggregateError(
+          failures.map((r) => r.reason),
+          "RUNTIME_PERSISTENCE_FAILED"
+        );
     }
   });
   server.once("close", stopBackground);
@@ -720,6 +1130,8 @@ export async function startServer(port: number, extensions: { briefings?: Briefi
   // (e.g. AZURE_OPENAI_API_KEY), only provider/model names, endpoints, and
   // region — see its docstring in ./config/providerConfig.
   const autoRunLabel = autoRunConfig.enabled ? `on/${autoRunConfig.intervalMs}ms` : "off";
-  console.log(`Chat server listening on port ${runtime.address.port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`);
+  console.log(
+    `Chat server listening on port ${runtime.address.port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`
+  );
   return runtime;
 }

@@ -10,6 +10,7 @@ Preserve v1 as exploratory evidence; add a FIFO control and equal offered load.
 This correction follows review of v1, not an independent confirmatory study.
 
 Freeze before inference:
+
 - Installed gemma4:26b; require digest, version, tools, thinking=false metadata.
 - Real OllamaFastProvider streaming foreground; real LangGraph documentation tasks
   through PythonDocumentTasks. No deep conversational worker or UI in this probe.
@@ -51,5 +52,6 @@ of answer correctness. Use new task DBs: source identity pins reject old databas
 following implementation changes. Keep actual answers separately for inspection.
 
 References checked 2026-09-28:
+
 - https://docs.ollama.com/api/chat (streaming and reported timing fields)
 - https://docs.ollama.com/faq (parallel requests, memory, and queue configuration)

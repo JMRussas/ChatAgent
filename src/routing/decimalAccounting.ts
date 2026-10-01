@@ -15,11 +15,13 @@ export function decimalNumber(units: bigint): number {
 }
 
 /** JSON-safe projection. Only overflowing values carry the exact decimal string. */
-export function decimalTelemetry(units: bigint): {value:number;overflow:false} | {value:null;overflow:true;exact:string} {
-  const value=decimalNumber(units);
-  if(Number.isFinite(value))return {value,overflow:false};
-  const digits=units.toString().padStart(SCALE+1,"0");
-  const fraction=digits.slice(-SCALE).replace(/0+$/,"");
-  const exact=digits.slice(0,-SCALE)+(fraction ? "."+fraction : "");
-  return {value:null,overflow:true,exact};
+export function decimalTelemetry(
+  units: bigint
+): { value: number; overflow: false } | { value: null; overflow: true; exact: string } {
+  const value = decimalNumber(units);
+  if (Number.isFinite(value)) return { value, overflow: false };
+  const digits = units.toString().padStart(SCALE + 1, "0");
+  const fraction = digits.slice(-SCALE).replace(/0+$/, "");
+  const exact = digits.slice(0, -SCALE) + (fraction ? "." + fraction : "");
+  return { value: null, overflow: true, exact };
 }

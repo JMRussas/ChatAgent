@@ -6,7 +6,9 @@ const sendMock = vi.fn();
 vi.mock("@aws-sdk/client-bedrock", () => {
   class ListFoundationModelsCommand {
     input: unknown;
-    constructor(input: unknown) { this.input = input; }
+    constructor(input: unknown) {
+      this.input = input;
+    }
   }
   class BedrockClient {
     send = sendMock;
@@ -16,7 +18,15 @@ vi.mock("@aws-sdk/client-bedrock", () => {
 });
 
 function connection(overrides: Partial<Connection> = {}): Connection {
-  return { connectionId: "default-bedrock", apiKind: "bedrock-converse", region: "us-east-1", resourceFacts: UNKNOWN_RESOURCE_FACTS, quota: {}, compute: { ownedOrRented: "unknown" }, ...overrides };
+  return {
+    connectionId: "default-bedrock",
+    apiKind: "bedrock-converse",
+    region: "us-east-1",
+    resourceFacts: UNKNOWN_RESOURCE_FACTS,
+    quota: {},
+    compute: { ownedOrRented: "unknown" },
+    ...overrides
+  };
 }
 
 describe("BedrockDiscoveryAdapter", () => {
@@ -28,32 +38,52 @@ describe("BedrockDiscoveryAdapter", () => {
   it("maps ListFoundationModels output to observations with access left unknown (list != invoke permission)", async () => {
     sendMock.mockImplementationOnce(async () => ({
       modelSummaries: [
-        { modelId: "anthropic.claude-3-5-sonnet", modelName: "Claude 3.5 Sonnet", providerName: "Anthropic", modelLifecycle: { status: "ACTIVE" } },
+        {
+          modelId: "anthropic.claude-3-5-sonnet",
+          modelName: "Claude 3.5 Sonnet",
+          providerName: "Anthropic",
+          modelLifecycle: { status: "ACTIVE" }
+        },
         { modelId: "amazon.titan-legacy", modelLifecycle: { status: "LEGACY" } }
       ]
     }));
 
-    const { BedrockDiscoveryAdapter } = await import("../../../src/models/discovery/bedrockDiscovery");
+    const { BedrockDiscoveryAdapter } =
+      await import("../../../src/models/discovery/bedrockDiscovery");
     const adapter = new BedrockDiscoveryAdapter();
     const observations = await adapter.discover(connection(), new AbortController().signal);
 
     expect(observations).toEqual([
-      expect.objectContaining({ model: "anthropic.claude-3-5-sonnet", health: "reachable", access: "unknown", installed: "yes", source: "bedrock-list-foundation-models" }),
+      expect.objectContaining({
+        model: "anthropic.claude-3-5-sonnet",
+        health: "reachable",
+        access: "unknown",
+        installed: "yes",
+        source: "bedrock-list-foundation-models"
+      }),
       expect.objectContaining({ model: "amazon.titan-legacy", health: "unreachable" })
     ]);
   });
 
   it("returns no observations for a connection without a region", async () => {
-    const { BedrockDiscoveryAdapter } = await import("../../../src/models/discovery/bedrockDiscovery");
+    const { BedrockDiscoveryAdapter } =
+      await import("../../../src/models/discovery/bedrockDiscovery");
     const adapter = new BedrockDiscoveryAdapter();
-    await expect(adapter.discover(connection({ region: undefined }), new AbortController().signal)).resolves.toEqual([]);
+    await expect(
+      adapter.discover(connection({ region: undefined }), new AbortController().signal)
+    ).resolves.toEqual([]);
     expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("propagates a credentials/region error to the caller (InventoryStore treats the connection as unavailable)", async () => {
-    sendMock.mockImplementationOnce(async () => { throw new Error("Could not load credentials from any providers"); });
-    const { BedrockDiscoveryAdapter } = await import("../../../src/models/discovery/bedrockDiscovery");
+    sendMock.mockImplementationOnce(async () => {
+      throw new Error("Could not load credentials from any providers");
+    });
+    const { BedrockDiscoveryAdapter } =
+      await import("../../../src/models/discovery/bedrockDiscovery");
     const adapter = new BedrockDiscoveryAdapter();
-    await expect(adapter.discover(connection(), new AbortController().signal)).rejects.toThrow(/credentials/);
+    await expect(adapter.discover(connection(), new AbortController().signal)).rejects.toThrow(
+      /credentials/
+    );
   });
 });

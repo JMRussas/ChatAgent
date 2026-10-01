@@ -636,9 +636,11 @@ Changes made:
 
 1. Added `BENCH_SIM_SEED` support to benchmark simulation path.
 2. Persisted run context in benchmark JSON:
+
 - simulation seed (simulate mode)
 - prompt set digest
 - profile set digest
+
 3. Added compare compatibility checks and report section.
 4. Added tests for seed determinism/variability and compatibility failures.
 
@@ -719,10 +721,12 @@ Decision:
 Changes made:
 
 1. Added route-aware metrics fields:
+
 - `citationRateAll`
 - `deepCitationRate`
 
 2. Updated report gate:
+
 - Replaced `citation_rate` gate with `deep_citation_rate`.
 
 3. Updated tests and success criteria wording.
@@ -799,7 +803,9 @@ Changes made:
 2. Added adaptive routing state snapshot/hydration methods.
 3. Updated server bootstrap to load/save full routing state.
 4. Added endpoint:
+
 - `POST /routing/policy/set`
+
 5. Added/updated tests for snapshot shape and policy endpoint behavior.
 
 Files changed:
@@ -835,11 +841,13 @@ Decision:
 Changes made:
 
 1. Added `npm run verify:release` script:
+
 - tests
 - lint/type-check
 - eval report generation
 - benchmark run
 - benchmark compare gates
+
 2. Documented release verification flow in README.
 3. Added a plan phase to standardize usage.
 
@@ -854,8 +862,8 @@ Validation evidence:
 1. `npm run verify:release` completes successfully.
 
 1. `npm test` passed (all tests green).
-2. `npm run lint` passed.
-3. `npm run eval:report` result changed to PASS on sample set.
+1. `npm run lint` passed.
+1. `npm run eval:report` result changed to PASS on sample set.
 
 ---
 
@@ -961,10 +969,13 @@ Changes made:
 
 1. Added dead-letter store remove capability for replay workflows.
 2. Added API endpoints:
+
 - `GET /workers/deep/dead-letters`
 - `POST /workers/deep/dead-letters/:taskId/replay`
+
 3. Added integration test for list + replay behavior.
 4. Added reliability metrics and gates in eval report:
+
 - `avgRetriesDeep`
 - `deadLetterRateDeep`
 
@@ -1058,10 +1069,13 @@ Changes made:
 
 1. Added telemetry snapshot file store and estimator snapshot/hydration support.
 2. Added endpoints:
+
 - `GET /telemetry/latency`
 - `POST /routing/policy/tune`
+
 3. Added tests for telemetry store and endpoint behavior.
 4. Added benchmark runner and reports:
+
 - `npm run bench:run`
 - `reports/benchmark-summary.json`
 - `reports/benchmark-summary.md`
@@ -1175,7 +1189,6 @@ not implemented spending controls or guarantees about existing fixed routing.
 
 Validation: documentation diff checks only; no runtime code or tests changed.
 
-
 ## 2026-09-25 - Context review corrections implemented
 
 Status: CTX-01–04 corrected; broader context/resource milestones remain open.
@@ -1259,7 +1272,6 @@ Validation evidence:
    during investigation.
 2. No ChatRuntime source changed; existing 152-test suite, type checking and
    `verify:release` status are unaffected and were not re-run for this entry.
-
 
 ## 2026-09-25 — Spec 02 generation lifecycle and answer preservation
 

@@ -9,24 +9,47 @@ describe("resource admission", () => {
   it("RES-01: local-only rejects cloud/hybrid/unknown facts independently of price", () => {
     const policy = dispatchPolicySchema.parse({});
     for (const executionScope of ["managed-cloud", "hybrid", "unknown"] as const)
-      expect(resourceExclusion(resources({ facts: { executionScope, billingComponents: ["owned-compute"] } }), policy, Date.parse(now)))
-        .toBe("EXECUTION_SCOPE_DENIED");
+      expect(
+        resourceExclusion(
+          resources({ facts: { executionScope, billingComponents: ["owned-compute"] } }),
+          policy,
+          Date.parse(now)
+        )
+      ).toBe("EXECUTION_SCOPE_DENIED");
     expect(resourceExclusion(resources(), policy, Date.parse(now))).toBeUndefined();
   });
   it("RES-03/04: zero incremental cost differs from missing/stale price and fixed costs", () => {
-    const policy = dispatchPolicySchema.parse({ allowedExecutionScopes: ["self-hosted-remote"], allowedBillingComponents: ["provisioned-capacity"] });
-    const r = resources({ facts: { executionScope: "self-hosted-remote", billingComponents: ["provisioned-capacity"] }, fixedCostNote: "Monthly rent is separate" });
+    const policy = dispatchPolicySchema.parse({
+      allowedExecutionScopes: ["self-hosted-remote"],
+      allowedBillingComponents: ["provisioned-capacity"]
+    });
+    const r = resources({
+      facts: { executionScope: "self-hosted-remote", billingComponents: ["provisioned-capacity"] },
+      fixedCostNote: "Monthly rent is separate"
+    });
     expect(resourceExclusion(r, policy, Date.parse(now))).toBeUndefined();
-    expect(resourceExclusion({ ...r, incremental: undefined }, policy, Date.parse(now))).toBe("COST_UNKNOWN_OR_STALE");
-    expect(resourceExclusion({ ...r, incremental: { ...r.incremental!, evidence: { ...evidence, expiresAtIso: now } } }, policy, Date.parse(now))).toBe("COST_UNKNOWN_OR_STALE");
+    expect(resourceExclusion({ ...r, incremental: undefined }, policy, Date.parse(now))).toBe(
+      "COST_UNKNOWN_OR_STALE"
+    );
+    expect(
+      resourceExclusion(
+        { ...r, incremental: { ...r.incremental!, evidence: { ...evidence, expiresAtIso: now } } },
+        policy,
+        Date.parse(now)
+      )
+    ).toBe("COST_UNKNOWN_OR_STALE");
   });
   it("RES-02: included subscription work requires known fresh quota", () => {
     const policy = dispatchPolicySchema.parse({ allowedBillingComponents: ["subscription"] });
-    const r = resources({ facts: { executionScope: "local-device", billingComponents: ["subscription"] } });
+    const r = resources({
+      facts: { executionScope: "local-device", billingComponents: ["subscription"] }
+    });
     expect(resourceExclusion(r, policy, Date.parse(now))).toBe("QUOTA_UNKNOWN");
   });
   it("RES-05: reserves a pair atomically and leaves no charge on rejection", () => {
-    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ maxIncrementalUsd: 1 }), () => Date.parse(now));
+    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ maxIncrementalUsd: 1 }), () =>
+      Date.parse(now)
+    );
     const r = resources({ incremental: { currency: "USD", maxInvocationUsd: 0.6, evidence } });
     expect(() => ledger.reserve([request(r), request(r)])).toThrow("SPEND_LIMIT");
     expect(ledger.snapshot()).toEqual([]);
@@ -41,18 +64,30 @@ describe("resource admission", () => {
     expect(() => ledger.reserve([request(r)])).toThrow("QUOTA_EXHAUSTED");
   });
   it("RES-06: cancellation after start retains unsettled spend and quota", async () => {
-    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ maxIncrementalUsd: 1 }), () => Date.parse(now));
+    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ maxIncrementalUsd: 1 }), () =>
+      Date.parse(now)
+    );
     const r = resources({ incremental: { currency: "USD", maxInvocationUsd: 1, evidence } });
     const [id] = ledger.reserve([request(r)]);
-    await ledger.begin(id, signal()); ledger.release(id); ledger.finish(id);
-    expect(ledger.snapshot()[0]).toMatchObject({ status: "unsettled", reportedUsd: null, reservedUsd: 1 });
+    await ledger.begin(id, signal());
+    ledger.release(id);
+    ledger.finish(id);
+    expect(ledger.snapshot()[0]).toMatchObject({
+      status: "unsettled",
+      reportedUsd: null,
+      reservedUsd: 1
+    });
     expect(() => ledger.reserve([request(r)])).toThrow("SPEND_LIMIT");
   });
   it("releases known-unstarted work and reconciles reported consumption", async () => {
-    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ maxIncrementalUsd: 1 }), () => Date.parse(now));
+    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ maxIncrementalUsd: 1 }), () =>
+      Date.parse(now)
+    );
     const r = resources({ incremental: { currency: "USD", maxInvocationUsd: 1, evidence } });
-    const [first] = ledger.reserve([request(r)]); ledger.release(first);
-    const [second] = ledger.reserve([request(r)]); await ledger.begin(second, signal());
+    const [first] = ledger.reserve([request(r)]);
+    ledger.release(first);
+    const [second] = ledger.reserve([request(r)]);
+    await ledger.begin(second, signal());
     ledger.finish(second, { usd: 0, quotaUnits: 0 });
     expect(() => ledger.reserve([request(r)])).not.toThrow();
   });
@@ -63,28 +98,45 @@ describe("resource admission", () => {
     await ledger.begin(a, signal());
     await expect(ledger.begin(b, signal())).rejects.toThrow("COMPUTE_CAPACITY_EXHAUSTED");
     ledger.finish(a);
-    const [c] = ledger.reserve([request(r)]); await ledger.begin(c, signal()); ledger.finish(c);
+    const [c] = ledger.reserve([request(r)]);
+    await ledger.begin(c, signal());
+    ledger.finish(c);
   });
   it("bounds capacity waiting and releases the unstarted reservation", async () => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date(now));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
     try {
-      const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ quotaExhaustionAction: "wait", waitTimeoutMs: 20 }));
+      const ledger = new ResourceAdmission(
+        dispatchPolicySchema.parse({ quotaExhaustionAction: "wait", waitTimeoutMs: 20 })
+      );
       const r = resources({ compute: { poolId: "gpu", concurrency: 1 } });
-      const [a, b] = ledger.reserve([request(r), request(r)]); await ledger.begin(a, signal());
-      const blocked = expect(ledger.begin(b, signal())).rejects.toThrow("COMPUTE_CAPACITY_EXHAUSTED");
-      await vi.advanceTimersByTimeAsync(30); await blocked;
+      const [a, b] = ledger.reserve([request(r), request(r)]);
+      await ledger.begin(a, signal());
+      const blocked = expect(ledger.begin(b, signal())).rejects.toThrow(
+        "COMPUTE_CAPACITY_EXHAUSTED"
+      );
+      await vi.advanceTimersByTimeAsync(30);
+      await blocked;
       expect(ledger.snapshot()[1].status).toBe("released");
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
 it("RES-07: quota waiting ends at its deadline without creating a reservation", async () => {
-  vi.useFakeTimers(); vi.setSystemTime(new Date(now));
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(now));
   try {
-    const ledger = new ResourceAdmission(dispatchPolicySchema.parse({ quotaExhaustionAction: "wait", waitTimeoutMs: 20 }));
+    const ledger = new ResourceAdmission(
+      dispatchPolicySchema.parse({ quotaExhaustionAction: "wait", waitTimeoutMs: 20 })
+    );
     const r = resources({ quota: { poolId: "empty", unit: "requests", remaining: 0, evidence } });
     const blocked = expect(ledger.reserveWithWait([request(r)])).rejects.toThrow("QUOTA_EXHAUSTED");
-    await vi.advanceTimersByTimeAsync(30); await blocked;
+    await vi.advanceTimersByTimeAsync(30);
+    await blocked;
     expect(ledger.snapshot()).toEqual([]);
-  } finally { vi.useRealTimers(); }
+  } finally {
+    vi.useRealTimers();
+  }
 });

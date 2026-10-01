@@ -12,7 +12,11 @@ import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProv
 import { AdaptiveRoutingCoordinator } from "../../src/routing/adaptiveRouting";
 import { createChatServer } from "../../src/server";
 import { InMemoryLatencyEstimator } from "../../src/telemetry/latencyEstimator";
-import { describeModelCatalog, loadModelCatalog, modelCatalogSchema } from "../../src/config/modelCatalog";
+import {
+  describeModelCatalog,
+  loadModelCatalog,
+  modelCatalogSchema
+} from "../../src/config/modelCatalog";
 import { bindingKey } from "../../src/models/connections";
 import type { ModelObservation } from "../../src/models/inventory";
 
@@ -29,8 +33,11 @@ describe("chat server", () => {
   it("serves the model inventory with fixed routing and unchecked availability", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
-    const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
-      new DeepWorker(queue, new MockDeepProvider(), timeline), timeline);
+    const service = new ChatService(
+      new ChatOrchestrator(new MockFastProvider(), queue, timeline),
+      new DeepWorker(queue, new MockDeepProvider(), timeline),
+      timeline
+    );
     const modelCatalog = describeModelCatalog(await loadModelCatalog(), {
       fast: { provider: "mock", model: "mock-v1", temperature: 0.2 },
       deep: { provider: "mock", model: "mock-v1", temperature: 0.2 }
@@ -38,17 +45,24 @@ describe("chat server", () => {
     const server = createChatServer(service, { modelCatalog: () => modelCatalog });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
-    const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/models`);
+    const response = await fetch(
+      `http://127.0.0.1:${(server.address() as AddressInfo).port}/models`
+    );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(modelCatalog);
   });
   it("serves fresh-ready local and stale cloud fixtures with distinct availability over GET /models (spec 03)", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
-    const service = new ChatService(new ChatOrchestrator(new MockFastProvider(), queue, timeline),
-      new DeepWorker(queue, new MockDeepProvider(), timeline), timeline);
+    const service = new ChatService(
+      new ChatOrchestrator(new MockFastProvider(), queue, timeline),
+      new DeepWorker(queue, new MockDeepProvider(), timeline),
+      timeline
+    );
 
-    const baseEntry = (await loadModelCatalog()).models.find(entry => entry.id === "mock-default")!;
+    const baseEntry = (await loadModelCatalog()).models.find(
+      (entry) => entry.id === "mock-default"
+    )!;
     const catalog = modelCatalogSchema.parse({
       version: 1,
       models: [
@@ -64,25 +78,43 @@ describe("chat server", () => {
 
     const freshLocal: ModelObservation = {
       bindingId: bindingKey("default-ollama", "ollama-chat", "qwen3:8b"),
-      connectionId: "default-ollama", model: "qwen3:8b",
-      observedAtIso: "2026-09-29T00:00:00.000Z", expiresAtIso: "2099-01-01T00:00:00.000Z",
-      source: "ollama-api-tags", installed: "yes", access: "allowed", health: "reachable", apiCompatibility: ["ollama-chat"]
+      connectionId: "default-ollama",
+      model: "qwen3:8b",
+      observedAtIso: "2026-09-29T00:00:00.000Z",
+      expiresAtIso: "2099-01-01T00:00:00.000Z",
+      source: "ollama-api-tags",
+      installed: "yes",
+      access: "allowed",
+      health: "reachable",
+      apiCompatibility: ["ollama-chat"]
     };
     const staleCloud: ModelObservation = {
       bindingId: bindingKey("default-bedrock", "bedrock-converse", "anthropic.model-deep"),
-      connectionId: "default-bedrock", model: "anthropic.model-deep",
-      observedAtIso: "2000-01-01T00:00:00.000Z", expiresAtIso: "2000-01-01T00:10:00.000Z",
-      source: "bedrock-list-foundation-models", installed: "yes", access: "unknown", health: "reachable", apiCompatibility: ["bedrock-converse"]
+      connectionId: "default-bedrock",
+      model: "anthropic.model-deep",
+      observedAtIso: "2000-01-01T00:00:00.000Z",
+      expiresAtIso: "2000-01-01T00:10:00.000Z",
+      source: "bedrock-list-foundation-models",
+      installed: "yes",
+      access: "unknown",
+      health: "reachable",
+      apiCompatibility: ["bedrock-converse"]
     };
 
-    const modelCatalog = () => describeModelCatalog(catalog, config, { observations: [freshLocal, staleCloud] });
+    const modelCatalog = () =>
+      describeModelCatalog(catalog, config, { observations: [freshLocal, staleCloud] });
     const server = createChatServer(service, { modelCatalog });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
-    const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/models`);
+    const response = await fetch(
+      `http://127.0.0.1:${(server.address() as AddressInfo).port}/models`
+    );
     expect(response.status).toBe(200);
-    const payload = await response.json() as { models: Array<{ id: string; availability: string }>; discovered: unknown[] };
+    const payload = (await response.json()) as {
+      models: Array<{ id: string; availability: string }>;
+      discovered: unknown[];
+    };
 
     expect(payload.models.find((m) => m.id === "local-fixture")?.availability).toBe("ready");
     expect(payload.models.find((m) => m.id === "cloud-fixture")?.availability).toBe("stale");
@@ -201,7 +233,18 @@ describe("chat server", () => {
     const eventsPayload = (await eventsResponse.json()) as {
       events: Array<{ type: string }>;
     };
-    expect(eventsPayload.events.map((e) => e.type)).toEqual(["user", "activity", "activity", "delta", "provisional", "terminal", "activity", "delta", "refined", "terminal"]);
+    expect(eventsPayload.events.map((e) => e.type)).toEqual([
+      "user",
+      "activity",
+      "activity",
+      "delta",
+      "provisional",
+      "terminal",
+      "activity",
+      "delta",
+      "refined",
+      "terminal"
+    ]);
   });
 
   it("exposes dead-letter records and supports replay", async () => {
@@ -403,16 +446,30 @@ describe("chat server", () => {
     const payload = (await conflictResponse.json()) as { code?: string };
     expect(payload.code).toBe("CONVERSATION_OWNER_MISMATCH");
 
-    const events = await (await fetch(`${baseUrl}/conversations/conv-owner/events`)).json() as { events: Array<{ type: string }> };
+    const events = (await (await fetch(`${baseUrl}/conversations/conv-owner/events`)).json()) as {
+      events: Array<{ type: string }>;
+    };
     expect(events.events.filter((e) => e.type === "user")).toHaveLength(1);
   });
 
   it("returns 413 CONTEXT_TOO_LARGE for an oversized message without appending events", async () => {
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
-    const tinyBudget = { windowTokens: 10, maxHistoryTurns: 12, safetyTokens: 0, fastOutputTokens: 1, deepOutputTokens: 1 };
+    const tinyBudget = {
+      windowTokens: 10,
+      maxHistoryTurns: 12,
+      safetyTokens: 0,
+      fastOutputTokens: 1,
+      deepOutputTokens: 1
+    };
     const contextManager = new ContextManager(timeline, tinyBudget);
-    const orchestrator = new ChatOrchestrator(new MockFastProvider(), queue, timeline, undefined, contextManager);
+    const orchestrator = new ChatOrchestrator(
+      new MockFastProvider(),
+      queue,
+      timeline,
+      undefined,
+      contextManager
+    );
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
@@ -426,14 +483,20 @@ describe("chat server", () => {
     const response = await fetch(`${baseUrl}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId: "conv-huge", userId: "user-huge", text: "a".repeat(500) })
+      body: JSON.stringify({
+        conversationId: "conv-huge",
+        userId: "user-huge",
+        text: "a".repeat(500)
+      })
     });
 
     expect(response.status).toBe(413);
     const payload = (await response.json()) as { code?: string };
     expect(payload.code).toBe("CONTEXT_TOO_LARGE");
 
-    const events = await (await fetch(`${baseUrl}/conversations/conv-huge/events`)).json() as { events: unknown[] };
+    const events = (await (await fetch(`${baseUrl}/conversations/conv-huge/events`)).json()) as {
+      events: unknown[];
+    };
     expect(events.events).toEqual([]);
     expect(queue.size()).toBe(0);
   });

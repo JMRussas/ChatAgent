@@ -21,7 +21,12 @@ export function parseBoundedNumberEnv(
   return Math.max(min, Math.min(max, parsed));
 }
 
-export function parsePositiveIntEnv(raw: string | undefined, fallback: number, min = 1, max = Number.MAX_SAFE_INTEGER): number {
+export function parsePositiveIntEnv(
+  raw: string | undefined,
+  fallback: number,
+  min = 1,
+  max = Number.MAX_SAFE_INTEGER
+): number {
   const parsed = parseFiniteNumberEnv(raw, fallback);
   const rounded = Math.floor(parsed);
 
@@ -37,7 +42,11 @@ export function parsePositiveIntEnv(raw: string | undefined, fallback: number, m
  * rejects an explicitly-set invalid value at startup rather than masking a
  * misconfiguration with a default the operator never asked for.
  */
-export function parseStrictPositiveIntEnv(raw: string | undefined, name: string, fallback: number): number {
+export function parseStrictPositiveIntEnv(
+  raw: string | undefined,
+  name: string,
+  fallback: number
+): number {
   if (raw === undefined || raw.trim() === "") {
     return fallback;
   }
@@ -51,7 +60,11 @@ export function parseStrictPositiveIntEnv(raw: string | undefined, name: string,
 }
 
 /** Strict counterpart to parseStrictPositiveIntEnv that also accepts zero. */
-export function parseStrictNonNegativeIntEnv(raw: string | undefined, name: string, fallback: number): number {
+export function parseStrictNonNegativeIntEnv(
+  raw: string | undefined,
+  name: string,
+  fallback: number
+): number {
   if (raw === undefined || raw.trim() === "") {
     return fallback;
   }

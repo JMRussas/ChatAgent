@@ -12,7 +12,6 @@ persistence must be addressed before promising durable threads. The current UI
 already uses SSE and preserves answer phases; older polling/swap-only claims below
 are historical. No UI restart or preview change is required for the planner slice.
 
-
 Status: historical proposal, partially implemented. The current plan is
 [the development roadmap](12-development-roadmap.md). The UI, SSE timeline updates,
 automatic deep worker, provider readout, and message-correlated replies are now

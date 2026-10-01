@@ -101,7 +101,8 @@ export function runProfileBenchmark(
 
     const firstResponseLatencyMs = Math.round((fastP95 * 0.65 + 120) * jitter);
     const deepLatencyMs = Math.round((deepP95 * 0.7 + 300) * jitter);
-    const finalLatencyMs = routeDecision === "deep" ? firstResponseLatencyMs + deepLatencyMs : firstResponseLatencyMs;
+    const finalLatencyMs =
+      routeDecision === "deep" ? firstResponseLatencyMs + deepLatencyMs : firstResponseLatencyMs;
 
     const qualityBase = routeDecision === "deep" ? 4.5 : routeDecision === "clarify" ? 4.0 : 4.2;
     const qualityScore = Math.min(
@@ -110,8 +111,15 @@ export function runProfileBenchmark(
     );
 
     const retryCount =
-      routeDecision === "deep" ? (hash01(`${seed}:${prompt.id}:${profile.deepModel}:retry`) > 0.82 ? 1 : 0) : 0;
-    const deadLettered = routeDecision === "deep" ? hash01(`${seed}:${prompt.id}:${profile.deepProvider}:dlq`) > 0.97 : false;
+      routeDecision === "deep"
+        ? hash01(`${seed}:${prompt.id}:${profile.deepModel}:retry`) > 0.82
+          ? 1
+          : 0
+        : 0;
+    const deadLettered =
+      routeDecision === "deep"
+        ? hash01(`${seed}:${prompt.id}:${profile.deepProvider}:dlq`) > 0.97
+        : false;
 
     records.push({
       promptId: prompt.id,
@@ -127,7 +135,10 @@ export function runProfileBenchmark(
   return records;
 }
 
-export function summarizeBenchmark(profile: BenchmarkProfile, records: BenchmarkRunRecord[]): BenchmarkSummary {
+export function summarizeBenchmark(
+  profile: BenchmarkProfile,
+  records: BenchmarkRunRecord[]
+): BenchmarkSummary {
   const deep = records.filter((r) => r.routeDecision === "deep");
 
   return {
@@ -148,7 +159,8 @@ export function summarizeBenchmark(profile: BenchmarkProfile, records: Benchmark
     avgQuality: avg(records.map((r) => r.qualityScore)),
     deepRouteRate: records.length === 0 ? 0 : deep.length / records.length,
     avgRetriesDeep: deep.length === 0 ? 0 : avg(deep.map((r) => r.retryCount)),
-    deadLetterRateDeep: deep.length === 0 ? 0 : deep.filter((r) => r.deadLettered).length / deep.length
+    deadLetterRateDeep:
+      deep.length === 0 ? 0 : deep.filter((r) => r.deadLettered).length / deep.length
   };
 }
 

@@ -380,7 +380,6 @@ coverage and live model quality evidence. The whole-plan status table below (han
 and roadmap) remains applicable; step 3 has stronger deterministic coverage, while
 quality evaluation, general background roles and persistent memory remain incomplete.
 
-
 ## Whole-plan checkpoint and graph comparison start — 2026-09-30
 
 Committed `eb50551`: manual role UI/context-budget display and metadata attempt-ID
@@ -389,22 +388,21 @@ success and failure. The next framework increment is uncommitted: an opt-in Type
 LangGraph model/validate adapter behind ROLE_PLANNER_ENGINE, used only by selected
 roles. Native is default. Existing provider bridges/tool executor remain shared.
 
-| Plan area | Actual state |
-| --- | --- |
-| Sports foundation | Provider directories, bounded NBA/NFL search, shared quotas, basic details and configured news retrieval implemented; exhaustive latest-game selection and richer statistics remain incomplete. |
-| Payloads and manual evidence | Direct UI tables, owned/expiring references, bounded row attachment and explicit review/revision implemented. |
-| 1. Role containers | Implemented and committed: versioned definitions, model/tool enforcement, limits and recording. |
-| 2. Manual role UI/budgets | Implemented and committed first slice. Budget is latest admitted-call evidence; unsent preflight, richer grouping and role-file hot reload remain follow-ups. |
-| 3. Framework comparison | Started with a one-model-call graph and deterministic parity checks; broader parity/adoption gate remains open. |
-| 4. Grounded reporting/evaluation | Runtime/contract tests and manual review exist. Full 27-case session runner, independent payload/answer quality grading and calibrated model comparisons remain pending. |
-| 5. Layer-one background roles | Existing background retrieval/document work exists. General role-job coordination, durable multi-task scheduling and restart/replay semantics remain pending. |
-| Longer-term profiles/memory | Topic scope and explicit references exist; editable persistent profiles, semantic retrieval and automatic context selection remain pending. |
+| Plan area                        | Actual state                                                                                                                                                                                    |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sports foundation                | Provider directories, bounded NBA/NFL search, shared quotas, basic details and configured news retrieval implemented; exhaustive latest-game selection and richer statistics remain incomplete. |
+| Payloads and manual evidence     | Direct UI tables, owned/expiring references, bounded row attachment and explicit review/revision implemented.                                                                                   |
+| 1. Role containers               | Implemented and committed: versioned definitions, model/tool enforcement, limits and recording.                                                                                                 |
+| 2. Manual role UI/budgets        | Implemented and committed first slice. Budget is latest admitted-call evidence; unsent preflight, richer grouping and role-file hot reload remain follow-ups.                                   |
+| 3. Framework comparison          | Started with a one-model-call graph and deterministic parity checks; broader parity/adoption gate remains open.                                                                                 |
+| 4. Grounded reporting/evaluation | Runtime/contract tests and manual review exist. Full 27-case session runner, independent payload/answer quality grading and calibrated model comparisons remain pending.                        |
+| 5. Layer-one background roles    | Existing background retrieval/document work exists. General role-job coordination, durable multi-task scheduling and restart/replay semantics remain pending.                                   |
+| Longer-term profiles/memory      | Topic scope and explicit references exist; editable persistent profiles, semantic retrieval and automatic context selection remain pending.                                                     |
 
 We have a usable manual prototype, not a completed autonomous or production system.
 No live quality gate or framework performance claim has been made. Next bounded work:
 expand the native/graph comparison to payloads, ownership/expiry, admission and held
 cancellation before adding dependent tool loops. No preview restart or live calls.
-
 
 ## Manual role UI and admitted context budgets — 2026-09-30
 
@@ -421,7 +419,6 @@ Next: bounded LangChain/LangGraph adapter comparison. Preflight estimation and r
 tool grouping remain follow-ups. No live calls or preview restart. This new UI slice
 is uncommitted pending review.
 
-
 ## Role catalog and enforced tool exposure — implemented 2026-09-30
 
 Opt-in role configuration now packages model binding, instructions, tool allowlist,
@@ -435,7 +432,6 @@ select with `runControls.roleId`. See [configuration and limits](implementation/
 Next: manual role picker and context-budget visibility. LangChain migration,
 background role coordination, automatic role selection and role-file hot reload are
 not implemented. This increment makes no live-model quality claim.
-
 
 ## Active direction: versioned role containers — 2026-09-30
 
@@ -457,7 +453,6 @@ and 21 browser tests plus build passed. No role runtime or framework migration h
 been implemented. Persistent user profiles and semantic retrieval remain longer-term,
 starting with manual context selection and an inspection of Hekate storage for reuse.
 
-
 ## Bounded game search and snapshot details — 2026-09-30
 
 General NBA/NFL date-window search, provider team-name resolution and bounded
@@ -472,7 +467,6 @@ Registry context size needs attention for smaller models: the browser fixture re
 16K instead of 8K with the expanded registry. Runtime budget checks remain enforced.
 No live provider/model calls or preview restart performed for this increment.
 
-
 ## Reference selection increment — 2026-09-30
 
 Manual-control lifecycle fixes committed as `ffa1089`. Explicit bounded table-row
@@ -482,7 +476,6 @@ context. Reference hashes/content follow evaluation capture policy. Payload grad
 remains separate from production review. Next: general game search and specific-game
 details, including latest-completed selection. See the
 [current handoff](implementation/NEXT-HANDOFF.md) for verification and limitations.
-
 
 ## Manual controls increment — 2026-09-30
 
@@ -496,7 +489,6 @@ Requested controls and effective model metadata are recorded. Validation: 637 te
 reference attachment/detachment and payload-review evidence, followed by game search.
 See [handoff](implementation/NEXT-HANDOFF.md) for limits and remaining work.
 
-
 ## Latest increment — 2026-09-30
 
 Review fixes committed as `1e2d60d`: versioned API payload delivery, close-race guard,
@@ -507,7 +499,6 @@ scope unchanged. Expired reference content is excluded from new model calls.
 Validation: 632 tests, 13 browser tests and build passed. No model-quality claim.
 Next: manual model/thinking/review controls and broader reference management.
 See [current handoff](implementation/NEXT-HANDOFF.md) for scope and limitations.
-
 
 ## Active plan: payload separation and manual topic workflows — 2026-09-30
 
@@ -548,7 +539,6 @@ scoped conversations/reference selection, then manual controls and general game 
 
 ## Historical implementation journal
 
-
 ## Current priority: general contracts and resource-specific policies — 2026-09-30
 
 This supersedes earlier next-step ordering and incorporates the plan review plus the
@@ -578,7 +568,6 @@ of league RSS. Resource waits/retries must follow the applicable binding policy.
 
 See [contracts, resource policies and evaluation gates](implementation/12-request-to-evidence.md).
 
-
 ## 2026-09-30: prioritize useful tool operations
 
 Next build provider-backed team-name resolution and a bounded latest-completed-game
@@ -592,7 +581,6 @@ MLB and broader memory/dependent planning follow this slice. This supersedes old
 next-step orderings below. See [tool contracts](18-nba-briefing-demo.md) and
 [current handoff](implementation/NEXT-HANDOFF.md). No runtime change is claimed here.
 
-
 ## 2026-09-30: NFL active-season verification
 
 Sports demo scope now includes NFL games alongside NBA. The same account/key
@@ -600,7 +588,6 @@ successfully returned 16 NFL games in one authenticated request. League-specific
 normalization and a games-only NFL profile are implemented. This verifies access,
 not complete briefing quality. Continue with news, shared request budgeting and the
 task UI; see [the current handoff](implementation/NEXT-HANDOFF.md).
-
 
 ## 2026-09-30: active NBA briefing workflow
 
@@ -613,7 +600,6 @@ First implemented slice is the offline `sports:plan` contract; next are source f
 and bounded task coordination. The latest handoff is authoritative. Explicit user
 preferences and topic/thread navigation come before broad memory automation. Email
 is a later domain, not part of this implementation.
-
 
 ## 2026-09-29: spec 04 dispatch implemented
 
@@ -836,7 +822,6 @@ answers and froze UI attempts against late answer/terminal events. Latest checks
 **203 tests / 38 files**, type checking, build and seeded simulated release gate
 passed. See [02 review evidence](implementation/02-evidence.md#post-implementation-review).
 
-
 **Spec 02 is implemented with offline acceptance coverage.** Fast/deep attempts
 stream answer deltas, carry unique attempt IDs and safe terminal outcomes, and
 support explicit cancellation. Transient failures retry only before output;
@@ -847,7 +832,6 @@ Verification: **195 tests / 38 files**, type checking, build and the seeded
 simulated release gate passed. See [02 evidence](implementation/02-evidence.md)
 for acceptance tests and adapter documentation. 01B, Iris integration, live-provider checks and real-browser
 mobile/failure checks remain outstanding.
-
 
 Review follow-up (2026-09-25): startup now bounds context by the minimum of the
 application window and configured catalog context limits for the selected fast/deep
@@ -866,11 +850,10 @@ Regression evidence:
   fits the application window but is rejected before provider/timeline work under
   the model window.
 - `tests/integration/startup.test.ts`: `rejects a catalog window consumed by
-  reserves before starting the server` verifies startup uses the catalog limit.
+reserves before starting the server` verifies startup uses the catalog limit.
 - `tests/unit/protocolFixture.test.ts`: `ADR protocol fixture type-checks against
-  its declared wire interfaces` compiles the actual example against the ADR's
+its declared wire interfaces` compiles the actual example against the ADR's
   interfaces and checks event identity/sequence continuity.
-
 
 Reconciled through implementation commit `8afce48` on 2026-09-25, plus 01A below.
 The earlier 01A implementation check passed **152 tests across 32 files and TypeScript
@@ -907,15 +890,15 @@ silently dropped. Not yet done: `SourceStore`, `ContextSummarizer`, extractive/
 model summarization, `resolveSources()`, and their settings
 (`CONTEXT_SUMMARY_*`) — all 01B. Spec 02 now adds streaming while preserving these snapshots.
 
-| Area | Implemented | Still needed |
-|---|---|---|
-| Runtime reliability | Message correlation, worker concurrency guard, body timeouts, serialized telemetry writes, truthful startup errors | Graceful shutdown, backpressure, Bedrock deadlines |
-| Chat progress | Answer streaming, cancellation, per-attempt activities/timers, preserved answer updates | Live provider and real-browser/mobile verification |
-| Model inventory | Validated catalog, `/models`, capability/task eligibility filtering | Provider discovery, fresh account access/health observations |
-| CLI subscriptions | Catalog schema for profiles, authentication, billing and shared quotas | Actual CLI adapters and verified subscription automation support |
-| Conversation context | 01A: bounded shared snapshot, grounded runtime facts, active-task awareness, ownership/budget guards | 01B: internal summarization, source-linked memory, `resolveSources()` |
-| Model selection | Fixed environment-configured fast/deep pair | Task-based dispatch, measured ranking, explicit fallback |
-| Evaluation | Automated regression tests and labeled fixture/simulation reports | Fresh live golden run and measured answer-quality evaluation |
+| Area                 | Implemented                                                                                                        | Still needed                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Runtime reliability  | Message correlation, worker concurrency guard, body timeouts, serialized telemetry writes, truthful startup errors | Graceful shutdown, backpressure, Bedrock deadlines                    |
+| Chat progress        | Answer streaming, cancellation, per-attempt activities/timers, preserved answer updates                            | Live provider and real-browser/mobile verification                    |
+| Model inventory      | Validated catalog, `/models`, capability/task eligibility filtering                                                | Provider discovery, fresh account access/health observations          |
+| CLI subscriptions    | Catalog schema for profiles, authentication, billing and shared quotas                                             | Actual CLI adapters and verified subscription automation support      |
+| Conversation context | 01A: bounded shared snapshot, grounded runtime facts, active-task awareness, ownership/budget guards               | 01B: internal summarization, source-linked memory, `resolveSources()` |
+| Model selection      | Fixed environment-configured fast/deep pair                                                                        | Task-based dispatch, measured ranking, explicit fallback              |
+| Evaluation           | Automated regression tests and labeled fixture/simulation reports                                                  | Fresh live golden run and measured answer-quality evaluation          |
 
 Implementation order following the latest discussion:
 

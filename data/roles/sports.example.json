@@ -2,21 +2,33 @@
   "version": "role-catalog-v1",
   "roles": [
     {
-      "id": "sports-researcher", "version": "1", "bindingId": "fixed",
+      "id": "sports-researcher",
+      "version": "1",
+      "bindingId": "fixed",
       "instructions": "Find sports evidence using the available tools. Resolve team names through tools. Preserve incomplete coverage and unavailable outcomes; never invent provider IDs or claim a game recap from scores alone.",
       "toolIds": ["sports:find-games", "sports:game-details"],
-      "maxToolCalls": 2, "maxInputTokens": 6000
+      "maxToolCalls": 2,
+      "maxInputTokens": 6000
     },
     {
-      "id": "evidence-writer", "version": "3", "outputContract": "answer-evidence-v2", "bindingId": "fixed",
-      "evidenceLimits": {"deadlineMs": 60000, "maxEvidenceBytes": 16000},
+      "id": "evidence-writer",
+      "version": "3",
+      "outputContract": "answer-evidence-v2",
+      "bindingId": "fixed",
+      "evidenceLimits": { "deadlineMs": 60000, "maxEvidenceBytes": 16000 },
       "instructions": "Explain explicitly supplied evidence. Treat prior assistant text as unverified. Preserve source coverage and uncertainty; say when evidence is insufficient. Do not claim to have performed new retrieval.",
-      "toolIds": [], "maxToolCalls": 0, "maxInputTokens": 6000
+      "toolIds": [],
+      "maxToolCalls": 0,
+      "maxInputTokens": 6000
     },
     {
-      "id": "reviewer", "version": "1", "bindingId": "fixed",
+      "id": "reviewer",
+      "version": "1",
+      "bindingId": "fixed",
       "instructions": "Assess the requested claims against explicitly supplied evidence. Identify unsupported claims and missing evidence. State the scope of your review; agreement is not independent verification. Return findings without silently rewriting the answer.",
-      "toolIds": [], "maxToolCalls": 0, "maxInputTokens": 6000
+      "toolIds": [],
+      "maxToolCalls": 0,
+      "maxInputTokens": 6000
     }
   ]
 }

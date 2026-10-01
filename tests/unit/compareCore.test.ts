@@ -113,7 +113,9 @@ describe("benchmark compare core", () => {
     });
 
     expect(report.passed).toBe(false);
-    expect(report.compatibilityIssues.some((issue) => issue.includes("simulation seed mismatch"))).toBe(true);
+    expect(
+      report.compatibilityIssues.some((issue) => issue.includes("simulation seed mismatch"))
+    ).toBe(true);
   });
 
   it("fails compare when profile sets do not match", () => {
@@ -138,7 +140,9 @@ describe("benchmark compare core", () => {
     });
 
     expect(report.passed).toBe(false);
-    expect(report.compatibilityIssues.some((issue) => issue.includes("profile set mismatch"))).toBe(true);
+    expect(report.compatibilityIssues.some((issue) => issue.includes("profile set mismatch"))).toBe(
+      true
+    );
   });
 
   it("fails compare when required runContext fields are missing", () => {
@@ -158,7 +162,9 @@ describe("benchmark compare core", () => {
     });
 
     expect(report.passed).toBe(false);
-    expect(report.compatibilityIssues.some((issue) => issue.includes("missing simulation seed"))).toBe(true);
+    expect(
+      report.compatibilityIssues.some((issue) => issue.includes("missing simulation seed"))
+    ).toBe(true);
   });
 
   it("normalizes valid thresholds", () => {

@@ -253,10 +253,10 @@ raw pairs, write counts and byte counts are retained.
 
 Measured locally on Windows Node on 2026-09-30 (same workspace volume):
 
-| Capture | Median feed delta, batch ms | Median final-flush delta, batch ms | Median total delta, batch ms | P95 total paired delta, batch ms |
-| --- | ---: | ---: | ---: | ---: |
-| Metadata | 2.40 | 56.07 | 60.08 | 66.85 |
-| Answers | 2.51 | 60.18 | 64.00 | 72.80 |
+| Capture  | Median feed delta, batch ms | Median final-flush delta, batch ms | Median total delta, batch ms | P95 total paired delta, batch ms |
+| -------- | --------------------------: | ---------------------------------: | ---------------------------: | -------------------------------: |
+| Metadata |                        2.40 |                              56.07 |                        60.08 |                            66.85 |
+| Answers  |                        2.51 |                              60.18 |                        64.00 |                            72.80 |
 
 Raw evidence: [metadata](../../reports/recorder-overhead-metadata-2026-09-30.json)
 and [answers](../../reports/recorder-overhead-answers-2026-09-30.json). These report
@@ -302,10 +302,10 @@ or concurrent user deadlines. It does not establish answer quality.
 
 Local 2026-09-30 results (20-turn batch deltas, recording on minus off):
 
-| Capture | Median setup ms | Median workload ms | Median shutdown ms | Median total ms | P95 total ms |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Metadata | 1.52 | -43.30 | 3.41 | -36.86 | 6.46 |
-| Answers (isolated rerun) | 1.42 | -18.79 | 2.84 | -14.45 | 3.76 |
+| Capture                  | Median setup ms | Median workload ms | Median shutdown ms | Median total ms | P95 total ms |
+| ------------------------ | --------------: | -----------------: | -----------------: | --------------: | -----------: |
+| Metadata                 |            1.52 |             -43.30 |               3.41 |          -36.86 |         6.46 |
+| Answers (isolated rerun) |            1.42 |             -18.79 |               2.84 |          -14.45 |         3.76 |
 
 Raw reports: [metadata](../../reports/recorder-http-overhead-metadata-2026-09-30.json),
 [answers isolated rerun](../../reports/recorder-http-overhead-answers-isolated-2026-09-30.json).

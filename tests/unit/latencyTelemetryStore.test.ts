@@ -2,7 +2,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FileLatencyTelemetryStore, validateRoutingTelemetrySnapshot } from "../../src/telemetry/latencyTelemetryStore";
+import {
+  FileLatencyTelemetryStore,
+  validateRoutingTelemetrySnapshot
+} from "../../src/telemetry/latencyTelemetryStore";
 
 const dirs: string[] = [];
 
@@ -20,9 +23,14 @@ describe("latency telemetry store", () => {
     const dir = await mkdtemp(join(tmpdir(), "latency-store-"));
     dirs.push(dir);
     const store = new FileLatencyTelemetryStore(join(dir, "snapshot.json"));
-    await Promise.all(Array.from({ length: 20 }, (_, index) => store.save({
-      estimator: { priors: [], samples: [] }, policy: { maxFastP95Ms: 1000 + index }
-    })));
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        store.save({
+          estimator: { priors: [], samples: [] },
+          policy: { maxFastP95Ms: 1000 + index }
+        })
+      )
+    );
     expect((await store.load())?.policy.maxFastP95Ms).toBe(1019);
   });
 
@@ -121,19 +129,54 @@ describe("latency telemetry store", () => {
 });
 
 it("persists separate fast/deep dispatch attempts and unknown reservation usage", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dispatch-telemetry-")); dirs.push(dir);
+  const dir = await mkdtemp(join(tmpdir(), "dispatch-telemetry-"));
+  dirs.push(dir);
   const store = new FileLatencyTelemetryStore(join(dir, "snapshot.json"));
-  const snapshot = validateRoutingTelemetrySnapshot({ estimator: { priors: [], samples: [] }, policy: { maxFastP95Ms: 1000 },
-    dispatch: { attempts: ["fast", "deep"].map((phase, index) => ({ bindingId: "same-binding", phase, task: "coding", size: "small",
-      attemptId: `attempt-${index}`, result: "stop", elapsedMs: 10 })),
-      reservations: [{ id: "r", status: "unsettled", reservedUsd: 1, reportedUsd: null, quotaUnits: null, started: true }] } });
+  const snapshot = validateRoutingTelemetrySnapshot({
+    estimator: { priors: [], samples: [] },
+    policy: { maxFastP95Ms: 1000 },
+    dispatch: {
+      attempts: ["fast", "deep"].map((phase, index) => ({
+        bindingId: "same-binding",
+        phase,
+        task: "coding",
+        size: "small",
+        attemptId: `attempt-${index}`,
+        result: "stop",
+        elapsedMs: 10
+      })),
+      reservations: [
+        {
+          id: "r",
+          status: "unsettled",
+          reservedUsd: 1,
+          reportedUsd: null,
+          quotaUnits: null,
+          started: true
+        }
+      ]
+    }
+  });
   await store.save(snapshot);
   expect(await store.load()).toEqual(snapshot);
 });
 
-it("preserves compact accounting separately from bounded reservation history",()=>{
- const accounting={completedUsd:12,unsettledCount:4,reportedCount:2,unpricedCount:0,quotaPools:[{poolId:"shared",units:6}]};
- const snapshot={estimator:{priors:[],samples:[]},policy:{maxFastP95Ms:1000},dispatch:{attempts:[],reservations:[],accounting}};
- expect(validateRoutingTelemetrySnapshot(snapshot).dispatch?.accounting).toEqual(accounting);
- expect(validateRoutingTelemetrySnapshot({...snapshot,dispatch:{attempts:[],reservations:[]}}).dispatch?.accounting).toBeUndefined();
+it("preserves compact accounting separately from bounded reservation history", () => {
+  const accounting = {
+    completedUsd: 12,
+    unsettledCount: 4,
+    reportedCount: 2,
+    unpricedCount: 0,
+    quotaPools: [{ poolId: "shared", units: 6 }]
+  };
+  const snapshot = {
+    estimator: { priors: [], samples: [] },
+    policy: { maxFastP95Ms: 1000 },
+    dispatch: { attempts: [], reservations: [], accounting }
+  };
+  expect(validateRoutingTelemetrySnapshot(snapshot).dispatch?.accounting).toEqual(accounting);
+  expect(
+    validateRoutingTelemetrySnapshot({ ...snapshot, dispatch: { attempts: [], reservations: [] } })
+      .dispatch?.accounting
+  ).toBeUndefined();
 });

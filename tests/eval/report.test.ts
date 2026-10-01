@@ -5,7 +5,13 @@ describe("evaluation report", () => {
   it("passes gates when thresholds are met", () => {
     const report = buildEvalReport(
       [
-        { promptId: "1", routeDecision: "direct", responseLatencyMs: 700, usedCitation: true, evaluatorScore: 4 },
+        {
+          promptId: "1",
+          routeDecision: "direct",
+          responseLatencyMs: 700,
+          usedCitation: true,
+          evaluatorScore: 4
+        },
         {
           promptId: "2",
           routeDecision: "deep",
@@ -15,7 +21,13 @@ describe("evaluation report", () => {
           retryCount: 1,
           deadLettered: false
         },
-        { promptId: "3", routeDecision: "clarify", responseLatencyMs: 650, usedCitation: false, evaluatorScore: 4 }
+        {
+          promptId: "3",
+          routeDecision: "clarify",
+          responseLatencyMs: 650,
+          usedCitation: false,
+          evaluatorScore: 4
+        }
       ],
       {
         maxAvgLatencyMs: 1000,
@@ -67,7 +79,15 @@ describe("evaluation report", () => {
 
   it("renders markdown report", () => {
     const report = buildEvalReport(
-      [{ promptId: "1", routeDecision: "deep", responseLatencyMs: 900, usedCitation: true, evaluatorScore: 5 }],
+      [
+        {
+          promptId: "1",
+          routeDecision: "deep",
+          responseLatencyMs: 900,
+          usedCitation: true,
+          evaluatorScore: 5
+        }
+      ],
       {
         maxAvgLatencyMs: 1000,
         minAvgScore: 4,

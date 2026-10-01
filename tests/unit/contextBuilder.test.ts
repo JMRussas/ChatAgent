@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildContext, ContextBudgetError, renderActiveTasksBlock, type ContextBudget } from "../../src/app/contextBuilder";
+import {
+  buildContext,
+  ContextBudgetError,
+  renderActiveTasksBlock,
+  type ContextBudget
+} from "../../src/app/contextBuilder";
 import type { ChatTimelineEvent } from "../../src/domain/types";
 
 const GENEROUS_BUDGET: ContextBudget = {
@@ -10,7 +15,10 @@ const GENEROUS_BUDGET: ContextBudget = {
   deepOutputTokens: 2048
 };
 
-function baseInput(events: ChatTimelineEvent[], overrides: Partial<Parameters<typeof buildContext>[0]> = {}) {
+function baseInput(
+  events: ChatTimelineEvent[],
+  overrides: Partial<Parameters<typeof buildContext>[0]> = {}
+) {
   return {
     conversationId: "conv-1",
     events,
@@ -25,7 +33,14 @@ function baseInput(events: ChatTimelineEvent[], overrides: Partial<Parameters<ty
 }
 
 function userEvent(messageId: string, text: string): ChatTimelineEvent {
-  return { type: "user", messageId, text, createdAtIso: "2026-09-25T11:00:00.000Z", eventId: `${messageId}-user`, sequence: 1 };
+  return {
+    type: "user",
+    messageId,
+    text,
+    createdAtIso: "2026-09-25T11:00:00.000Z",
+    eventId: `${messageId}-user`,
+    sequence: 1
+  };
 }
 
 function completeProvisional(messageId: string, text: string): ChatTimelineEvent {
@@ -53,16 +68,39 @@ function pendingProvisional(messageId: string, text: string): ChatTimelineEvent 
 }
 
 function refined(messageId: string, text: string): ChatTimelineEvent {
-  return { type: "refined", messageId, text, processingStatus: "complete", createdAtIso: "2026-09-25T11:00:05.000Z", eventId: `${messageId}-refined`, sequence: 4 };
+  return {
+    type: "refined",
+    messageId,
+    text,
+    processingStatus: "complete",
+    createdAtIso: "2026-09-25T11:00:05.000Z",
+    eventId: `${messageId}-refined`,
+    sequence: 4
+  };
 }
 
-function activity(messageId: string, act: "queued" | "thinking" | "retrying" | "failed", text: string = act): ChatTimelineEvent {
-  return { type: "activity", messageId, activity: act, text, createdAtIso: "2026-09-25T11:00:02.000Z", eventId: `${messageId}-activity-${act}`, sequence: 3 };
+function activity(
+  messageId: string,
+  act: "queued" | "thinking" | "retrying" | "failed",
+  text: string = act
+): ChatTimelineEvent {
+  return {
+    type: "activity",
+    messageId,
+    activity: act,
+    text,
+    createdAtIso: "2026-09-25T11:00:02.000Z",
+    eventId: `${messageId}-activity-${act}`,
+    sequence: 3
+  };
 }
 
 describe("buildContext", () => {
   it("includes a completed direct answer once, followed by the current user turn", () => {
-    const events = [userEvent("m1", "What is event sourcing?"), completeProvisional("m1", "It's a pattern where...")];
+    const events = [
+      userEvent("m1", "What is event sourcing?"),
+      completeProvisional("m1", "It's a pattern where...")
+    ];
 
     const result = buildContext(baseInput(events));
     expect(result).not.toBeInstanceOf(ContextBudgetError);
@@ -90,15 +128,23 @@ describe("buildContext", () => {
     expect(result).not.toBeInstanceOf(ContextBudgetError);
     const context = result as Exclude<typeof result, ContextBudgetError>;
 
-    const assistantMessage = context.messages.find((m) => m.messageId === "a" && m.role === "assistant");
+    const assistantMessage = context.messages.find(
+      (m) => m.messageId === "a" && m.role === "assistant"
+    );
     expect(assistantMessage?.content).toBe("Inflation is 3.1% per the latest report.");
     expect(context.messages.some((m) => m.content === "Working on it...")).toBe(false);
   });
 
   it("represents a still-pending turn as an active task, not as a completed answer", () => {
-    const events = [userEvent("a", "Find latest inflation data"), activity("a", "queued"), pendingProvisional("a", "Working on it...")];
+    const events = [
+      userEvent("a", "Find latest inflation data"),
+      activity("a", "queued"),
+      pendingProvisional("a", "Working on it...")
+    ];
 
-    const result = buildContext(baseInput(events, { currentUserText: "Also check unemployment", currentMessageId: "b" }));
+    const result = buildContext(
+      baseInput(events, { currentUserText: "Also check unemployment", currentMessageId: "b" })
+    );
     expect(result).not.toBeInstanceOf(ContextBudgetError);
     const context = result as Exclude<typeof result, ContextBudgetError>;
 
@@ -147,22 +193,40 @@ describe("buildContext", () => {
       completeProvisional("p3", "third answer")
     ];
 
-    const result = buildContext(baseInput(events, { budget: { ...GENEROUS_BUDGET, maxHistoryTurns: 2 } }));
+    const result = buildContext(
+      baseInput(events, { budget: { ...GENEROUS_BUDGET, maxHistoryTurns: 2 } })
+    );
     expect(result).not.toBeInstanceOf(ContextBudgetError);
     const context = result as Exclude<typeof result, ContextBudgetError>;
 
     expect(context.includedTurnIds).toEqual(["p2", "p3"]);
     expect(context.omittedTurnIds).toEqual(["p1"]);
-    expect(context.messages.map((m) => m.messageId)).toEqual(["p2", "p2", "p3", "p3", "current-msg"]);
+    expect(context.messages.map((m) => m.messageId)).toEqual([
+      "p2",
+      "p2",
+      "p3",
+      "p3",
+      "current-msg"
+    ]);
   });
 
   it("accounts for non-ASCII bytes and rejects an oversized request before any provider call would happen", () => {
     const nonAsciiText = "café résumé 日本語のテキスト";
     const events = [userEvent("m1", nonAsciiText), completeProvisional("m1", nonAsciiText)];
 
-    const tightBudget: ContextBudget = { ...GENEROUS_BUDGET, windowTokens: 40, fastOutputTokens: 1, deepOutputTokens: 1, safetyTokens: 0 };
+    const tightBudget: ContextBudget = {
+      ...GENEROUS_BUDGET,
+      windowTokens: 40,
+      fastOutputTokens: 1,
+      deepOutputTokens: 1,
+      safetyTokens: 0
+    };
     const result = buildContext(
-      baseInput(events, { budget: tightBudget, systemInstruction: "x".repeat(500), currentUserText: nonAsciiText })
+      baseInput(events, {
+        budget: tightBudget,
+        systemInstruction: "x".repeat(500),
+        currentUserText: nonAsciiText
+      })
     );
 
     expect(result).toBeInstanceOf(ContextBudgetError);
@@ -186,7 +250,12 @@ describe("buildContext", () => {
   });
 
   it("ignores orphaned events without a messageId", () => {
-    const orphan: ChatTimelineEvent = { type: "activity", activity: "queued", text: "orphan", createdAtIso: "2026-09-25T11:00:00.000Z" };
+    const orphan: ChatTimelineEvent = {
+      type: "activity",
+      activity: "queued",
+      text: "orphan",
+      createdAtIso: "2026-09-25T11:00:00.000Z"
+    };
     const result = buildContext(baseInput([orphan]));
     expect(result).not.toBeInstanceOf(ContextBudgetError);
     const context = result as Exclude<typeof result, ContextBudgetError>;
@@ -216,7 +285,12 @@ describe("renderActiveTasksBlock", () => {
 
   it("renders a delimited, explicitly-untrusted block for pending tasks", () => {
     const block = renderActiveTasksBlock([
-      { messageId: "a", requestText: "check inflation", state: "queued", source: { conversationId: "c", eventId: "e", messageId: "a", contentHash: "h" } }
+      {
+        messageId: "a",
+        requestText: "check inflation",
+        state: "queued",
+        source: { conversationId: "c", eventId: "e", messageId: "a", contentHash: "h" }
+      }
     ]);
 
     expect(block).toContain("[UNRESOLVED_REQUESTS");

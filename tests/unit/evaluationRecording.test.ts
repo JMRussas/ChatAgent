@@ -1,5 +1,5 @@
-import {deliveryFixture} from "../helpers/deliveryFixture";
-import {deliveryDigest} from "../../src/app/deliveredAnswer";
+import { deliveryFixture } from "../helpers/deliveryFixture";
+import { deliveryDigest } from "../../src/app/deliveredAnswer";
 import { RoleCatalog } from "../../src/app/roleCatalog";
 import { ToolResultStore } from "../../src/app/toolResult";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +10,13 @@ import { promisify } from "node:util";
 import { join, resolve } from "node:path";
 import { startEvaluationRecording } from "../../src/eval/recording/startup";
 import { EvaluationRecorder, type ArtifactWriter } from "../../src/eval/recording/recorder";
-import { digest, canonical, recordingConfig, redact, type RecorderConfig } from "../../src/eval/recording/contract";
+import {
+  digest,
+  canonical,
+  recordingConfig,
+  redact,
+  type RecorderConfig
+} from "../../src/eval/recording/contract";
 import { scoreRecording } from "../../src/eval/recording/annotations";
 import { readArtifact, pruneExpired } from "../../src/eval/recording/storage";
 import { runtime, entry, message } from "../helpers/dispatchFixtures";
@@ -22,94 +28,260 @@ const dataset = { version: "fixture-v1", prompts: [{ id: "hello", text: "hello" 
 const code = { revision: "a".repeat(40), dirty: false, sourceDigest: "b".repeat(64) };
 const recorders: EvaluationRecorder[] = [];
 afterEach(async () => {
-  await Promise.allSettled(recorders.splice(0).map(r => r.finish()));
-  await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true })));
+  await Promise.allSettled(recorders.splice(0).map((r) => r.finish()));
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true }))
+  );
   vi.useRealTimers();
 });
 async function setup(overrides: Partial<RecorderConfig> = {}, writer?: ArtifactWriter) {
-  const root = await mkdtemp(join(tmpdir(), "chatagent-evaluation-")); directories.push(root);
-  const config: RecorderConfig = { root, capture: "metadata", maxBytes: 100000, maxEvents: 100, retentionMs: 60000, repetition: 1, condition: "cold", ...overrides };
-  const recorder = new EvaluationRecorder(config, dataset, { strategy: "fast-deep", apiKey: "secret-config", private: "Bearer SECRET-TOKEN" }, code, writer);
-  recorders.push(recorder); return recorder;
+  const root = await mkdtemp(join(tmpdir(), "chatagent-evaluation-"));
+  directories.push(root);
+  const config: RecorderConfig = {
+    root,
+    capture: "metadata",
+    maxBytes: 100000,
+    maxEvents: 100,
+    retentionMs: 60000,
+    repetition: 1,
+    condition: "cold",
+    ...overrides
+  };
+  const recorder = new EvaluationRecorder(
+    config,
+    dataset,
+    { strategy: "fast-deep", apiKey: "secret-config", private: "Bearer SECRET-TOKEN" },
+    code,
+    writer
+  );
+  recorders.push(recorder);
+  return recorder;
 }
 function turn(recorder: EvaluationRecorder, text = "answer") {
-  const base = { messageId: "m", createdAtIso: new Date().toISOString(), phase: "fast" as const, attemptId: "a", model: { provider: "mock", model: "fixture" } };
+  const base = {
+    messageId: "m",
+    createdAtIso: new Date().toISOString(),
+    phase: "fast" as const,
+    attemptId: "a",
+    model: { provider: "mock", model: "fixture" }
+  };
   recorder.record("c", { ...base, type: "user", text: "hello", routeDecision: "direct" });
-  recorder.record("c", { ...base, type: "activity", activity: "running", text: "private activity text" });
+  recorder.record("c", {
+    ...base,
+    type: "activity",
+    activity: "running",
+    text: "private activity text"
+  });
   recorder.record("c", { ...base, type: "provisional", text, answerKind: "substantive" });
   recorder.record("c", { ...base, type: "terminal", text, finishReason: "stop" });
 }
-const annotations = (text = "answer") => ({ version: 2, rubricVersion: "rubric-v1", judge: { kind: "human", id: "reviewer", configurationDigest: digest("human-v1") },
-  ratings: [{ promptId: "hello", responseHash: digest(text), correctness: "pass", relevance: "pass", unsupportedClaims: "no", groundedness: "pass", taskCompletion: "pass" }] });
+const annotations = (text = "answer") => ({
+  version: 2,
+  rubricVersion: "rubric-v1",
+  judge: { kind: "human", id: "reviewer", configurationDigest: digest("human-v1") },
+  ratings: [
+    {
+      promptId: "hello",
+      responseHash: digest(text),
+      correctness: "pass",
+      relevance: "pass",
+      unsupportedClaims: "no",
+      groundedness: "pass",
+      taskCompletion: "pass"
+    }
+  ]
+});
 
 describe("evaluation recording", () => {
-  it("captures reference payloads separately according to retention settings",async()=>{
-    const answerReferences={version:"answer-references-v1" as const,sources:[{id:1,resultId:"fixture",title:"PRIVATE_REFERENCE",url:"https://example.invalid/source",observedAt:new Date().toISOString(),revision:"v1"}],citations:[{id:1,sourceId:1,row:0,column:"Score",value:"101"}]};
-    for(const capture of ["metadata","answers"] as const){
-      const recorder=await setup({capture});
-      recorder.record("c",{type:"provisional",messageId:"m",text:"101 [1]",answerReferences,createdAtIso:new Date().toISOString()});
-      await recorder.finish();const run=await readArtifact(recorder.path);
-      expect(run.trace[0].answerReferences?.contentHash).toBe(digest(JSON.stringify(answerReferences)));
-      if(capture==="metadata")expect(await readFile(recorder.path,"utf8")).not.toContain("PRIVATE_REFERENCE");
+  it("captures reference payloads separately according to retention settings", async () => {
+    const answerReferences = {
+      version: "answer-references-v1" as const,
+      sources: [
+        {
+          id: 1,
+          resultId: "fixture",
+          title: "PRIVATE_REFERENCE",
+          url: "https://example.invalid/source",
+          observedAt: new Date().toISOString(),
+          revision: "v1"
+        }
+      ],
+      citations: [{ id: 1, sourceId: 1, row: 0, column: "Score", value: "101" }]
+    };
+    for (const capture of ["metadata", "answers"] as const) {
+      const recorder = await setup({ capture });
+      recorder.record("c", {
+        type: "provisional",
+        messageId: "m",
+        text: "101 [1]",
+        answerReferences,
+        createdAtIso: new Date().toISOString()
+      });
+      await recorder.finish();
+      const run = await readArtifact(recorder.path);
+      expect(run.trace[0].answerReferences?.contentHash).toBe(
+        digest(JSON.stringify(answerReferences))
+      );
+      if (capture === "metadata")
+        expect(await readFile(recorder.path, "utf8")).not.toContain("PRIVATE_REFERENCE");
       else expect(run.trace[0].answerReferences?.text).toContain("PRIVATE_REFERENCE");
     }
   });
-  it("retains evidence-answer validation only under the selected capture policy",async()=>{
-    const groundedAnswer={answer:{status:"insufficient_evidence" as const,reason:"PRIVATE_EVIDENCE_REASON"},evidenceLimitations:["Selected rows only"],citationChecks:"not_applicable" as const,semanticGrounding:"ungraded" as const};
-    for(const capture of ["metadata","answers"] as const){
-      const recorder=await setup({capture});
-      recorder.record("c",{type:"provisional",messageId:"m",text:"Insufficient evidence",groundedAnswer,createdAtIso:new Date().toISOString()});
-      await recorder.finish();const run=await readArtifact(recorder.path);
+  it("retains evidence-answer validation only under the selected capture policy", async () => {
+    const groundedAnswer = {
+      answer: { status: "insufficient_evidence" as const, reason: "PRIVATE_EVIDENCE_REASON" },
+      evidenceLimitations: ["Selected rows only"],
+      citationChecks: "not_applicable" as const,
+      semanticGrounding: "ungraded" as const
+    };
+    for (const capture of ["metadata", "answers"] as const) {
+      const recorder = await setup({ capture });
+      recorder.record("c", {
+        type: "provisional",
+        messageId: "m",
+        text: "Insufficient evidence",
+        groundedAnswer,
+        createdAtIso: new Date().toISOString()
+      });
+      await recorder.finish();
+      const run = await readArtifact(recorder.path);
       expect(run.trace[0].groundedAnswer?.contentHash).toBe(digest(JSON.stringify(groundedAnswer)));
-      if(capture === "metadata")expect(await readFile(recorder.path,"utf8")).not.toContain("PRIVATE_EVIDENCE_REASON");
+      if (capture === "metadata")
+        expect(await readFile(recorder.path, "utf8")).not.toContain("PRIVATE_EVIDENCE_REASON");
       else expect(run.trace[0].groundedAnswer?.text).toContain("PRIVATE_EVIDENCE_REASON");
     }
   });
-  it("captures role snapshots under the configured retention policy",async()=>{
-    const catalog=new RoleCatalog({version:"role-catalog-v1",roles:[{id:"writer",version:"1",bindingId:"fixed",instructions:"PRIVATE_ROLE_INSTRUCTIONS",toolIds:[]}]});
-    const {execution}=catalog.resolve({roleId:"writer",mode:"chat",thinking:"configured"},[],["fixed"]);
-    for(const capture of ["metadata","answers"] as const){
-      const recorder=await setup({capture});
-      recorder.record("c",{type:"activity",messageId:"m",text:"Role selected",roleExecution:execution,createdAtIso:new Date().toISOString()});
-      await recorder.finish();const run=await readArtifact(recorder.path);
+  it("captures role snapshots under the configured retention policy", async () => {
+    const catalog = new RoleCatalog({
+      version: "role-catalog-v1",
+      roles: [
+        {
+          id: "writer",
+          version: "1",
+          bindingId: "fixed",
+          instructions: "PRIVATE_ROLE_INSTRUCTIONS",
+          toolIds: []
+        }
+      ]
+    });
+    const { execution } = catalog.resolve(
+      { roleId: "writer", mode: "chat", thinking: "configured" },
+      [],
+      ["fixed"]
+    );
+    for (const capture of ["metadata", "answers"] as const) {
+      const recorder = await setup({ capture });
+      recorder.record("c", {
+        type: "activity",
+        messageId: "m",
+        text: "Role selected",
+        roleExecution: execution,
+        createdAtIso: new Date().toISOString()
+      });
+      await recorder.finish();
+      const run = await readArtifact(recorder.path);
       expect(run.trace[0].roleExecution?.contentHash).toBe(digest(JSON.stringify(execution)));
-      if(capture === "metadata")expect(await readFile(recorder.path,"utf8")).not.toContain("PRIVATE_ROLE_INSTRUCTIONS");
+      if (capture === "metadata")
+        expect(await readFile(recorder.path, "utf8")).not.toContain("PRIVATE_ROLE_INSTRUCTIONS");
       else expect(run.trace[0].roleExecution?.text).toContain("PRIVATE_ROLE_INSTRUCTIONS");
     }
   });
   it("records payload hashes separately and retains content only in answers mode", async () => {
     for (const capture of ["metadata", "answers"] as const) {
-      const recorder = await setup({capture});
-      const result = new ToolResultStore().put("u","c", {version:"tool-result-v1",context:{status:"ready",summary:"Ready",scope:"test",coverage:"complete",limitations:[],expiresAt:new Date(Date.now()+60000).toISOString()},payload:{kind:"table",title:"Directory",columns:["Name"],rows:[["PAYLOAD_CANARY"]]},evidence:{sourceUrl:"https://example.invalid",observedAt:new Date().toISOString(),revision:"v"}});
-      recorder.record("c",{type:"refined",messageId:"m",text:"Ready",createdAtIso:new Date().toISOString(),payloadResults:[result]});
+      const recorder = await setup({ capture });
+      const result = new ToolResultStore().put("u", "c", {
+        version: "tool-result-v1",
+        context: {
+          status: "ready",
+          summary: "Ready",
+          scope: "test",
+          coverage: "complete",
+          limitations: [],
+          expiresAt: new Date(Date.now() + 60000).toISOString()
+        },
+        payload: {
+          kind: "table",
+          title: "Directory",
+          columns: ["Name"],
+          rows: [["PAYLOAD_CANARY"]]
+        },
+        evidence: {
+          sourceUrl: "https://example.invalid",
+          observedAt: new Date().toISOString(),
+          revision: "v"
+        }
+      });
+      recorder.record("c", {
+        type: "refined",
+        messageId: "m",
+        text: "Ready",
+        createdAtIso: new Date().toISOString(),
+        payloadResults: [result]
+      });
       await recorder.finish();
       const run = await readArtifact(recorder.path);
       expect(run.trace[0].payloads?.[0].contentHash).toBe(digest(JSON.stringify(result)));
-      const serialized = await readFile(recorder.path,"utf8");
+      const serialized = await readFile(recorder.path, "utf8");
       if (capture === "metadata") expect(serialized).not.toContain("PAYLOAD_CANARY");
       else expect(run.trace[0].payloads?.[0].text).toContain("PAYLOAD_CANARY");
       expect(run.trace[0].answer?.text ?? "").not.toContain("PAYLOAD_CANARY");
     }
   });
   it("does not pass text-only annotations for payload-bearing answers", async () => {
-    const recorder = await setup({capture:"answers"}); turn(recorder); await recorder.finish();
+    const recorder = await setup({ capture: "answers" });
+    turn(recorder);
+    await recorder.finish();
     const run = await readArtifact(recorder.path);
-    expect(scoreRecording(run,annotations()).passed).toBe(true);
-    run.trace[2].payloads = [{resultId:digest("id"),contentHash:digest("table"),artifactHash:digest("table"),transformed:false,text:"table"}];
-    const score = scoreRecording(run,annotations());
+    expect(scoreRecording(run, annotations()).passed).toBe(true);
+    run.trace[2].payloads = [
+      {
+        resultId: digest("id"),
+        contentHash: digest("table"),
+        artifactHash: digest("table"),
+        transformed: false,
+        text: "table"
+      }
+    ];
+    const score = scoreRecording(run, annotations());
     expect(score.passed).toBe(false);
-    expect(score.results[0]).toMatchObject({payloadGrading:"unrated",gradingComplete:false,outcome:"unavailable"});
+    expect(score.results[0]).toMatchObject({
+      payloadGrading: "unrated",
+      gradingComplete: false,
+      outcome: "unavailable"
+    });
   });
   it("captures effective scope independently under the configured retention policy", async () => {
-    for (const capture of ["metadata","answers"] as const) {
-      const recorder=await setup({capture});
-      const selectedContext={path:["SCOPE_CANARY"],entity:{provider:"test",id:"1",name:"SCOPE_CANARY"},reference:null,referenceStatus:"expired" as const};
-      recorder.record("c",{type:"user",messageId:"m",text:"hello",createdAtIso:new Date().toISOString(),selectedContext});
-      recorder.record("c",{type:"terminal",phase:"fast",messageId:"m",text:"done",finishReason:"stop",createdAtIso:new Date().toISOString()});
-      await recorder.finish();const run=await readArtifact(recorder.path);
-      expect(run.trace[0].selectedContext).toMatchObject({contentHash:digest(JSON.stringify(selectedContext)),referenceStatus:"expired"});
-      const saved=await readFile(recorder.path,"utf8");
-      if(capture === "metadata") expect(saved).not.toContain("SCOPE_CANARY");
+    for (const capture of ["metadata", "answers"] as const) {
+      const recorder = await setup({ capture });
+      const selectedContext = {
+        path: ["SCOPE_CANARY"],
+        entity: { provider: "test", id: "1", name: "SCOPE_CANARY" },
+        reference: null,
+        referenceStatus: "expired" as const
+      };
+      recorder.record("c", {
+        type: "user",
+        messageId: "m",
+        text: "hello",
+        createdAtIso: new Date().toISOString(),
+        selectedContext
+      });
+      recorder.record("c", {
+        type: "terminal",
+        phase: "fast",
+        messageId: "m",
+        text: "done",
+        finishReason: "stop",
+        createdAtIso: new Date().toISOString()
+      });
+      await recorder.finish();
+      const run = await readArtifact(recorder.path);
+      expect(run.trace[0].selectedContext).toMatchObject({
+        contentHash: digest(JSON.stringify(selectedContext)),
+        referenceStatus: "expired"
+      });
+      const saved = await readFile(recorder.path, "utf8");
+      if (capture === "metadata") expect(saved).not.toContain("SCOPE_CANARY");
       else expect(run.trace[0].selectedContext?.text).toContain("SCOPE_CANARY");
     }
   });
@@ -117,55 +289,105 @@ describe("evaluation recording", () => {
     expect(redact('password="a secret with spaces"')).toBe("password=[REDACTED]");
     expect(recordingConfig({})).toBeUndefined();
     expect(recordingConfig({ EVAL_RECORDING: "true" })?.capture).toBe("metadata");
-    for (const config of [{ EVAL_RECORDING: "yes" }, { EVAL_RECORDING: "true", EVAL_CAPTURE: "reasoning" }, { EVAL_RECORDING: "true", EVAL_MAX_BYTES: "0" }])
+    for (const config of [
+      { EVAL_RECORDING: "yes" },
+      { EVAL_RECORDING: "true", EVAL_CAPTURE: "reasoning" },
+      { EVAL_RECORDING: "true", EVAL_MAX_BYTES: "0" }
+    ])
       expect(() => recordingConfig(config)).toThrow();
   });
   it("EVAL-04: persists metadata without prompts, answers, raw errors or secret-bearing fields", async () => {
-    const recorder = await setup(); turn(recorder, "Bearer ANSWER-SECRET"); await recorder.finish();
+    const recorder = await setup();
+    turn(recorder, "Bearer ANSWER-SECRET");
+    await recorder.finish();
     const serialized = await readFile(recorder.path, "utf8");
-    for (const secret of ["ANSWER-SECRET", "secret-config", "SECRET-TOKEN", "private activity text"])
+    for (const secret of [
+      "ANSWER-SECRET",
+      "secret-config",
+      "SECRET-TOKEN",
+      "private activity text"
+    ])
       expect(serialized).not.toContain(secret);
     const run = await readArtifact(recorder.path);
-    expect(run.trace[2].answer).toMatchObject({ scoredHash: digest("Bearer ANSWER-SECRET"), artifactHash: null });
-    expect(run.summary).toMatchObject({ mode: "synthetic", usage: null, costUsd: null, quality: "unrated", recorderOverheadMs: null });
+    expect(run.trace[2].answer).toMatchObject({
+      scoredHash: digest("Bearer ANSWER-SECRET"),
+      artifactHash: null
+    });
+    expect(run.summary).toMatchObject({
+      mode: "synthetic",
+      usage: null,
+      costUsd: null,
+      quality: "unrated",
+      recorderOverheadMs: null
+    });
     expect(scoreRecording(run, annotations("Bearer ANSWER-SECRET")).passed).toBe(false);
   });
   it("EVAL-03: requires the exact retained answer, complete rubric, and matching response hash", async () => {
-    const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
+    const recorder = await setup({ capture: "answers" });
+    turn(recorder);
+    await recorder.finish();
     const run = await readArtifact(recorder.path);
     expect(scoreRecording(run, annotations()).passed).toBe(true);
     expect(scoreRecording(run, annotations("changed answer")).passed).toBe(false);
     expect(scoreRecording(run, { ...annotations(), ratings: [] }).passed).toBe(false);
-    const changed = structuredClone(run); changed.trace[2].answer!.text = "tampered";
+    const changed = structuredClone(run);
+    changed.trace[2].answer!.text = "tampered";
     expect(() => scoreRecording(changed, annotations())).toThrow("EVAL_ARTIFACT_INTEGRITY");
-    expect(() => scoreRecording(run, annotations(), Date.parse(run.manifest.expiresAtIso))).toThrow("EVAL_ARTIFACT_EXPIRED");
-    expect(scoreRecording(run, { ...annotations(), ratings: [{ ...annotations().ratings[0], correctness: "unrated" }] }).passed).toBe(false);
+    expect(() => scoreRecording(run, annotations(), Date.parse(run.manifest.expiresAtIso))).toThrow(
+      "EVAL_ARTIFACT_EXPIRED"
+    );
+    expect(
+      scoreRecording(run, {
+        ...annotations(),
+        ratings: [{ ...annotations().ratings[0], correctness: "unrated" }]
+      }).passed
+    ).toBe(false);
   });
   it("EVAL-04: transformed answer artifacts cannot masquerade as the scored answer", async () => {
-    const recorder = await setup({ capture: "answers" }); turn(recorder, "password=secret123"); await recorder.finish();
+    const recorder = await setup({ capture: "answers" });
+    turn(recorder, "password=secret123");
+    await recorder.finish();
     const run = await readArtifact(recorder.path);
     expect(run.trace[2].answer).toMatchObject({ transformed: true, text: "password=[REDACTED]" });
     expect(scoreRecording(run, annotations("password=secret123")).passed).toBe(false);
   });
-  it.each([{ maxEvents: 2 }, { maxBytes: 4096 }])("EVAL-04/05: bounded capture reports dropped events and incomplete evidence (%j)", async limits => {
-    const recorder = await setup({ ...limits, capture: "answers" }); turn(recorder, "x".repeat(5000));
-    await expect(recorder.finish()).rejects.toThrow("EVAL_RECORDING_INCOMPLETE");
-    const run = await readArtifact(recorder.path);
-    expect(run.manifest.droppedEvents).toBeGreaterThan(0);
-    expect(Buffer.byteLength(await readFile(recorder.path, "utf8"))).toBeLessThanOrEqual(recorder.config.maxBytes);
-  });
+  it.each([{ maxEvents: 2 }, { maxBytes: 4096 }])(
+    "EVAL-04/05: bounded capture reports dropped events and incomplete evidence (%j)",
+    async (limits) => {
+      const recorder = await setup({ ...limits, capture: "answers" });
+      turn(recorder, "x".repeat(5000));
+      await expect(recorder.finish()).rejects.toThrow("EVAL_RECORDING_INCOMPLETE");
+      const run = await readArtifact(recorder.path);
+      expect(run.manifest.droppedEvents).toBeGreaterThan(0);
+      expect(Buffer.byteLength(await readFile(recorder.path, "utf8"))).toBeLessThanOrEqual(
+        recorder.config.maxBytes
+      );
+    }
+  );
   it("EVAL-05: unfinished calls remain incomplete and failures are explicit without escaping record()", async () => {
     const recorder = await setup();
-    recorder.record("c", { type: "user", messageId: "m", text: "hello", createdAtIso: "ignored", routeDecision: "deep" });
+    recorder.record("c", {
+      type: "user",
+      messageId: "m",
+      text: "hello",
+      createdAtIso: "ignored",
+      routeDecision: "deep"
+    });
     await expect(recorder.finish()).rejects.toThrow("EVAL_RECORDING_INCOMPLETE");
-    const failing = await setup({}, async () => { throw new Error("secret disk details"); });
-    turn(failing); await expect(failing.finish()).rejects.toThrow("EVAL_WRITE_FAILED");
+    const failing = await setup({}, async () => {
+      throw new Error("secret disk details");
+    });
+    turn(failing);
+    await expect(failing.finish()).rejects.toThrow("EVAL_WRITE_FAILED");
     expect(failing.status()).toMatchObject({ status: "failed", failureCode: "EVAL_WRITE_FAILED" });
   });
   it("EVAL-04: pruning removes only expired owned recordings", async () => {
-    const recorder = await setup(); turn(recorder); await recorder.finish();
+    const recorder = await setup();
+    turn(recorder);
+    await recorder.finish();
     const run = await readArtifact(recorder.path);
-    const unrelated = join(recorder.config.root, "keep.txt"); await writeFile(unrelated, "keep");
+    const unrelated = join(recorder.config.root, "keep.txt");
+    await writeFile(unrelated, "keep");
     expect(await pruneExpired(recorder.config.root, Date.parse(run.manifest.expiresAtIso))).toBe(1);
     await expect(readFile(recorder.path)).rejects.toMatchObject({ code: "ENOENT" });
     expect(await readFile(unrelated, "utf8")).toBe("keep");
@@ -173,88 +395,176 @@ describe("evaluation recording", () => {
   it("EVAL-04/05: expiry removes active answer capture and shutdown failure invalidates evidence", async () => {
     vi.useFakeTimers();
     const recorder = await setup({ capture: "answers", retentionMs: 1000 });
-    turn(recorder); await recorder.flush();
-    await vi.advanceTimersByTimeAsync(1000); await recorder.flush();
+    turn(recorder);
+    await recorder.flush();
+    await vi.advanceTimersByTimeAsync(1000);
+    await recorder.flush();
     expect(recorder.status().status).toBe("failed");
     await expect(readFile(recorder.path)).rejects.toMatchObject({ code: "ENOENT" });
-    const timedOut = await setup(); turn(timedOut);
+    const timedOut = await setup();
+    turn(timedOut);
     timedOut.invalidate("EVAL_RUNTIME_SHUTDOWN_TIMEOUT");
     await expect(timedOut.finish()).rejects.toThrow("EVAL_RUNTIME_SHUTDOWN_TIMEOUT");
     expect((await readArtifact(timedOut.path)).manifest.status).toBe("failed");
   });
   it("EVAL-05: the grading command exits nonzero for missing ratings", async () => {
-    const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
+    const recorder = await setup({ capture: "answers" });
+    turn(recorder);
+    await recorder.finish();
     const path = join(recorder.config.root, "annotations.json");
     await writeFile(path, JSON.stringify({ ...annotations(), ratings: [] }));
-    await expect(promisify(execFile)(process.execPath, [resolve("node_modules/tsx/dist/cli.mjs"),
-      resolve("src/eval/recording/cli.ts"), "grade", recorder.path, path])).rejects.toMatchObject({ code: 1 });
+    await expect(
+      promisify(execFile)(process.execPath, [
+        resolve("node_modules/tsx/dist/cli.mjs"),
+        resolve("src/eval/recording/cli.ts"),
+        "grade",
+        recorder.path,
+        path
+      ])
+    ).rejects.toMatchObject({ code: 1 });
   });
   it("EVAL-05: an unwritable output root returns failed recording without blocking startup", async () => {
-    const root = await mkdtemp(join(tmpdir(), "chatagent-eval-failure-")); directories.push(root);
-    const datasetPath = join(root, "dataset.json"), file = join(root, "not-a-directory");
-    await writeFile(datasetPath, JSON.stringify(dataset)); await writeFile(file, "occupied");
-    const recorder = (await startEvaluationRecording({}, { EVAL_RECORDING: "true", EVAL_DATASET_PATH: datasetPath, EVAL_OUTPUT_ROOT: file }))!;
+    const root = await mkdtemp(join(tmpdir(), "chatagent-eval-failure-"));
+    directories.push(root);
+    const datasetPath = join(root, "dataset.json"),
+      file = join(root, "not-a-directory");
+    await writeFile(datasetPath, JSON.stringify(dataset));
+    await writeFile(file, "occupied");
+    const recorder = (await startEvaluationRecording(
+      {},
+      { EVAL_RECORDING: "true", EVAL_DATASET_PATH: datasetPath, EVAL_OUTPUT_ROOT: file }
+    ))!;
     recorders.push(recorder);
     expect(recorder.status().status).toBe("failed");
     await expect(recorder.finish()).rejects.toThrow();
   });
   it("EVAL-05: finish waits for the final writer and prevents queued terminal flushes after closure", async () => {
     let release!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const writer = vi.fn(async () => { await gate; });
-    const recorder = await setup({}, writer); turn(recorder);
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const writer = vi.fn(async () => {
+      await gate;
+    });
+    const recorder = await setup({}, writer);
+    turn(recorder);
     const finishing = recorder.finish();
     expect(recorder.finish()).toBe(finishing);
-    let finished = false; void finishing.then(() => { finished = true; });
-    await Promise.resolve(); await Promise.resolve();
+    let finished = false;
+    void finishing.then(() => {
+      finished = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
     expect(finished).toBe(false);
-    release(); await finishing; await Promise.resolve();
+    release();
+    await finishing;
+    await Promise.resolve();
     expect(writer).toHaveBeenCalledTimes(1);
   });
   it("EVAL-02: overlapping turns retain separate call parents through cancellation", async () => {
     const recorder = await setup();
     let release!: () => void, entered!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const started = new Promise<void>(resolve => { entered = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     let calls = 0;
-    const provider: FastModelProvider = { createProvisionalReply: async (input, control) => {
-      if (++calls === 2) entered();
-      if (input.message.messageId === "second") {
-        await new Promise<void>(resolve => control!.signal.addEventListener("abort", () => resolve(), { once: true }));
-        throw new GenerationError("CANCELLED", false);
+    const provider: FastModelProvider = {
+      createProvisionalReply: async (input, control) => {
+        if (++calls === 2) entered();
+        if (input.message.messageId === "second") {
+          await new Promise<void>((resolve) =>
+            control!.signal.addEventListener("abort", () => resolve(), { once: true })
+          );
+          throw new GenerationError("CANCELLED", false);
+        }
+        await gate;
+        return { text: "answer", finishReason: "stop" };
       }
-      await gate; return { text: "answer", finishReason: "stop" };
-    } };
+    };
     const r = runtime([entry("a")], { a: { fast: provider } }, recorder.record);
     const first = r.service.submitMessage(message("hello", "first"));
     const second = r.service.submitMessage(message("hello", "second"));
-    await started; await r.service.cancelMessage("c", "second"); release();
-    await Promise.all([first, second]); await recorder.finish(); await r.manager.shutdown();
+    await started;
+    await r.service.cancelMessage("c", "second");
+    release();
+    await Promise.all([first, second]);
+    await recorder.finish();
+    await r.manager.shutdown();
     const run = await readArtifact(recorder.path);
-    const terminals = run.trace.filter(e => e.type === "terminal");
-    expect(new Set(terminals.map(e => e.callId)).size).toBe(2);
-    expect(new Set(terminals.map(e => e.parentCallId)).size).toBe(2);
-    expect(terminals.map(e => e.finishReason).sort()).toEqual(["cancelled", "stop"]);
-    expect(run.trace.every(e => e.usage === null && e.costUsd === null)).toBe(true);
+    const terminals = run.trace.filter((e) => e.type === "terminal");
+    expect(new Set(terminals.map((e) => e.callId)).size).toBe(2);
+    expect(new Set(terminals.map((e) => e.parentCallId)).size).toBe(2);
+    expect(terminals.map((e) => e.finishReason).sort()).toEqual(["cancelled", "stop"]);
+    expect(run.trace.every((e) => e.usage === null && e.costUsd === null)).toBe(true);
   });
   it("EVAL-01/05: deferred provider requests, selections, retries and answers match with recording off/on, even with write failures", async () => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-29T12:00:00Z"));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-29T12:00:00Z"));
     const results = [];
     for (const enabled of [false, true]) {
-      const recorder = enabled ? await setup({}, async () => { throw new Error("disk full"); }) : undefined;
-      let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
-      let entered!: () => void; const started = new Promise<void>(resolve => { entered = resolve; });
+      const recorder = enabled
+        ? await setup({}, async () => {
+            throw new Error("disk full");
+          })
+        : undefined;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
       let count = 0;
-      const provider = { createProvisionalReply: vi.fn(async (_input: Parameters<FastModelProvider["createProvisionalReply"]>[0]) => {
-        if (++count === 1) { entered(); await gate; throw new GenerationError("PROVIDER_UNAVAILABLE", true); }
-        return { text: "answer", finishReason: "stop" as const };
-      }) };
+      const provider = {
+        createProvisionalReply: vi.fn(
+          async (_input: Parameters<FastModelProvider["createProvisionalReply"]>[0]) => {
+            if (++count === 1) {
+              entered();
+              await gate;
+              throw new GenerationError("PROVIDER_UNAVAILABLE", true);
+            }
+            return { text: "answer", finishReason: "stop" as const };
+          }
+        )
+      };
       const r = runtime([entry("a")], { a: { fast: provider } }, recorder?.record);
-      const pending = r.service.submitMessage(message("hello")); await started; release(); await pending;
-      const clean = (value: unknown): unknown => Array.isArray(value) ? value.map(clean) : value && typeof value === "object"
-        ? Object.fromEntries(Object.entries(value).filter(([k]) => !["snapshotId", "attemptId", "eventId", "signal", "onDelta", "onQueued"].includes(k)).map(([k, v]) => [k, clean(v)])) : value;
-      results.push(clean({ requests: provider.createProvisionalReply.mock.calls.map(call => call[0]), events: await r.timeline.getEvents("c") }));
-      await recorder?.finish().catch(() => undefined); await r.manager.shutdown();
+      const pending = r.service.submitMessage(message("hello"));
+      await started;
+      release();
+      await pending;
+      const clean = (value: unknown): unknown =>
+        Array.isArray(value)
+          ? value.map(clean)
+          : value && typeof value === "object"
+            ? Object.fromEntries(
+                Object.entries(value)
+                  .filter(
+                    ([k]) =>
+                      ![
+                        "snapshotId",
+                        "attemptId",
+                        "eventId",
+                        "signal",
+                        "onDelta",
+                        "onQueued"
+                      ].includes(k)
+                  )
+                  .map(([k, v]) => [k, clean(v)])
+              )
+            : value;
+      results.push(
+        clean({
+          requests: provider.createProvisionalReply.mock.calls.map((call) => call[0]),
+          events: await r.timeline.getEvents("c")
+        })
+      );
+      await recorder?.finish().catch(() => undefined);
+      await r.manager.shutdown();
     }
     expect(results[1]).toEqual(results[0]);
   });
@@ -263,64 +573,173 @@ describe("evaluation recording", () => {
 it("separates an honest limitation from task completion", async () => {
   const recorder = await setup({ capture: "answers" });
   const text = "I cannot fetch current figures because no retrieval tool is available.";
-  turn(recorder, text); await recorder.finish();
-  const review = annotations(text); review.ratings[0].taskCompletion = "fail";
+  turn(recorder, text);
+  await recorder.finish();
+  const review = annotations(text);
+  review.ratings[0].taskCompletion = "fail";
   const grade = scoreRecording(await readArtifact(recorder.path), review);
-  expect(grade).toMatchObject({ runtimePassed: true, passed: false, results: [{
-    runtimeOutcome: "stop", correctness: "pass", relevance: "pass", groundedness: "pass", taskCompletion: "fail", outcome: "fail"
-  }] });
+  expect(grade).toMatchObject({
+    runtimePassed: true,
+    passed: false,
+    results: [
+      {
+        runtimeOutcome: "stop",
+        correctness: "pass",
+        relevance: "pass",
+        groundedness: "pass",
+        taskCompletion: "fail",
+        outcome: "fail"
+      }
+    ]
+  });
 });
 it("does not upgrade legacy reviews into task-completion evidence", async () => {
-  const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
+  const recorder = await setup({ capture: "answers" });
+  turn(recorder);
+  await recorder.finish();
   const { groundedness, taskCompletion, ...legacyRating } = annotations().ratings[0];
-  const grade = scoreRecording(await readArtifact(recorder.path), { ...annotations(), version: 1, ratings: [legacyRating] });
-  expect(grade).toMatchObject({ annotationVersion: 1, runtimePassed: true, passed: false,
-    results: [{ groundedness: "unavailable", taskCompletion: "unavailable", outcome: "unavailable" }] });
+  const grade = scoreRecording(await readArtifact(recorder.path), {
+    ...annotations(),
+    version: 1,
+    ratings: [legacyRating]
+  });
+  expect(grade).toMatchObject({
+    annotationVersion: 1,
+    runtimePassed: true,
+    passed: false,
+    results: [
+      { groundedness: "unavailable", taskCompletion: "unavailable", outcome: "unavailable" }
+    ]
+  });
 });
 it("requires groundedness even when an answer completes the requested format", async () => {
-  const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
-  const review = annotations(); review.ratings[0].groundedness = "fail"; review.ratings[0].unsupportedClaims = "yes";
-  expect(scoreRecording(await readArtifact(recorder.path), review)).toMatchObject({ passed: false,
-    results: [{ groundedness: "fail", taskCompletion: "pass", outcome: "fail" }] });
+  const recorder = await setup({ capture: "answers" });
+  turn(recorder);
+  await recorder.finish();
+  const review = annotations();
+  review.ratings[0].groundedness = "fail";
+  review.ratings[0].unsupportedClaims = "yes";
+  expect(scoreRecording(await readArtifact(recorder.path), review)).toMatchObject({
+    passed: false,
+    results: [{ groundedness: "fail", taskCompletion: "pass", outcome: "fail" }]
+  });
 });
 it("keeps absent quality ratings unavailable and rejects missing v2 dimensions", async () => {
-  const recorder = await setup({ capture: "answers" }); turn(recorder); await recorder.finish();
-  const run = await readArtifact(recorder.path), review = annotations();
+  const recorder = await setup({ capture: "answers" });
+  turn(recorder);
+  await recorder.finish();
+  const run = await readArtifact(recorder.path),
+    review = annotations();
   review.ratings[0].taskCompletion = "unrated";
-  expect(scoreRecording(run, review)).toMatchObject({ passed: false, results: [{ taskCompletion: "unavailable", outcome: "unavailable" }] });
+  expect(scoreRecording(run, review)).toMatchObject({
+    passed: false,
+    results: [{ taskCompletion: "unavailable", outcome: "unavailable" }]
+  });
   const { taskCompletion, ...incomplete } = review.ratings[0];
   expect(() => scoreRecording(run, { ...review, ratings: [incomplete] })).toThrow();
 });
 
-it("requires delivery-bound grades for cited answers and rejects broken references",async()=>{
- const {checked,delivery}=deliveryFixture();
- async function record(refs:typeof delivery.references,capture:"answers"|"metadata"="answers"){
-  const recorder=await setup({capture});const text=delivery.text;
-  const base={messageId:"m",createdAtIso:new Date().toISOString(),phase:"fast" as const,attemptId:"a",model:{provider:"mock",model:"fixture"}};
-  recorder.record("c",{...base,type:"user",text:"hello",routeDecision:"direct"});
-  recorder.record("c",{...base,type:"activity",activity:"running",text:"running"});
-  recorder.record("c",{...base,type:"provisional",text,answerKind:"substantive",answerReferences:refs,groundedAnswer:checked});
-  recorder.record("c",{...base,type:"terminal",text,finishReason:"stop"});
-  await recorder.finish();return readArtifact(recorder.path);
- }
- const run=await record(delivery.references),legacy=annotations(delivery.text);
- expect(scoreRecording(run,legacy)).toMatchObject({passed:false,results:[{referenceGrading:"unrated",referenceIntegrity:"valid",correctness:"pass"}]});
- const v3={...legacy,version:3,ratings:legacy.ratings.map(r=>({...r,deliveryHash:deliveryDigest(delivery),referenceSupport:"pass"}))};
- expect(scoreRecording(run,v3).passed).toBe(true);
- expect(scoreRecording(await record(delivery.references,"metadata"),v3)).toMatchObject({passed:false,results:[{referenceIntegrity:"unavailable"}]});
- const redacted=structuredClone(delivery.references);redacted.sources[0].url="https://example.invalid/?api_key=super-secret";
- expect(scoreRecording(await record(redacted),v3)).toMatchObject({passed:false,results:[{referenceIntegrity:"unavailable"}]});
- const changed=structuredClone(delivery.references);changed.sources[0].url="https://example.invalid/changed";
- expect(scoreRecording(await record(changed),v3).passed).toBe(false);
- changed.citations[0].sourceId=999;changed.citations[0].value="999";
- const broken=await record(changed);expect(scoreRecording(broken,{...v3,ratings:v3.ratings.map(r=>({...r,deliveryHash:deliveryDigest({...delivery,references:changed})}))}).passed).toBe(false);
+it("requires delivery-bound grades for cited answers and rejects broken references", async () => {
+  const { checked, delivery } = deliveryFixture();
+  async function record(
+    refs: typeof delivery.references,
+    capture: "answers" | "metadata" = "answers"
+  ) {
+    const recorder = await setup({ capture });
+    const text = delivery.text;
+    const base = {
+      messageId: "m",
+      createdAtIso: new Date().toISOString(),
+      phase: "fast" as const,
+      attemptId: "a",
+      model: { provider: "mock", model: "fixture" }
+    };
+    recorder.record("c", { ...base, type: "user", text: "hello", routeDecision: "direct" });
+    recorder.record("c", { ...base, type: "activity", activity: "running", text: "running" });
+    recorder.record("c", {
+      ...base,
+      type: "provisional",
+      text,
+      answerKind: "substantive",
+      answerReferences: refs,
+      groundedAnswer: checked
+    });
+    recorder.record("c", { ...base, type: "terminal", text, finishReason: "stop" });
+    await recorder.finish();
+    return readArtifact(recorder.path);
+  }
+  const run = await record(delivery.references),
+    legacy = annotations(delivery.text);
+  expect(scoreRecording(run, legacy)).toMatchObject({
+    passed: false,
+    results: [{ referenceGrading: "unrated", referenceIntegrity: "valid", correctness: "pass" }]
+  });
+  const v3 = {
+    ...legacy,
+    version: 3,
+    ratings: legacy.ratings.map((r) => ({
+      ...r,
+      deliveryHash: deliveryDigest(delivery),
+      referenceSupport: "pass"
+    }))
+  };
+  expect(scoreRecording(run, v3).passed).toBe(true);
+  expect(scoreRecording(await record(delivery.references, "metadata"), v3)).toMatchObject({
+    passed: false,
+    results: [{ referenceIntegrity: "unavailable" }]
+  });
+  const redacted = structuredClone(delivery.references);
+  redacted.sources[0].url = "https://example.invalid/?api_key=super-secret";
+  expect(scoreRecording(await record(redacted), v3)).toMatchObject({
+    passed: false,
+    results: [{ referenceIntegrity: "unavailable" }]
+  });
+  const changed = structuredClone(delivery.references);
+  changed.sources[0].url = "https://example.invalid/changed";
+  expect(scoreRecording(await record(changed), v3).passed).toBe(false);
+  changed.citations[0].sourceId = 999;
+  changed.citations[0].value = "999";
+  const broken = await record(changed);
+  expect(
+    scoreRecording(broken, {
+      ...v3,
+      ratings: v3.ratings.map((r) => ({
+        ...r,
+        deliveryHash: deliveryDigest({ ...delivery, references: changed })
+      }))
+    }).passed
+  ).toBe(false);
 });
-it("keeps insufficient-evidence empty-reference answers compatible with text grading",async()=>{
- const text="No scores available\n\nLimitations: Selected rows only\n\nCitation checks: not_applicable. Factual quality: ungraded.";
- const recorder=await setup({capture:"answers"});
- const base={messageId:"m",createdAtIso:new Date().toISOString(),phase:"fast" as const,attemptId:"a",model:{provider:"mock",model:"fixture"}};
- recorder.record("c",{...base,type:"user",text:"hello",routeDecision:"direct"});recorder.record("c",{...base,type:"activity",activity:"running",text:"running"});
- recorder.record("c",{...base,type:"provisional",text,answerKind:"substantive",answerReferences:{version:"answer-references-v1",sources:[],citations:[]},groundedAnswer:{answer:{status:"insufficient_evidence",reason:"No scores available"},evidenceLimitations:["Selected rows only"],citationChecks:"not_applicable",semanticGrounding:"ungraded"}});
- recorder.record("c",{...base,type:"terminal",text,finishReason:"stop"});await recorder.finish();
- expect(scoreRecording(await readArtifact(recorder.path),annotations(text))).toMatchObject({passed:true,results:[{referenceGrading:"not_applicable",referenceIntegrity:"valid"}]});
+it("keeps insufficient-evidence empty-reference answers compatible with text grading", async () => {
+  const text =
+    "No scores available\n\nLimitations: Selected rows only\n\nCitation checks: not_applicable. Factual quality: ungraded.";
+  const recorder = await setup({ capture: "answers" });
+  const base = {
+    messageId: "m",
+    createdAtIso: new Date().toISOString(),
+    phase: "fast" as const,
+    attemptId: "a",
+    model: { provider: "mock", model: "fixture" }
+  };
+  recorder.record("c", { ...base, type: "user", text: "hello", routeDecision: "direct" });
+  recorder.record("c", { ...base, type: "activity", activity: "running", text: "running" });
+  recorder.record("c", {
+    ...base,
+    type: "provisional",
+    text,
+    answerKind: "substantive",
+    answerReferences: { version: "answer-references-v1", sources: [], citations: [] },
+    groundedAnswer: {
+      answer: { status: "insufficient_evidence", reason: "No scores available" },
+      evidenceLimitations: ["Selected rows only"],
+      citationChecks: "not_applicable",
+      semanticGrounding: "ungraded"
+    }
+  });
+  recorder.record("c", { ...base, type: "terminal", text, finishReason: "stop" });
+  await recorder.finish();
+  expect(scoreRecording(await readArtifact(recorder.path), annotations(text))).toMatchObject({
+    passed: true,
+    results: [{ referenceGrading: "not_applicable", referenceIntegrity: "valid" }]
+  });
 });

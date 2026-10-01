@@ -9,7 +9,11 @@ import { bindingKey } from "../connections";
 import { mapWithConcurrency } from "./util";
 
 interface OllamaTagsResponse {
-  models?: Array<{ name?: string; model?: string; details?: { family?: string; parameter_size?: string; quantization_level?: string } }>;
+  models?: Array<{
+    name?: string;
+    model?: string;
+    details?: { family?: string; parameter_size?: string; quantization_level?: string };
+  }>;
 }
 
 interface OllamaShowResponse {
@@ -20,7 +24,12 @@ interface OllamaShowResponse {
 function findContextLength(modelInfo: Record<string, unknown> | undefined): number | undefined {
   if (!modelInfo) return undefined;
   for (const [key, value] of Object.entries(modelInfo)) {
-    if (key.endsWith(".context_length") && typeof value === "number" && Number.isFinite(value) && value > 0) {
+    if (
+      key.endsWith(".context_length") &&
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      value > 0
+    ) {
       return value;
     }
   }
@@ -39,7 +48,9 @@ export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
     }
 
     const payload = (await tagsResponse.json()) as OllamaTagsResponse;
-    const models = (payload.models ?? []).filter((m): m is { name: string } => typeof m.name === "string" && m.name.length > 0);
+    const models = (payload.models ?? []).filter(
+      (m): m is { name: string } => typeof m.name === "string" && m.name.length > 0
+    );
 
     return mapWithConcurrency(models, 4, async (entry) => {
       const observedAtIso = new Date().toISOString();
@@ -71,7 +82,9 @@ export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
 
         const show = (await showResponse.json()) as OllamaShowResponse;
         const contextTokens = findContextLength(show.model_info);
-        return contextTokens === undefined ? base : { ...base, effectiveContextTokens: contextTokens };
+        return contextTokens === undefined
+          ? base
+          : { ...base, effectiveContextTokens: contextTokens };
       } catch {
         // Per-model metadata is best-effort; the base observation (installed,
         // reachable) still stands even if /api/show fails for this one model.

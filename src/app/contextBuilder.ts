@@ -94,8 +94,13 @@ export interface TurnRecord {
 }
 
 function deriveUnresolvedState(events: ChatTimelineEvent[]): ActiveTaskState {
-  const relevantPhase = events.some(e => e.phase === "deep" || e.routeDecision === "deep") ? "deep" : "fast";
-  const activities = events.filter(e => (e.type === "activity" || e.type === "terminal") && (!e.phase || e.phase === relevantPhase));
+  const relevantPhase = events.some((e) => e.phase === "deep" || e.routeDecision === "deep")
+    ? "deep"
+    : "fast";
+  const activities = events.filter(
+    (e) =>
+      (e.type === "activity" || e.type === "terminal") && (!e.phase || e.phase === relevantPhase)
+  );
   const lastActivity = activities[activities.length - 1];
 
   if (lastActivity?.finishReason === "cancelled") return "cancelled";
@@ -129,8 +134,17 @@ export function groupIntoTurns(events: readonly ChatTimelineEvent[]): TurnRecord
     const userEvent = groupEvents.find((e) => e.type === "user");
     if (!userEvent) continue; // never send an unpaired historical assistant/activity event
 
-    const refined = [...groupEvents].reverse().find((e) => e.type === "refined" && (!e.finishReason || e.finishReason === "stop") && (!e.processingStatus || e.processingStatus === "complete"));
-    const completeProvisional = [...groupEvents].reverse().find((e) => e.type === "provisional" && e.processingStatus === "complete");
+    const refined = [...groupEvents]
+      .reverse()
+      .find(
+        (e) =>
+          e.type === "refined" &&
+          (!e.finishReason || e.finishReason === "stop") &&
+          (!e.processingStatus || e.processingStatus === "complete")
+      );
+    const completeProvisional = [...groupEvents]
+      .reverse()
+      .find((e) => e.type === "provisional" && e.processingStatus === "complete");
     const assistantText = refined?.text ?? completeProvisional?.text;
 
     turns.push({
@@ -170,22 +184,30 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
   const cappedByTurnLimit = completedTurns.slice(-input.budget.maxHistoryTurns);
 
   const recentUnresolved = unresolvedTurns.slice(-DEFAULT_MAX_ACTIVE_TASKS);
-  const droppedUnresolvedByLimit = unresolvedTurns.slice(0, unresolvedTurns.length - recentUnresolved.length);
+  const droppedUnresolvedByLimit = unresolvedTurns.slice(
+    0,
+    unresolvedTurns.length - recentUnresolved.length
+  );
 
   const roleInstructionForBudget =
-    tokenCounter.estimateBytes(input.roleInstructions.fast) >= tokenCounter.estimateBytes(input.roleInstructions.deep)
+    tokenCounter.estimateBytes(input.roleInstructions.fast) >=
+    tokenCounter.estimateBytes(input.roleInstructions.deep)
       ? input.roleInstructions.fast
       : input.roleInstructions.deep;
 
   const instructionCost =
     REQUEST_OVERHEAD_TOKENS +
-    tokenCounter.estimateBytes(renderContextSystem(input.systemInstruction, roleInstructionForBudget, [])) +
+    tokenCounter.estimateBytes(
+      renderContextSystem(input.systemInstruction, roleInstructionForBudget, [])
+    ) +
     MESSAGE_OVERHEAD_TOKENS;
 
-  const currentUserCost = tokenCounter.estimateBytes(input.currentUserText) + MESSAGE_OVERHEAD_TOKENS;
+  const currentUserCost =
+    tokenCounter.estimateBytes(input.currentUserText) + MESSAGE_OVERHEAD_TOKENS;
 
   const outputReserve = Math.max(input.budget.fastOutputTokens, input.budget.deepOutputTokens);
-  const availableInputTokens = input.budget.windowTokens - outputReserve - input.budget.safetyTokens;
+  const availableInputTokens =
+    input.budget.windowTokens - outputReserve - input.budget.safetyTokens;
 
   const fixedCost = instructionCost + currentUserCost;
   if (fixedCost > availableInputTokens) {
@@ -196,9 +218,16 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
   const activeTaskBudget = Math.floor(remainingAfterFixed * ACTIVE_TASK_BUDGET_SHARE);
 
   const activeTaskCostOf = (turns: TurnRecord[]): number =>
-    tokenCounter.estimateBytes(renderContextSystem(input.systemInstruction, roleInstructionForBudget,
-      turns.map(t => ({ state: t.state!, requestText: t.userText })))) -
-    tokenCounter.estimateBytes(renderContextSystem(input.systemInstruction, roleInstructionForBudget, []));
+    tokenCounter.estimateBytes(
+      renderContextSystem(
+        input.systemInstruction,
+        roleInstructionForBudget,
+        turns.map((t) => ({ state: t.state!, requestText: t.userText }))
+      )
+    ) -
+    tokenCounter.estimateBytes(
+      renderContextSystem(input.systemInstruction, roleInstructionForBudget, [])
+    );
 
   const includedUnresolved = [...recentUnresolved];
   const omittedUnresolvedIds: string[] = droppedUnresolvedByLimit.map((t) => t.messageId);
@@ -221,39 +250,74 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
   // Allocate the newest four exact pairs before expendable memory.
   const includedPairs = cappedByTurnLimit.slice(-4);
   let pairsTotal = includedPairs.reduce((sum, t) => sum + pairCostOf(t), 0);
-  while (pairsTotal > remainingForPairs && includedPairs.length) pairsTotal -= pairCostOf(includedPairs.shift()!);
-  const exactIds = new Set(includedPairs.map(t => t.messageId));
+  while (pairsTotal > remainingForPairs && includedPairs.length)
+    pairsTotal -= pairCostOf(includedPairs.shift()!);
+  const exactIds = new Set(includedPairs.map((t) => t.messageId));
   let memory: ContextMemory | null = null;
   const resolvedSources: ConversationContext["resolvedSources"][number][] = [];
   const unavailableSources: SourceRef[] = [];
-  const dataCost = () => tokenCounter.estimateBytes(renderContextSystem(input.systemInstruction, roleInstructionForBudget, [], memory, resolvedSources, unavailableSources)) -
-    tokenCounter.estimateBytes(renderContextSystem(input.systemInstruction, roleInstructionForBudget, []));
-  const memoryAllowance = Math.min(input.summaryMaxTokens ?? 1024, Math.floor(remainingAfterFixed * 0.25), remainingForPairs - pairsTotal);
+  const dataCost = () =>
+    tokenCounter.estimateBytes(
+      renderContextSystem(
+        input.systemInstruction,
+        roleInstructionForBudget,
+        [],
+        memory,
+        resolvedSources,
+        unavailableSources
+      )
+    ) -
+    tokenCounter.estimateBytes(
+      renderContextSystem(input.systemInstruction, roleInstructionForBudget, [])
+    );
+  const memoryAllowance = Math.min(
+    input.summaryMaxTokens ?? 1024,
+    Math.floor(remainingAfterFixed * 0.25),
+    remainingForPairs - pairsTotal
+  );
   // Reserve resolution outcomes first, so one large excerpt cannot hide other
   // attempted lookups. Upgrade unavailable entries to exact excerpts when they fit.
-  const requestedRefs = [...(input.resolvedSources ?? []).map(s => s.source), ...(input.unavailableSources ?? [])];
+  const requestedRefs = [
+    ...(input.resolvedSources ?? []).map((s) => s.source),
+    ...(input.unavailableSources ?? [])
+  ];
   for (const source of requestedRefs) {
-    if (exactIds.has(source.messageId) || unavailableSources.some(s => s.eventId === source.eventId)) continue;
+    if (
+      exactIds.has(source.messageId) ||
+      unavailableSources.some((s) => s.eventId === source.eventId)
+    )
+      continue;
     unavailableSources.push(structuredClone(source));
     if (dataCost() > memoryAllowance) unavailableSources.pop();
   }
   for (const source of input.resolvedSources ?? []) {
-    const index = unavailableSources.findIndex(s => s.eventId === source.source.eventId);
+    const index = unavailableSources.findIndex((s) => s.eventId === source.source.eventId);
     if (index < 0) continue;
     const [unavailable] = unavailableSources.splice(index, 1);
     resolvedSources.push(structuredClone(source));
     if (dataCost() > memoryAllowance) {
-      resolvedSources.pop(); unavailableSources.splice(index, 0, unavailable);
+      resolvedSources.pop();
+      unavailableSources.splice(index, 0, unavailable);
     }
   }
-  const replaced = new Set([...resolvedSources.map(s => s.source.eventId), ...unavailableSources.map(s => s.eventId)]);
+  const replaced = new Set([
+    ...resolvedSources.map((s) => s.source.eventId),
+    ...unavailableSources.map((s) => s.eventId)
+  ]);
   for (const item of input.memory?.items ?? []) {
-    if (item.sources.some(s => exactIds.has(s.messageId) || replaced.has(s.eventId))) continue;
-    const candidate: ContextMemory = { ...input.memory!, items: [...(memory?.items ?? []), structuredClone(item)] };
-    const previous: ContextMemory | null = memory; memory = candidate;
+    if (item.sources.some((s) => exactIds.has(s.messageId) || replaced.has(s.eventId))) continue;
+    const candidate: ContextMemory = {
+      ...input.memory!,
+      items: [...(memory?.items ?? []), structuredClone(item)]
+    };
+    const previous: ContextMemory | null = memory;
+    memory = candidate;
     if (dataCost() > memoryAllowance) memory = previous;
   }
-  const represented = new Set([...(memory?.items.flatMap(i => i.sources.map(s => s.messageId)) ?? []), ...resolvedSources.map(s => s.source.messageId)]);
+  const represented = new Set([
+    ...(memory?.items.flatMap((i) => i.sources.map((s) => s.messageId)) ?? []),
+    ...resolvedSources.map((s) => s.source.messageId)
+  ]);
   let memoryTotal = dataCost();
   // Do not bridge an oversized recent pair to include older exact history.
   if (includedPairs.length === Math.min(4, cappedByTurnLimit.length)) {
@@ -261,20 +325,27 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
       if (represented.has(pair.messageId)) continue;
       const cost = pairCostOf(pair);
       if (pairsTotal + cost + memoryTotal > remainingForPairs) break;
-      includedPairs.unshift(pair); pairsTotal += cost;
+      includedPairs.unshift(pair);
+      pairsTotal += cost;
     }
   }
   // Recount the exact rendered data block, including every reference and escape.
   memoryTotal = dataCost();
-  const includedIds = new Set(includedPairs.map(p => p.messageId));
-  const omittedPairIds = completedTurns.filter(p => !includedIds.has(p.messageId)).map(p => p.messageId);
+  const includedIds = new Set(includedPairs.map((p) => p.messageId));
+  const omittedPairIds = completedTurns
+    .filter((p) => !includedIds.has(p.messageId))
+    .map((p) => p.messageId);
 
   const messages: ContextMessage[] = [];
   for (const pair of includedPairs) {
     messages.push({ role: "user", content: pair.userText, messageId: pair.messageId });
     messages.push({ role: "assistant", content: pair.assistantText!, messageId: pair.messageId });
   }
-  messages.push({ role: "user", content: input.currentUserText, messageId: input.currentMessageId });
+  messages.push({
+    role: "user",
+    content: input.currentUserText,
+    messageId: input.currentMessageId
+  });
 
   const activeTasks: ActiveTaskContext[] = includedUnresolved.map((turn) => ({
     messageId: turn.messageId,
@@ -300,9 +371,21 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
     includedTurnIds: includedPairs.map((t) => t.messageId),
     omittedTurnIds: omittedPairIds,
     estimatedInputTokens,
-    budgetUsage:{method:"utf8-conservative-v1",windowTokens:input.budget.windowTokens,outputReserve,safetyReserve:input.budget.safetyTokens,
-      availableInputTokens,totalInputTokens:estimatedInputTokens,instructions:instructionCost,tools:0,references:0,
-      currentMessage:currentUserCost,history:pairsTotal,activeTasks:unresolvedTotal,memory:memoryTotal},
+    budgetUsage: {
+      method: "utf8-conservative-v1",
+      windowTokens: input.budget.windowTokens,
+      outputReserve,
+      safetyReserve: input.budget.safetyTokens,
+      availableInputTokens,
+      totalInputTokens: estimatedInputTokens,
+      instructions: instructionCost,
+      tools: 0,
+      references: 0,
+      currentMessage: currentUserCost,
+      history: pairsTotal,
+      activeTasks: unresolvedTotal,
+      memory: memoryTotal
+    },
     budgetMethod: "utf8-conservative-v1"
   };
 }

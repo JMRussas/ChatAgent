@@ -19,7 +19,8 @@ const reasoning = /\b(?:compare|design|trade[ -]?offs?|analy[sz]e)\b/i;
 
 // Mentioning JSON is not an output request (e.g. "What is JSON?"). Avoid
 // inferring tool/vision requirements from words in ordinary conversation too.
-const jsonOutput = /\b(?:return|respond|reply|output|emit|produce|format|summari[sz]e)\s+(?:(?:only|strictly|valid|a|an|the|result|answer|response|as|in)\s+)*json\b|\bgive\s+(?:me\s+)?(?:the\s+)?(?:answer\s+as\s+)?(?:valid\s+)?json\b/i;
+const jsonOutput =
+  /\b(?:return|respond|reply|output|emit|produce|format|summari[sz]e)\s+(?:(?:only|strictly|valid|a|an|the|result|answer|response|as|in)\s+)*json\b|\bgive\s+(?:me\s+)?(?:the\s+)?(?:answer\s+as\s+)?(?:valid\s+)?json\b/i;
 
 export function classifyTask(text: string): ModelTask {
   if (codeFence.test(text) || coding.test(text) || stackTrace.test(text)) return "coding";
@@ -39,7 +40,8 @@ export function classifyTaskRequirements(input: {
   outputTokens: number;
 }): TaskRequirements {
   for (const count of [input.inputTokens, input.outputTokens]) {
-    if (!Number.isSafeInteger(count) || count < 0) throw new Error("Token requirements must be nonnegative safe integers");
+    if (!Number.isSafeInteger(count) || count < 0)
+      throw new Error("Token requirements must be nonnegative safe integers");
   }
   const clarify = input.routeDecision === "clarify";
   return {

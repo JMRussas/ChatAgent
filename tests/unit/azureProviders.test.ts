@@ -96,7 +96,12 @@ describe("azure providers", () => {
     );
 
     await provider.createProvisionalReply({
-      message: { conversationId: "c1", userId: "u1", text: "Why?", timestampIso: new Date().toISOString() },
+      message: {
+        conversationId: "c1",
+        userId: "u1",
+        text: "Why?",
+        timestampIso: new Date().toISOString()
+      },
       correctedText: "Why?",
       routeDecision: "direct",
       context: sampleContext()

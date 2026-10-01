@@ -343,20 +343,21 @@ The fixture is checked against the interfaces above by
 
 ### Field mapping (today's systems → protocol v1)
 
-| Today | System | Protocol v1 field | Note |
-|---|---|---|---|
-| `ConversationId` (Guid) | Hekate context-store | `conversationId` | Direct mapping. |
-| `ThreadId` (Guid, optional) | Hekate context-store | *(not mapped yet)* | No equivalent concept in ChatAgent today; open question below. |
-| `session.ProjectId` sent as conversation scope | Iris `ChatSessionManager` | `projectId` (isolation only) + a real `conversationId` | **Fixes the confirmed collision bug** — Iris must generate and persist a real per-conversation UUID instead of reusing `ProjectId`. |
-| `messageId` | ChatAgent | `messageId` | Direct mapping, already correct. |
-| `taskId` | ChatAgent | `taskId` | Direct mapping. |
-| *(none)* | Hekate, Iris | `accountId` | New — declared boundary; see auth note above. |
-| SSE `conversation_id` event (discarded) | Iris | *(removed)* | Superseded — the request itself carries `conversationId`; no separate SSE identity event needed. |
-| Hand-rolled SSE switch | Iris `ChatSessionManager` | `TurnEvent.type`/`.activity` | Iris should consume the generic parser (`irischat.hekate/SseEventParser.cs`) for framing and this typed event for semantics, retiring its duplicate hand-rolled switch. |
+| Today                                          | System                    | Protocol v1 field                                      | Note                                                                                                                                                                    |
+| ---------------------------------------------- | ------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConversationId` (Guid)                        | Hekate context-store      | `conversationId`                                       | Direct mapping.                                                                                                                                                         |
+| `ThreadId` (Guid, optional)                    | Hekate context-store      | _(not mapped yet)_                                     | No equivalent concept in ChatAgent today; open question below.                                                                                                          |
+| `session.ProjectId` sent as conversation scope | Iris `ChatSessionManager` | `projectId` (isolation only) + a real `conversationId` | **Fixes the confirmed collision bug** — Iris must generate and persist a real per-conversation UUID instead of reusing `ProjectId`.                                     |
+| `messageId`                                    | ChatAgent                 | `messageId`                                            | Direct mapping, already correct.                                                                                                                                        |
+| `taskId`                                       | ChatAgent                 | `taskId`                                               | Direct mapping.                                                                                                                                                         |
+| _(none)_                                       | Hekate, Iris              | `accountId`                                            | New — declared boundary; see auth note above.                                                                                                                           |
+| SSE `conversation_id` event (discarded)        | Iris                      | _(removed)_                                            | Superseded — the request itself carries `conversationId`; no separate SSE identity event needed.                                                                        |
+| Hand-rolled SSE switch                         | Iris `ChatSessionManager` | `TurnEvent.type`/`.activity`                           | Iris should consume the generic parser (`irischat.hekate/SseEventParser.cs`) for framing and this typed event for semantics, retiring its duplicate hand-rolled switch. |
 
 ## Reconciliation with 01B and specs 02–06
 
 **Reused as-is:**
+
 - ChatAgent's `contextBuilder`/`ContextManager` (budget, active-task tracking,
   grounding) becomes the canonical context logic behind protocol v1 — no
   Python port.
@@ -370,6 +371,7 @@ The fixture is checked against the interfaces above by
   approach spec 05 already proposes.
 
 **Adaptations needed before 01B can use context-store as its source store:**
+
 - Hekate's `/api/brain/assemble` returns a digest for the system prompt, not an
   ordered raw-turn list. 01B's source store needs to retrieve exact prior
   messages by ID for `resolveSources()` — this requires either a new

@@ -37,14 +37,18 @@ async function postJson<T>(url: string, payload: unknown): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
 
   if (!response.ok) {
-    throw new Error(body && typeof body.error === "string" ? body.error : `HTTP ${response.status}`);
+    throw new Error(
+      body && typeof body.error === "string" ? body.error : `HTTP ${response.status}`
+    );
   }
 
   return body;
 }
 
 async function getTimeline(baseUrl: string, conversationId: string): Promise<TimelineEvent[]> {
-  const response = await fetch(`${baseUrl}/conversations/${encodeURIComponent(conversationId)}/events`);
+  const response = await fetch(
+    `${baseUrl}/conversations/${encodeURIComponent(conversationId)}/events`
+  );
   if (!response.ok) {
     throw new Error(`Timeline request failed (${response.status})`);
   }
@@ -141,17 +145,28 @@ async function evaluateCase(
     }
   }
 
-  if (typeof goldenCase.maxFastLatencyMs === "number" && fastLatencyMs > goldenCase.maxFastLatencyMs) {
-    failures.push(`Fast latency ${fastLatencyMs}ms exceeded maxFastLatencyMs ${goldenCase.maxFastLatencyMs}ms.`);
+  if (
+    typeof goldenCase.maxFastLatencyMs === "number" &&
+    fastLatencyMs > goldenCase.maxFastLatencyMs
+  ) {
+    failures.push(
+      `Fast latency ${fastLatencyMs}ms exceeded maxFastLatencyMs ${goldenCase.maxFastLatencyMs}ms.`
+    );
   }
 
-  if (goldenCase.expectedPhase === "fast-only" && messageResponse.fastResponse.processingStatus !== "complete") {
+  if (
+    goldenCase.expectedPhase === "fast-only" &&
+    messageResponse.fastResponse.processingStatus !== "complete"
+  ) {
     failures.push(
       `Expected fast-only complete status but got ${messageResponse.fastResponse.processingStatus}.`
     );
   }
 
-  if (goldenCase.expectedPhase === "deep-required" && messageResponse.fastResponse.processingStatus !== "provisional") {
+  if (
+    goldenCase.expectedPhase === "deep-required" &&
+    messageResponse.fastResponse.processingStatus !== "provisional"
+  ) {
     failures.push(
       `Expected deep-required provisional status but got ${messageResponse.fastResponse.processingStatus}.`
     );
@@ -184,9 +199,9 @@ async function evaluateCase(
     }
 
     if (
-      typeof goldenCase.maxEndToEndLatencyMs === "number"
-      && typeof endToEndLatencyMs === "number"
-      && endToEndLatencyMs > goldenCase.maxEndToEndLatencyMs
+      typeof goldenCase.maxEndToEndLatencyMs === "number" &&
+      typeof endToEndLatencyMs === "number" &&
+      endToEndLatencyMs > goldenCase.maxEndToEndLatencyMs
     ) {
       failures.push(
         `End-to-end latency ${endToEndLatencyMs}ms exceeded maxEndToEndLatencyMs ${goldenCase.maxEndToEndLatencyMs}ms.`
@@ -214,7 +229,12 @@ async function main() {
   const baseUrl = process.env.GOLDEN_BASE_URL ?? "http://localhost:3100";
   const reportJsonPath = process.env.GOLDEN_REPORT_JSON_PATH ?? "reports/golden-eval.json";
   const reportMdPath = process.env.GOLDEN_REPORT_MD_PATH ?? "reports/golden-eval.md";
-  const deepTimeoutMs = parsePositiveIntEnv(process.env.GOLDEN_DEEP_TIMEOUT_MS, 120_000, 1000, 300_000);
+  const deepTimeoutMs = parsePositiveIntEnv(
+    process.env.GOLDEN_DEEP_TIMEOUT_MS,
+    120_000,
+    1000,
+    300_000
+  );
   const pollIntervalMs = parsePositiveIntEnv(process.env.GOLDEN_POLL_INTERVAL_MS, 400, 100, 10_000);
 
   const raw = await readFile(goldenSetPath, "utf8");

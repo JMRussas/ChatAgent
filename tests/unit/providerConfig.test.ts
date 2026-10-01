@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { describeProviderConfig, loadRuntimeProviderConfigFromEnv } from "../../src/config/providerConfig";
+import {
+  describeProviderConfig,
+  loadRuntimeProviderConfigFromEnv
+} from "../../src/config/providerConfig";
 
 const keysToReset = [
   "CHAT_FAST_PROVIDER",

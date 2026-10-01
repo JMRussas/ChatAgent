@@ -8,15 +8,30 @@
       "enabled": true,
       "roles": ["fast", "deep"],
       "tasks": ["conversation", "coding", "reasoning", "summarization"],
-      "capabilities": { "thinking": "unknown", "tools": "unsupported", "vision": "unsupported", "structuredOutput": "unsupported" },
+      "capabilities": {
+        "thinking": "unknown",
+        "tools": "unsupported",
+        "vision": "unsupported",
+        "structuredOutput": "unsupported"
+      },
       "limits": { "contextTokens": 8192, "maxOutputTokens": 2048 },
       "deployment": "remote",
       "cli": {
-        "adapterId": "hekate-claude", "accountProfile": "default", "authentication": "subscription-login",
-        "nonInteractive": "supported", "streaming": "unsupported", "outputFormat": "jsonl",
-        "executionMode": "answer-only", "automationSupport": "supported"
+        "adapterId": "hekate-claude",
+        "accountProfile": "default",
+        "authentication": "subscription-login",
+        "nonInteractive": "supported",
+        "streaming": "unsupported",
+        "outputFormat": "jsonl",
+        "executionMode": "answer-only",
+        "automationSupport": "supported"
       },
-      "billing": { "kind": "subscription", "quotaPoolId": "claude-default", "exhaustionPolicy": "fail", "usageBillingFallbackAllowed": false },
+      "billing": {
+        "kind": "subscription",
+        "quotaPoolId": "claude-default",
+        "exhaustionPolicy": "fail",
+        "usageBillingFallbackAllowed": false
+      },
       "notes": "Local bridge to Hekate shared CLI provider. Limits are conservative application caps. Requires configured paths, current readiness and resource admission. Live answer and Windows cleanup verified on Claude 2.1.285. Opt-in headroom admission; unavailable usage blocks generation."
     },
     {
@@ -26,7 +41,12 @@
       "enabled": true,
       "roles": ["fast", "deep"],
       "tasks": ["conversation", "coding", "reasoning", "summarization", "extraction"],
-      "capabilities": { "thinking": "unsupported", "tools": "unsupported", "vision": "unsupported", "structuredOutput": "unsupported" },
+      "capabilities": {
+        "thinking": "unsupported",
+        "tools": "unsupported",
+        "vision": "unsupported",
+        "structuredOutput": "unsupported"
+      },
       "limits": {},
       "deployment": "local",
       "notes": "Test fixture only; responses are not evidence of model quality."
@@ -38,7 +58,12 @@
       "enabled": true,
       "roles": ["fast", "deep"],
       "tasks": ["conversation", "reasoning", "summarization"],
-      "capabilities": { "thinking": "unknown", "tools": "unknown", "vision": "unknown", "structuredOutput": "unknown" },
+      "capabilities": {
+        "thinking": "unknown",
+        "tools": "unknown",
+        "vision": "unknown",
+        "structuredOutput": "unknown"
+      },
       "limits": {},
       "deployment": "unknown",
       "notes": "Current fast-model choice. Task tags are initial preferences; verify capabilities and effective limits against the configured Ollama instance."
@@ -50,7 +75,12 @@
       "enabled": true,
       "roles": ["deep"],
       "tasks": ["coding"],
-      "capabilities": { "thinking": "unknown", "tools": "unknown", "vision": "unknown", "structuredOutput": "unknown" },
+      "capabilities": {
+        "thinking": "unknown",
+        "tools": "unknown",
+        "vision": "unknown",
+        "structuredOutput": "unknown"
+      },
       "limits": {},
       "deployment": "unknown",
       "notes": "Coding candidate; current deep-model choice. Verify runtime support and benchmark task quality before automatic selection."

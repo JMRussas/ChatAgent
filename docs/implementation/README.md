@@ -9,7 +9,6 @@ instructions below. Spec 06 remains open. The offline briefing planner is the fi
 slice; source fixtures and bounded coordination are next. Earlier entries are dated
 evidence, not current task ordering.
 
-
 ## 2026-09-30: Chromium browser acceptance
 
 Added dev-only Playwright, `npm run test:browser`, per-test ephemeral mock runtimes,
@@ -234,7 +233,6 @@ The existing live benchmark still has its historical measurement limitations;
 these recorder tests do not establish answer quality or performance improvement.
 Spec 06 as a whole remains in progress.
 
-
 ## 2026-09-30: spec 06A runtime lifecycle complete
 
 `startServer` now returns the bound server/address and an idempotent `shutdown()`.
@@ -256,7 +254,6 @@ Next: **06B passive evaluation recorder and artifact/annotation contracts**,
 followed by honest live benchmark comparisons and browser acceptance. Spec 06 as a
 whole remains in progress; EVAL-01–06, browser gates, and live quality comparisons
 are not claimed complete by these lifecycle tests.
-
 
 ## 2026-09-30: Claude live acceptance complete
 
@@ -286,7 +283,6 @@ The latter two verify Windows process-tree cleanup. Each command can use live
 subscription capacity. They require the configured local dispatch policy.
 
 Next: **spec 06 lifecycle/verification and evaluation mode**, then the sports demo.
-
 
 ## 2026-09-29: Claude reuse and review
 
@@ -427,14 +423,14 @@ observable labels and preserved answer versions. Context revision 2 is unchanged
 an agent already implementing 01 should finish that scope, then read this extension
 when starting 02. Do not add UI/persistence work to the current context task.
 
-| Spec | Dependency | Deliverable |
-|---|---|---|
-| [01 Context](01-context.md) + [memory extension](01-context-memory.md) | Existing baseline | 01A snapshots/pending state; 01B internal summaries/source records |
-| [02 Generation](02-generation.md) + [activity UI](02-activity-ui.md) | 01A; preserve v2 context fields | Streaming, cancellation, activity sub-bubbles and answer updates |
-| [03 Inventory](03-inventory.md) | Existing catalog; integrate after 02 | Connections and fresh provider observations |
-| [04 Dispatch](04-dispatch.md) | 01–03 | Deterministic task-based model selection |
-| [05 CLI](05-cli.md) | 02–04; product/account selection for live adapter | Subscription execution via a registered adapter |
-| [06 Verification](06-verification.md) | 01–04; include 05 when enabled | Shutdown, honest benchmarks, browser and live gates |
+| Spec                                                                   | Dependency                                        | Deliverable                                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------ |
+| [01 Context](01-context.md) + [memory extension](01-context-memory.md) | Existing baseline                                 | 01A snapshots/pending state; 01B internal summaries/source records |
+| [02 Generation](02-generation.md) + [activity UI](02-activity-ui.md)   | 01A; preserve v2 context fields                   | Streaming, cancellation, activity sub-bubbles and answer updates   |
+| [03 Inventory](03-inventory.md)                                        | Existing catalog; integrate after 02              | Connections and fresh provider observations                        |
+| [04 Dispatch](04-dispatch.md)                                          | 01–03                                             | Deterministic task-based model selection                           |
+| [05 CLI](05-cli.md)                                                    | 02–04; product/account selection for live adapter | Subscription execution via a registered adapter                    |
+| [06 Verification](06-verification.md)                                  | 01–04; include 05 when enabled                    | Shutdown, honest benchmarks, browser and live gates                |
 
 The ownership ADR, 01A/01B and spec 02 are implemented. See [01B evidence](01b-evidence.md).
 Current user direction: work only in ChatAgent; leave Iris/Hekate follow-up for work in those repos.

@@ -251,7 +251,7 @@ On startup, and every `MODEL_DISCOVERY_INTERVAL_MS`, the server discovers what
 each configured connection actually offers: Ollama's installed models via
 `GET /api/tags` + `POST /api/show` (verified against the official docs), Azure
 deployments via the ARM management plane (the Azure OpenAI resource's own
-deployments-list endpoint was retired in 2024; this now requires a *separate*
+deployments-list endpoint was retired in 2024; this now requires a _separate_
 AAD app-registration credential, distinct from `AZURE_OPENAI_API_KEY`), and
 Bedrock foundation models via `@aws-sdk/client-bedrock`'s
 `ListFoundationModelsCommand` (the control-plane client, distinct from

@@ -10,7 +10,6 @@ runtime. It does not claim that live roles, background jobs or durable sports
 execution already exist. The single-task durability described below belongs to
 this experiment. Cloud hosting and hosted tracing are not required by the plan.
 
-
 ## 2026-09-27: durable single-task checkpoint
 
 [SQLite pause/resume](DURABILITY.md) now supports process restarts from confirmed

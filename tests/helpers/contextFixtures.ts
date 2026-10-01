@@ -15,7 +15,11 @@ export function sampleContext(overrides: Partial<ConversationContext> = {}): Con
     omittedActiveTaskIds: [],
     messages: [
       { role: "user", content: "What is event sourcing?", messageId: "m1" },
-      { role: "assistant", content: "It's a pattern where state changes are stored as events.", messageId: "m1" },
+      {
+        role: "assistant",
+        content: "It's a pattern where state changes are stored as events.",
+        messageId: "m1"
+      },
       { role: "user", content: "Why?", messageId: "current" }
     ],
     includedTurnIds: ["m1"],

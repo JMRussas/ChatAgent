@@ -11,6 +11,7 @@ The pre-remediation baseline passed 721 tests; the review exposed behavioral gap
 not covered by that baseline. All four fixes below now have regression coverage.
 
 Implementation notes:
+
 - `delivered-answer-v1` validates displayed text and the separate references.
   Recording annotations v3 bind `referenceSupport` to a canonical `deliveryHash`;
   text dimensions, structural `referenceIntegrity`, and semantic support stay separate.
@@ -341,7 +342,6 @@ Minimal topic browsing with scoped conversations and opt-in team references is
 implemented. Bounded game search and snapshot details are implemented. Grounded synthesis and the end-to-end evaluation runner remain pending. The ordering below supersedes earlier
 latest-game-first plans. Implementation limits are documented below.
 
-
 ## Bounded game operations — 2026-09-30
 
 `sports:find-games` resolves provider team names or owned candidate selections and
@@ -403,6 +403,7 @@ Declare the directory scope honestly: current-team filtering is not established 
 NBA's historical directory. Do not label the list current-only without evidence.
 
 Separate result destinations:
+
 - Model context: compact status, scope, coverage, relevant limitations and a result handle.
 - User payload: typed table/card/document data delivered directly to the UI.
 - Evaluation record: execution inputs/settings, provenance and a versioned payload
@@ -599,6 +600,7 @@ semantics deliberately after the manual execution path works. Automatic role cho
 complexity classification, reviewer selection and escalation remain deferred.
 
 Framework references for this plan:
+
 - [LangChain agents](https://docs.langchain.com/oss/python/langchain/agents)
 - [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview)
 - [Subagent patterns](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)
@@ -646,14 +648,14 @@ than baking NBA/NFL into the new abstraction. This does not add new provider ada
 
 ## Capability operations and results
 
-| Operation | Input | Outcomes |
-| --- | --- | --- |
-| Discover/select scope | Request context and available capability metadata | Supported scope, candidate scopes, unsupported capability; no unrelated-sport substitution |
-| Resolve team | Name/alias, optional sport and league | Matched, ambiguous, partial, not found, unsupported, unavailable |
-| Select candidate | Snapshot handle and candidate handle | Server-validated identity, stale selection, inaccessible snapshot, unknown candidate |
-| Latest completed game | Team name, optional sport/league/as-of | Found with certainty label, none in searched window, incomplete search, needs resolution, unsupported, unavailable |
-| Game evidence | Resolved game identity and requested detail | Score/details/reporting with provenance, partial evidence, unavailable evidence |
-| Synthesize answer | User request and returned evidence | Cited supported claims and explicit unanswered parts |
+| Operation             | Input                                             | Outcomes                                                                                                           |
+| --------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Discover/select scope | Request context and available capability metadata | Supported scope, candidate scopes, unsupported capability; no unrelated-sport substitution                         |
+| Resolve team          | Name/alias, optional sport and league             | Matched, ambiguous, partial, not found, unsupported, unavailable                                                   |
+| Select candidate      | Snapshot handle and candidate handle              | Server-validated identity, stale selection, inaccessible snapshot, unknown candidate                               |
+| Latest completed game | Team name, optional sport/league/as-of            | Found with certainty label, none in searched window, incomplete search, needs resolution, unsupported, unavailable |
+| Game evidence         | Resolved game identity and requested detail       | Score/details/reporting with provenance, partial evidence, unavailable evidence                                    |
+| Synthesize answer     | User request and returned evidence                | Cited supported claims and explicit unanswered parts                                                               |
 
 Game-reporting and answer schemas will be finalized against actual provider evidence
 in step 4; they are not implemented by the current contract module.
@@ -687,13 +689,13 @@ Extend the existing resource facts/admission components rather than creating an
 alternative billing ledger. Select policy by service/account/endpoint or model binding
 and share reservations across operations using the same underlying pool.
 
-| Resource | Policy inputs |
-| --- | --- |
-| Data API | Account/endpoint rolling windows, provider Retry-After/reset evidence, cache and retry policy |
-| Metered inference | Request/token windows, estimated and reported cost, spending allowance, compute/concurrency |
-| Local inference | Actual deployment facts, memory/capacity, concurrency and queue pressure |
-| Cloud inference through any transport | Account quota, billing and concurrency; Ollama does not imply local or unrestricted |
-| Subscription CLI | Subscription/account/model windows, usage-evidence age, extra-usage preference and concurrency |
+| Resource                              | Policy inputs                                                                                  |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Data API                              | Account/endpoint rolling windows, provider Retry-After/reset evidence, cache and retry policy  |
+| Metered inference                     | Request/token windows, estimated and reported cost, spending allowance, compute/concurrency    |
+| Local inference                       | Actual deployment facts, memory/capacity, concurrency and queue pressure                       |
+| Cloud inference through any transport | Account quota, billing and concurrency; Ollama does not imply local or unrestricted            |
+| Subscription CLI                      | Subscription/account/model windows, usage-evidence age, extra-usage preference and concurrency |
 
 Expense alone does not determine a rate limit. One binding may have multiple constraints.
 Data-provider reservations are separate from inference reservations: changing the model
@@ -742,6 +744,7 @@ whether narrative claims are supported. Model graders require calibration agains
 those labels and must not judge correctness from tool-call success alone.
 
 Proposed gate, fixed before implementation evaluation:
+
 - All deterministic contract/resource invariants pass. No fabricated candidate IDs,
   cross-conversation selection, unregistered calls or overspent configured budgets.
 - Run each model scenario five times per model/configuration (135 sessions for v1).

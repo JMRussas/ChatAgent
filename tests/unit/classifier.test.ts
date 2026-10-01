@@ -23,7 +23,9 @@ describe("prompt classifier", () => {
   });
 
   it("classifies complex architecture prompts", () => {
-    const result = classifyPrompt("Compare architecture tradeoffs and design a multi-step benchmark plan");
+    const result = classifyPrompt(
+      "Compare architecture tradeoffs and design a multi-step benchmark plan"
+    );
     expect(result.complexity).toBe("complex");
   });
 });

@@ -8,7 +8,6 @@ the generic runner-first ordering is superseded by the demo's bounded source and
 coordination slices. Keep these grading, fairness and evidence requirements. This
 change does not make the sequential runner comparative or add concurrent workers.
 
-
 Status: design v1, 2026-09-30. No session comparison has run. This is the next
 spec 06 evaluation slice; the doc-agent experiment remains separate.
 
@@ -20,12 +19,12 @@ to interaction availability, accurate coordination and completed useful tasks.
 A clarification or truthful status response can be a successful layer 1 action
 without completing a deep task.
 
-| Condition | Purpose | Availability |
-| --- | --- | --- |
-| Blocking single agent | Measures the benefit of allowing interaction during work | Evaluation control to implement |
-| Single agent with background work | Controls for concurrency when assessing layered specialization | Not implemented; do not substitute a blocking baseline |
-| Layer 1 with deep worker | Current layered architecture, one active deep job and queued work | Runtime exists; overlapping-session evaluation does not |
-| Layer 1 with multiple active deep workers | Tests concurrent deep execution and out-of-order completion | Not supported by the current worker; separate runtime work |
+| Condition                                 | Purpose                                                           | Availability                                               |
+| ----------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| Blocking single agent                     | Measures the benefit of allowing interaction during work          | Evaluation control to implement                            |
+| Single agent with background work         | Controls for concurrency when assessing layered specialization    | Not implemented; do not substitute a blocking baseline     |
+| Layer 1 with deep worker                  | Current layered architecture, one active deep job and queued work | Runtime exists; overlapping-session evaluation does not    |
+| Layer 1 with multiple active deep workers | Tests concurrent deep execution and out-of-order completion       | Not supported by the current worker; separate runtime work |
 
 The first comparison can establish an interaction-availability benefit, not prove
 that specialized layers outperform every single-agent design. Start with a
@@ -44,14 +43,14 @@ Cancellation endpoints are additional control actions, not user messages. These
 six sessions provide 30 user messages and at least 12 deep-eligible task requests.
 Exact prompts, references and accepted outcomes must be frozen before live runs.
 
-| ID | Five-message sequence | Main assertions |
-| --- | --- | --- |
-| MT-01 interaction | Start A comparing supplied options; ask unrelated arithmetic; start B summarizing another excerpt; ask A status; ask B status | Quick answer while A remains active; accurate queued/running state; A/B results retain their identities |
-| MT-02 correction | Start A using budget 100; change A budget to 60; start unrelated B; ask which budget applies; request current task status | Correction targets A; no claim that an immutable running call received it; old answer is not presented as satisfying the revised request |
-| MT-03 cancellation | Start A; start B; ask status; request cancellation of B; ask which task remains | Separate natural-language handling from explicit endpoint cancellation; A unaffected; queued/running cancellation and late output checked in fixture variants |
-| MT-04 result order | Start long A; start short B; ask unrelated arithmetic; ask B status; ask for both results | Results attributed correctly; serial queue behavior recorded honestly; B-before-A variant requires multiple active workers and is unavailable today |
-| MT-05 failure | Start A; start B; ask A status after a controlled failure; ask unrelated arithmetic; ask final task status | Failure is visible; B and quick interaction remain usable; no fabricated success or duplicate retry result |
-| MT-06 ambiguity/isolation | Start A; start similarly named B; say “change that to 60”; clarify “B only”; ask both statuses | Ambiguous target elicits clarification; A remains unchanged; revision belongs to B; an additional separate conversation supplies a leakage control |
+| ID                        | Five-message sequence                                                                                                         | Main assertions                                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MT-01 interaction         | Start A comparing supplied options; ask unrelated arithmetic; start B summarizing another excerpt; ask A status; ask B status | Quick answer while A remains active; accurate queued/running state; A/B results retain their identities                                                       |
+| MT-02 correction          | Start A using budget 100; change A budget to 60; start unrelated B; ask which budget applies; request current task status     | Correction targets A; no claim that an immutable running call received it; old answer is not presented as satisfying the revised request                      |
+| MT-03 cancellation        | Start A; start B; ask status; request cancellation of B; ask which task remains                                               | Separate natural-language handling from explicit endpoint cancellation; A unaffected; queued/running cancellation and late output checked in fixture variants |
+| MT-04 result order        | Start long A; start short B; ask unrelated arithmetic; ask B status; ask for both results                                     | Results attributed correctly; serial queue behavior recorded honestly; B-before-A variant requires multiple active workers and is unavailable today           |
+| MT-05 failure             | Start A; start B; ask A status after a controlled failure; ask unrelated arithmetic; ask final task status                    | Failure is visible; B and quick interaction remain usable; no fabricated success or duplicate retry result                                                    |
+| MT-06 ambiguity/isolation | Start A; start similarly named B; say “change that to 60”; clarify “B only”; ask both statuses                                | Ambiguous target elicits clarification; A remains unchanged; revision belongs to B; an additional separate conversation supplies a leakage control            |
 
 Correction handling is a capability probe. Accept an explicit limitation as honest
 coordination, but mark requested revision completion unavailable/failed as applicable.
@@ -94,10 +93,10 @@ A cancellation acknowledgment is not proof the provider stopped or billing cease
 
 Grade two dimensions separately; neither substitutes for the other.
 
-| Dimension | Code checks | Evidence-based answer review |
-| --- | --- | --- |
+| Dimension            | Code checks                                                                                       | Evidence-based answer review                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Layer 1 coordination | Task/result IDs, lifecycle transitions, overlap, cancellation scope, cross-conversation isolation | Accurate status, appropriate clarification, correct intent/target, honest correction limits, no unsupported completion claims |
-| Deep work | Expected structured outputs and fixture facts when checkable | Correctness, groundedness, relevance and completion against the latest accepted task requirements |
+| Deep work            | Expected structured outputs and fixture facts when checkable                                      | Correctness, groundedness, relevance and completion against the latest accepted task requirements                             |
 
 Review every user-visible phase, including misleading early answers and obsolete
 results. Model graders require supplied references, versioned rubrics and human

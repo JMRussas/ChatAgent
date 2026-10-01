@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { analyzeFast, detectNeedsClarification, detectNeedsExternalData, normalizeText } from "../../src/domain/router";
+import {
+  analyzeFast,
+  detectNeedsClarification,
+  detectNeedsExternalData,
+  normalizeText
+} from "../../src/domain/router";
 
 describe("router", () => {
   it("normalizes whitespace", () => {

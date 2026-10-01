@@ -8,7 +8,6 @@ This supersedes deferring all sports work until this document's gates finish;
 quality review and fair repeated comparisons remain open. The initial planner
 provides no live-source or concurrency acceptance evidence.
 
-
 Status: in progress. 06A runtime shutdown and automatic-worker HTTP acceptance
 implemented (439 tests / 61 files, typecheck, build, simulated release gate pass).
 06B passive recorder/artifact and annotation contracts are implemented; see

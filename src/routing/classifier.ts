@@ -9,7 +9,15 @@ export interface PromptClassification {
   sizeBand: PromptSizeBand;
 }
 
-const COMPLEXITY_CUES = ["compare", "tradeoff", "design", "architecture", "multi-step", "evaluate", "benchmark"];
+const COMPLEXITY_CUES = [
+  "compare",
+  "tradeoff",
+  "design",
+  "architecture",
+  "multi-step",
+  "evaluate",
+  "benchmark"
+];
 const EXTERNAL_DATA_CUES = ["latest", "current", "search", "look up", "cite", "source", "news"];
 const AMBIGUOUS_CUES = ["do it", "same as before", "this one", "that one"];
 
