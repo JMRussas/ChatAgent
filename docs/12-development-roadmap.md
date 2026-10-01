@@ -14,12 +14,14 @@ These results establish covered behavior, not sustained-operation or calibrated
 factual-quality guarantees. Review the existing increment separately before a
 subsequent increment; preserve its changes while implementing reliability work.
 
-Formatting maintenance is pulled forward before further retention implementation:
-finish the overflow fix, add pinned Prettier tooling and a format gate in `lint`,
-format maintained files in a mechanical commit, then record that commit in
-`.git-blame-ignore-revs`. Generated evidence, measurements and local review files
-are excluded; Python formatting remains separate. CI already calls `lint` through
-`verify:release`. Resume the remaining step 1 work after this formatting increment.
+Formatting maintenance is implemented ahead of further retention work: the overflow
+fix is committed in `ccfeba3`, pinned Prettier tooling in `e9f1238`, and mechanical
+formatting in `f6f4f08`. `.git-blame-ignore-revs` records the mechanical commit.
+Generated evidence, measurements and local review files are excluded; Python
+formatting remains separate. CI checks formatting through `lint` / `verify:release`.
+Formatting, TypeScript and 26 browser tests passed. One Vitest worker exited during
+the first full run; the rerun passed 803 tests, but the intermittent worker failure
+is unresolved and must be diagnosed before proceeding with retention work.
 
 ### 1. Bounded retention and sustained operation — in progress
 
@@ -258,7 +260,7 @@ without waiting for the generator rollout.
 First increment: document `GenerationLifecycle`, `CatalogDispatch` and
 `BriefingCoordinator`, then generate a browsable reference for those modules.
 
-- Add one root `AGENTS.md` for shared maintenance conventions; tool-specific
+- Extend the existing root `AGENTS.md` with documentation-maintenance rules; tool-specific
   instruction files should point to it. Behavioral changes update the nearby
   contract and relevant tests. Avoid repeated session narratives in handoff files.
 - Add TypeDoc and `tsdoc.json` with `@invariant`, `@lifetime` and `@decision` block
@@ -304,9 +306,8 @@ Second increment: consolidate the reading path and broaden maintenance coverage.
 - Rewrite README/case-study entry points around the runtime that exists, the sports
   demonstration, supported deployment boundary and remaining limits; link to the
   generated reference and current roadmap.
-- Run Python tests in CI, adding bridge JSON-lines coverage. Introduce consistent
-  formatting/lint checks in a separate mechanical change to keep functional diffs
-  reviewable. Review abstraction costs against demonstrated uses; do not add durable
+- Run Python tests in CI, adding bridge JSON-lines coverage. TypeScript/Prettier formatting checks are already implemented; keep any
+  additional language formatting changes separate from functional diffs. Review abstraction costs against demonstrated uses; do not add durable
   state/retry machinery solely to justify the optional LangGraph dependency.
 
 Acceptance: a reader can find current purpose, setup, supported boundary, evidence

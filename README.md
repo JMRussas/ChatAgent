@@ -147,6 +147,21 @@ automatically. Node and Python must run on the same OS.
 
 Further commands and API details: [runtime reference](docs/runtime-reference.md).
 
+## Development formatting
+
+Run `npm run format` after edits and `npm run lint` before committing. The pinned
+Prettier configuration covers supported source, tests, configuration and docs;
+`.prettierignore` excludes generated evidence and local review files. Python
+formatting is separate. CI checks formatting through `verify:release`.
+
+To omit the mechanical formatting commit from local blame output:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+See [repository conventions](AGENTS.md) for maintenance and commit conventions.
+
 ## Scope and next work
 
 This prototype has no built-in authentication or production deployment hardening.
