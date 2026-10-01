@@ -126,7 +126,12 @@ coverage and unknown freshness remain visible. See the demo plan before live use
 
 ## Run locally
 
-Use Node 20.19+, 22.12+, or 24+; CI is configured for Node 22.
+Use Node **24.21.0**, pinned in `.node-version` for development and CI.
+The [runtime evaluation](docs/12-development-roadmap.md#runtime-baseline-evaluation-2026-10-01)
+records the compatibility checks and support timeline behind this choice.
+The dependency engine range is broader than this tested baseline. Windows Node
+24.15.0 has a reproduced native HTTP/fetch crash (`0xc0000409`); the test config
+rejects that runtime with an actionable error before starting any workers.
 With no provider overrides, the application uses **mock providers**, so this first
 run needs no cloud credentials, Python environment or model download:
 
@@ -146,6 +151,14 @@ The published live runs used locally installed `gemma4:26b`; it is not downloade
 automatically. Node and Python must run on the same OS.
 
 Further commands and API details: [runtime reference](docs/runtime-reference.md).
+
+To diagnose HTTP worker exits independently of the application and Vitest, run
+`npm run diagnose:http` (25 isolated processes), or
+`npm run diagnose:http -- 100`. It stops on the first failure and reports the
+runtime, native exit code and last reported phase. It uses only loopback HTTP,
+does not read `.env`, and does not retry failed runs. Avoid running multiple large
+stress batches together: Windows temporary TCP ports can be exhausted, producing
+ordinary `EADDRINUSE`/`ETIMEDOUT` connection errors distinct from a native crash.
 
 ## Development formatting
 

@@ -15,6 +15,7 @@
     "cli:claude:inspect": "tsx src/providers/cli/inspectClaude.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
+    "diagnose:http": "node scripts/diagnose-http-runtime.mjs",
     "test:browser": "playwright test",
     "test:watch": "vitest",
     "test:tdd": "vitest --watch --reporter=verbose",

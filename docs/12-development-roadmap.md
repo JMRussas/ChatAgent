@@ -19,9 +19,65 @@ fix is committed in `ccfeba3`, pinned Prettier tooling in `e9f1238`, and mechani
 formatting in `f6f4f08`. `.git-blame-ignore-revs` records the mechanical commit.
 Generated evidence, measurements and local review files are excluded; Python
 formatting remains separate. CI checks formatting through `lint` / `verify:release`.
-Formatting, TypeScript and 26 browser tests passed. One Vitest worker exited during
-the first full run; the rerun passed 803 tests, but the intermittent worker failure
-is unresolved and must be diagnosed before proceeding with retention work.
+Formatting, TypeScript and 26 browser tests passed. Intermittent worker exits were
+subsequently reproduced with diagnostic instrumentation: Windows Node 24.15.0
+aborted with `3221226505` / `0xc0000409` during HTTP tests. A standalone script using
+only `node:http` and built-in `fetch` reproduced the same exit during a request,
+without application imports or Vitest; a copied executable reproduced it too.
+This isolates the failure to the native runtime/platform boundary. No native stack
+was captured, so the precise internal defect is not established; do not attribute
+it to a particular upstream shutdown bug based only on the exit code.
+
+Node 22.23.3 passed 200 isolated HTTP reproduction processes and three complete
+803-test suites (one with a single worker, two with two workers). Node 24.21.0
+passed 100 controlled reproduction processes and the suite. Following the comparison
+below, `.node-version` now pins Node 24.21.0 for development and both CI jobs;
+Windows CI now exercises it, and Vitest rejects the confirmed-bad Windows 24.15.0
+runtime before running tests. `npm run diagnose:http` preserves a bounded,
+dependency-free reproduction and stops on the first failure, without retries.
+Large consecutive stress batches also exhausted temporary TCP ports and produced
+ordinary connection errors; those were recorded separately from the native exit.
+Temporary Vitest instrumentation was restored. The machine-wide Node installation
+is unchanged: switch the development shell to the pinned version before testing.
+Formatting and TypeScript checks pass. The new Windows CI job is configured but
+has not yet run on GitHub; Windows acceptance used isolated x64 executables.
+
+#### Runtime baseline evaluation (2026-10-01)
+
+Decision approved: adopt Node 24.21.0 as the primary development and CI baseline.
+Node 22.23.3 remains an evaluated fallback if deployment constraints require it;
+it is no longer the project pin. Both candidates satisfy
+every declared Node engine constraint in the current lockfile. The existing
+`@types/node` 22 package is a compile-time API baseline, not a runtime requirement
+to stay on Node 22.
+
+| Check                                | Node 22.23.3        | Node 24.21.0                  |
+| ------------------------------------ | ------------------- | ----------------------------- |
+| Lockfile Node engine constraints     | All satisfied       | All satisfied                 |
+| Complete 803-test suite              | 3 passes            | 3 passes                      |
+| Isolated HTTP reproduction processes | At least 200 passed | 200 passed across two batches |
+| Browser acceptance                   | 26 passed           | 26 passed                     |
+| TypeScript check                     | Passed              | Passed                        |
+
+As of this evaluation, Node 22 is Maintenance LTS with support ending 2027-04-30;
+Node 24 is Active LTS, enters maintenance on 2026-10-20, and ends support on
+2028-04-30. These dates come from the official
+[Node release schedule](https://github.com/nodejs/Release/blob/main/schedule.json).
+Node 24 therefore gives another year of support and keeps development on the
+already-installed major version. Existing Node 22 CI is migration work, not a
+compatibility requirement. Node 26 is still Current until 2026-10-28 and need not
+be introduced to resolve this issue.
+
+The comparison used the same checkout and installed dependencies with isolated
+Windows executables, no global runtime replacement and no test retries. Adoption
+also passed a clean `npm ci`, `npm run verify:release` (803 tests, lint, evaluation
+report and simulated benchmark gates), and `npm run build` using the checksum-verified
+Linux x64 Node 24.21.0 release in an isolated checkout. Generated reports stayed in
+that checkout. Hosted CI and Linux browser acceptance remain unrun; the earlier
+26-browser-test pass was on Windows. These checks do not establish live-provider
+behavior, a performance advantage, or the precise cause of the old native crash.
+Pin the chosen patch for reproducibility and keep updating it for fixes; do not
+freeze it indefinitely.
 
 ### 1. Bounded retention and sustained operation — in progress
 
