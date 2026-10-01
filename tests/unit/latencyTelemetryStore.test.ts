@@ -130,3 +130,10 @@ it("persists separate fast/deep dispatch attempts and unknown reservation usage"
   await store.save(snapshot);
   expect(await store.load()).toEqual(snapshot);
 });
+
+it("preserves compact accounting separately from bounded reservation history",()=>{
+ const accounting={completedUsd:12,unsettledCount:4,reportedCount:2,unpricedCount:0,quotaPools:[{poolId:"shared",units:6}]};
+ const snapshot={estimator:{priors:[],samples:[]},policy:{maxFastP95Ms:1000},dispatch:{attempts:[],reservations:[],accounting}};
+ expect(validateRoutingTelemetrySnapshot(snapshot).dispatch?.accounting).toEqual(accounting);
+ expect(validateRoutingTelemetrySnapshot({...snapshot,dispatch:{attempts:[],reservations:[]}}).dispatch?.accounting).toBeUndefined();
+});

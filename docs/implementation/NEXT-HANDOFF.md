@@ -4,39 +4,18 @@
 
 Execution order and acceptance gates now live in the
 [current roadmap](../12-development-roadmap.md#current-plan--reliability-before-feature-expansion-2026-10-01).
-Coordinator retention is implemented and uncommitted: configurable settled-run TTL,
-oldest-settled eviction under pressure, associated-index/job cleanup and preserved
-capacity error reporting. Queued/running/draining work is protected. Verification:
-746 tests / 95 files and TypeScript build passed. The subsequent settlement/eviction
-race regression also passes (19 focused coordinator/HTTP tests plus build), and a
-temporary broken-lookup mutation correctly fails it. Runtime behavior was unchanged.
-See the roadmap for retention and
-post-eviction retry semantics. Lifecycle/dispatch retention is now implemented with
-explicit consumer/task pins, bounded completed caches, bounded dispatch metrics and
-safe queued replay. Review fixes now isolate failed replay cleanup, release pins on
-combined enqueue/write failure, and reject historical message-ID reuse after cache
-eviction on both submission paths. Historical IDs remain reserved while user events
-exist; explicit replay is separate. Latest review fixes and verification are recorded
-in the current roadmap; use that status instead of the historical counts below.
-Changes are uncommitted.
-See the roadmap and `.env.example` for retention controls and
-expiry behavior. The next slice is admission-ledger aggregation/retention and sustained
-memory measurement; charges, timelines and dead letters are not compacted yet. Follow with request/access boundaries,
-cancellation/recovery/configuration fixes, documentation/CI and independent quality
-assessment. Provider-supported structured output and feature expansion are deferred.
+The reviewed evidence-delivery and lifecycle/coordinator retention changes are
+committed in `c9ce23f`. Admission-ledger compaction and its decimal-accounting fix are implemented;
+its behavior, measurement and remaining retention limits are in roadmap step 1.
+Use the roadmap for current verification and execution order. Next: finish store
+retention and end-to-end memory checks in step 1 before request limits in step 2. Rolling-window quota reconciliation
+has an explicit implementation and acceptance gate in step 3. Neither limitation is
+resolved by the current ledger benchmark.
 
-The four evidence-delivery fixes below remain implemented, tested and uncommitted.
-Coordinator retention is the first reliability implementation. Review/commit increments separately
-when requested. Earlier dated “next” statements below are historical; use the linked
-roadmap for current priorities. The external review is retained unchanged; scope and
-claim qualifications are recorded in the roadmap.
-
-Documentation maintenance is now planned in
-[roadmap step 4](../12-development-roadmap.md#4-current-state-documentation-and-maintenance-checks):
-a three-component TypeDoc/contract pilot, scoped enforcement, generated indexes and
-import graphs, followed by journal consolidation. It does not displace the next
-reliability slice. Keep future status in the current roadmap; preserve this file as
-history until its remaining commitments and inbound links have been reconciled.
+Documentation maintenance remains planned in
+[roadmap step 4](../12-development-roadmap.md#4-current-state-documentation-and-maintenance-checks).
+Keep future status in the current roadmap; preserve the entries below as history until
+remaining commitments and inbound links have been reconciled.
 
 ## Historical handoff entries
 

@@ -83,7 +83,8 @@ it("bounds failed turns and releases cancelled queue pins on shutdown without re
  for(let i=0;i<6;i++)await expect(r.service.submitMessage(message("Hello",`failed-${i}`))).rejects.toMatchObject({code:"PROVIDER_AUTH"});
  expect(generationLifecycle(r.queue).retentionStats()).toMatchObject({turns:2,claimed:2,consumers:0});
  expect(r.dispatch.retentionStats()).toMatchObject({phases:2,retained:2});
- expect(r.dispatch.admission.snapshot().filter(c=>c.status==="unsettled")).toHaveLength(6);
+ expect(r.dispatch.admission.snapshot().filter(c=>c.status==="unsettled")).toHaveLength(2);
+ expect(r.dispatch.admission.accounting().unsettledCount).toBe(6);
  await r.service.submitMessage(message("Find latest news","queued"));
  await r.service.cancelRemaining();await r.service.discardPending();await r.service.whenIdle();
  expect(r.queue.size()).toBe(0);

@@ -8,15 +8,15 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 Current state: a manual prototype with configurable roles, selected evidence,
 separate display payloads and native/graph execution comparisons. The four delivery,
-grading, review and reference-layout fixes are implemented but uncommitted; their
+grading, review and reference-layout fixes are committed in `c9ce23f`; their
 last verification was 740 tests / 95 files, 26 browser tests and TypeScript build.
 These results establish covered behavior, not sustained-operation or calibrated
 factual-quality guarantees. Review the existing increment separately before a
-requested commit; preserve its changes while implementing reliability work.
+subsequent increment; preserve its changes while implementing reliability work.
 
 ### 1. Bounded retention and sustained operation — in progress
 
-First slice implemented (uncommitted): coordinator retention. Reproduced capacity
+First slice committed in `c9ce23f`: coordinator retention. Reproduced capacity
 failure on the third sequential request with `maxRuns: 2`; 50 sequential requests
 now complete with bounded run/request/profile/settlement indexes and zero settled
 jobs/waiters retained. Queued/running/draining adapters remain protected. Known
@@ -44,7 +44,7 @@ not durable exactly-once execution. Needs-input-only settled runs are also eligi
 there is no resume-in-place API for those runs. Reducing capacity never evicts active
 work; new admission waits for available space by returning `BRIEFING_CAPACITY`.
 
-Second slice implemented (uncommitted): lifecycle/dispatch retention. Reproduced 12
+Second slice committed in `c9ce23f`: lifecycle/dispatch retention. Reproduced 12
 completed turns retaining 12 lifecycle records. Explicit consumers now protect an
 in-flight submission and queued/physical deep work until dependent writes and retries
 settle. Completed turn/dispatch caches are bounded by count and lazy TTL; metrics keep
@@ -88,11 +88,74 @@ passed. Ten lifecycle review regressions now cover the reproduced failure paths.
 The existing role-snapshot test also covers configuration capture before asynchronous
 work. No live calls or commit.
 
-Next slice: admission ledger aggregation/retention audit and sustained-memory
-measurement. Started invocation charges were deliberately preserved: execution-cache
-cleanup must not refund spend or quota. The ledger, conversation history and dead
-letters are not made bounded by this increment, so this is not a claim of bounded
-whole-process memory or completion of step 1.
+Third slice implemented: admission ledger compaction and exact decimal accounting. Full resource
+requests now remain only for active reservations. Completed/released IDs retain a
+compact diagnostic row under the same construction-time `EXECUTION_RETENTION_MAX_COMPLETED`
+and `EXECUTION_RETENTION_TTL_MS` settings, independently of the execution caches.
+Lifetime known/estimated spend, unpriced counts, reported/unsettled counts and consumed
+quota totals survive diagnostic eviction. Idle compute-pool entries are deleted.
+Repeated finish/release cannot refund or double-count work; atomic rejection leaves
+consumption unchanged. A reservation released while waiting cannot later start.
+
+Dispatch telemetry now separates bounded `reservations` from lifetime `accounting`.
+Old telemetry snapshots remain readable; neither old nor new telemetry restores the
+admission ledger after restart. Quota aggregates retain one fingerprint/total per
+encountered pool, not per request. Conflicting snapshots still fail closed after
+history expiry. This preserves existing admission semantics; it does not implement
+rolling-window resets, cross-process billing or late usage reconciliation.
+
+Repeatable measurement: `npm run bench:admission-retention` uses explicit GC and no
+providers. Across 30,000 sequential calls with a 32 KB resource note, the ledger kept
+100 recent rows, zero active reservations, zero idle compute entries and one quota
+aggregate. Heap samples were 9.10–9.15 MB; consumed quota reached 30,000. See
+[raw measurement](measurements/admission-retention-2026-10-01.json). This is a scoped
+ledger measurement, not an absolute heap assertion or whole-process memory guarantee.
+
+Validation after the decimal fix: 794 tests across 99 files and the TypeScript
+build passed. The refreshed 30,000-call measurement still retains 100 diagnostic
+rows and exact lifetime quota consumption. No live provider calls. The ledger
+measurement is saved separately from test assertions.
+
+The earlier reviewed work is committed as `c9ce23f`. The ledger review's fractional
+spend regression is fixed: reservations of $0.30, $0.20 and $0.10 under a $0.60 cap
+can finish in every order without changing admission. Spend and quota arithmetic
+use internal BigInt units at 324 decimal places, covering the decimal spelling of
+all finite nonnegative JavaScript numbers, including Number.MIN_VALUE. Inputs are
+not rounded and no epsilon relaxes the cap. Numbers already rounded by a caller
+cannot be reconstructed. Telemetry converts totals back to numbers for display;
+those projections never feed accounting decisions.
+
+Step 1 execution order and remaining work:
+
+1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six
+   completion orders, reported usage, release/cancellation, atomic rejection,
+   history expiry and true overages. Fractional quota reports use the same exact
+   arithmetic. Invalid amounts are rejected by the conversion helper.
+2. **Inventory and bound remaining retained state.** Cover conversation history,
+   dead letters, ownership indexes, quota-pool aggregates and other ID-keyed stores,
+   pending work, timers and buffers discovered during the inventory. For each,
+   record its owner, size/count limits, expiry or durable-storage policy, cleanup
+   trigger and dependent references. Keep configuration manual and explicit.
+   Decide what users see after history expiry and how duplicate IDs, conversation
+   ownership and replay behave. Ownership must not disappear while protected data
+   remains accessible; uncertainty about external execution must survive cleanup.
+   Bound active admission as needed; never evict live work to satisfy a cache cap.
+   Bound distinct quota-pool cardinality without discarding consumption or treating
+   a new pool identifier as permission to reset an existing allowance. Step 3 owns
+   actual rolling-window reconciliation; step 1 retains conservative accounting.
+3. **Run an end-to-end sustained-memory check.** Exercise the assembled runtime
+   with repeated conversations, large retained payloads, failed/replayed tasks,
+   cancellations, slow writes and supported configuration churn. Use deterministic
+   assertions on registry sizes and references plus repeatable post-warmup heap
+   samples. Include configured-cap rejection/backpressure and shutdown/drain paths.
+   Exercise quota-pool cardinality independently of the one-pool ledger benchmark.
+   Record workload, settings, raw results and exclusions. Disk-backed history still
+   needs a bounded in-memory working set and an explicit disk-retention policy.
+
+Step 1 remains open until these gates pass. The existing 30,000-call measurement
+establishes ledger behavior only. Move to step 2, request limits and deployment
+boundaries, after the remaining step 1 work; do not claim whole-process memory bounds
+from completed-cache limits or that isolated benchmark.
 
 - Reproduce coordinator exhaustion after its configured run cap. Add configurable
   retention for settled runs and clean associated request/profile/waiter indexes.
@@ -132,6 +195,18 @@ and keep shared deployment gated until its identity/ownership requirements pass.
 
 - Pass cancellation/deadlines through initial catalog admission; release reservations
   on every aborted preparation path and stop cancelled callers waiting for quota.
+- Implement provider/model-specific rolling-window quota reconciliation after
+  cancellation-aware admission. Define pool identity, units, fixed versus rolling
+  windows, overlapping limits, authoritative snapshot/reset timestamps and whether
+  provider observations already include our reservations or completed usage.
+  Preserve outstanding reservations across refresh/reset and account for reports
+  arriving later without double-counting or refunding uncertain consumption.
+  Retain only the usage needed by active windows plus required accounting totals;
+  do not reintroduce an indefinitely growing per-call ledger. Unsupported, stale
+  or ambiguous observations remain explicitly unavailable or fail closed, with
+  an operator recovery path. Do not infer a quota reset from elapsed cache TTL,
+  model changes or a local counter clear. Keep local, metered API, cloud and CLI
+  subscription policies configurable; avoid automatic usage checks on every call.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   Define explicit restart behavior without automatically replaying uncertain work.
   Give orphaned document tasks an operator-visible reconciliation/abandon path that
@@ -152,10 +227,19 @@ orphaned tasks can be reconciled. Invalid timestamps cause no partial inventory 
 Unrelated league refresh/reload preserves valid handles, while incompatible changes
 fail clearly. Verify configured deadlines and usage-inspection disabled/enabled paths.
 
+Quota acceptance: deterministic clock tests cover fixed/rolling and overlapping
+windows, exact reset boundaries, shared model pools, out-of-order/stale snapshots,
+concurrent reservations, cancellation before/after start, and delayed/duplicate usage
+reports. Refresh must neither grant the same allowance twice nor permanently block
+valid work after a verified reset. Test adapter capability differences and bounded
+window-state retention. Reliable long-running quota handling is not complete until
+these checks pass. Cross-process/account-wide enforcement requires separate shared
+coordination and is not implied by this process-local reconciliation work.
+
 ### 4. Current-state documentation and maintenance checks
 
-Planned, not implemented. The next reliability slice remains admission-ledger
-aggregation/retention and sustained-memory measurement. This documentation rollout
+Planned, not implemented. The next reliability work is remaining store retention and end-to-end
+sustained-memory measurement. This documentation rollout
 follows steps 1–3; update nearby contracts and regression tests during those changes
 without waiting for the generator rollout.
 

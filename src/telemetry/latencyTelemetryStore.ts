@@ -51,6 +51,9 @@ const RoutingTelemetrySnapshotSchema = z.object({
     attempts: z.array(z.object({ bindingId: z.string(), phase: z.enum(["fast", "deep"]),
       task: z.enum(["conversation", "coding", "summarization", "extraction", "reasoning"]), size: z.string(),
       attemptId: z.string(), result: z.string(), elapsedMs: z.number().finite().nonnegative() })),
+    accounting:z.object({completedUsd:z.number().finite().nonnegative(),unsettledCount:z.number().int().nonnegative(),
+      reportedCount:z.number().int().nonnegative(),unpricedCount:z.number().int().nonnegative(),
+      quotaPools:z.array(z.object({poolId:z.string(),units:z.number().finite().nonnegative()}))}).optional(),
     reservations: z.array(z.object({ id: z.string(), status: z.enum(["reserved", "unsettled", "released", "reported"]),
       reservedUsd: z.number().finite().nonnegative().nullable(), reportedUsd: z.number().finite().nonnegative().nullable(),
       quotaUnits: z.number().finite().nonnegative().nullable(), started: z.boolean() }))

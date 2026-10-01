@@ -1,0 +1,68 @@
+{
+  "scope": "ResourceAdmission only; timeline, dead letters and other runtime stores excluded",
+  "node": "v24.15.0",
+  "recentLimit": 100,
+  "requestNoteBytes": 32000,
+  "samples": [
+    {
+      "completed": 5000,
+      "heapUsed": 9134280,
+      "active": 0,
+      "recent": 100,
+      "computePools": 0,
+      "quotaPools": 1
+    },
+    {
+      "completed": 10000,
+      "heapUsed": 9098360,
+      "active": 0,
+      "recent": 100,
+      "computePools": 0,
+      "quotaPools": 1
+    },
+    {
+      "completed": 15000,
+      "heapUsed": 9142560,
+      "active": 0,
+      "recent": 100,
+      "computePools": 0,
+      "quotaPools": 1
+    },
+    {
+      "completed": 20000,
+      "heapUsed": 9125104,
+      "active": 0,
+      "recent": 100,
+      "computePools": 0,
+      "quotaPools": 1
+    },
+    {
+      "completed": 25000,
+      "heapUsed": 9140528,
+      "active": 0,
+      "recent": 100,
+      "computePools": 0,
+      "quotaPools": 1
+    },
+    {
+      "completed": 30000,
+      "heapUsed": 9147088,
+      "active": 0,
+      "recent": 100,
+      "computePools": 0,
+      "quotaPools": 1
+    }
+  ],
+  "accounting": {
+    "completedUsd": 0,
+    "unsettledCount": 30000,
+    "reportedCount": 0,
+    "unpricedCount": 0,
+    "quotaPools": [
+      {
+        "poolId": "fixture",
+        "units": 30000
+      }
+    ]
+  }
+}

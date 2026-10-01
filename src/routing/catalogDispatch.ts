@@ -28,7 +28,7 @@ export class CatalogDispatch {
   constructor(readonly catalog: ModelCatalog, readonly registry: ProviderRegistry,
     readonly policy: DispatchPolicy, readonly budget: ContextBudget,
     private observations: () => readonly ModelObservation[], private now: () => Date = () => new Date(), private readonly retention:ExecutionRetention=loadExecutionRetention(), private readonly retentionClock=Date.now) {
-    this.admission = new ResourceAdmission(policy, () => this.now().getTime());
+    this.admission = new ResourceAdmission(policy, () => this.now().getTime(), retention, retentionClock);
   }
   retentionStats() { this.prune(); return {phases:this.phases.size, retained:this.completed.size, metrics:this.metrics.length}; }
   private prune() {
@@ -46,7 +46,7 @@ export class CatalogDispatch {
   }
   activate(phase:PhaseDispatch) { this.completed.delete(phase.id); }
   get(id?: string) { this.prune(); return id ? this.phases.get(id) : undefined; }
-  telemetry() { return { attempts: structuredClone(this.metrics), reservations: this.admission.snapshot() }; }
+  telemetry():{attempts:DispatchMetric[];reservations:ReturnType<ResourceAdmission["snapshot"]>;accounting?:ReturnType<ResourceAdmission["accounting"]>} { return { attempts: structuredClone(this.metrics), reservations: this.admission.snapshot(), accounting:this.admission.accounting() }; }
   record(phase: PhaseDispatch, attemptId: string, size: string, result: string, elapsedMs: number) {
     this.metrics.push({ bindingId: phase.candidate.selection.bindingId, phase: phase.role,
       task: phase.candidate.requirements.task, size, attemptId, result, elapsedMs });
