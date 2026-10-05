@@ -64,7 +64,23 @@ Refresh on startup asynchronously and every 5 minutes; TTL 10 minutes. Use
 `MODEL_DISCOVERY_TIMEOUT_MS=10000`, all validated positive integers. Limit four
 metadata requests concurrently; one refresh per connection at a time. Failures
 retain prior observations but never extend their expiration. Shutdown cancels
-refresh requests/timers. A successful full listing marks disappeared models absent.
+refresh requests/timers. A successful complete listing atomically replaces that connection's observations.
+Disappeared bindings become unchecked: missing evidence never authorizes dispatch.
+Arrays returned by custom discovery adapters declare a complete listing; partial
+results must use `{ observations, complete: false }`, or throw. Partial, failed,
+aborted, malformed or over-limit listings leave the previous snapshot and expiry
+unchanged. No absent-model tombstones accumulate.
+
+Discovery limits (validated at construction): 1000 models per listing, 4096 total
+observations, 8 MiB of serialized retained observations, and 4 MiB of response
+bytes. `MODEL_DISCOVERY_MAX_MODELS`, `MODEL_DISCOVERY_MAX_OBSERVATIONS`,
+`MODEL_DISCOVERY_MAX_BYTES` and `MODEL_DISCOVERY_MAX_RESPONSE_BYTES` override them.
+Ollama and Azure cap bodies before JSON parsing; Azure shares the response budget
+across listing pages and rejects a still-paginated result after 20 pages. Bedrock
+caps the SDK HTTP stream before deserialization. Ollama per-model metadata has a
+separate response budget per request and stays best-effort. Custom adapters must
+bound their own transport; inventory can reject their returned objects only after
+the adapter has allocated them. These byte counts exclude heap overhead.
 
 Expose GET /models with curated entries plus per-binding observation and readiness:
 disabled, unsupported-adapter, unchecked, stale, denied, unavailable, or ready,
@@ -80,7 +96,7 @@ they are disabled until curated. No public mutation/refresh endpoint is needed.
 - V1 catalog migration preserves existing selections and emits valid v2 in memory.
 - Partial provider failure leaves other connections usable; timeout obeys AbortSignal.
 - Fake clock expiration makes ready become stale; a failed refresh cannot renew it.
-- Listed-but-unauthorized models are not ready; disappeared models become unavailable.
+- Listed-but-unauthorized models are not ready; disappeared models become unchecked and remain ineligible.
 - Discovery never overwrites preferences or enables new models; public JSON contains
   no credentials, including error paths.
 - GET /models integration test includes a fresh ready local fixture and stale cloud fixture.

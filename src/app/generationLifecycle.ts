@@ -56,6 +56,13 @@ export class GenerationAttempt {
       throw error;
     }
   }
+  /** Called only after terminal writes and every workflow/task consumer settle. */
+  releasePayload() {
+    if (this.active || !this.writesSettled) return;
+    this.text = "";
+    this.pending = "";
+    this.bytes = 0;
+  }
   get active() {
     return this.status === "queued" || this.status === "running";
   }
@@ -203,7 +210,12 @@ export class GenerationLifecycle {
       claimed: this.claimed.size,
       retained: this.completed.size,
       consumers: [...this.consumers.values()].reduce((a, b) => a + b, 0),
-      tasks: this.tasks.size
+      tasks: this.tasks.size,
+      answerBytes: [...this.turns.values()].reduce(
+        (total, phases) =>
+          total + [...phases.values()].reduce((n, a) => n + Buffer.byteLength(a.text), 0),
+        0
+      )
     };
   }
   retain(conversationId: string, messageId: string) {
@@ -233,6 +245,7 @@ export class GenerationLifecycle {
       [...phases.values()].some((a) => a.active || !a.writesSettled)
     )
       return;
+    for (const attempt of phases.values()) attempt.releasePayload();
     if (!this.completed.has(key)) this.completed.set(key, this.clock());
     this.prune();
   }
@@ -247,6 +260,25 @@ export class GenerationLifecycle {
       this.claimed.delete(key);
       this.completed.delete(key);
     }
+  }
+  private belongsTo(key: string, conversationId: string) {
+    return (JSON.parse(key) as [string, string])[0] === conversationId;
+  }
+  /** True while any claim, consumer or unsettled turn of the conversation exists. */
+  conversationActive(conversationId: string) {
+    this.prune();
+    return [...this.turns.keys(), ...this.claimed, ...this.consumers.keys()].some(
+      (key) => !this.completed.has(key) && this.belongsTo(key, conversationId)
+    );
+  }
+  /** Identity retirement only: drops settled execution records and message claims. */
+  forgetConversation(conversationId: string) {
+    for (const key of [...this.completed.keys()])
+      if (this.belongsTo(key, conversationId)) {
+        this.turns.delete(key);
+        this.claimed.delete(key);
+        this.completed.delete(key);
+      }
   }
   private closing = false;
   private closingWrites = new Set<Promise<void>>();

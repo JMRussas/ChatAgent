@@ -406,3 +406,30 @@ it("does not allocate identities for invalid streams or unknown cancellation", a
   expect(response.status).toBe(200);
   await response.text();
 });
+it("tells an open legacy stream why it ends when its history expires", async () => {
+  const r = setup();
+  const server = createChatServer(r.service);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  cleanups.push(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+  await r.service.submitMessage(r.message());
+  const response = await fetch(
+    `http://127.0.0.1:${(server.address() as AddressInfo).port}/conversations/c/events/stream`
+  );
+  const reader = response.body!.getReader();
+  let received = "";
+  const readUntil = async (marker: string) => {
+    while (!received.includes(marker)) {
+      const part = await reader.read();
+      if (part.done) throw new Error("stream ended before " + marker);
+      received += Buffer.from(part.value).toString();
+    }
+  };
+  await readUntil("event: timeline");
+  r.advance(10);
+  await readUntil('event: conversation-expired\ndata: {"code":"CONVERSATION_EXPIRED"}');
+  expect((await reader.read()).done).toBe(true);
+  await vi.waitFor(() => expect(server.retentionStats().streams).toBe(0));
+});

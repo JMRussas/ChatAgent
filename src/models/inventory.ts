@@ -1,3 +1,8 @@
+import {
+  discoveryLimitsSchema,
+  loadDiscoveryLimits,
+  type DiscoveryLimits
+} from "../config/discoveryLimits";
 import type { ApiKind, Connection } from "./connections";
 import type { DiscoveryConfig } from "../config/discoveryConfig";
 
@@ -24,7 +29,13 @@ export type DiscoveryObservation = Omit<ModelObservation, "expiresAtIso"> & {
   expiresAtIso?: string;
 };
 export interface DiscoveryAdapter {
-  discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]>;
+  /** Arrays mean a complete listing. Partial listings must declare complete:false;
+   * a failed or over-limit listing must throw rather than silently truncate. */
+  discover(
+    connection: Connection,
+    signal: AbortSignal,
+    limits?: DiscoveryLimits
+  ): Promise<DiscoveryObservation[] | { observations: DiscoveryObservation[]; complete: boolean }>;
 }
 
 export type Readiness =
@@ -80,15 +91,27 @@ export class InventoryStore {
   constructor(
     private readonly adapters: Partial<Record<ApiKind, DiscoveryAdapter>>,
     private readonly config: DiscoveryConfig,
-    private readonly now: () => Date = () => new Date()
-  ) {}
+    private readonly now: () => Date = () => new Date(),
+    private readonly limits: DiscoveryLimits = loadDiscoveryLimits()
+  ) {
+    this.limits = discoveryLimitsSchema.parse(limits);
+  }
+  retentionStats() {
+    return {
+      observations: this.observations.size,
+      bytes: Buffer.byteLength(JSON.stringify([...this.observations.values()])),
+      inFlight: this.inFlight.size,
+      ...this.limits
+    };
+  }
 
   getObservation(bindingId: string): ModelObservation | undefined {
-    return this.observations.get(bindingId);
+    const observation = this.observations.get(bindingId);
+    return observation ? structuredClone(observation) : undefined;
   }
 
   listObservations(): readonly ModelObservation[] {
-    return [...this.observations.values()];
+    return [...this.observations.values()].map((observation) => structuredClone(observation));
   }
 
   /** Refreshes all given connections, at most `maxConcurrentRequests` at a time. */
@@ -127,43 +150,46 @@ export class InventoryStore {
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
     try {
-      const results = await adapter.discover(connection, controller.signal);
-      const seen = new Set<string>();
-
-      // Global TTL is an upper bound, never an extension of adapter validity.
+      const listing = await adapter.discover(connection, controller.signal, this.limits);
+      if (this.stopped || controller.signal.aborted) return;
+      const results = Array.isArray(listing) ? listing : listing.observations;
+      if (!Array.isArray(listing) && !listing.complete) return;
+      if (results.length > this.limits.maxModelsPerConnection) throw Error("DISCOVERY_CAPACITY");
+      const replacement = new Map<string, ModelObservation>();
       for (const observation of results) {
+        if (
+          observation.connectionId !== connection.connectionId ||
+          !observation.bindingId ||
+          !observation.model ||
+          (this.observations.has(observation.bindingId) &&
+            this.observations.get(observation.bindingId)!.connectionId !== connection.connectionId)
+        )
+          throw Error("DISCOVERY_INVALID_IDENTITY");
         const observed = Date.parse(observation.observedAtIso);
-        const adapterExpiry =
+        if (!Number.isFinite(observed)) throw Error("DISCOVERY_INVALID_TIME");
+        const expiry =
           observation.expiresAtIso === undefined ? Infinity : Date.parse(observation.expiresAtIso);
-        // Invalid explicit validity fails closed instead of becoming fresh evidence.
         const expiresAtIso = new Date(
-          Number.isFinite(adapterExpiry) || adapterExpiry === Infinity
-            ? Math.min(observed + this.config.ttlMs, adapterExpiry)
+          Number.isFinite(expiry) || expiry === Infinity
+            ? Math.min(observed + this.config.ttlMs, expiry)
             : observed
         ).toISOString();
-        const stamped = { ...observation, expiresAtIso };
-        this.observations.set(stamped.bindingId, stamped);
-        seen.add(stamped.bindingId);
+        replacement.set(observation.bindingId, structuredClone({ ...observation, expiresAtIso }));
       }
-
-      // A successful full listing marks previously-observed, now-disappeared
-      // bindings for this connection as absent rather than leaving stale "yes".
-      const nowIso = this.now().toISOString();
-      for (const [bindingId, observation] of this.observations) {
-        if (
-          observation.connectionId === connection.connectionId &&
-          observation.installed === "yes" &&
-          !seen.has(bindingId)
-        ) {
-          this.observations.set(bindingId, {
-            ...observation,
-            installed: "no",
-            health: "unreachable",
-            observedAtIso: nowIso,
-            expiresAtIso: nowIso
-          });
-        }
-      }
+      // No tombstones: missing observations are unchecked and cannot authorize dispatch.
+      const retained = [...this.observations.values()].filter(
+        (o) => o.connectionId !== connection.connectionId
+      );
+      const combined = [...retained, ...replacement.values()];
+      if (
+        combined.length > this.limits.maxObservations ||
+        Buffer.byteLength(JSON.stringify(combined)) > this.limits.maxBytes
+      )
+        throw Error("DISCOVERY_CAPACITY");
+      // Validate the complete replacement before changing any existing evidence.
+      for (const [id, observation] of this.observations)
+        if (observation.connectionId === connection.connectionId) this.observations.delete(id);
+      for (const [id, observation] of replacement) this.observations.set(id, observation);
     } catch {
       // Failures retain prior observations but never extend their expiration.
     } finally {

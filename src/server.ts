@@ -224,6 +224,32 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     return selectReferences(store, selections, userId, conversationId);
   };
   const protocolV1 = createProtocolV1Handler(service);
+  // Evidence bound to a retired conversation goes with it; ownership is released last.
+  service.addRetirementParticipant({
+    forget: (conversationId) => {
+      const removed = options.briefings?.directory?.forgetConversation?.(conversationId) ?? [];
+      options.briefings?.gameOperations?.forgetResults?.(removed);
+    }
+  });
+  // The sidecar keeps durable tasks and its own owner table. There is no abandon
+  // operation yet, so a conversation with document tasks is not retired.
+  if (options.documentTasks)
+    service.addRetirementParticipant({
+      blockers: async (conversationId, ownerUserId) => {
+        if (ownerUserId === undefined) return ["DOCUMENT_TASKS_UNKNOWN"];
+        try {
+          const tasks = await options.documentTasks!.request({
+            op: "list",
+            conversationId,
+            userId: ownerUserId
+          });
+          return Array.isArray(tasks) && !tasks.length ? [] : ["DOCUMENT_TASKS"];
+        } catch {
+          return ["DOCUMENT_TASKS_UNKNOWN"];
+        }
+      },
+      forget: () => undefined
+    });
   const responses = new Set<ServerResponse>();
   const server = createServer(async (req, res) => {
     responses.add(res);
@@ -288,8 +314,14 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         if (!["start", "list"].includes(body.op) && !body.taskId)
           throw new HttpRequestError(400, "Task ID required");
         service.claimConversation(body.conversationId, body.userId, body.op === "start");
-        const result = await options.documentTasks.request(body);
-        return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
+        const releaseHistory =
+          body.op === "start" ? service.retainConversationWork(body.conversationId) : undefined;
+        try {
+          const result = await options.documentTasks.request(body);
+          return json(res, body.op === "start" || body.op === "resume" ? 202 : 200, result);
+        } finally {
+          releaseHistory?.();
+        }
       }
 
       if (method === "POST" && url.pathname === "/sports/games") {
@@ -305,6 +337,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const games = options.briefings?.gameOperations;
         if (!games) return json(res, 404, { error: "Game operations disabled" });
         service.claimConversation(body.conversationId, body.userId);
+        const releaseHistory = service.retainConversationWork(body.conversationId);
         const controller = new AbortController(),
           cancel = () => controller.abort();
         res.once("close", cancel);
@@ -323,6 +356,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           });
         } finally {
           res.removeListener("close", cancel);
+          releaseHistory();
         }
       }
       if (method === "GET" && url.pathname === "/sports/team-directories") {
@@ -416,6 +450,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           }
         }
         if (!body.league) throw new HttpRequestError(400, "League required");
+        const releaseHistory = service.retainConversationWork(body.conversationId);
         const controller = new AbortController();
         const cancel = () => controller.abort();
         res.once("close", cancel);
@@ -436,6 +471,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           });
         } finally {
           res.removeListener("close", cancel);
+          releaseHistory();
         }
       }
 
@@ -582,6 +618,26 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         return json(res, 200, { policy });
       }
 
+      if (method === "GET" && url.pathname === "/conversations/retention")
+        return json(res, 200, service.conversationRetention());
+
+      const identityPath = url.pathname.match(/^\/conversations\/([^/]+)\/identity$/);
+      if (method === "DELETE" && identityPath) {
+        const conversationId = decodeURIComponent(identityPath[1]);
+        const result = await service.retireConversation(conversationId);
+        if (result.status === "retired") return json(res, 200, { retired: true, conversationId });
+        if (result.status === "not_found")
+          return json(res, 404, {
+            code: "CONVERSATION_NOT_FOUND",
+            error: "No retained identity for this conversation"
+          });
+        return json(res, 409, {
+          code: "CONVERSATION_RETIREMENT_BLOCKED",
+          error: "Conversation identity is still referenced",
+          blockers: result.blockers
+        });
+      }
+
       if (
         method === "GET" &&
         url.pathname.startsWith("/conversations/") &&
@@ -601,6 +657,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
 
+        const initialVersion = service.conversationVersion(conversationId);
         await service.getTimeline(conversationId); // Expired history returns 410 before SSE headers.
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -609,11 +666,16 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         res.flushHeaders();
 
         let lastSerializedEvents = "";
+        let boundVersion = initialVersion;
 
         const pushTimeline = async (force = false) => {
           if (res.writableEnded) return;
 
           const events = await service.getTimeline(conversationId);
+          const currentVersion = service.conversationVersion(conversationId);
+          if (boundVersion && currentVersion !== boundVersion)
+            throw new GenerationError("CONVERSATION_EXPIRED", false);
+          boundVersion = currentVersion;
           const serialized = JSON.stringify(events);
 
           if (!force && serialized === lastSerializedEvents) {
@@ -624,15 +686,26 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           writeSseEvent(res, "timeline", { events });
         };
 
+        // An EventSource cannot read the 410 its reconnect would get, so say why first.
+        const endStream = (error: unknown) => {
+          if (
+            error instanceof GenerationError &&
+            error.code === "CONVERSATION_EXPIRED" &&
+            !res.writableEnded
+          )
+            writeSseEvent(res, "conversation-expired", { code: error.code });
+          res.end();
+        };
+
         try {
           await pushTimeline(true);
-        } catch {
-          res.end();
+        } catch (error) {
+          endStream(error);
           return;
         }
 
         const pollTimer = setInterval(() => {
-          void pushTimeline(false).catch(() => res.end());
+          void pushTimeline(false).catch(endStream);
         }, 350);
 
         const heartbeatTimer = setInterval(() => {
@@ -693,7 +766,8 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           "CONVERSATION_EXPIRED",
           "CONVERSATION_CAPACITY",
           "CONVERSATION_HISTORY_CAPACITY",
-          "DEAD_LETTER_CAPACITY"
+          "DEAD_LETTER_CAPACITY",
+          "DEEP_QUEUE_CAPACITY"
         ].includes(error.code)
       )
         return json(
@@ -753,12 +827,17 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     });
     return server;
   }) as typeof server.close;
+  const isStream = (response: ServerResponse) =>
+    String(response.getHeader("Content-Type")).startsWith("text/event-stream");
   return Object.assign(server, {
     closeStreams: () => {
-      for (const response of responses)
-        if (String(response.getHeader("Content-Type")).startsWith("text/event-stream"))
-          response.end();
-    }
+      for (const response of responses) if (isStream(response)) response.end();
+    },
+    retentionStats: () => ({
+      responses: responses.size,
+      streams: [...responses].filter(isStream).length,
+      wireConversations: protocolV1.retentionStats().conversations
+    })
   });
 }
 

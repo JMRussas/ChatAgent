@@ -102,6 +102,15 @@ export class ContextManager {
   getSummaryTelemetry() {
     return { ...this.counts, activeJobs: this.jobs.size };
   }
+  /** Store counts are null for a custom store that does not report them. */
+  retentionStats() {
+    return {
+      jobs: this.jobs.size,
+      pending: this.pending.size,
+      sources: this.sources.retentionStats?.().entries ?? null,
+      summaries: this.summaries.retentionStats?.().entries ?? null
+    };
+  }
   private eligible(events: readonly ChatTimelineEvent[], snapshot: SourceSnapshot) {
     const turns = groupIntoTurns(events).filter((t) => t.assistantEvent);
     const ids = new Set(turns.flatMap((t) => [t.userEvent.eventId, t.assistantEvent!.eventId]));

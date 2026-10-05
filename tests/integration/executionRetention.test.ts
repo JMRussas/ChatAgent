@@ -208,13 +208,14 @@ it("bounds failed turns and releases cancelled queue pins on shutdown without re
   await r.manager.shutdown();
 });
 
-it("keeps cancelled queued tasks identifiable until the worker consumes them", async () => {
+it("removes cancelled queued tasks and allows their settled records to expire", async () => {
   smallRetention();
   const r = runtime();
   await r.service.submitMessage(message("Find latest news", "cancelled"));
   await r.service.cancelMessage("c", "cancelled");
   for (let i = 0; i < 6; i++) await r.service.submitMessage(message("Hello", `other-${i}`));
-  expect(generationLifecycle(r.queue).get("c", "cancelled", "deep")?.status).toBe("cancelled");
+  expect(r.queue.size()).toBe(0);
+  expect(generationLifecycle(r.queue).get("c", "cancelled", "deep")).toBeUndefined();
   await r.service.runDeepWorkerOnce();
   expect(r.calls.get("a")!.deep.resolveDeepTask).not.toHaveBeenCalled();
   expect(generationLifecycle(r.queue).retentionStats()).toMatchObject({ tasks: 0, consumers: 0 });

@@ -81,6 +81,13 @@ export class GameOperations {
     this.shutdown.abort();
     this.games.clear();
   }
+  /** Game snapshots are reachable only through their parent result. */
+  forgetResults(resultIds: readonly string[]) {
+    for (const id of resultIds) this.games.delete(id);
+  }
+  retentionStats() {
+    return { games: this.games.size };
+  }
   async search(input: unknown, userId: string, conversationId: string, signal: AbortSignal) {
     const args = gameSearchSchema.parse(input);
     if (this.closed) throw Error("CAPABILITIES_CHANGED");

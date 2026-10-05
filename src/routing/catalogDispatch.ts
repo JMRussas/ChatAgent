@@ -68,7 +68,11 @@ export class CatalogDispatch {
     return {
       phases: this.phases.size,
       retained: this.completed.size,
-      metrics: this.metrics.length
+      metrics: this.metrics.length,
+      rankingContextCopies: [...this.phases.values()].reduce(
+        (n, p) => n + [p.candidate, ...p.fallbacks].filter((c) => c.context !== p.context).length,
+        0
+      )
     };
   }
   private prune() {
@@ -86,6 +90,10 @@ export class CatalogDispatch {
   complete(phase?: PhaseDispatch) {
     if (!phase || !this.phases.has(phase.id)) return;
     this.release(phase);
+    // Ranking-only contexts are never needed for replay or fallback. Alias the
+    // retained replay context instead of keeping one extra copy per candidate.
+    phase.candidate.context = phase.context;
+    for (const candidate of phase.fallbacks) candidate.context = phase.context;
     if (!this.completed.has(phase.id)) this.completed.set(phase.id, this.retentionClock());
     this.prune();
   }

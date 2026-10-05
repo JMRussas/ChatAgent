@@ -225,7 +225,7 @@ it("frees slots for cancelled, discarded and cancelled-replay work", async () =>
   const r = setup();
   await r.service.submitMessage(r.message("cancelled"));
   await r.service.cancelMessage("c", "cancelled");
-  expect(r.dead.retentionStats().reservations).toBe(1);
+  expect(r.dead.retentionStats().reservations).toBe(0);
   await r.service.runDeepWorkerOnce();
   expect(r.deep.resolveDeepTask).not.toHaveBeenCalled();
   expect(r.dead.retentionStats()).toMatchObject({ records: 0, reservations: 0 });

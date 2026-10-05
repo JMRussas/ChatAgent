@@ -274,6 +274,18 @@ export function renderHomePageHtml(
       min-height: 1.7rem;
     }
 
+    .conversation-notice {
+      margin: 0.6rem 1rem 0;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid rgba(155, 41, 41, 0.4);
+      border-radius: 8px;
+      background: rgba(155, 41, 41, 0.08);
+      color: #6d1f1f;
+      font-size: 0.9rem;
+    }
+    .conversation-notice[hidden] { display: none; }
+    .conversation-notice button { margin-left: 0.5rem; }
+
     .side {
       min-height: 78vh;
       display: grid;
@@ -449,6 +461,7 @@ export function renderHomePageHtml(
       </form>
 
       ${documentTasks ? '<section aria-label="Documentation tasks"><h2>Documentation tasks</h2><p id="documentTaskStatus" role="status"></p><div id="documentTasks" aria-live="polite"></div></section>' : ""}
+      <div id="conversationNotice" class="conversation-notice" role="alert" hidden><span id="conversationNoticeText"></span><button type="button" id="newConversation">Start a new conversation</button></div>
       <div id="thread" class="thread" aria-live="polite"></div>
       <footer id="status" class="status">Ready.</footer>
     </section>
@@ -533,6 +546,8 @@ export function renderHomePageHtml(
       pendingUserText: "",
       pendingMessageId: null,
       reconnecting: false,
+      expired: false,
+      submitting: false,
       pendingUserSentAtMs: 0,
       lastThreadRenderKey: "",
       runtimeInfo
@@ -569,6 +584,40 @@ export function renderHomePageHtml(
     function setStatus(message, isError = false) {
       status.textContent = message;
       status.className = isError ? "status error" : "status";
+    }
+
+    // Expiry ends this page's conversation; only an operator may retire its identity.
+    const conversationNotices = {
+      CONVERSATION_EXPIRED: "This conversation expired on the server. Start a new conversation to continue. Anything shown below is only the last copy this page received.",
+      CONVERSATION_HISTORY_CAPACITY: "This conversation's history is full, so it cannot accept more messages.",
+      CONVERSATION_CAPACITY: "The server cannot start another conversation right now. Existing conversations still work."
+    };
+    function showConversationNotice(code) {
+      $("conversationNoticeText").textContent = conversationNotices[code];
+      $("conversationNotice").hidden = false;
+    }
+    function clearConversationNotice() {
+      state.expired = false;
+      $("conversationNotice").hidden = true;
+      sendButton.disabled = state.submitting;
+    }
+    function markConversationExpired(conversationId) {
+      if (conversationId !== state.conversationId || state.expired) return;
+      state.expired = true;
+      state.reconnecting = false;
+      state.pendingUserText = "";
+      state.pendingUserSentAtMs = 0;
+      if (timelineStream) { timelineStream.close(); timelineStream = null; }
+      showConversationNotice("CONVERSATION_EXPIRED");
+      sendButton.disabled = true;
+      setStatus("Conversation expired. Start a new conversation to continue.", true);
+      renderThread();
+    }
+    async function checkConversationExpiry(conversationId) {
+      try {
+        const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/events");
+        if (res.status === 410) markConversationExpired(conversationId);
+      } catch { /* Offline: the reconnecting status already says so. */ }
     }
 
     function renderReasons() {
@@ -777,11 +826,16 @@ export function renderHomePageHtml(
         timelineStream = null;
       }
 
-      if (!state.conversationId) return;
+      if (!state.conversationId || state.expired) return;
 
-      const streamUrl = "/conversations/" + encodeURIComponent(state.conversationId) + "/events/stream";
+      const conversationId = state.conversationId;
+      const streamUrl = "/conversations/" + encodeURIComponent(conversationId) + "/events/stream";
       const source = new EventSource(streamUrl);
       timelineStream = source;
+
+      source.addEventListener("conversation-expired", () => {
+        if (source === timelineStream) markConversationExpired(conversationId);
+      });
 
       source.addEventListener("timeline", (event) => {
         if (source !== timelineStream) return;
@@ -804,6 +858,8 @@ export function renderHomePageHtml(
       source.onerror = () => {
         if (source !== timelineStream) return;
         state.reconnecting = true; renderThread();
+        // A closed source never retries; an expired conversation answers 410.
+        if (source.readyState === 2) void checkConversationExpiry(conversationId);
       };
     }
 
@@ -824,7 +880,7 @@ export function renderHomePageHtml(
 
     composer.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (sendButton.disabled) return;
+      if (state.submitting || sendButton.disabled) return;
       const conversationId = String(conversationIdInput.value || "").trim();
       const userId = String(userIdInput.value || "").trim();
       const text = String(promptInput.value || "").trim();
@@ -841,23 +897,25 @@ export function renderHomePageHtml(
         ...(["review","revise"].includes($("runMode").value) ? {targetMessageId:$("runTarget").value,reviewScope:$("reviewScope").value}:{})};
       if (runControls && ["review","revise"].includes(runControls.mode) && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
       if(runControls?.mode === "answer-evidence" && !referenceSelections.length){setStatus("Attach evidence rows first.",true);return;}
+      state.submitting = true;
       sendButton.disabled = true;
-      await refreshConversationContext();
-      if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) { sendButton.disabled = false; return; }
-      saveConversation();
-      state.conversationId = conversationId;
-      state.userId = userId;
-      openTimelineStream();
-      state.pendingMessageId = crypto.randomUUID();
-      const messageId = state.pendingMessageId;
-      state.pendingUserText = text;
-      state.pendingUserSentAtMs = Date.now();
-      renderThread();
-
-      sendButton.disabled = true;
-      setStatus("Sending message...");
-
       try {
+        await refreshConversationContext();
+        if (state.expired) return;
+        if (conversationId !== conversationIdInput.value.trim() || userId !== userIdInput.value.trim()) { return; }
+        saveConversation();
+        state.conversationId = conversationId;
+        state.userId = userId;
+        openTimelineStream();
+        state.pendingMessageId = crypto.randomUUID();
+        const messageId = state.pendingMessageId;
+        state.pendingUserText = text;
+        state.pendingUserSentAtMs = Date.now();
+        renderThread();
+
+        sendButton.disabled = true;
+        setStatus("Sending message...");
+
         const res = await fetch("/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -872,7 +930,7 @@ export function renderHomePageHtml(
         if (!res.ok) {
           const payload = await res.json().catch(() => ({}));
           const reason = payload && payload.error ? String(payload.error) : "HTTP " + res.status;
-          throw new Error(reason);
+          throw Object.assign(new Error(reason), { code: payload && payload.code });
         }
 
         const payload = await res.json();
@@ -893,18 +951,32 @@ export function renderHomePageHtml(
 
         setStatus("Message accepted. Progress is shown in its reply bubble.");
       } catch (error) {
+        if (conversationId !== state.conversationId || userId !== userIdInput.value.trim()) return;
         state.pendingUserText = "";
         state.pendingUserSentAtMs = 0;
         await fetchTelemetry().catch(() => undefined);
         renderThread();
-        setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
+        const code = error && error.code;
+        if (code === "CONVERSATION_EXPIRED") markConversationExpired(conversationId);
+        else if (Object.hasOwn(conversationNotices, code)) {
+          if (code === "CONVERSATION_HISTORY_CAPACITY") showConversationNotice(code);
+          setStatus("Send failed: " + conversationNotices[code], true);
+        } else setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
       } finally {
-        sendButton.disabled = false;
+        state.submitting = false;
+        sendButton.disabled = state.expired;
       }
+    });
+
+    $("newConversation").addEventListener("click", () => {
+      conversationIdInput.value = "conv-" + crypto.randomUUID();
+      conversationIdInput.dispatchEvent(new Event("change"));
+      promptInput.focus();
     });
 
     conversationIdInput.addEventListener("change", () => {
       state.conversationId = String(conversationIdInput.value || "").trim();
+      clearConversationNotice();
       cancelRetries.clear();
       state.reconnecting = false;
       state.events = [];
@@ -971,6 +1043,7 @@ export function renderHomePageHtml(
         const r = await fetch("/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
         const data = await r.json();
         if (requestVersion !== contextRequestVersion || conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) return;
+        if (r.status === 410) { $("selectedConversationContext").textContent = "Conversation expired."; markConversationExpired(conversationId); return; }
         if (!r.ok) { $("selectedConversationContext").textContent = "Conversation context unavailable for this user."; return; }
         showConversationContext(data.context);
       } catch { if (requestVersion === contextRequestVersion) $("selectedConversationContext").textContent = "Conversation context unavailable."; }

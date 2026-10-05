@@ -156,8 +156,12 @@ Conversation history is process-local and bounded. `CONVERSATION_*` settings in
 `.env.example` configure history count, idle expiry, event/byte limits and lifetime
 identity capacity; changes require a restart. Expired conversations return 410 and
 require a new conversation ID. Running/queued work protects its history. Expired
-IDs retain ownership tombstones, so identity slots are not recycled: exhausting
-that configured capacity returns 503 for new conversations. History overflow
+IDs retain ownership tombstones and are never recycled automatically: exhausting
+that configured capacity returns 503 for new conversations until an operator
+retires expired identities (`GET /conversations/retention`,
+`DELETE /conversations/<id>/identity`). A retired ID is unknown to the process, so
+reusing it starts an unrelated conversation. The page explains expiry and offers a
+new conversation. History overflow
 returns 413. Each history also reserves at most `CONVERSATION_MAX_EVENTS` compact
 emergency terminal records (at most 1 KiB each), so reaching the normal event/byte
 limit can still publish a failure. This reserve is additional to the normal history
@@ -172,7 +176,9 @@ Catalog admission tracks at most `ADMISSION_MAX_QUOTA_POOLS` distinct quota pool
 Consumed pool totals are never evicted; a further pool ID is excluded with
 `QUOTA_POOL_CAPACITY` ([details](docs/implementation/04-dispatch.md#configuration)).
 
-See the roadmap for the remaining durable-retention work.
+`npm run bench:sustained-memory` drives both assembled runtimes past these limits
+and asserts every retained registry; see the roadmap for its scope, evidence and
+the remaining durable-retention work.
 
 To diagnose HTTP worker exits independently of the application and Vitest, run
 `npm run diagnose:http` (25 isolated processes), or
@@ -227,3 +233,10 @@ The default mock-only demo retains the legacy simulated pipeline. Low output-tok
 limits can truncate plans; increase `CHAT_FAST_MAX_OUTPUT_TOKENS` (or the overriding
 `OLLAMA_FAST_NUM_PREDICT`) if `CAPABILITY_PLAN_TRUNCATED` occurs. The live Ollama smoke
 check used 1024 output tokens. No generic web search or MLB adapter is connected.
+
+Retained-state bounds also cover queued task count/bytes, aggregate tool-result
+bytes, completed answer buffers, coalesced telemetry saves and discovery churn.
+[Runtime contracts](docs/runtime-reference.md#remaining-retained-state-bounds)
+describe overflow, cancellation and snapshot replacement semantics; `.env.example`
+lists the limits. The sustained-memory gate includes separate scripted discovery
+and stalled file-write workloads, without live provider calls.

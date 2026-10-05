@@ -125,3 +125,20 @@ describe("AzureDiscoveryAdapter", () => {
     );
   });
 });
+
+it("rejects a paginated listing that still has a next page at the page limit", async () => {
+  const fetchMock = vi.fn(async (url: string | URL | Request) =>
+    String(url).includes("oauth2")
+      ? Response.json({ access_token: "token" })
+      : Response.json({ value: [], nextLink: "https://management.azure.com/next" })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    await expect(
+      new AzureDiscoveryAdapter(armEnv).discover(connection(), new AbortController().signal)
+    ).rejects.toThrow("DISCOVERY_INCOMPLETE_LISTING");
+    expect(fetchMock).toHaveBeenCalledTimes(21);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

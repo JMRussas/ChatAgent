@@ -126,7 +126,21 @@ export function validateRoutingTelemetrySnapshot(input: unknown): RoutingTelemet
 }
 
 export class FileLatencyTelemetryStore implements LatencyTelemetryStore {
-  private pendingSave: Promise<void> = Promise.resolve();
+  private writing = false;
+  private pending?: {
+    serialized: string;
+    promise: Promise<void>;
+    resolve(): void;
+    reject(error: unknown): void;
+  };
+  private activeBytes = 0;
+  retentionStats() {
+    return {
+      writing: this.writing ? 1 : 0,
+      queued: this.pending ? 1 : 0,
+      bytes: this.activeBytes + Buffer.byteLength(this.pending?.serialized ?? "")
+    };
+  }
   constructor(private readonly filePath: string) {}
 
   async load(): Promise<RoutingTelemetrySnapshot | undefined> {
@@ -151,20 +165,52 @@ export class FileLatencyTelemetryStore implements LatencyTelemetryStore {
     }
   }
 
-  async save(snapshot: RoutingTelemetrySnapshot): Promise<void> {
+  /** A superseded pending save resolves when its replacement is persisted.
+   * At most one physical write and one latest replacement snapshot are retained.
+   * A failure rejects that batch's callers, without poisoning the next batch. */
+  save(snapshot: RoutingTelemetrySnapshot): Promise<void> {
     const serialized = JSON.stringify(validateRoutingTelemetrySnapshot(snapshot), null, 2);
-    const operation = this.pendingSave.then(async () => {
-      await mkdir(dirname(this.filePath), { recursive: true });
-      const tempPath = `${this.filePath}.${randomUUID()}.tmp`;
-      try {
-        await writeFile(tempPath, serialized, "utf8");
-        await rename(tempPath, this.filePath);
-      } finally {
-        await rm(tempPath, { force: true });
-      }
+    if (this.pending) {
+      this.pending.serialized = serialized;
+      return this.pending.promise;
+    }
+    let resolve!: () => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<void>((yes, no) => {
+      resolve = yes;
+      reject = no;
     });
-    // A failed write must not poison subsequent saves.
-    this.pendingSave = operation.catch(() => undefined);
-    return operation;
+    this.pending = { serialized, promise, resolve, reject };
+    if (!this.writing) void this.drain();
+    return promise;
+  }
+  private async drain() {
+    this.writing = true;
+    try {
+      while (this.pending) {
+        const batch = this.pending;
+        this.pending = undefined;
+        this.activeBytes = Buffer.byteLength(batch.serialized);
+        try {
+          await this.writeSnapshot(batch.serialized);
+          batch.resolve();
+        } catch (error) {
+          batch.reject(error);
+        }
+        this.activeBytes = 0;
+      }
+    } finally {
+      this.writing = false;
+    }
+  }
+  protected async writeSnapshot(serialized: string) {
+    await mkdir(dirname(this.filePath), { recursive: true });
+    const tempPath = `${this.filePath}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(tempPath, serialized, "utf8");
+      await rename(tempPath, this.filePath);
+    } finally {
+      await rm(tempPath, { force: true });
+    }
   }
 }

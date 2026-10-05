@@ -240,7 +240,7 @@ describe("InventoryStore", () => {
     ).toBe("stale");
   });
 
-  it("a full successful listing marks a previously-seen, now-disappeared binding unavailable", async () => {
+  it("a full successful listing removes disappeared bindings and makes them unchecked", async () => {
     const adapter: DiscoveryAdapter = {
       discover: vi
         .fn()
@@ -259,7 +259,15 @@ describe("InventoryStore", () => {
     expect(store.getObservation("b2")?.installed).toBe("yes");
 
     await store.refreshConnection(connection());
-    expect(store.getObservation("b2")).toMatchObject({ installed: "no", health: "unreachable" });
+    expect(store.getObservation("b2")).toBeUndefined();
+    expect(
+      computeReadiness({
+        enabled: true,
+        adapterImplemented: true,
+        observation: store.getObservation("b2"),
+        nowIso: new Date().toISOString()
+      })
+    ).toBe("unchecked");
     expect(store.getObservation("b1")?.installed).toBe("yes");
   });
 

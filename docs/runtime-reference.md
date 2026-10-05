@@ -164,6 +164,52 @@ Discarding removes the only replayable copy of the task. The failure itself stay
 in the conversation timeline as the task's terminal error event while that history
 is retained.
 
+Conversation identities (operator endpoints; no authentication, like the rest of
+this server):
+
+```bash
+curl http://localhost:3100/conversations/retention
+curl -X DELETE http://localhost:3100/conversations/<conversationId>/identity
+```
+
+An expired conversation keeps its ID reserved: history, selected scope, summary
+memory and source indexes are gone, but the owner and a tombstone remain so the ID
+cannot silently become a new conversation. Nothing recycles these slots
+automatically. The listing reports the identity limit, current owners and up to
+200 expired identities with their expiry time; `DELETE` retires one of them.
+
+Retirement removes the tombstone, the owner, the protocol-v1 wire mapping, settled
+execution records and any tool results or team/game snapshots bound to the
+conversation, in that order of dependence: ownership is released last. It returns
+`404 CONVERSATION_NOT_FOUND` for an ID the process does not hold and
+`409 CONVERSATION_RETIREMENT_BLOCKED` with a `blockers` list otherwise:
+
+| Blocker                                             | Meaning                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| `HISTORY_LIVE`                                      | Not expired. Retirement never deletes history.                      |
+| `DEAD_LETTERS`                                      | A record or reserved slot refers to it; replay or discard it first. |
+| `QUEUED_TASKS`, `ACTIVE_TURNS`                      | Work could still write to it.                                       |
+| `DOCUMENT_TASKS`, `DOCUMENT_TASKS_UNKNOWN`          | The sidecar holds tasks for it, or could not be asked.              |
+| `QUEUE_UNINSPECTABLE`, `DEAD_LETTERS_UNINSPECTABLE` | A custom queue or store lacks the inspection contract.              |
+| `RETIREMENT_UNSUPPORTED`, `PARTICIPANT_UNAVAILABLE` | The timeline store has no retirement contract, or a check failed.   |
+
+`RETIREMENT_REFUSED` means the timeline refused the final deletion; ownership
+remains claimed even if dependent cleanup already ran.
+
+A retired ID is unknown to the process. A later request with it starts an
+unrelated conversation that any `userId` may claim, and message IDs used in the
+old conversation are no longer rejected as duplicates. This is bounded
+process-local identity, not durable deduplication. Dead letters are never
+discarded on the operator's behalf, and there is no abandon operation for
+document tasks, so a conversation with document tasks cannot be retired yet. A
+legacy or protocol-v1 stream that followed the retired conversation is closed
+rather than continued into the new one. Pending team-directory/game searches and
+document-task starts lease the history until their response settles, so they
+cannot publish dependent state after retirement. Retirement rechecks an opaque
+identity incarnation after awaiting participant blockers; stale answers cannot
+retire a reused ID. Custom timeline retirement requires `conversationVersion`
+alongside the state and deletion contracts.
+
 6. Read latency telemetry and current routing policy
 
 ```bash
@@ -444,6 +490,13 @@ UI behavior:
 5. SSE snapshots now carry answer deltas and terminal outcomes. The browser rebuilds
    by event sequence/attempt identity on reconnect. Hidden reasoning is never emitted;
    “Reasoning enabled” appears only for an explicitly verified/applied control.
+6. When a conversation's history expires, the legacy stream sends a
+   `conversation-expired` event before it closes; a page that loads an already
+   expired ID learns it from the 410 on the events endpoint. The page then shows a
+   notice, keeps the last copy it received as read-only text, disables Send and
+   offers "Start a new conversation", which switches to a fresh ID. A full history
+   (413) shows the same offer; server conversation capacity (503) is explained in
+   the status line because a new ID would not help.
 
 Adaptive routing behavior:
 
@@ -501,6 +554,23 @@ BENCH_MIN_QUALITY_DELTA=-0.05
 ```
 
 Threshold values are validated at runtime; invalid values fail compare with explicit configuration errors.
+
+Retention measurements (provider-free; both need `--expose-gc`, which the scripts pass):
+
+```bash
+npm run bench:admission-retention
+npm run bench:sustained-memory -- --out docs/measurements/sustained-memory-<date>.json
+```
+
+`bench:sustained-memory` builds the live-shaped runtime (`CapabilityChat` with
+catalog dispatch and the sports registry) and the queue-shaped runtime
+(`ChatOrchestrator`, deep worker, dead letters) in one process, drives them over
+loopback HTTP past scaled-down limits, and asserts registry sizes after every
+round and after shutdown. It exits nonzero when an assertion fails or when
+post-warmup heap grows by more than 5% between the first and last third of the
+measured rounds. `--measured <n>` lengthens the run and `--heap-only` keeps a long
+soak from measuring its own report. The settings, workload, exclusions and raw
+samples are in the report; it is not part of `verify:release`.
 
 ## Release Verification
 
@@ -616,3 +686,40 @@ The manual `POST /sports/chat` endpoint remains available for explicit scope req
 games/news. The request uses the briefing schema with explicit exclusive end `now`
 and inclusive `lastSuccessful` timestamps. The model-planning path does not depend
 on this endpoint or a sports-specific UI. User IDs remain prototype ownership guards.
+
+## Remaining retained-state bounds
+
+The in-memory deep queue limits both task count and serialized task bytes. Defaults
+follow `DEAD_LETTER_MAX_RECORDS` and `DEAD_LETTER_MAX_BYTES`; optional
+`DEEP_QUEUE_MAX_TASKS` and `DEEP_QUEUE_MAX_BYTES` override them. Overflow rejects
+atomically with `DEEP_QUEUE_CAPACITY` (HTTP 503). Initial enqueue failures settle
+created attempts and release slots, leases and dispatch references; an already
+written user event remains an accepted failed turn. Failed replay enqueue restores
+the dead letter. Queue entries own immutable copies. `ChatService.cancelMessage`
+removes matching queued entries promptly and releases their dependent resources;
+dequeued work keeps its resources until physical settlement. Custom queues without
+`removeMessage` retain the previous worker-drain cancellation behavior.
+
+Completed attempt text is cleared only after terminal writes and all workflow/task
+consumers settle. Completed dispatch candidates alias their retained replay context
+instead of keeping ranking-only copies. Replay still owns `phase.context` and its
+candidate metadata; history continues to own answer text.
+
+`TOOL_RESULT_MAX_BYTES` defaults to 16 MiB of aggregate serialized results. The
+existing count limit also applies. Oldest results are evicted under either limit;
+an individually oversized result throws `RESULT_TOO_LARGE` before evicting live
+records. Selection of an evicted handle fails with `RESULT_NOT_FOUND`, so refresh
+or detach it. Expiry, retirement and clear all release byte accounting. Timeline
+copies remain governed by conversation retention separately.
+
+File telemetry retains one physical write and at most one latest replacement.
+Superseded pending `save()` calls share the replacement's completion: successful
+resolution means that snapshot or a newer one was persisted. Write failure rejects
+that batch's callers without poisoning later writes. Shutdown's final `save()`
+replaces pending intermediate snapshots and awaits persistence. The number of
+snapshots is bounded; serialized snapshot size still follows estimator/catalog
+state, and a stalled disk can still delay shutdown until its timeout.
+
+Discovery listing and retained-observation bounds and completeness rules are in
+[the inventory contract](implementation/03-inventory.md). A failed listing never
+renews the previous evidence's expiry; absent observations fail closed.

@@ -217,8 +217,10 @@ export class ChatOrchestrator {
         if (plan?.deep) deepAttempt.model = this.dispatch!.metadata(plan.deep);
         try {
           await deepAttempt.queued();
-          await this.queue.enqueue(deepTask);
-          deepQueued = true;
+          if (deepAttempt.active) {
+            await this.queue.enqueue(deepTask);
+            deepQueued = true;
+          } else lifecycle.releaseTask(deepTask.taskId);
         } catch (error) {
           this.dispatch?.release(plan?.fast);
           this.dispatch?.release(plan?.deep);
@@ -402,6 +404,10 @@ export class DeepWorker {
     if (selected) this.dispatch!.activate(selected);
     return () => this.dispatch?.complete(selected);
   }
+  retentionStats() {
+    return { retryCounters: this.attemptsByTaskId.size };
+  }
+
   async discardQueued(task: DeepTask) {
     const lifecycle = generationLifecycle(this.queue);
     const attempt = lifecycle.get(task.conversationId, task.messageId ?? task.taskId, "deep");
@@ -547,7 +553,9 @@ export class DeepWorker {
           if (next.active) {
             await next.queued(true);
             await this.queue.enqueue(task);
-            requeued = true;
+            // Queues without removal must keep the cancellation record pinned until dequeue.
+            requeued = next.active || !this.queue.removeMessage;
+            if (!requeued) this.queue.removeMessage?.(task.conversationId, messageId);
           }
           return undefined;
         }

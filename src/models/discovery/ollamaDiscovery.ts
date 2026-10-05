@@ -6,7 +6,8 @@
 import type { Connection } from "../connections";
 import type { DiscoveryAdapter, DiscoveryObservation } from "../inventory";
 import { bindingKey } from "../connections";
-import { mapWithConcurrency } from "./util";
+import { loadDiscoveryLimits, type DiscoveryLimits } from "../../config/discoveryLimits";
+import { mapWithConcurrency, readDiscoveryJson } from "./util";
 
 interface OllamaTagsResponse {
   models?: Array<{
@@ -39,7 +40,11 @@ function findContextLength(modelInfo: Record<string, unknown> | undefined): numb
 export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
   constructor(private readonly fetchMetadata: boolean = true) {}
 
-  async discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]> {
+  async discover(
+    connection: Connection,
+    signal: AbortSignal,
+    limits: DiscoveryLimits = loadDiscoveryLimits()
+  ): Promise<DiscoveryObservation[]> {
     if (!connection.baseUrl) return [];
 
     const tagsResponse = await fetch(`${connection.baseUrl}/api/tags`, { signal });
@@ -47,10 +52,16 @@ export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
       throw new Error(`Ollama /api/tags failed (${tagsResponse.status})`);
     }
 
-    const payload = (await tagsResponse.json()) as OllamaTagsResponse;
+    const payload = (await readDiscoveryJson(tagsResponse, {
+      remaining: limits.maxResponseBytes
+    })) as OllamaTagsResponse;
+    if (!Array.isArray(payload.models)) throw Error("DISCOVERY_INCOMPLETE_LISTING");
+    if (payload.models.length > limits.maxModelsPerConnection) throw Error("DISCOVERY_CAPACITY");
     const models = (payload.models ?? []).filter(
       (m): m is { name: string } => typeof m.name === "string" && m.name.length > 0
     );
+
+    if (models.length !== payload.models.length) throw Error("DISCOVERY_INCOMPLETE_LISTING");
 
     return mapWithConcurrency(models, 4, async (entry) => {
       const observedAtIso = new Date().toISOString();
@@ -80,7 +91,9 @@ export class OllamaDiscoveryAdapter implements DiscoveryAdapter {
         });
         if (!showResponse.ok) return base;
 
-        const show = (await showResponse.json()) as OllamaShowResponse;
+        const show = (await readDiscoveryJson(showResponse, {
+          remaining: limits.maxResponseBytes
+        })) as OllamaShowResponse;
         const contextTokens = findContextLength(show.model_info);
         return contextTokens === undefined
           ? base

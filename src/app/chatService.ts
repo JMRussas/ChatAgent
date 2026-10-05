@@ -34,6 +34,17 @@ export class ConversationOwnershipConflictError extends Error {
   }
 }
 
+/** A store outside `ChatService` that keeps state bound to a conversation identity. */
+export interface ConversationRetirementParticipant {
+  /** Codes that refuse retirement. Evaluated before anything is forgotten; may ask an
+   * external owner. A participant that cannot answer must return a code, not `[]`. */
+  blockers?(conversationId: string, ownerUserId: string | undefined): string[] | Promise<string[]>;
+  /** Drops the participant's state for the conversation. Synchronous and idempotent. */
+  forget(conversationId: string): void;
+}
+export type ConversationRetirement =
+  { status: "retired" } | { status: "not_found" } | { status: "blocked"; blockers: string[] };
+
 export class ChatService {
   private stopping = false;
   private readonly inFlight = new Set<Promise<unknown>>();
@@ -129,6 +140,95 @@ export class ChatService {
   conversationRetentionStats() {
     return { owners: this.ownerUserIdByConversationId.size, scopes: this.scopes.size };
   }
+  retentionStats() {
+    return { ...this.conversationRetentionStats(), inFlight: this.inFlight.size };
+  }
+  private readonly retirementParticipants: ConversationRetirementParticipant[] = [];
+  addRetirementParticipant(participant: ConversationRetirementParticipant) {
+    this.retirementParticipants.push(participant);
+  }
+  /** Holds history and ownership while an asynchronous external request can publish data. */
+  retainConversationWork(conversationId: string) {
+    if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
+    return this.timelineStore.retainConversation?.(conversationId) ?? (() => undefined);
+  }
+  conversationVersion(conversationId: string) {
+    return this.timelineStore.conversationVersion?.(conversationId);
+  }
+  /** Operator view of identity usage. Expired identities are the only retirement candidates. */
+  conversationRetention(limit = 200) {
+    const expired = this.timelineStore.expiredConversations?.() ?? [];
+    return {
+      maxIdentities: this.maxConversationIdentities,
+      owners: this.ownerUserIdByConversationId.size,
+      scopes: this.scopes.size,
+      expiredCount: expired.length,
+      expired: expired.slice(0, limit),
+      truncated: expired.length > limit,
+      retirementSupported: !!(
+        this.timelineStore.retireConversation && this.timelineStore.conversationVersion
+      )
+    };
+  }
+  /**
+   * Explicit operator release of one expired identity. Expiry already removed the
+   * history; this removes the tombstone, owner and every dependent index together,
+   * so the ID becomes unknown: a later request with it starts an unrelated
+   * conversation that any user may claim, with no deduplication against the old
+   * message IDs. It refuses while anything could still act on or replay into the
+   * conversation, and never discards a dead letter on the operator's behalf.
+   */
+  async retireConversation(conversationId: string): Promise<ConversationRetirement> {
+    if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
+    const store = this.timelineStore;
+    const state = () => store.conversationState?.(conversationId);
+    const owner = this.ownerUserIdByConversationId.get(conversationId);
+    if (!store.conversationState || !store.retireConversation || !store.conversationVersion)
+      return owner === undefined
+        ? { status: "not_found" }
+        : { status: "blocked", blockers: ["RETIREMENT_UNSUPPORTED"] };
+    if (state() === undefined) return { status: "not_found" };
+    if (state() === "live") return { status: "blocked", blockers: ["HISTORY_LIVE"] };
+    const version = store.conversationVersion(conversationId);
+    // Blocker answers belong to this incarnation, even if a competing retirement
+    // releases and reuses the ID while an external participant is awaited.
+    const external = (
+      await Promise.all(
+        this.retirementParticipants.map(async (participant) => {
+          try {
+            return (await participant.blockers?.(conversationId, owner)) ?? [];
+          } catch {
+            return ["PARTICIPANT_UNAVAILABLE"];
+          }
+        })
+      )
+    ).flat();
+    // No await below: the remaining checks and every deletion are one synchronous step.
+    if (this.stopping) throw new GenerationError("SHUTTING_DOWN", false);
+    if (state() !== "expired" || store.conversationVersion(conversationId) !== version)
+      return { status: "not_found" };
+    const blockers = [...external];
+    if (this.queue) {
+      if (generationLifecycle(this.queue).conversationActive(conversationId))
+        blockers.push("ACTIVE_TURNS");
+      if (!this.queue.hasConversation) blockers.push("QUEUE_UNINSPECTABLE");
+      else if (this.queue.hasConversation(conversationId)) blockers.push("QUEUED_TASKS");
+    }
+    if (this.deadLetterStore) {
+      if (!this.deadLetterStore.conversationReferences) blockers.push("DEAD_LETTERS_UNINSPECTABLE");
+      else if (this.deadLetterStore.conversationReferences(conversationId))
+        blockers.push("DEAD_LETTERS");
+    }
+    if (blockers.length) return { status: "blocked", blockers: [...new Set(blockers)] };
+    // Dependents first: ownership must outlive the data it guards if one of them throws.
+    for (const participant of this.retirementParticipants) participant.forget(conversationId);
+    if (this.queue) generationLifecycle(this.queue).forgetConversation(conversationId);
+    this.scopes.delete(conversationId);
+    if (!store.retireConversation(conversationId))
+      return { status: "blocked", blockers: ["RETIREMENT_REFUSED"] };
+    this.ownerUserIdByConversationId.delete(conversationId);
+    return { status: "retired" };
+  }
 
   runControlOptions() {
     return this.orchestrator.runControlOptions?.() ?? { models: [] };
@@ -190,8 +290,11 @@ export class ChatService {
     if (claim) this.timelineStore.assertConversationAvailable?.(conversationId);
   }
 
-  cancelMessage(conversationId: string, messageId: string) {
-    return this.orchestrator.cancel(conversationId, messageId);
+  async cancelMessage(conversationId: string, messageId: string) {
+    const result = await this.orchestrator.cancel(conversationId, messageId);
+    const removed = this.queue?.removeMessage?.(conversationId, messageId) ?? [];
+    await Promise.all(removed.map((task) => this.worker.discardQueued(task)));
+    return result;
   }
 
   async runDeepWorkerOnce(): Promise<DeepResult | undefined> {
@@ -256,6 +359,12 @@ export class ChatService {
       ));
       attempt.dispatchId = removed.task.dispatchId;
       await attempt.queued();
+      if (!attempt.active) {
+        releaseDispatch?.();
+        lifecycle.releaseTask(removed.task.taskId);
+        this.deadLetterStore.release?.(taskId);
+        return false;
+      }
       await this.queue.enqueue(removed.task);
     } catch (error) {
       releaseDispatch?.();

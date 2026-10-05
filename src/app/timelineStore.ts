@@ -16,6 +16,19 @@ export interface ConversationTimelineStore {
   assertConversationAvailable?(conversationId: string): void;
   onConversationExpired?(listener: (conversationId: string) => void): void;
   readonly maxConversationIdentities?: number;
+  /**
+   * Optional identity-retirement contract. A store without it never releases an
+   * identity. Retirement deletes the tombstone of an expired conversation, so the
+   * ID becomes unknown and a later request with it starts unrelated work. Callers
+   * must first clear everything else that references the conversation; see
+   * `ChatService.retireConversation`.
+   */
+  conversationState?(conversationId: string): "live" | "expired" | undefined;
+  /** Opaque incarnation token; changes when a retired ID is reused. */
+  conversationVersion?(conversationId: string): symbol | undefined;
+  expiredConversations?(): { conversationId: string; expiredAtIso: string }[];
+  /** True when an expired tombstone was deleted; live or unknown IDs are untouched. */
+  retireConversation?(conversationId: string): boolean;
   appendEvent(conversationId: string, event: ChatTimelineEvent): Promise<void>;
   getEvents(conversationId: string): Promise<ChatTimelineEvent[]>;
 }
@@ -31,17 +44,20 @@ export class NoopConversationTimelineStore implements ConversationTimelineStore 
 }
 
 /** Owns history and bounded expired-ID tombstones. Live writers must hold a lease.
- * Expiry never allows an old identity to be reused during this process lifetime. */
+ * Expiry alone never allows an old identity to be reused: the tombstone stays
+ * until an operator explicitly retires it through the coordinated service path. */
 export class InMemoryConversationTimelineStore implements ConversationTimelineStore {
   private readonly records = new Map<
     string,
     {
+      version: symbol;
       events: ChatTimelineEvent[];
       bytes: number;
       sequence: number;
       at: number;
       pins: number;
       expired: boolean;
+      expiredAt?: number;
       terminalReservations: number;
     }
   >();
@@ -62,11 +78,12 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
   }
   private expire(
     id: string,
-    record: { events: ChatTimelineEvent[]; bytes: number; expired: boolean }
+    record: { events: ChatTimelineEvent[]; bytes: number; expired: boolean; expiredAt?: number }
   ) {
     record.events = [];
     record.bytes = 0;
     record.expired = true;
+    record.expiredAt = this.clock();
     for (const listener of this.listeners) listener(id);
   }
   private prune() {
@@ -78,6 +95,28 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
   assertConversationAvailable(id: string) {
     this.prune();
     if (this.records.get(id)?.expired) throw new GenerationError("CONVERSATION_EXPIRED", false);
+  }
+  conversationState(id: string) {
+    this.prune();
+    const record = this.records.get(id);
+    return record ? (record.expired ? ("expired" as const) : ("live" as const)) : undefined;
+  }
+  conversationVersion(id: string) {
+    return this.records.get(id)?.version;
+  }
+  expiredConversations() {
+    this.prune();
+    return [...this.records]
+      .filter(([, r]) => r.expired)
+      .map(([conversationId, r]) => ({
+        conversationId,
+        expiredAtIso: new Date(r.expiredAt ?? r.at).toISOString()
+      }));
+  }
+  retireConversation(id: string) {
+    this.prune();
+    if (!this.records.get(id)?.expired) return false;
+    return this.records.delete(id);
   }
   private ensure(id: string) {
     this.assertConversationAvailable(id);
@@ -92,6 +131,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       this.expire(...oldest);
     }
     record = {
+      version: Symbol(id),
       events: [],
       bytes: 0,
       sequence: 0,

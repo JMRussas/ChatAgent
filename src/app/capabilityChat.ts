@@ -139,6 +139,9 @@ export class CapabilityChat {
   async whenIdle() {
     while (this.pending.size) await Promise.allSettled([...this.pending]);
   }
+  retentionStats() {
+    return { pending: this.pending.size };
+  }
   cancel(conversationId: string, messageId: string) {
     const lifecycle = generationLifecycle(this.queue);
     this.dispatch?.release(

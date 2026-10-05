@@ -1,0 +1,6205 @@
+{
+  "scope": "In-process assembled runtimes over loopback HTTP with scripted providers and fixture sports transport. Registry assertions are the gate; heap samples are supporting evidence under these settings only.",
+  "date": "2026-10-01T21:24:09.994Z",
+  "node": "v24.21.0",
+  "platform": "win32-x64",
+  "settings": {
+    "rounds": {
+      "warmup": 3,
+      "measured": 12
+    },
+    "live": {
+      "conversationsPerRound": 24,
+      "concurrency": 8,
+      "payloadRows": 150,
+      "payloadCellChars": 180
+    },
+    "conversation": {
+      "maxIdentities": 40,
+      "maxHistories": 12,
+      "idleTtlMs": 600000,
+      "maxEvents": 400,
+      "maxBytes": 1048576
+    },
+    "execution": {
+      "maxCompleted": 20,
+      "completedTtlMs": 300000,
+      "maxMetrics": 50
+    },
+    "deadLetters": {
+      "maxRecords": 6,
+      "maxBytes": 1048576
+    },
+    "quotaPools": 3,
+    "scarceQuotaRequests": 25,
+    "dispatchWaitTimeoutMs": 500,
+    "sportsSnapshots": 20,
+    "slowWriteEvery": 7,
+    "slowWriteMs": 2,
+    "ledger": {
+      "maxPools": 50,
+      "batches": 6,
+      "callsPerBatch": 5000,
+      "renamedPoolsPerBatch": 2000
+    },
+    "heapPlateauTolerance": 0.05
+  },
+  "roundDetail": "registry statistics and heap samples",
+  "workload": {
+    "perRoundLive": "24 conversations of 6 turns at concurrency 8: large direct answers, pinned-binding payload retrieval (150x6 cells of 180 chars), sports game search, one of tool failure / provider error / invalid plan / held retrieval with cancellation, a reused message ID; 2 configuration reloads, 2 protocol-v1 conversations with streams, 2 scoped conversations, legacy streams; one conversation filled to its history limit; identity table filled to its limit; then idle expiry and retirement of every identity",
+    "perRoundQueue": "6 failing deep tasks to the dead-letter limit, a rejected over-limit task, a queued cancellation, 3 retries per failure, 2 successful replays, 1 failed replay, 14 direct turns in one conversation (extractive summary), 3 successful deep tasks; then blocked retirement, refused replay, operator discard and retirement",
+    "shutdown": "3 held retrievals, 1 open stream and 2 queued deep tasks at shutdown",
+    "slowWrites": "every 7th live timeline append delayed 2 ms"
+  },
+  "exclusions": [
+    "Live provider adapters, model discovery (InventoryStore), CLI runner, telemetry file store, evaluation recorder and the Python document sidecar are not constructed",
+    "The three startServer interval timers are not run; the deep worker is driven through its HTTP endpoint",
+    "Execution-cache TTL expiry is not exercised (wall-clock); completed turns, phases and diagnostics are bounded here by count only",
+    "Concurrency is fixed by the driver: the live runtime still has no admission limit on concurrent turns (inventory finding 1)",
+    "Request bodies, stream backpressure and connection counts are not stressed (step 2)",
+    "Limits are scaled down; no claim is made about absolute memory at default limits",
+    "Role catalog, evidence-answer and review modes, and model summarization are not exercised",
+    "Disk-backed history does not exist; only the in-memory stores are measured"
+  ],
+  "totals": {
+    "liveTimelineAppends": 13566,
+    "liveDelayedAppends": 1938,
+    "providerCalls": {
+      "alpha": 1923,
+      "beta": 90,
+      "gamma": 25,
+      "delta": 90
+    },
+    "deepProviderCalls": 345,
+    "queueSummaries": {
+      "scheduled": 15,
+      "published": 15,
+      "failed": 0,
+      "cancelled": 0,
+      "timedOut": 0,
+      "requests": 15,
+      "inputTokens": 86985,
+      "outputTokens": 11665,
+      "latencyMs": 28,
+      "activeJobs": 0
+    },
+    "outcomes": {
+      "live.answer:200": 720,
+      "live.bad-plan:CAPABILITY_PLAN_FAILED": 60,
+      "live.cancel:200": 60,
+      "live.context:200": 45,
+      "live.directory:200": 15,
+      "live.directory:503": 15,
+      "live.duplicate:DUPLICATE_MESSAGE_ID": 360,
+      "live.games:200": 360,
+      "live.history-fill:200": 150,
+      "live.history-fill:CONVERSATION_HISTORY_CAPACITY": 15,
+      "live.hold:200": 60,
+      "live.identity-fill:200": 150,
+      "live.identity-fill:CONVERSATION_CAPACITY": 15,
+      "live.payload:200": 295,
+      "live.payload:NO_ELIGIBLE_MODEL": 65,
+      "live.provider-error:PROVIDER_ERROR": 120,
+      "live.reload:200": 30,
+      "live.retire:200": 600,
+      "live.scoped-conversation:201": 15,
+      "live.scoped-turn:200": 15,
+      "live.stream:200": 45,
+      "live.tool-fail:200": 120,
+      "live.v1-stream:200": 30,
+      "live.v1:200": 60,
+      "queue.deep-admitted:200": 90,
+      "queue.deep-over-limit:DEAD_LETTER_CAPACITY": 15,
+      "queue.deep:200": 45,
+      "queue.direct:200": 210,
+      "queue.replay:200": 45,
+      "queue.retire:200": 165
+    }
+  },
+  "rounds": [
+    {
+      "round": 0,
+      "phase": "warmup",
+      "payload": {
+        "heap": {
+          "heapUsed": 36821264,
+          "external": 9197101,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 431,
+            "bytes": 3536122
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 147,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 9,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 33893464,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 164,
+            "bytes": 1312713
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 49,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 9,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 29102656,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 134
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 6
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 79762
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "phase": "warmup",
+      "payload": {
+        "heap": {
+          "heapUsed": 37371632,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 434,
+            "bytes": 3535983
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 148,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 9,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 34534936,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 164,
+            "bytes": 1312726
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 49,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 9,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 29606024,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 268
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 12
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 159524
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "phase": "warmup",
+      "payload": {
+        "heap": {
+          "heapUsed": 37686416,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 434,
+            "bytes": 3535970
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 148,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 9,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 34821328,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 168,
+            "bytes": 1315533
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 51,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 9,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 29894784,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 402
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 18
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 239286
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 37836688,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 414,
+            "bytes": 3502363
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 140,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 7,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 35013032,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 164,
+            "bytes": 1312726
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 49,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 7,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 30062952,
+          "external": 9197141,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 1,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 536
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 24
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 319048
+        }
+      ]
+    },
+    {
+      "round": 4,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34910984,
+          "external": 9191741,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 397,
+            "bytes": 2680917
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 135,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32895280,
+          "external": 9191741,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 28665088,
+          "external": 9191741,
+          "arrayBuffers": 4667861
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 670
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 398810
+        }
+      ]
+    },
+    {
+      "round": 5,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 33835680,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 391,
+            "bytes": 2510434
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 133,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 10,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 31999968,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 10,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 27844096,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 1,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 804
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 478572
+        }
+      ]
+    },
+    {
+      "round": 6,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34032656,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 12,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32220832,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 12,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 27855064,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 4,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 938
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 558334
+        }
+      ]
+    },
+    {
+      "round": 7,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 33861968,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32028024,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 27880896,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 2,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1072
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 638096
+        }
+      ]
+    },
+    {
+      "round": 8,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 33906504,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511274
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 12,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32081160,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 12,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 27939712,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1206
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 717858
+        }
+      ]
+    },
+    {
+      "round": 9,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34111592,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6909,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32293408,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 27932448,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1340
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 797620
+        }
+      ]
+    },
+    {
+      "round": 10,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34228360,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 12,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6912,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32392336,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 12,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 28043512,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 4,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1474
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 877382
+        }
+      ]
+    },
+    {
+      "round": 11,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 33870160,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 371,
+            "bytes": 2476814
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 125,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6912,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32098264,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 162,
+            "bytes": 1145051
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 49,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 28030104,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 2,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1608
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 957144
+        }
+      ]
+    },
+    {
+      "round": 12,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34049072,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6912,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32223712,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 28065992,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 2,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1742
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 1036906
+        }
+      ]
+    },
+    {
+      "round": 13,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34030528,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6912,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32213712,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 28052280,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 2,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 1876
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 1116668
+        }
+      ]
+    },
+    {
+      "round": 14,
+      "phase": "measured",
+      "payload": {
+        "heap": {
+          "heapUsed": 34275640,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 30,
+            "histories": 12,
+            "expired": 18,
+            "pins": 0,
+            "events": 392,
+            "bytes": 2511261
+          },
+          "service": {
+            "owners": 30,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 134,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 11,
+            "histories": 11,
+            "expired": 0,
+            "pins": 0,
+            "events": 196,
+            "bytes": 150460
+          },
+          "service": {
+            "owners": 11,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 3,
+            "reservations": 0,
+            "bytes": 6912,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 30,
+            "summaries": 1
+          }
+        }
+      },
+      "identityCap": {
+        "heap": {
+          "heapUsed": 32429368,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 40,
+            "histories": 12,
+            "expired": 28,
+            "pins": 0,
+            "events": 158,
+            "bytes": 1142244
+          },
+          "service": {
+            "owners": 40,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 20,
+            "claimed": 20,
+            "retained": 20,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 2
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 47,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 20,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 11,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        }
+      },
+      "idle": {
+        "heap": {
+          "heapUsed": 28086584,
+          "external": 9190249,
+          "arrayBuffers": 4667813
+        },
+        "live": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "dispatch": {
+            "phases": 20,
+            "retained": 20,
+            "metrics": 50
+          },
+          "admission": {
+            "active": 0,
+            "recent": 20,
+            "computePools": 0,
+            "quotaPools": 3
+          },
+          "chat": {
+            "pending": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          },
+          "sports": {
+            "records": 0,
+            "snapshots": 0,
+            "directories": 0,
+            "games": 3,
+            "coordinator": {
+              "runs": 0,
+              "requests": 0,
+              "profiles": 0,
+              "jobs": 0,
+              "waiters": 0,
+              "settled": 0,
+              "active": 0
+            }
+          }
+        },
+        "queue": {
+          "timeline": {
+            "identities": 0,
+            "histories": 0,
+            "expired": 0,
+            "pins": 0,
+            "events": 0,
+            "bytes": 0
+          },
+          "service": {
+            "owners": 0,
+            "scopes": 0,
+            "inFlight": 0
+          },
+          "lifecycle": {
+            "turns": 0,
+            "claimed": 0,
+            "retained": 0,
+            "consumers": 0,
+            "tasks": 0
+          },
+          "worker": {
+            "retryCounters": 0
+          },
+          "server": {
+            "responses": 0,
+            "streams": 0,
+            "wireConversations": 0
+          },
+          "queue": 0,
+          "deadLetters": {
+            "maxRecords": 6,
+            "maxBytes": 1048576,
+            "records": 0,
+            "reservations": 0,
+            "bytes": 0,
+            "reservedBytes": 0
+          },
+          "context": {
+            "jobs": 0,
+            "pending": 0,
+            "sources": 0,
+            "summaries": 0
+          }
+        }
+      },
+      "quota": [
+        {
+          "poolId": "pool-shared",
+          "units": 2010
+        },
+        {
+          "poolId": "pool-scarce",
+          "units": 25
+        },
+        {
+          "poolId": "pool-tokens",
+          "units": 1196430
+        }
+      ]
+    }
+  ],
+  "heap": {
+    "payload": {
+      "samples": [
+        37836688,
+        34910984,
+        33835680,
+        34032656,
+        33861968,
+        33906504,
+        34111592,
+        34228360,
+        33870160,
+        34049072,
+        34030528,
+        34275640
+      ],
+      "min": 33835680,
+      "max": 37836688,
+      "firstThirdMedian": 34910984,
+      "lastThirdMedian": 34049072,
+      "growthBytes": -861912,
+      "growthRatio": -0.024688848644312058,
+      "slopeBytesPerRound": -157728,
+      "withinTolerance": true
+    },
+    "identityCap": {
+      "samples": [
+        35013032,
+        32895280,
+        31999968,
+        32220832,
+        32028024,
+        32081160,
+        32293408,
+        32392336,
+        32098264,
+        32223712,
+        32213712,
+        32429368
+      ],
+      "min": 31999968,
+      "max": 35013032,
+      "firstThirdMedian": 32895280,
+      "lastThirdMedian": 32223712,
+      "growthBytes": -671568,
+      "growthRatio": -0.020415330102069355,
+      "slopeBytesPerRound": -112923,
+      "withinTolerance": true
+    },
+    "idle": {
+      "samples": [
+        30062952,
+        28665088,
+        27844096,
+        27855064,
+        27880896,
+        27939712,
+        27932448,
+        28043512,
+        28030104,
+        28065992,
+        28052280,
+        28086584
+      ],
+      "min": 27844096,
+      "max": 30062952,
+      "firstThirdMedian": 28665088,
+      "lastThirdMedian": 28065992,
+      "growthBytes": -599096,
+      "growthRatio": -0.02089984862422191,
+      "slopeBytesPerRound": -85127,
+      "withinTolerance": true
+    }
+  },
+  "shutdown": {
+    "elapsedMs": 2236,
+    "error": null,
+    "before": {
+      "live": {
+        "timeline": {
+          "identities": 3,
+          "histories": 3,
+          "expired": 0,
+          "pins": 6,
+          "events": 18,
+          "bytes": 12627
+        },
+        "service": {
+          "owners": 3,
+          "scopes": 0,
+          "inFlight": 0
+        },
+        "lifecycle": {
+          "turns": 3,
+          "claimed": 3,
+          "retained": 0,
+          "consumers": 3,
+          "tasks": 3
+        },
+        "dispatch": {
+          "phases": 20,
+          "retained": 20,
+          "metrics": 50
+        },
+        "admission": {
+          "active": 0,
+          "recent": 20,
+          "computePools": 0,
+          "quotaPools": 3
+        },
+        "chat": {
+          "pending": 3
+        },
+        "server": {
+          "responses": 1,
+          "streams": 1,
+          "wireConversations": 0
+        },
+        "queue": 0,
+        "deadLetters": {
+          "maxRecords": 6,
+          "maxBytes": 1048576,
+          "records": 0,
+          "reservations": 0,
+          "bytes": 0,
+          "reservedBytes": 0
+        },
+        "context": {
+          "jobs": 0,
+          "pending": 0,
+          "sources": 3,
+          "summaries": 0
+        },
+        "sports": {
+          "records": 0,
+          "snapshots": 0,
+          "directories": 0,
+          "games": 3,
+          "coordinator": {
+            "runs": 0,
+            "requests": 0,
+            "profiles": 0,
+            "jobs": 0,
+            "waiters": 0,
+            "settled": 0,
+            "active": 0
+          }
+        }
+      },
+      "queue": {
+        "timeline": {
+          "identities": 2,
+          "histories": 2,
+          "expired": 0,
+          "pins": 4,
+          "events": 12,
+          "bytes": 6242
+        },
+        "service": {
+          "owners": 2,
+          "scopes": 0,
+          "inFlight": 0
+        },
+        "lifecycle": {
+          "turns": 2,
+          "claimed": 2,
+          "retained": 0,
+          "consumers": 2,
+          "tasks": 2
+        },
+        "worker": {
+          "retryCounters": 0
+        },
+        "server": {
+          "responses": 0,
+          "streams": 0,
+          "wireConversations": 0
+        },
+        "queue": 2,
+        "deadLetters": {
+          "maxRecords": 6,
+          "maxBytes": 1048576,
+          "records": 0,
+          "reservations": 2,
+          "bytes": 0,
+          "reservedBytes": 4598
+        },
+        "context": {
+          "jobs": 0,
+          "pending": 0,
+          "sources": 0,
+          "summaries": 0
+        }
+      }
+    },
+    "after": {
+      "live": {
+        "timeline": {
+          "identities": 3,
+          "histories": 3,
+          "expired": 0,
+          "pins": 0,
+          "events": 21,
+          "bytes": 13842
+        },
+        "service": {
+          "owners": 3,
+          "scopes": 0,
+          "inFlight": 0
+        },
+        "lifecycle": {
+          "turns": 3,
+          "claimed": 3,
+          "retained": 3,
+          "consumers": 0,
+          "tasks": 0
+        },
+        "dispatch": {
+          "phases": 20,
+          "retained": 20,
+          "metrics": 50
+        },
+        "admission": {
+          "active": 0,
+          "recent": 20,
+          "computePools": 0,
+          "quotaPools": 3
+        },
+        "chat": {
+          "pending": 0
+        },
+        "server": {
+          "responses": 0,
+          "streams": 0,
+          "wireConversations": 0
+        },
+        "queue": 0,
+        "deadLetters": {
+          "maxRecords": 6,
+          "maxBytes": 1048576,
+          "records": 0,
+          "reservations": 0,
+          "bytes": 0,
+          "reservedBytes": 0
+        },
+        "context": {
+          "jobs": 0,
+          "pending": 0,
+          "sources": 3,
+          "summaries": 0
+        },
+        "sports": {
+          "records": 0,
+          "snapshots": 0,
+          "directories": 0,
+          "games": 0,
+          "coordinator": {
+            "runs": 0,
+            "requests": 0,
+            "profiles": 0,
+            "jobs": 0,
+            "waiters": 0,
+            "settled": 0,
+            "active": 0
+          }
+        }
+      },
+      "queue": {
+        "timeline": {
+          "identities": 2,
+          "histories": 2,
+          "expired": 0,
+          "pins": 0,
+          "events": 14,
+          "bytes": 6926
+        },
+        "service": {
+          "owners": 2,
+          "scopes": 0,
+          "inFlight": 0
+        },
+        "lifecycle": {
+          "turns": 2,
+          "claimed": 2,
+          "retained": 2,
+          "consumers": 0,
+          "tasks": 0
+        },
+        "worker": {
+          "retryCounters": 0
+        },
+        "server": {
+          "responses": 0,
+          "streams": 0,
+          "wireConversations": 0
+        },
+        "queue": 0,
+        "deadLetters": {
+          "maxRecords": 6,
+          "maxBytes": 1048576,
+          "records": 0,
+          "reservations": 0,
+          "bytes": 0,
+          "reservedBytes": 0
+        },
+        "context": {
+          "jobs": 0,
+          "pending": 0,
+          "sources": 0,
+          "summaries": 0
+        }
+      }
+    }
+  },
+  "quotaPoolCardinality": {
+    "scope": "ResourceAdmission only; pool identifiers churn beyond the configured limit",
+    "settings": {
+      "maxPools": 50,
+      "batches": 6,
+      "callsPerBatch": 5000,
+      "renamedPoolsPerBatch": 2000
+    },
+    "samples": [
+      {
+        "admitted": 5000,
+        "rejected": 2000,
+        "heapUsed": 28408904,
+        "external": 9190249,
+        "arrayBuffers": 4667813,
+        "active": 0,
+        "recent": 100,
+        "computePools": 0,
+        "quotaPools": 50
+      },
+      {
+        "admitted": 10000,
+        "rejected": 4000,
+        "heapUsed": 28438528,
+        "external": 9190249,
+        "arrayBuffers": 4667813,
+        "active": 0,
+        "recent": 100,
+        "computePools": 0,
+        "quotaPools": 50
+      },
+      {
+        "admitted": 15000,
+        "rejected": 6000,
+        "heapUsed": 28419888,
+        "external": 9190249,
+        "arrayBuffers": 4667813,
+        "active": 0,
+        "recent": 100,
+        "computePools": 0,
+        "quotaPools": 50
+      },
+      {
+        "admitted": 20000,
+        "rejected": 8000,
+        "heapUsed": 28456960,
+        "external": 9190249,
+        "arrayBuffers": 4667813,
+        "active": 0,
+        "recent": 100,
+        "computePools": 0,
+        "quotaPools": 50
+      },
+      {
+        "admitted": 25000,
+        "rejected": 10000,
+        "heapUsed": 28424648,
+        "external": 9190249,
+        "arrayBuffers": 4667813,
+        "active": 0,
+        "recent": 100,
+        "computePools": 0,
+        "quotaPools": 50
+      },
+      {
+        "admitted": 30000,
+        "rejected": 12000,
+        "heapUsed": 28466064,
+        "external": 9190249,
+        "arrayBuffers": 4667813,
+        "active": 0,
+        "recent": 100,
+        "computePools": 0,
+        "quotaPools": 50
+      }
+    ],
+    "heap": {
+      "samples": [
+        28408904,
+        28438528,
+        28419888,
+        28456960,
+        28424648,
+        28466064
+      ],
+      "min": 28408904,
+      "max": 28466064,
+      "firstThirdMedian": 28438528,
+      "lastThirdMedian": 28466064,
+      "growthBytes": 27536,
+      "growthRatio": 0.0009682638988909693,
+      "slopeBytesPerRound": 8035,
+      "withinTolerance": true
+    },
+    "distinctPoolsRetained": 50,
+    "unitsRetained": 30000
+  },
+  "assertions": {
+    "quota.startup rejects a policy with more pools than the limit": {
+      "checked": 1,
+      "failed": 0
+    },
+    "live.pinned payload turn is accepted or expired under pressure": {
+      "checked": 270,
+      "failed": 0
+    },
+    "live.reused message ID is rejected while history is retained": {
+      "checked": 360,
+      "failed": 0
+    },
+    "live.cancelling held retrieval succeeds": {
+      "checked": 60,
+      "failed": 0
+    },
+    "live.history limit rejects with CONVERSATION_HISTORY_CAPACITY": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.deep task is admitted below the dead-letter limit": {
+      "checked": 90,
+      "failed": 0
+    },
+    "queue.full dead-letter store rejects deep work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.direct turns continue at dead-letter capacity": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.cancelling a queued task succeeds": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.worker drains the queue": {
+      "checked": 60,
+      "failed": 0
+    },
+    "queue.failed tasks become dead letters and the cancelled one frees its slot": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.successful replays leave the store and a failed replay returns to it": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no history lease outlives its work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.histories within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.identities within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.history bytes within per-history limits": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.owners match identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.scopes belong to live histories": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.wire mappings belong to identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no in-flight request": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no summary job": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no open stream": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no inline retrieval work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no lifecycle consumer or task pin": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.completed turns within limit and indexes agree": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.dispatch phases within limit and all completed": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.dispatch metrics within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.no active reservation or compute key": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.admission diagnostics within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.quota pools within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.deep queue and dead letters unused": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.tool results within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.team and game snapshots within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.payload.briefing runs within limit with no job or waiter": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.no history lease outlives its work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.histories and identities within limits": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.owners match identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.no in-flight request, queued task, retry counter or summary job": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.no lifecycle consumer or task pin": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.completed turns within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.payload.dead letters within limit with no reservation": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identity fill turn succeeds": {
+      "checked": 150,
+      "failed": 0
+    },
+    "live.identity limit rejects with CONVERSATION_CAPACITY": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.existing conversation continues at identity capacity": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no history lease outlives its work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.histories within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.identities within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.history bytes within per-history limits": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.owners match identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.scopes belong to live histories": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.wire mappings belong to identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no in-flight request": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no summary job": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no open stream": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no inline retrieval work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no lifecycle consumer or task pin": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.completed turns within limit and indexes agree": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.dispatch phases within limit and all completed": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.dispatch metrics within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.no active reservation or compute key": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.admission diagnostics within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.quota pools within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.deep queue and dead letters unused": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.tool results within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.team and game snapshots within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.briefing runs within limit with no job or waiter": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.identity table is at its limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.identityCap.history count is at its limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.expired identity retires once nothing references it": {
+      "checked": 600,
+      "failed": 0
+    },
+    "queue.dead letter blocks retirement of its conversation": {
+      "checked": 45,
+      "failed": 0
+    },
+    "queue.replay into an expired conversation is refused": {
+      "checked": 45,
+      "failed": 0
+    },
+    "queue.operator discard removes the record": {
+      "checked": 45,
+      "failed": 0
+    },
+    "queue.expired identity retires once nothing references it": {
+      "checked": 165,
+      "failed": 0
+    },
+    "live.idle.no history lease outlives its work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.histories within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.identities within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.history bytes within per-history limits": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.owners match identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.scopes belong to live histories": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.wire mappings belong to identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.no in-flight request": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.no summary job": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.no open stream": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.no inline retrieval work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.no lifecycle consumer or task pin": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.completed turns within limit and indexes agree": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.dispatch phases within limit and all completed": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.dispatch metrics within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.no active reservation or compute key": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.admission diagnostics within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.quota pools within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.deep queue and dead letters unused": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.tool results within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.team and game snapshots within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.briefing runs within limit with no job or waiter": {
+      "checked": 15,
+      "failed": 0
+    },
+    "live.idle.nothing identity-keyed survives expiry and retirement": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.no history lease outlives its work": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.histories and identities within limits": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.owners match identities": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.no in-flight request, queued task, retry counter or summary job": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.no lifecycle consumer or task pin": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.completed turns within limit": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.dead letters within limit with no reservation": {
+      "checked": 15,
+      "failed": 0
+    },
+    "queue.idle.nothing identity-keyed or dead-lettered survives cleanup": {
+      "checked": 15,
+      "failed": 0
+    },
+    "quota.shared pool consumption equals the provider calls of both bindings": {
+      "checked": 15,
+      "failed": 0
+    },
+    "quota.scarce pool never exceeds its allowance": {
+      "checked": 15,
+      "failed": 0
+    },
+    "quota.consumption is never refunded": {
+      "checked": 15,
+      "failed": 0
+    },
+    "workload.live.answer:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.payload:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.games:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.directory:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.scoped-conversation:201 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.scoped-turn:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.reload:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.v1:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.v1-stream:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.stream:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.cancel:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.provider-error:PROVIDER_ERROR is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.live.bad-plan:CAPABILITY_PLAN_FAILED is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.queue.direct:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.queue.deep:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.queue.replay:200 is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "workload.summary publication is exercised": {
+      "checked": 1,
+      "failed": 0
+    },
+    "quota.scarce pool is exhausted exactly": {
+      "checked": 1,
+      "failed": 0
+    },
+    "shutdown.work is in flight beforehand": {
+      "checked": 1,
+      "failed": 0
+    },
+    "shutdown.completes without error": {
+      "checked": 1,
+      "failed": 0
+    },
+    "shutdown.live runtime drains held work, streams, leases and reservations": {
+      "checked": 1,
+      "failed": 0
+    },
+    "shutdown.queue runtime discards queued tasks and frees their slots and leases": {
+      "checked": 1,
+      "failed": 0
+    },
+    "shutdown.no request is served afterwards": {
+      "checked": 1,
+      "failed": 0
+    },
+    "ledger.pool count stays at the limit": {
+      "checked": 1,
+      "failed": 0
+    },
+    "ledger.every renamed pool is rejected with QUOTA_POOL_CAPACITY": {
+      "checked": 1,
+      "failed": 0
+    },
+    "ledger.retained pools keep exact consumption": {
+      "checked": 1,
+      "failed": 0
+    },
+    "ledger.no reservation or diagnostic growth": {
+      "checked": 1,
+      "failed": 0
+    }
+  },
+  "verdict": {
+    "registryAssertions": "pass",
+    "failedAssertions": [],
+    "heapWithinTolerance": true
+  }
+}

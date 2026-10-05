@@ -55,7 +55,7 @@ function setup(maxRecords = 2) {
   return { timeline, queue, dead, deep, service, lifecycle: generationLifecycle(queue) };
 }
 
-it("direct enqueues hold no slot, lease or task pin until dequeued and are not limited by the queue", async () => {
+it("direct enqueues below queue capacity hold no slot, lease or task pin until dequeued", async () => {
   const r = setup(1);
   for (const id of ["a", "b", "c"]) await r.queue.enqueue(task(id));
   expect(r.queue.size()).toBe(3);
@@ -78,7 +78,7 @@ it("direct enqueues hold no slot, lease or task pin until dequeued and are not l
   expect(r.timeline.retentionStats().pins).toBe(0);
 });
 
-it("a cancelled queued task keeps its queue entry, slot, task pin and history lease until dequeued", async () => {
+it("cancelling queued work promptly releases its queue entry, slot, task pin and history lease", async () => {
   const r = setup();
   const response = await r.service.submitMessage({
     messageId: "m",
@@ -89,11 +89,6 @@ it("a cancelled queued task keeps its queue entry, slot, task pin and history le
   });
   expect(response.deepTask).toBeDefined();
   expect(await r.service.cancelMessage("c", "m")).toMatchObject({ phases: { deep: "cancelled" } });
-  expect(r.queue.size()).toBe(1);
-  expect(r.dead.retentionStats()).toMatchObject({ records: 0, reservations: 1 });
-  expect(r.lifecycle.retentionStats()).toMatchObject({ consumers: 1, tasks: 1 });
-  expect(r.timeline.retentionStats().pins).toBe(1);
-
   expect(await r.service.runDeepWorkerOnce()).toBeUndefined();
   expect(r.deep.resolveDeepTask).not.toHaveBeenCalled();
   expect(r.queue.size()).toBe(0);
@@ -209,5 +204,85 @@ it("preserves a dequeued task when its conversation expired before attempt creat
   expect(deep.resolveDeepTask).not.toHaveBeenCalled();
   expect(queue.size()).toBe(0);
   expect(generationLifecycle(queue).retentionStats()).toMatchObject({ consumers: 0, tasks: 0 });
+  expect(timeline.retentionStats().pins).toBe(0);
+});
+
+it("releases a cancelled queued task while the serial worker is blocked on another task", async () => {
+  const r = setup();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.mocked(r.deep.resolveDeepTask).mockImplementationOnce(async () => {
+    await held;
+    throw new GenerationError("PROVIDER_AUTH", false);
+  });
+  const send = (messageId: string) =>
+    r.service.submitMessage({
+      messageId,
+      conversationId: "c",
+      userId: "u",
+      text: "What is the latest news?",
+      timestampIso: new Date().toISOString()
+    });
+  await send("running");
+  const worker = r.service.runDeepWorkerOnce();
+  try {
+    await vi.waitFor(() => expect(r.deep.resolveDeepTask).toHaveBeenCalledTimes(1));
+    await send("queued");
+    await r.service.cancelMessage("c", "queued");
+    expect(r.queue.size()).toBe(0);
+    expect(r.dead.retentionStats()).toMatchObject({ reservations: 1 });
+    expect(r.lifecycle.retentionStats()).toMatchObject({ consumers: 1, tasks: 1 });
+    expect(r.timeline.retentionStats().pins).toBe(2); // Running attempt plus its task lease.
+  } finally {
+    release();
+    await worker;
+  }
+  expect(r.deep.resolveDeepTask).toHaveBeenCalledTimes(1);
+  expect(r.dead.retentionStats()).toMatchObject({ records: 1, reservations: 0 });
+  expect(r.lifecycle.retentionStats()).toMatchObject({ consumers: 0, tasks: 0 });
+});
+
+it("a custom queue without removal retains a cancelled retry until physical dequeue", async () => {
+  const entries: DeepTask[] = [task("custom-retry")];
+  let release!: () => void;
+  let entered!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const enqueued = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const queue = {
+    async enqueue(value: DeepTask) {
+      entries.push(value);
+      entered();
+      await pending;
+    },
+    async dequeue() {
+      return entries.shift();
+    }
+  };
+  const timeline = new InMemoryConversationTimelineStore();
+  const deep: DeepModelProvider = {
+    resolveDeepTask: vi.fn(async () => {
+      throw new GenerationError("PROVIDER_UNAVAILABLE", true);
+    })
+  };
+  const worker = new DeepWorker(queue, deep, timeline, 1);
+  const lifecycle = generationLifecycle(queue);
+  const running = worker.runSingle();
+  await enqueued;
+  await lifecycle.cancel("c", "custom-retry");
+  release();
+  await running;
+  expect(entries).toHaveLength(1);
+  expect(lifecycle.retentionStats()).toMatchObject({ tasks: 1, consumers: 1 });
+  expect(lifecycle.get("c", "custom-retry", "deep")?.active).toBe(false);
+  await worker.runSingle();
+  expect(deep.resolveDeepTask).toHaveBeenCalledTimes(1);
+  expect(entries).toHaveLength(0);
+  expect(lifecycle.retentionStats()).toMatchObject({ tasks: 0, consumers: 0 });
   expect(timeline.retentionStats().pins).toBe(0);
 });

@@ -383,7 +383,8 @@ describe("01B internal memory", () => {
   it("server close waits for the summary lifecycle", async () => {
     const s = await setup(6, { summarizer: fake(async () => new Promise(() => {})) });
     await prepare(s.manager);
-    const server = createChatServer({} as ChatService, { shutdown: () => s.manager.shutdown() });
+    const service = { addRetirementParticipant: () => undefined } as unknown as ChatService;
+    const server = createChatServer(service, { shutdown: () => s.manager.shutdown() });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve()))

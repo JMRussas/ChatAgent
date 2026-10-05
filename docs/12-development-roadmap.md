@@ -8,6 +8,14 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
+The October 5 review findings are resolved: conversation changes preserve the
+in-flight submission lock and stale send errors cannot alter the new conversation;
+custom queues without removal retain cancelled retry resources until physical
+dequeue. Regression coverage exercises both races. Validation on Node 24.21.0:
+886 tests across 106 files, 29 browser tests, format and lint pass.
+Step 1 acceptance remains a
+separate decision within the measured scope described below.
+
 Conversation retention, dead-letter admission and quota-pool cardinality limits are
 implemented, including review fixes for overflow terminal publication, protocol
 identity allocation and dead-letter snapshot/byte accounting. The working baseline
@@ -21,15 +29,24 @@ under step 1. It enumerates every process-lifetime store, pending-work registry,
 timer and buffer with its owner, limit, cleanup trigger and dependent references.
 It is a code-read enumeration backed by regression tests, not a measurement.
 Review also fixed a worker recovery gap: attempt creation after dequeue now runs
-inside dead-letter recovery, so expired history cannot silently lose a task. The boundaries it found are listed there as
-open; none of the candidate bounds is decided or implemented.
+inside dead-letter recovery, so expired history cannot silently lose a task. The
+boundaries it found are listed there: findings 2, 3, 5 and 6 are now bounded;
+findings 1 and 4 remain step 2 work. Finding 7 is closed for the measured scope.
 
-**Next implementation:** address expiry UI and coordinated identity retirement
-boundaries, then run the assembled-runtime sustained-memory gate, including a
-quota-pool cardinality workload separate from the one-pool ledger benchmark. The
-gate must drive the live `CapabilityChat` runtime concurrently, because that
-runtime does not pass through dead-letter admission (inventory finding 1).
-Rolling-window reconciliation belongs to step 3.
+Expiry UI, coordinated identity retirement and the assembled-runtime
+sustained-memory gate are implemented; see the two entries after the inventory.
+The gate passes for its stated scope and exclusions. This increment is in the
+working tree, uncommitted, with review fixes described below. Validation on
+Windows Node 24.21.0: 875 tests across 105 files, 28 browser tests, formatting
+and lint; the strengthened memory gate also passes. No live
+provider calls or service restart.
+
+**Next implementation:** review the remaining-bound increment below, then decide
+whether step 1 is accepted within its measured scope. Findings 2, 3, 5 and 6 now
+have implemented bounds; findings 1 and 4 remain step 2 work. After acceptance,
+start request limits and the deployment boundary, including access rules for the
+unauthenticated identity listing and retirement endpoints. Rolling-window
+reconciliation belongs to step 3.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
@@ -262,14 +279,15 @@ attempt reservations reject new attempts. Invalid/abandoned streams and unknown
 cancellations no longer allocate permanent v1 identities; streams opened before
 submission discover the mapping when the first message arrives.
 
-**Explicit limitation:** bounded identity tombstones and ownership/v1 scope indexes
-remain for the process lifetime. After 1000 distinct identities, new identities
+**Explicit limitation:** identity tombstones and ownership/v1 scope indexes are
+never recycled automatically. After 1000 distinct identities, new identities
 are rejected with `CONVERSATION_CAPACITY` (503); existing live conversations can
 continue within their history limits. The v1 scope registry has its own count cap.
-There is no automatic identity recycling or operator purge API in this slice.
-Durable ownership/deduplication and a coordinated retirement policy for external
-tasks/evidence are required before safely reclaiming these identity slots. This
-is deliberate backpressure, not a claim of indefinitely sustainable operation.
+An operator can release expired identities one at a time (see "Expiry UI and
+identity retirement" below). Ownership and deduplication are still not durable:
+a restart forgets every identity and a retired ID is reusable. This is deliberate
+backpressure with an explicit release, not a claim of indefinitely sustainable
+operation.
 
 Validation: 820 tests across 101 files passed on Node 24.21.0, including 17 new
 retention regressions; all 26 browser tests and formatting/TypeScript checks passed.
@@ -395,47 +413,47 @@ deep queue stays empty and `DEAD_LETTER_*` admission never applies.
 
 Retained stores (survive the work that created them):
 
-| State / owner                                                                      | Limit                                                                   | Cleanup trigger                                                   | Dependent references                                                              |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Timeline history / `InMemoryConversationTimelineStore`                             | 100 histories, 1000 identities; 10000 events and 8 MiB per history      | Lazy idle TTL (24 h) and count pressure; never while leased       | Leases from submissions, attempts and queued tasks; expiry listeners              |
-| Owners and selected scope / `ChatService`                                          | Owners ≤ identity limit; scopes ≤ live histories                        | Scope on history expiry; owners never                             | Ownership guards retained evidence and external document tasks                    |
-| Wire scope mapping / protocol v1                                                   | ≤ identity limit                                                        | Only when a first submission fails before ownership               | Keeps an expired wire ID from becoming a fresh internal ID                        |
-| Source identity index / `InMemorySourceStore`                                      | One entry per user/answer event of a live history; no limit of its own  | History expiry (scans every key)                                  | Summary memory resolves its references through it                                 |
-| Summary memory / `InMemorySummaryStore`                                            | One per live history, ≤ `CONTEXT_SUMMARY_MAX_TOKENS` bytes              | History expiry                                                    | Source references into the index                                                  |
-| Dead letters / `InMemoryDeadLetterStore`                                           | Records plus reservations ≤ 100 and 16 MiB of serialized tasks          | Replay or operator DELETE; reservations on task settlement        | Own task snapshot including context; pins neither history nor dispatch snapshot   |
-| Quota aggregates / `ResourceAdmission.quotaTotals`                                 | ≤ 100 pools                                                             | Never; a pool with only unstarted reservations frees on release   | Fingerprint of the configured quota snapshot                                      |
-| Admission diagnostics / `ResourceAdmission.recent`                                 | 100 rows, 5 min                                                         | Lazy on archive or stats                                          | Compact views only; no request payload                                            |
-| Completed turns / `GenerationLifecycle`                                            | 100 turns, 5 min; live turns protected                                  | Lazy, after consumers and writes settle                           | Each attempt keeps its answer text (≤ 1 MiB), model metadata and timeline handle  |
-| Completed dispatch phases and metrics / `CatalogDispatch`                          | 100 phases, 5 min; 1000 metrics                                         | Lazy, after `complete()`                                          | Per phase: 2 + fallbacks context copies, catalog entry clones, provider bindings  |
-| Briefing runs / `BriefingCoordinator`                                              | `maxRuns` 20 (active plus settled); settled TTL 5 min                   | Lazy; pressure evicts the oldest drained run                      | Request, profile and waiter indexes; evidence results                             |
-| Tool results / `ToolResultStore`                                                   | `maxSnapshots` 100 records; oldest evicted                              | Lazy expiry on put/get; cleared on reload or close                | Owner and conversation check; rows are also copied into timeline `payloadResults` |
-| Directory cache, resolution and game snapshots / `TeamDirectory`, `GameOperations` | 2 directories (1 MB response each); 100 + 100 snapshots                 | Lazy TTL on the next lookup or search; cleared on reload or close | Snapshots bind user, conversation and registry revision                           |
-| Shared source cache / `SharedSportsSource`, `SportsRequestBudget`                  | 20 entries (15 s), 4 pending reads, 5 start times per minute            | Lazy on read                                                      | Waiter count cancels the shared read when the last caller leaves                  |
-| Model observations / `InventoryStore`                                              | One per binding a provider has ever listed; no limit                    | Overwritten on refresh; vanished bindings become tombstones       | Cloned into every catalog `prepare`                                               |
-| Latency samples / `InMemoryLatencyEstimator`                                       | 1000 samples per provider/model/route/size bucket                       | Oldest samples dropped on record                                  | Persisted in the telemetry file                                                   |
-| CLI pool keys and inspection cache / `CliRunner`, `ClaudeInspectionCache`          | One key per busy pool; one cached and one pending inspection            | Key deleted at zero; inspection TTL 5–30 s                        | Shared by every CLI adapter of the account                                        |
-| Evaluation trace / `EvaluationRecorder` (opt-in)                                   | `EVAL_MAX_EVENTS` 10000, `EVAL_MAX_BYTES` 10 MiB; then drops and counts | Retention timer (7 d) or `finish()`                               | Turn and call indexes ≤ recorded events                                           |
+| State / owner                                                                      | Limit                                                                   | Cleanup trigger                                                                                     | Dependent references                                                                              |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Timeline history / `InMemoryConversationTimelineStore`                             | 100 histories, 1000 identities; 10000 events and 8 MiB per history      | Lazy idle TTL (24 h) and count pressure; never while leased; tombstones only by operator retirement | Leases from submissions, attempts and queued tasks; expiry listeners                              |
+| Owners and selected scope / `ChatService`                                          | Owners ≤ identity limit; scopes ≤ live histories                        | Scope on history expiry; owners only by operator retirement                                         | Ownership guards retained evidence and external document tasks                                    |
+| Wire scope mapping / protocol v1                                                   | ≤ identity limit                                                        | A first submission failing before ownership; operator retirement                                    | Keeps an expired wire ID from becoming a fresh internal ID                                        |
+| Source identity index / `InMemorySourceStore`                                      | One entry per user/answer event of a live history; no limit of its own  | History expiry (scans every key)                                                                    | Summary memory resolves its references through it                                                 |
+| Summary memory / `InMemorySummaryStore`                                            | One per live history, ≤ `CONTEXT_SUMMARY_MAX_TOKENS` bytes              | History expiry                                                                                      | Source references into the index                                                                  |
+| Dead letters / `InMemoryDeadLetterStore`                                           | Records plus reservations ≤ 100 and 16 MiB of serialized tasks          | Replay or operator DELETE; reservations on task settlement                                          | Own task snapshot including context; pins neither history nor dispatch snapshot                   |
+| Quota aggregates / `ResourceAdmission.quotaTotals`                                 | ≤ 100 pools                                                             | Never; a pool with only unstarted reservations frees on release                                     | Fingerprint of the configured quota snapshot                                                      |
+| Admission diagnostics / `ResourceAdmission.recent`                                 | 100 rows, 5 min                                                         | Lazy on archive or stats                                                                            | Compact views only; no request payload                                                            |
+| Completed turns / `GenerationLifecycle`                                            | 100 turns, 5 min; live turns protected                                  | Lazy, after consumers and writes settle                                                             | Settled attempts keep status/model metadata and a timeline handle; answer text is released        |
+| Completed dispatch phases and metrics / `CatalogDispatch`                          | 100 phases, 5 min; 1000 metrics                                         | Lazy, after `complete()`                                                                            | Replay context, catalog entry clones and provider bindings; settled ranking contexts alias replay |
+| Briefing runs / `BriefingCoordinator`                                              | `maxRuns` 20 (active plus settled); settled TTL 5 min                   | Lazy; pressure evicts the oldest drained run                                                        | Request, profile and waiter indexes; evidence results                                             |
+| Tool results / `ToolResultStore`                                                   | `maxSnapshots` 100 records and 16 MiB serialized bytes; oldest evicted  | Lazy expiry on put/get; cleared on reload, close or retirement of the conversation                  | Owner and conversation check; rows are also copied into timeline `payloadResults`                 |
+| Directory cache, resolution and game snapshots / `TeamDirectory`, `GameOperations` | 2 directories (1 MB response each); 100 + 100 snapshots                 | Lazy TTL on the next lookup or search; cleared on reload or close                                   | Snapshots bind user, conversation and registry revision                                           |
+| Shared source cache / `SharedSportsSource`, `SportsRequestBudget`                  | 20 entries (15 s), 4 pending reads, 5 start times per minute            | Lazy on read                                                                                        | Waiter count cancels the shared read when the last caller leaves                                  |
+| Model observations / `InventoryStore`                                              | 4096 observations, 8 MiB; listings ≤ 1000 models and 4 MiB responses    | Atomic replacement on complete refresh; no tombstones                                               | Cloned into every catalog `prepare`                                                               |
+| Latency samples / `InMemoryLatencyEstimator`                                       | 1000 samples per provider/model/route/size bucket                       | Oldest samples dropped on record                                                                    | Persisted in the telemetry file                                                                   |
+| CLI pool keys and inspection cache / `CliRunner`, `ClaudeInspectionCache`          | One key per busy pool; one cached and one pending inspection            | Key deleted at zero; inspection TTL 5–30 s                                                          | Shared by every CLI adapter of the account                                                        |
+| Evaluation trace / `EvaluationRecorder` (opt-in)                                   | `EVAL_MAX_EVENTS` 10000, `EVAL_MAX_BYTES` 10 MiB; then drops and counts | Retention timer (7 d) or `finish()`                                                                 | Turn and call indexes ≤ recorded events                                                           |
 
 Pending work (exists only while something is in flight):
 
-| State / owner                                                    | Limit                                                                          | Cleanup trigger                                               | Dependent references                                                               |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| In-flight requests / `ChatService.inFlight`, server `responses`  | None; one per open request                                                     | Settlement; socket close                                      | Request body, a history lease, one history clone plus its source snapshot          |
-| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | None; one per in-flight message                                                | Attempt settlement and consumer release                       | Attempt buffers, history lease, emergency terminal reservation                     |
-| Deep task queue / `InMemoryTaskQueue`                            | None of its own; admitted tasks ≤ dead-letter slots; direct enqueues unbounded | Worker dequeue (one task per 500 ms tick); shutdown discard   | Task with context; if admitted: slot snapshot, task pin, history lease, phase      |
-| Retry counters / `DeepWorker.attemptsByTaskId`                   | One integer per task awaiting retry                                            | Success, cancellation or final failure                        | None                                                                               |
-| Inline retrieval work / `CapabilityChat.pending`                 | None; ≤ 3 tool calls per turn, each bounded by its tool's limits               | Work settlement, then `releaseTask`                           | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
-| Pending summary snapshots / `ContextManager.jobs`, `pending`     | One job per conversation, each ≤ `CONTEXT_SUMMARY_TIMEOUT_MS` (5 s)            | Completion, timeout, supersession, history expiry, shutdown   | Cloned events, source snapshot and prefix; no history lease                        |
-| Active admission reservations / `ResourceAdmission.charges`      | None of its own; one per prepared phase, fallback or summary call              | `release` if unstarted, `finish` if started                   | Cloned request and resources; quota-pool slot; spend toward `SPEND_LIMIT`          |
-| Compute-pool keys / `ResourceAdmission.running`                  | One key per pool with started work; ≤ declared compute pools                   | Deleted when the pool's count returns to zero                 | The started reservations it counts                                                 |
-| Live dispatch phases / `CatalogDispatch.phases`                  | None of its own; one per prepared phase                                        | `complete()` by the owning workflow, then count/TTL retention | Same payload as a completed phase, plus its reservation ticket                     |
-| Admission waiters / `reserveWithWait`, `begin`                   | Count unlimited; each ≤ `waitTimeoutMs` (≤ 120 s)                              | Grant, timeout, or abort (`begin` only)                       | One 10 ms poll timer each                                                          |
-| Briefing jobs and waiters / `BriefingCoordinator`                | Jobs ≤ runs × plan tasks, 2 running; waiters unlimited per run                 | Settlement, deadline (30 s) or cancellation                   | Per-job timer and `AbortController`; a draining job protects its run from eviction |
-| Document-task requests / `PythonDocumentTasks.pending`           | 32                                                                             | Response, 30 s timeout or bridge failure                      | One timer each; the child's stdout line buffer has no length limit                 |
-| Discovery refreshes / `InventoryStore.inFlight`                  | One per connection, 4 concurrent                                               | Settlement, 10 s timeout or shutdown                          | One `AbortController` each                                                         |
-| CLI generations / `CliRunner`                                    | `CLI_MAX_CONCURRENCY` (1) running per pool; waiting callers unlimited          | `CLI_TIMEOUT_MS` (120 s), completion or cancellation          | Child process; stdout ≤ `CLI_MAX_OUTPUT_BYTES` (1 MiB)                             |
-| Telemetry saves / `FileLatencyTelemetryStore.pendingSave`        | None; one queued per 5 s tick while a write stalls                             | Each write completing                                         | One serialized snapshot per queued save                                            |
-| Event streams (v1 and legacy SSE)                                | None; one per open connection                                                  | Client close; shutdown `closeStreams`                         | Two timers each; the legacy stream also keeps a serialized copy of the timeline    |
+| State / owner                                                    | Limit                                                                      | Cleanup trigger                                               | Dependent references                                                               |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| In-flight requests / `ChatService.inFlight`, server `responses`  | None; one per open request                                                 | Settlement; socket close                                      | Request body, a history lease, one history clone plus its source snapshot          |
+| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | None; one per in-flight message                                            | Attempt settlement and consumer release                       | Attempt buffers, history lease, emergency terminal reservation                     |
+| Deep task queue / `InMemoryTaskQueue`                            | 100 tasks and 16 MiB serialized bytes by default; direct enqueues included | Worker dequeue, queued cancellation or shutdown discard       | Task with context; if admitted: slot snapshot, task pin, history lease, phase      |
+| Retry counters / `DeepWorker.attemptsByTaskId`                   | One integer per task awaiting retry                                        | Success, cancellation or final failure                        | None                                                                               |
+| Inline retrieval work / `CapabilityChat.pending`                 | None; ≤ 3 tool calls per turn, each bounded by its tool's limits           | Work settlement, then `releaseTask`                           | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
+| Pending summary snapshots / `ContextManager.jobs`, `pending`     | One job per conversation, each ≤ `CONTEXT_SUMMARY_TIMEOUT_MS` (5 s)        | Completion, timeout, supersession, history expiry, shutdown   | Cloned events, source snapshot and prefix; no history lease                        |
+| Active admission reservations / `ResourceAdmission.charges`      | None of its own; one per prepared phase, fallback or summary call          | `release` if unstarted, `finish` if started                   | Cloned request and resources; quota-pool slot; spend toward `SPEND_LIMIT`          |
+| Compute-pool keys / `ResourceAdmission.running`                  | One key per pool with started work; ≤ declared compute pools               | Deleted when the pool's count returns to zero                 | The started reservations it counts                                                 |
+| Live dispatch phases / `CatalogDispatch.phases`                  | None of its own; one per prepared phase                                    | `complete()` by the owning workflow, then count/TTL retention | Same payload as a completed phase, plus its reservation ticket                     |
+| Admission waiters / `reserveWithWait`, `begin`                   | Count unlimited; each ≤ `waitTimeoutMs` (≤ 120 s)                          | Grant, timeout, or abort (`begin` only)                       | One 10 ms poll timer each                                                          |
+| Briefing jobs and waiters / `BriefingCoordinator`                | Jobs ≤ runs × plan tasks, 2 running; waiters unlimited per run             | Settlement, deadline (30 s) or cancellation                   | Per-job timer and `AbortController`; a draining job protects its run from eviction |
+| Document-task requests / `PythonDocumentTasks.pending`           | 32                                                                         | Response, 30 s timeout or bridge failure                      | One timer each; the child's stdout line buffer has no length limit                 |
+| Discovery refreshes / `InventoryStore.inFlight`                  | One per connection, 4 concurrent                                           | Settlement, 10 s timeout or shutdown                          | One `AbortController` each                                                         |
+| CLI generations / `CliRunner`                                    | `CLI_MAX_CONCURRENCY` (1) running per pool; waiting callers unlimited      | `CLI_TIMEOUT_MS` (120 s), completion or cancellation          | Child process; stdout ≤ `CLI_MAX_OUTPUT_BYTES` (1 MiB)                             |
+| Telemetry saves / `FileLatencyTelemetryStore`                    | One physical write plus one latest replacement                             | Each write completing                                         | One serialized active snapshot plus one latest pending snapshot                    |
+| Event streams (v1 and legacy SSE)                                | None; one per open connection                                              | Client close; shutdown `closeStreams`                         | Two timers each; the legacy stream also keeps a serialized copy of the timeline    |
 
 Timers. Three process-lifetime intervals run in `startServer` and are cleared by
 `stopBackground` on shutdown or server close: telemetry save (5 s), deep-worker
@@ -468,45 +486,49 @@ before or during the sustained-memory gate:
    backpressure covers the mock `ChatOrchestrator` runtime only. This belongs with
    step 2 request limits; the gate must drive `CapabilityChat` concurrently rather
    than infer its bound from the dead-letter tests.
-2. **The deep queue has no limit of its own and cancellation does not remove an
-   entry.** A direct `enqueue` holds no slot, lease or task pin until dequeued and
-   nothing limits how many accumulate; no `src` caller does this, so it is an
-   embedder and test contract today. A cancelled queued task keeps its queue entry,
-   dead-letter slot, task pin, history lease and dispatch phase until the serial
-   worker reaches it, which can be behind a long-running task. Candidates: a queue
-   capacity equal to the dead-letter record limit, and removal on cancel.
-3. **Count-bounded caches pin payload bytes.** At defaults the completed-turn cache
-   can hold 100 turns × 2 attempts × 1 MiB of answer text that history already
-   stores, although only `status`, `active`, `dispatchId` and `taskId` are read
-   after settlement. Each retained dispatch phase keeps the candidate's ranking
-   context and one per fallback candidate, which are read only during ranking;
-   replay needs only `phase.context`. `ToolResultStore` is limited to 100 records
-   whose schema allows 1000 × 20 cells of 1000 characters. Candidates: release
-   attempt text and ranking contexts at settlement; a byte limit on tool results.
+2. **Bounded (2026-10-04): deep queue and queued cancellation.** The in-memory
+   queue caps count and serialized task bytes, defaulting to dead-letter limits.
+   Direct enqueues own cloned tasks and cannot bypass those queue limits.
+   Cancellation through `ChatService` removes matching queued work promptly and
+   releases its slot, pin, lease and dispatch references. Dequeued work keeps its
+   physical-settlement protection. Custom queues lacking removal still drain on
+   cancellation; their bounded-admission contract remains the embedder's duty.
+3. **Bounded (2026-10-04): retained execution payloads and tool results.** Settled
+   attempts clear text after writes and all consumers settle. Completed dispatch
+   candidates alias replay context rather than retaining ranking-only copies.
+   `ToolResultStore` caps aggregate serialized bytes (16 MiB default) as well as
+   count; oldest eviction preserves the existing unavailable-reference behavior,
+   and an oversized single result is rejected without evicting live evidence.
 4. **Event streams are unbounded per connection and in number.** There is no
    connection limit and `res.write` backpressure is ignored. The legacy stream
    re-sends the whole timeline on every change and keeps a serialized copy; the
    v1 stream clones the whole timeline every 100 ms to find new events. Both scale
    with `CONVERSATION_MAX_BYTES` per connection. Belongs with step 2.
-5. **Telemetry saves are not coalesced.** Each tick serializes a snapshot and
-   chains it behind the previous write, so a stalled disk queues one snapshot per
-   tick. Candidate: skip a tick while a save is pending.
-6. **Model observations are never deleted.** A binding a provider stops listing
-   becomes an `installed: "no"` tombstone, and the Ollama and Bedrock listings have
-   no size limit, so the map grows with every distinct model name a provider
-   reports. Azure listing stops at 20 pages.
-7. **Several owners expose no count for the gate.** `CapabilityChat.pending`,
-   `ChatService.inFlight`, open event streams, `InventoryStore`, `ToolResultStore`,
-   `TeamDirectory`, `GameOperations` and `SharedSportsSource` have no
-   `retentionStats()`. The gate's deterministic registry assertions need accessors
-   for these or must rely on heap samples alone.
+5. **Bounded (2026-10-04): telemetry snapshots.** One physical write and one
+   latest replacement snapshot are retained. Superseded callers share the final
+   replacement's completion; a failed batch cannot poison later writes. Shutdown
+   saves and awaits the latest snapshot. Snapshot byte size follows the existing
+   estimator/catalog state; disk stalls still obey the shutdown timeout.
+6. **Bounded (2026-10-04): discovery observations and listing bodies.** Complete
+   successful listings replace observations per connection atomically, without
+   accumulating tombstones. Missing observations are unchecked and ineligible.
+   Partial, failed, malformed, aborted and over-limit listings leave prior evidence
+   unchanged and cannot renew its expiry. Configured count/byte limits cap retained
+   observations; built-in adapters also cap response bodies before parsing. Custom
+   adapters must bound their own transport before returning allocated objects.
+7. **Closed for the gate's scope: owners now expose counts.** `CapabilityChat.pending`,
+   `ChatService.inFlight`, open event streams and wire mappings, `ToolResultStore`,
+   `TeamDirectory`, `GameOperations`, the source and summary indexes and the worker's
+   retry counters have `retentionStats()`, and the gate asserts them. `InventoryStore`
+   and `SharedSportsSource` still expose none; the gate excludes discovery and
+   bounds the shared source only through heap samples.
 
-Unchanged boundaries carried from the earlier slices: UI treatment of history
-expiry; durable identity lifecycle and safe operator retirement for owners and
-the wire scope mapping; operator visibility and recovery for a full dead-letter
-store or quota ledger; authoritative pool identity (step 3); cancellation through
-initial catalog admission (step 3: `prepare` passes no signal to the admission
-wait).
+Unchanged boundaries carried from the earlier slices: durable identity lifecycle
+(ownership and deduplication across restart); operator visibility and recovery
+for a full dead-letter store or quota ledger; authoritative pool identity
+(step 3); cancellation through initial catalog admission (step 3: `prepare`
+passes no signal to the admission wait). UI treatment of history expiry and
+operator retirement of owners and the wire scope mapping are implemented below.
 
 Inventory validation: `tests/integration/retentionInventory.test.ts` adds four
 regressions for the claims that were not already covered: direct enqueues hold no
@@ -521,18 +543,193 @@ these tests and were reverted. Reservation and compute-pool cleanup were already
 covered by `tests/unit/admissionRetention.test.ts`. The remaining rows were read
 from code and are not exercised by a test or a measurement.
 
-Latest review validation (2026-10-01): 851 tests across 104 files and all 26 browser
+Prior worker review validation (2026-10-01): 851 tests across 104 files and all 26 browser
 tests passed using Windows Node 24.21.0. The four inventory regressions include the
 worker recovery fix above. Formatting and lint passed. No live provider calls or
 sustained assembled-runtime memory measurement were performed.
+
+##### Expiry UI and identity retirement (2026-10-01)
+
+What a user sees after expiry: the legacy stream sends a `conversation-expired`
+event before it closes, and a page that loads an already expired ID learns it
+from the 410 on the events endpoint (an `EventSource` cannot read that status).
+The page shows a notice, keeps the last copy it received as read-only text,
+disables Send and offers "Start a new conversation", which switches to a fresh
+ID. A send rejected with 410 does the same; a full history (413) shows the offer
+without disabling Send; server conversation capacity (503) is explained in the
+status line because a new ID would not help. The other panels still show their
+generic errors for an expired ID.
+
+Retirement is an explicit operator action, not a policy: `GET
+/conversations/retention` lists expired identities and `DELETE
+/conversations/<id>/identity` releases one. `ChatService.retireConversation`
+only accepts an expired identity, asks every dependent first, and then deletes
+in one synchronous step with ownership last: evidence (tool results, team and
+game snapshots), the v1 wire mapping, settled execution records, selected scope,
+the tombstone and finally the owner. It refuses with named blockers while a dead
+letter or reserved slot, a queued task, an active turn or a document task refers
+to the conversation, and fails closed when a custom queue, dead-letter store or
+timeline store cannot be inspected or the document sidecar cannot be asked. It
+never discards a dead letter itself, so uncertainty about external execution is
+resolved by the operator, not by cleanup. Legacy and v1 streams that followed the retired
+conversation are closed instead of continuing into unrelated work.
+
+Decisions and their cost. No automatic recycling: a full identity table still
+returns 503 until someone retires identities. A retired ID is unknown to the
+process: any user may claim it and its old message IDs are no longer rejected, so
+this is bounded process-local identity, not durable deduplication. Document
+tasks block retirement outright because the sidecar has no abandon operation
+(step 3); such a conversation keeps its slot for the process lifetime. The
+sidecar's own durable owner table is untouched. Both endpoints are
+unauthenticated like the rest of the server and belong in step 2's access rules.
+Custom stores that omit the optional contracts get no retirement.
+
+Initial validation: 15 regressions in `tests/integration/conversationRetirement.test.ts`
+(slot release, reuse semantics, each blocker, fail-closed inspection, participant
+ordering and failure, a race through a slow participant, shutdown, HTTP outcomes,
+the document-task rule, v1 mapping and stream), one stream-event regression in
+`conversationRetention.test.ts`, and two browser tests for the notice on a live
+stream, after reload and for each send failure. Six temporary mutations (no
+dead-letter check, owner released first, no live-history check, no recheck after
+the awaited participants, wire mapping kept, execution records kept) each failed
+these tests and were reverted.
+
+Review fixes (2026-10-01): pending team-directory/game searches and document-task
+starts now lease history through publication. Without that lease, expiry and
+retirement could release an owner while a request was still creating protected
+state. Retirement now compares an opaque incarnation token after awaiting
+participants, so a slow request cannot retire a reused ID based on the previous
+owner's blocker answers. It also rechecks shutdown before deletion. Legacy
+streams bind to that incarnation; v1 streams reject changed mappings even at
+cursor zero. Both close instead of following a reused ID. Seven regressions cover
+the stale-retirement race, all three external publication paths, the legacy
+stream crossing owners, a v1 stream with no turn cursor and a refused final
+timeline deletion. A store that refuses deletion retains ownership with
+`RETIREMENT_REFUSED`, even if dependent cleanup has run. The expiry notice no longer claims that expiry always
+comes from idleness or that explicit retirement cannot release an ID.
+
+Review validation: 875 tests across 105 files and 28 browser tests passed on
+Windows Node 24.21.0; formatting and lint passed. The strengthened memory gate
+also passed: 134 distinct assertions, 3,343 checks, including 17 assertions that
+the advertised workloads and summary publication actually occurred. The new
+[review report](measurements/sustained-memory-review-2026-10-01.json) preserves the
+original default and soak reports. Post-warmup heap decreased by 2.0–2.5% across
+the three runtime sample points; the separate ledger increased by 0.10%. These
+remain scoped observations, not an absolute bound or proof that every retained
+owner is bounded. `--measured` requires at least three integer rounds.
+
+Review disposition: keep step 1 open until findings 2, 3, 5 and 6 each have an
+explicit bounding or deferral decision. Operator-only retirement, reusable IDs
+and the document-task blocker are consistent with the stated process-local
+contract. Endpoint access control remains step 2 work for deployment. A standalone
+memory gate is reasonable for now; whether it becomes a required release check
+is still a policy decision. Its 5% threshold measures net drift under fixed
+concurrency and scaled limits; it does not cover the excluded owners.
+
+##### Sustained-memory gate (2026-10-01)
+
+`npm run bench:sustained-memory` builds two runtimes in one process from the
+classes `startServer` wires and drives them over loopback HTTP: the live shape
+(`CapabilityChat`, catalog dispatch with four bindings on three quota pools,
+inline retrieval, the sports registry on a fixture transport) and the queue shape
+(`ChatOrchestrator`, deep worker, dead letters). Providers are scripted. Limits
+are scaled down and listed in the report: 40 identities, 12 histories, 1 MiB and
+400 events per history, 20 completed turns/phases, 6 dead letters, 3 quota pools.
+
+Each round runs 24 live conversations at concurrency 8 (large answers, 162 KB
+table payloads on pinned bindings, game searches, tool failure, provider error,
+invalid plan, held retrieval with cancellation, a reused message ID), two
+configuration reloads, protocol-v1 and scoped conversations, streams, and every
+seventh timeline append delayed. One conversation is filled to its history limit
+and the identity table to its limit; both rejections and the survival of a live
+conversation are asserted. The queue runtime fills the dead-letter store, is
+refused further deep work while direct turns continue, cancels a queued task,
+retries, replays successfully and unsuccessfully, and summarizes a long
+conversation. Three samples are taken per round after quiescing: with payload
+histories retained, with the identity table full, and after idle expiry, discard
+and retirement of every identity. The run ends with shutdown while three
+retrievals, a stream and two queued tasks are in flight.
+
+Result on Windows Node 24.21.0
+([raw report](measurements/sustained-memory-2026-10-01.json)): 117 distinct
+registry assertions, 3,326 checks, none failed, over 3 warm-up and 12 measured
+rounds (13,566 timeline appends, 1,938 delayed; 2,128 provider calls). Every
+registry returned to its expected size: no lease, consumer, task pin,
+reservation, compute key, stream, summary job or retry counter survived its work;
+completed caches stayed at their limits with indexes in agreement; and after
+retirement nothing identity-keyed remained (identities, owners, scopes, wire
+mappings, source and summary indexes all zero). Shared-pool consumption equalled
+the provider calls of both bindings sharing it, the scarce pool stopped at exactly
+its 25-request allowance, and a policy with a fourth pool was refused at
+construction. The separate ledger workload kept 50 pools and exact totals for
+30,000 calls while rejecting 12,000 renamed pool identifiers, with heap samples
+of 27.04–27.07 MB. Post-warmup heap rose 0.5–0.9% between the first and last
+third of the measured rounds at each of the three sample points (limit 5%).
+
+A [200-round soak](measurements/sustained-memory-soak-2026-10-01.json) passed
+the same assertions. Its idle heap rose from 26.80 to 27.66 MB (20-round means),
+slowing from about 7 KB to 2 KB per round. Heap-snapshot comparisons of an
+equivalent run (rounds 20 to 110, then 110 to 200) attribute that growth to V8
+code objects and their metadata (about 505 of 638 KB, then 141 of 201 KB) and to
+the harness's own stored samples (about ten objects and nine numbers per round).
+The reported comparison found no growing runtime object class. The snapshots
+were not kept, so that attribution cannot be independently checked from the
+retained reports; it is supporting analysis rather than reproducible gate evidence.
+
+What this does not establish. The limits are scaled down, so there is no claim
+about absolute memory at the defaults: at defaults the live histories alone may
+hold 100 × 8 MiB. Concurrency was fixed by the driver; the live runtime still
+has no admission limit on concurrent turns (finding 1). Live adapters, discovery,
+the CLI runner, the telemetry file store, the evaluation recorder, the document
+sidecar and the three `startServer` timers were not constructed, and execution
+caches were bounded by count only because their TTL uses the wall clock. Request
+bodies, stream backpressure and connection counts were not stressed (step 2).
+Three temporary mutations (inline task pin never released, owner kept on
+retirement, no quota-pool limit) each failed the gate and were reverted. The
+gate is not part of `verify:release`.
+
+##### Remaining-bound increment (2026-10-04)
+
+Implemented findings 2, 3, 5 and 6 rather than deferring them. See the current
+inventory boundaries above and the runtime contracts for configuration and failure
+semantics. Regression coverage includes a physically stalled telemetry writer with
+1000 superseding saves and failure recovery; byte-pressure eviction and oversized
+evidence rejection; settled buffer cleanup with a held consumer; atomic queue
+count/byte rejection and exact removal across conversations sharing a task ID;
+cancellation behind a blocked worker; discovery churn, partial/over-limit/invalid
+replacement rollback; streamed fetch/Bedrock body limits; and Azure pagination
+exhaustion. Existing cancellation regressions now expect prompt queue removal.
+
+The expanded gate measures discovery churn and actual file telemetry under held
+writes separately from the assembled HTTP runtimes. It also asserts zero retained
+answer buffers and ranking context copies, tool-result byte limits and drained queue
+byte accounting. Live discovery endpoints, production periodic timers, evaluation
+recording and the document sidecar remain excluded. No whole-process bound at
+production defaults or unlimited request concurrency is claimed.
+
+Validation on Windows Node 24.21.0: 885 tests across 106 files, all 28 browser
+tests, formatting and lint. The [expanded gate report](measurements/sustained-memory-bounds-2026-10-04.json)
+passes 151 distinct assertions and 3,618 checks. Post-warmup heap increased by
+0.66%, 0.70% and 0.81% at the payload, identity-cap and idle sample points; the
+separate quota ledger increased by 0.09%, all within the 5% tolerance. The owner
+workload churned two connections through 20 complete replacement rounds and
+persisted the latest of 1000 saves per stalled-write round without accumulating
+intermediate snapshots.
+The earlier reports remain unchanged. The first full test run hit four cold
+LangGraph import timeouts under the existing five-second timeout; the focused
+rerun passed. Two cancellation assertions encoded the superseded drain behavior
+and were updated. No test timeout was increased.
+
+##### Step 1 status
 
 1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six
    completion orders, reported usage, release/cancellation, atomic rejection,
    history expiry and true overages. Fractional quota reports use the same exact
    arithmetic. Invalid amounts are rejected by the conversion helper.
-2. **Inventory complete; bounding in progress.** Conversation history, dead
-   letters and quota pools are bounded; the open boundaries are listed in the
-   inventory above. Original scope: cover conversation history,
+2. **Inventory complete; remaining retained-owner bounds implemented.** Conversation history,
+   dead letters and quota pools are bounded, expiry has a user-visible treatment
+   and identities have a coordinated operator release. Inventory findings 2, 3,
+   5 and 6 now have the implemented bounds described above. Original scope: cover conversation history,
    dead letters, ownership indexes, quota-pool aggregates and other ID-keyed stores,
    pending work, timers and buffers discovered during the inventory. For each,
    record its owner, size/count limits, expiry or durable-storage policy, cleanup
@@ -544,7 +741,7 @@ sustained assembled-runtime memory measurement were performed.
    Bound distinct quota-pool cardinality without discarding consumption or treating
    a new pool identifier as permission to reset an existing allowance. Step 3 owns
    actual rolling-window reconciliation; step 1 retains conservative accounting.
-3. **Run an end-to-end sustained-memory check.** Exercise the assembled runtime
+3. **Gate implemented; passes for its stated scope (see above).** Exercise the assembled runtime
    with repeated conversations, large retained payloads, failed/replayed tasks,
    cancellations, slow writes and supported configuration churn. Use deterministic
    assertions on registry sizes and references plus repeatable post-warmup heap
@@ -553,10 +750,11 @@ sustained assembled-runtime memory measurement were performed.
    Record workload, settings, raw results and exclusions. Disk-backed history still
    needs a bounded in-memory working set and an explicit disk-retention policy.
 
-Step 1 remains open until these gates pass. The existing 30,000-call measurement
-establishes ledger behavior only. Move to step 2, request limits and deployment
-boundaries, after the remaining step 1 work; do not claim whole-process memory bounds
-from completed-cache limits or that isolated benchmark.
+Step 1's gates pass within the scope recorded above; accepting step 1 on that
+basis is a review decision, not a claim made here. Move to step 2, request limits
+and deployment boundaries, after that review. Do not claim whole-process memory
+bounds at default limits from the scaled-down gate, the completed-cache limits or
+the isolated ledger benchmark.
 
 - Reproduce coordinator exhaustion after its configured run cap. Add configurable
   retention for settled runs and clean associated request/profile/waiter indexes.
@@ -639,8 +837,7 @@ coordination and is not implied by this process-local reconciliation work.
 
 ### 4. Current-state documentation and maintenance checks
 
-Planned, not implemented. The next reliability work is remaining store retention and end-to-end
-sustained-memory measurement. This documentation rollout
+Planned, not implemented. The next reliability work is step 2. This documentation rollout
 follows steps 1–3; update nearby contracts and regression tests during those changes
 without waiting for the generator rollout.
 

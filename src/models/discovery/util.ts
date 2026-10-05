@@ -18,3 +18,26 @@ export async function mapWithConcurrency<T, R>(
   await Promise.all(workers);
   return results;
 }
+
+/** Limits bytes before JSON parsing; one shared budget can cover every listing page. */
+export async function readDiscoveryJson(
+  response: Response,
+  budget: { remaining: number }
+): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (!reader) throw Error("DISCOVERY_EMPTY_BODY");
+  const chunks: Uint8Array[] = [];
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      budget.remaining -= value.byteLength;
+      if (budget.remaining < 0) throw Error("DISCOVERY_RESPONSE_TOO_LARGE");
+      chunks.push(value);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}

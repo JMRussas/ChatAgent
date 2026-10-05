@@ -1,3 +1,5 @@
+import { loadDiscoveryLimits, type DiscoveryLimits } from "../../config/discoveryLimits";
+import { readDiscoveryJson } from "./util";
 // Source: Microsoft Learn REST API reference, "Deployments - List" (Azure AI
 // Services account management, api-version 2024-10-01), verified 2026-09-29:
 // https://learn.microsoft.com/en-us/rest/api/aiservices/accountmanagement/deployments/list
@@ -63,7 +65,8 @@ function readArmCredentialsFromEnv(env: NodeJS.ProcessEnv): AzureArmCredentials 
 
 async function getArmAccessToken(
   credentials: AzureArmCredentials,
-  signal: AbortSignal
+  signal: AbortSignal,
+  limits: DiscoveryLimits
 ): Promise<string> {
   const response = await fetch(
     `https://login.microsoftonline.com/${credentials.tenantId}/oauth2/v2.0/token`,
@@ -81,7 +84,9 @@ async function getArmAccessToken(
   );
 
   if (!response.ok) throw new Error(`Azure AD token request failed (${response.status})`);
-  const payload = (await response.json()) as { access_token?: string };
+  const payload = (await readDiscoveryJson(response, { remaining: limits.maxResponseBytes })) as {
+    access_token?: string;
+  };
   if (!payload.access_token) throw new Error("Azure AD token response is missing access_token");
   return payload.access_token;
 }
@@ -89,11 +94,13 @@ async function getArmAccessToken(
 async function listAllDeployments(
   credentials: AzureArmCredentials,
   token: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  limits: DiscoveryLimits
 ): Promise<ArmDeployment[]> {
   const base = `https://management.azure.com/subscriptions/${credentials.subscriptionId}/resourceGroups/${credentials.resourceGroup}/providers/Microsoft.CognitiveServices/accounts/${credentials.accountName}/deployments?api-version=${ARM_API_VERSION}`;
   const deployments: ArmDeployment[] = [];
   let url: string | undefined = base;
+  const budget = { remaining: limits.maxResponseBytes };
 
   for (let page = 0; url && page < MAX_PAGES; page += 1) {
     const response: Response = await fetch(url, {
@@ -101,21 +108,30 @@ async function listAllDeployments(
       signal
     });
     if (!response.ok) throw new Error(`Azure ARM deployments list failed (${response.status})`);
-    const payload = (await response.json()) as ArmDeploymentListResult;
-    deployments.push(...(payload.value ?? []));
+    const payload = (await readDiscoveryJson(response, budget)) as ArmDeploymentListResult;
+    if (!Array.isArray(payload.value)) throw Error("DISCOVERY_INCOMPLETE_LISTING");
+    deployments.push(...payload.value);
+    if (deployments.length > limits.maxModelsPerConnection) throw Error("DISCOVERY_CAPACITY");
     url = payload.nextLink;
   }
 
+  if (url) throw Error("DISCOVERY_INCOMPLETE_LISTING");
   return deployments;
 }
 
 export class AzureDiscoveryAdapter implements DiscoveryAdapter {
   constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
-  async discover(connection: Connection, signal: AbortSignal): Promise<DiscoveryObservation[]> {
+  async discover(
+    connection: Connection,
+    signal: AbortSignal,
+    limits: DiscoveryLimits = loadDiscoveryLimits()
+  ): Promise<DiscoveryObservation[]> {
     const credentials = readArmCredentialsFromEnv(this.env);
-    const token = await getArmAccessToken(credentials, signal);
-    const deployments = await listAllDeployments(credentials, token, signal);
+    const token = await getArmAccessToken(credentials, signal, limits);
+    const deployments = await listAllDeployments(credentials, token, signal, limits);
+    if (deployments.some((deployment) => typeof deployment.name !== "string" || !deployment.name))
+      throw Error("DISCOVERY_INCOMPLETE_LISTING");
     const observedAtIso = new Date().toISOString();
 
     return deployments

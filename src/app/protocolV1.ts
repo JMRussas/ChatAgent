@@ -59,11 +59,17 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
 export function createProtocolV1Handler(service: ChatService) {
   const runtimeId = randomUUID();
   const conversations = new Map<string, string>();
+  // Retirement releases the wire mapping with the identity it points at.
+  service.addRetirementParticipant({
+    forget: (internalId) => {
+      for (const [key, id] of conversations) if (id === internalId) conversations.delete(key);
+    }
+  });
   const json = (res: ServerResponse, status: number, body: unknown) => {
     res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
   };
-  return async (
+  const handle = async (
     req: IncomingMessage,
     res: ServerResponse,
     url: URL,
@@ -180,12 +186,18 @@ export function createProtocolV1Handler(service: ChatService) {
     });
     res.write(`event: ready\ndata: ${JSON.stringify({ protocolVersion: "1.0", runtimeId })}\n\n`);
     let busy = false;
+    let boundId = internalId;
     const push = async () => {
       if (busy || res.destroyed) return;
       busy = true;
       try {
         // A stream may open before its first submission. It owns no identity slot.
         const currentId = conversations.get(key);
+        // One stream follows one internal conversation. After retirement the wire ID
+        // can map to unrelated work whose sequences restart, so the cursor is void.
+        if (boundId && currentId !== boundId)
+          throw new GenerationError("CONVERSATION_EXPIRED", false);
+        boundId = currentId;
         if (!currentId) return;
         for (const event of await service.getTimeline(currentId)) {
           if ((event.sequence ?? 0) <= cursor) continue;
@@ -207,4 +219,7 @@ export function createProtocolV1Handler(service: ChatService) {
     await push();
     return true;
   };
+  return Object.assign(handle, {
+    retentionStats: () => ({ conversations: conversations.size })
+  });
 }

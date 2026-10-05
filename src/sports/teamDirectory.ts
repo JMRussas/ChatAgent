@@ -97,6 +97,19 @@ export class TeamDirectory {
     this.snapshots.clear();
     this.cache.clear();
   }
+  /** Identity retirement: drops results and resolution snapshots bound to the conversation. */
+  forgetConversation(conversationId: string) {
+    for (const [id, snapshot] of this.snapshots)
+      if (snapshot.conversationId === conversationId) this.snapshots.delete(id);
+    return this.results.forgetConversation(conversationId);
+  }
+  retentionStats() {
+    return {
+      ...this.results.retentionStats(),
+      snapshots: this.snapshots.size,
+      directories: this.cache.size
+    };
+  }
   private directoryRevision() {
     return createHash("sha256")
       .update(JSON.stringify([...this.cache].map(([k, v]) => [k, v.revision]).sort()))

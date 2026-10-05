@@ -83,7 +83,12 @@ async function runtime() {
       };
     }
   };
-  const timeline = new InMemoryConversationTimelineStore(),
+  let idleSkewMs = 0;
+  const timeline = new InMemoryConversationTimelineStore(
+      undefined,
+      undefined,
+      () => Date.now() + idleSkewMs
+    ),
     queue = new InMemoryTaskQueue();
   const sports = createLiveBriefing(sportsConfig, "fixture-key", (async (url) =>
     String(url).includes("/games")
@@ -219,6 +224,10 @@ async function runtime() {
     pending,
     controls,
     disconnect: () => server.closeStreams(),
+    // Moves the retention clock past the idle TTL; settled conversations expire lazily.
+    expireIdleConversations: () => {
+      idleSkewMs += 2 * 86400000;
+    },
     close: async () => {
       await handle.shutdown();
       sports.http.close();

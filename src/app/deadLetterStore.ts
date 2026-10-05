@@ -29,6 +29,9 @@ export interface DeadLetterStore {
   /** Removes a record for replay while keeping its slot, so a failed replay can be restored. */
   claim?(taskId: string): Promise<DeadLetterRecord | undefined>;
   retentionStats?(): DeadLetterRetentionStats;
+  /** Records plus reservations whose task belongs to the conversation. Identity
+   * retirement refuses while this is nonzero or the store cannot answer. */
+  conversationReferences?(conversationId: string): number;
 }
 
 export interface DeadLetterRetentionStats extends DeadLetterRetention {
@@ -49,6 +52,10 @@ export class NoopDeadLetterStore implements DeadLetterStore {
 
   async remove(_taskId: string): Promise<DeadLetterRecord | undefined> {
     return undefined;
+  }
+
+  conversationReferences(_conversationId: string): number {
+    return 0;
   }
 }
 
@@ -140,6 +147,14 @@ export class InMemoryDeadLetterStore implements DeadLetterStore {
     this.reservations.set(taskId, { task: stored.record.task, bytes: stored.bytes });
     this.reservedBytes += stored.bytes;
     return structuredClone(stored.record);
+  }
+
+  conversationReferences(conversationId: string): number {
+    const owned = (task: DeepTask) => task.conversationId === conversationId;
+    return (
+      [...this.records.values()].filter((stored) => owned(stored.record.task)).length +
+      [...this.reservations.values()].filter((reserved) => owned(reserved.task)).length
+    );
   }
 
   retentionStats(): DeadLetterRetentionStats {

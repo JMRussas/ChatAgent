@@ -1,11 +1,15 @@
 import type { ContextMemory } from "../domain/context";
 export interface SummaryStore {
   forgetConversation?(conversationId: string): void;
+  retentionStats?(): { entries: number };
   get(conversationId: string): ContextMemory | null;
   compareAndSwap(conversationId: string, expectedRevision: number, memory: ContextMemory): boolean;
 }
 export class InMemorySummaryStore implements SummaryStore {
   private readonly memories = new Map<string, ContextMemory>();
+  retentionStats() {
+    return { entries: this.memories.size };
+  }
   forgetConversation(conversationId: string) {
     this.memories.delete(conversationId);
   }

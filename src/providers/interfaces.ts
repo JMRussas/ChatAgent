@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { loadDeadLetterRetention } from "../config/deadLetterRetention";
 import { GenerationError } from "../domain/generation";
 import type { GenerationControl, GenerationMetadata, GenerationResult } from "../domain/generation";
 import type { ConversationContext } from "../domain/context";
@@ -29,21 +31,71 @@ export interface DeepModelProvider {
 export interface TaskQueue {
   enqueue(task: DeepTask): Promise<void>;
   dequeue(): Promise<DeepTask | undefined>;
+  /** Optional inspection used by identity retirement; absent means it cannot tell. */
+  hasConversation?(conversationId: string): boolean;
+  /** Removes queued entries only; without removal, cancellation retains resources until dequeue.
+   * Dequeued work retains its lifecycle until physical settlement. */
+  removeMessage?(conversationId: string, messageId: string): DeepTask[];
 }
 
 export class InMemoryTaskQueue implements TaskQueue {
-  private readonly tasks: DeepTask[] = [];
+  private tasks: DeepTask[] = [];
 
+  readonly capacity: number;
+  readonly maxBytes: number;
+  private bytes = 0;
+  private readonly sizes = new WeakMap<DeepTask, number>();
+  constructor(
+    capacity = process.env.DEEP_QUEUE_MAX_TASKS === undefined
+      ? loadDeadLetterRetention().maxRecords
+      : Number(process.env.DEEP_QUEUE_MAX_TASKS),
+    maxBytes = process.env.DEEP_QUEUE_MAX_BYTES === undefined
+      ? loadDeadLetterRetention().maxBytes
+      : Number(process.env.DEEP_QUEUE_MAX_BYTES)
+  ) {
+    this.capacity = z.number().int().min(1).max(10000).parse(capacity);
+    this.maxBytes = z.number().int().min(1).max(268435456).parse(maxBytes);
+  }
   async enqueue(task: DeepTask): Promise<void> {
-    this.tasks.push(task);
+    const snapshot = structuredClone(task);
+    const bytes = Buffer.byteLength(JSON.stringify(snapshot));
+    if (this.tasks.length >= this.capacity || this.bytes + bytes > this.maxBytes)
+      throw new GenerationError("DEEP_QUEUE_CAPACITY", false);
+    this.tasks.push(snapshot);
+    this.sizes.set(snapshot, bytes);
+    this.bytes += bytes;
   }
 
   async dequeue(): Promise<DeepTask | undefined> {
-    return this.tasks.shift();
+    const task = this.tasks.shift();
+    if (task) this.bytes -= this.sizes.get(task)!;
+    return task;
   }
 
+  retentionStats() {
+    return {
+      queued: this.tasks.length,
+      bytes: this.bytes,
+      capacity: this.capacity,
+      maxBytes: this.maxBytes
+    };
+  }
   size(): number {
     return this.tasks.length;
+  }
+
+  removeMessage(conversationId: string, messageId: string): DeepTask[] {
+    const removed = this.tasks.filter(
+      (task) =>
+        task.conversationId === conversationId && (task.messageId ?? task.taskId) === messageId
+    );
+    const entries = new Set(removed);
+    this.tasks = this.tasks.filter((task) => !entries.has(task));
+    for (const task of removed) this.bytes -= this.sizes.get(task)!;
+    return removed;
+  }
+  hasConversation(conversationId: string): boolean {
+    return this.tasks.some((task) => task.conversationId === conversationId);
   }
 }
 

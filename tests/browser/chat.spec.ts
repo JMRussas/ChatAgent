@@ -97,6 +97,68 @@ test("SSE reconnect restores exact text and clears connection status", async ({ 
   await expect(page.locator(".answer-content")).toHaveText("Final: Explain reconnect behavior");
 });
 
+test("history expiry is explained, keeps the last copy read-only and offers a new conversation", async ({
+  page,
+  app
+}) => {
+  await send(page, "Explain expiry");
+  await expect(page.locator(".answer-content")).toHaveText("Draft: Explain expiry");
+  app.pending.get("fast:Explain expiry")!.finish();
+  await expect(page.locator(".answer-content")).toHaveText("Final: Explain expiry");
+  const notice = page.locator("#conversationNotice");
+  await expect(notice).toBeHidden();
+  const expiredId = await page.locator("#conversationId").inputValue();
+
+  app.expireIdleConversations();
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("expired on the server");
+  await expect(page.locator("#sendButton")).toBeDisabled();
+  await expect(page.locator(".answer-content")).toHaveText("Final: Explain expiry");
+  await expect(page.getByText("Live updates reconnecting", { exact: true })).toHaveCount(0);
+
+  // A reload has no stream event to rely on; the page asks the server why it closed.
+  await page.reload();
+  await expect(page.locator("#conversationId")).toHaveValue(expiredId);
+  await expect(notice).toBeVisible();
+  await expect(page.locator("#sendButton")).toBeDisabled();
+  await expect(page.locator("#selectedConversationContext")).toHaveText("Conversation expired.");
+  await expect(page.locator(".turn")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Start a new conversation", exact: true }).click();
+  await expect(notice).toBeHidden();
+  await expect(page.locator("#conversationId")).not.toHaveValue(expiredId);
+  await expect(page.locator("#conversationId")).toHaveValue(/^conv-[0-9a-f-]{36}$/);
+  await expect(page.locator("#sendButton")).toBeEnabled();
+  await send(page, "Explain renewal");
+  await expect(page.locator(".answer-content")).toHaveText("Draft: Explain renewal");
+  app.pending.get("fast:Explain renewal")!.finish();
+  await expect(page.locator(".answer-content")).toHaveText("Final: Explain renewal");
+});
+test("send failures distinguish expiry, a full history and server conversation capacity", async ({
+  page
+}) => {
+  let failure = { status: 503, code: "CONVERSATION_CAPACITY" };
+  await page.route("**/messages", (route) =>
+    route.fulfill({ status: failure.status, json: { error: failure.code, code: failure.code } })
+  );
+  const notice = page.locator("#conversationNotice");
+  await send(page, "First");
+  await expect(page.locator("#status")).toContainText("cannot start another conversation");
+  await expect(notice).toBeHidden();
+  await expect(page.locator("#sendButton")).toBeEnabled();
+
+  failure = { status: 413, code: "CONVERSATION_HISTORY_CAPACITY" };
+  await send(page, "Second");
+  await expect(notice).toContainText("history is full");
+  await expect(page.locator("#sendButton")).toBeEnabled();
+
+  failure = { status: 410, code: "CONVERSATION_EXPIRED" };
+  await send(page, "Third");
+  await expect(notice).toContainText("expired on the server");
+  await expect(page.locator("#sendButton")).toBeDisabled();
+  await expect(page.locator("#status")).toContainText("Conversation expired");
+});
+
 test("model-planned missing capability stays in the conversation without fabricated completion", async ({
   page,
   app
@@ -468,3 +530,40 @@ for (const [width, unsafe] of [
       "References (1)"
     );
   });
+
+test("switching conversations during a pending send keeps submission locked and ignores stale errors", async ({
+  page
+}) => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requests = 0;
+  await page.route("**/messages", async (route) => {
+    requests++;
+    await blocked;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "CONVERSATION_HISTORY_CAPACITY",
+        error: "old conversation full"
+      })
+    });
+  });
+  await send(page, "pending request");
+  await expect.poll(() => requests).toBe(1);
+  await page.locator("#conversationId").fill("replacement");
+  await page.locator("#conversationId").dispatchEvent("change");
+  await expect(page.locator("#sendButton")).toBeDisabled();
+  await page
+    .locator("#composer")
+    .evaluate((form) =>
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    );
+  expect(requests).toBe(1);
+  release();
+  await expect(page.locator("#sendButton")).toBeEnabled();
+  await expect(page.locator("#conversationNotice")).toBeHidden();
+  await expect(page.locator("body")).not.toContainText("old conversation full");
+});

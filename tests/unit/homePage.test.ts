@@ -35,3 +35,15 @@ describe("home page HTML", () => {
     }).not.toThrow();
   });
 });
+
+describe("home page conversation expiry", () => {
+  it("ships the expiry notice, the stream event handler and the 410 probe", () => {
+    const html = renderHomePageHtml();
+    expect(html).toContain('id="conversationNotice"');
+    expect(html).toContain('id="newConversation"');
+    const script = extractInlineScript(html);
+    expect(script).toContain('addEventListener("conversation-expired"');
+    expect(script).toContain("res.status === 410");
+    expect(script).toContain("CONVERSATION_HISTORY_CAPACITY");
+  });
+});
