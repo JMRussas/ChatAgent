@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, request } from "node:http";
 import type { AddressInfo } from "node:net";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -56,7 +56,7 @@ it("rejects a catalog window consumed by reserves before starting the server", a
 
 it("rejects an occupied port without announcing success or starting background timers", async () => {
   const occupied = createServer();
-  await new Promise<void>((resolve) => occupied.listen(0, resolve));
+  await new Promise<void>((resolve) => occupied.listen(0, "127.0.0.1", resolve));
   const port = (occupied.address() as AddressInfo).port;
   const directory = await mkdtemp(join(tmpdir(), "chatagent-startup-"));
   vi.stubEnv("CHAT_FAST_PROVIDER", "mock");
@@ -76,6 +76,25 @@ it("rejects an occupied port without announcing success or starting background t
     );
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+it.each(["0.0.0.0", "::", "192.168.1.20"])(
+  "refuses the nonlocal bind %s before starting anything",
+  async (host) => {
+    vi.stubEnv("BIND_HOST", host);
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const interval = vi.spyOn(globalThis, "setInterval");
+    await expect(startServer(0)).rejects.toThrow(/BIND_HOST must be one of/);
+    expect(log).not.toHaveBeenCalled();
+    expect(interval).not.toHaveBeenCalled();
+  }
+);
+
+it("rejects an invalid request body limit before starting anything", async () => {
+  vi.stubEnv("HTTP_MAX_BODY_BYTES", "unlimited");
+  const interval = vi.spyOn(globalThis, "setInterval");
+  await expect(startServer(0)).rejects.toThrow(/HTTP_MAX_BODY_BYTES must be a positive integer/);
+  expect(interval).not.toHaveBeenCalled();
 });
 
 it("returns an ephemeral runtime handle and completes deep work automatically without process signal listeners", async () => {
@@ -113,6 +132,7 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
   const handle = await startServer(0);
   try {
     expect(handle.address.port).toBeGreaterThan(0);
+    expect(handle.address.address).toBe("127.0.0.1");
     expect([process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")]).toEqual(listeners);
     const base = `http://127.0.0.1:${handle.address.port}`;
     const response = await fetch(`${base}/messages`, {
@@ -191,8 +211,33 @@ it("keeps mock chat working with a loaded role catalog and rejects role executio
   vi.stubEnv("CONTEXT_SUMMARY_MODE", "off");
   vi.stubEnv("TELEMETRY_STORE_PATH", join(directory, "telemetry.json"));
   vi.stubEnv("SHUTDOWN_GRACE_MS", "0");
+  vi.stubEnv("HTTP_MAX_BODY_BYTES", "512");
   const handle = await startServer(0);
   try {
+    // The configured limit reaches the assembled server. Only headers are sent, so
+    // the rejection cannot race an upload.
+    const oversized = await new Promise<number | undefined>((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port: handle.address.port,
+          agent: false,
+          method: "POST",
+          path: "/routing/policy/set",
+          headers: { "Content-Type": "application/json", "Content-Length": 513 }
+        },
+        (res) => {
+          res.resume();
+          res.on("end", () => {
+            req.destroy();
+            resolve(res.statusCode);
+          });
+        }
+      );
+      req.on("error", reject);
+      req.flushHeaders();
+    });
+    expect(oversized).toBe(413);
     const post = (body: unknown) =>
       fetch(`http://127.0.0.1:${handle.address.port}/messages`, {
         method: "POST",

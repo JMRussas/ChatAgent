@@ -145,6 +145,11 @@ Open **http://localhost:3100/**. Mock replies demonstrate the interaction and
 lifecycle, not live model quality. Existing environment variables or a local `.env`
 can override defaults; [.env.example](.env.example) documents the settings.
 
+The server is local-only. It binds `127.0.0.1` (`BIND_HOST` accepts only loopback
+addresses), answers only requests with a loopback `Host`, refuses cross-origin
+browser requests and limits POST bodies to `HTTP_MAX_BODY_BYTES` (1 MiB by
+default). See the [deployment boundary](docs/runtime-reference.md#local-deployment-boundary-and-request-limits).
+
 For live documentation retrieval, install the Python dependencies and enable the
 optional worker using the [self-contained setup guide](docs/implementation/11-conversation-tasks.md#enable-and-use).
 The published live runs used locally installed `gemma4:26b`; it is not downloaded
@@ -205,7 +210,8 @@ See [repository conventions](AGENTS.md) for maintenance and commit conventions.
 
 ## Scope and next work
 
-This prototype has no built-in authentication or production deployment hardening.
+This prototype has no built-in authentication or production deployment hardening;
+it refuses to bind a nonlocal address rather than run shared without them.
 Conversation ownership checks are not authentication. Source IDs and valid output
 schemas do not establish that every answer claim is supported by its citation.
 Provider adapters exist for Azure and Bedrock, but the linked agent and contention

@@ -8,6 +8,17 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
+HTTP boundary review fixes are implemented, uncommitted: `/sports/chat` now parses
+and validates its body outside the scope-specific catch, preserving shared HTTP
+errors. Enabled-route regressions cover declared and chunked overflow, status/code,
+connection closure and absence of downstream operations or conversation claims.
+The default-limit test now omits the option explicitly, accepts valid JSON padded
+to exactly 1 MiB and rejects one byte beyond it. Temporary mutations restoring the
+catch bug and lowering the default to 256 bytes each fail their targeted tests;
+both are reverted. Validation on Windows Node 24.21.0: 931 tests across 108 files
+and 29 browser tests pass. These checks do not establish concurrent-request or stream bounds; those
+remain step 2 work.
+
 The October 5 review findings are resolved: conversation changes preserve the
 in-flight submission lock and stale send errors cannot alter the new conversation;
 custom queues without removal retain cancelled retry resources until physical
@@ -41,12 +52,24 @@ Windows Node 24.21.0: 875 tests across 105 files, 28 browser tests, formatting
 and lint; the strengthened memory gate also passes. No live
 provider calls or service restart.
 
-**Next implementation:** review the remaining-bound increment below, then decide
-whether step 1 is accepted within its measured scope. Findings 2, 3, 5 and 6 now
-have implemented bounds; findings 1 and 4 remain step 2 work. After acceptance,
-start request limits and the deployment boundary, including access rules for the
-unauthenticated identity listing and retirement endpoints. Rolling-window
-reconciliation belongs to step 3.
+Step 2 has a first increment in the working tree, uncommitted: a streaming
+request-body limit and a local-only deployment boundary (loopback bind, `Host`
+and `Origin` policy). See "First increment" under step 2 for the contract,
+decisions and what it leaves open. It was started at the user's direction; no
+step 1 acceptance decision is recorded by it.
+
+**Next implementation:** review the step 2 first increment, and record whether
+step 1 is accepted within its measured scope. Then continue step 2: an admission
+limit on concurrent turns (inventory finding 1), event-stream connection limits
+and write backpressure (finding 4), and authenticated ownership of
+conversations, result handles, tasks and operator endpoints before any shared
+deployment. Rolling-window reconciliation belongs to step 3.
+
+Declarative development coordination is now a planned workstream; see step 6.
+Its contract design and a bounded mailbox experiment may accompany existing
+reliability tasks, but do not replace this execution order or record acceptance
+implicitly. Production workflow execution and recovery follow the relevant
+reliability gates.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
@@ -474,8 +497,9 @@ times its size, all counted by `CONVERSATION_MAX_BYTES`. The following copies of
 conversation data are not counted by that limit: the source identity index, the
 summary memory, each pending summary snapshot, the per-request history clone, the
 context copies in queued tasks, dead-letter slots and dispatch phases, and the
-serialized timeline each legacy SSE connection keeps. HTTP request bodies are read
-without a size limit (step 2).
+serialized timeline each legacy SSE connection keeps. Each HTTP request body is
+limited to `HTTP_MAX_BODY_BYTES` (step 2, 2026-10-05); the number of concurrent
+requests is not.
 
 Open boundaries found by the inventory. None is implemented; each needs a decision
 before or during the sustained-memory gate:
@@ -774,7 +798,7 @@ settle correctly. Include concurrent completion/eviction races. Check registry s
 and retained contexts deterministically; supplement with a repeated-use memory
 measurement rather than relying on a brittle absolute heap assertion.
 
-### 2. Request limits and an explicit deployment boundary
+### 2. Request limits and an explicit deployment boundary — in progress
 
 - Bound POST bodies by bytes while streaming, including chunked input and misleading
   Content-Length headers. Reject oversized requests consistently and stop reading.
@@ -789,6 +813,66 @@ measurement rather than relying on a brittle absolute heap assertion.
 Acceptance: limit-boundary/chunked-body tests, unauthorized read/write/SSE rejection,
 cross-owner denial and normal local UI operation. Document the supported local mode
 and keep shared deployment gated until its identity/ownership requirements pass.
+
+#### First increment: body limit and local boundary (2026-10-05)
+
+Implemented, uncommitted. The contract is in the
+[runtime reference](runtime-reference.md#local-deployment-boundary-and-request-limits);
+settings are `BIND_HOST` and `HTTP_MAX_BODY_BYTES` in `.env.example`.
+
+- Every POST body is read through one byte-counting reader (default 1 MiB, at
+  most 16 MiB, strict validation at startup). A declared `Content-Length` over
+  the limit is refused before reading; chunked input is refused at the chunk
+  that crosses it. The response is 413 `REQUEST_BODY_TOO_LARGE` with
+  `Connection: close`, and nothing is appended or enqueued.
+- `startServer` binds `BIND_HOST`, default `127.0.0.1`, and fails startup for any
+  address other than `127.0.0.1`, `::1` or `localhost`. Before this it bound
+  every interface.
+- `createChatServer` checks every request before routing or reading its body:
+  403 `HOST_NOT_ALLOWED` unless `Host` is a loopback name, 403
+  `ORIGIN_NOT_ALLOWED` when an `Origin` is present and is not `http://<Host>`.
+  This covers page loads, timeline reads, both event streams, mutations and the
+  operator endpoints (identity listing and retirement, dead letters, reload).
+
+Decisions and their cost. Nonlocal bind is refused instead of token-gated: a
+shared token would not establish separate users, so no partial access-control
+mode exists. The request policy has no opt-out, so embedders and tests get it
+too; a different local port, a `null` origin and a proxy that rewrites `Host` or
+terminates TLS are all refused. Clients that send no `Origin` are trusted, which
+means any local process can still read any timeline, cancel any turn, reload
+configuration and retire identities. No owner check was added to event reads or
+cancellation: it would compare another self-asserted `userId`, and the page's
+`EventSource` and cancel calls do not send one. Rejection stops reading and
+closes the connection, so a client that is still uploading may see a reset
+instead of the 413. A body shorter than its declared length is settled by client
+disconnect or Node's default request timeout, which is not configured here.
+
+Against the step 2 acceptance list: limit-boundary, chunked and misleading
+`Content-Length` tests pass; cross-origin and non-loopback-`Host` reads, writes
+and streams are rejected; the browser suite passes against `http://127.0.0.1`.
+Cross-owner denial and authenticated ownership are not implemented, so shared
+deployment remains refused. Still open in step 2: concurrent-turn admission
+(finding 1), stream count and backpressure (finding 4), and the authenticated
+identity design.
+
+Validation on Windows Node 24.21.0: 930 tests across 108 files, 29 browser tests,
+format and lint. The 44 new tests are 27 unit cases for configuration and the
+`Host`/`Origin` policy, 13 HTTP cases in `tests/integration/httpBoundary.test.ts`
+(exact limit and one byte over, a declared oversize with no body sent, chunked
+crossing without ending the body, cumulative chunks, bytes versus characters,
+protocol v1 and other routes, the default limit, understated and overstated
+`Content-Length`, cross-origin and foreign-`Host` rejection across 14 routes,
+rejection before the body, same-origin acceptance) and 4 startup cases (refused
+nonlocal binds, invalid limit, loopback address, configured limit reaching the
+assembled server). The occupied-port regression now occupies `127.0.0.1`. No
+temporary mutations were run for this increment. The first full run hit the
+known cold LangGraph import timeouts (4 tests under the five-second timeout);
+the rerun passed. Those four files now load the package in a `beforeAll` hook
+with its own 60-second limit, so a cold load no longer counts against a test;
+the five-second test timeout is unchanged, and the cold case was not reproduced
+to confirm the fix. `npm run bench:sustained-memory` still passes under the new
+boundary (151 assertions, heap within tolerance); no new report was written. No
+live provider calls or service restart.
 
 ### 3. Cancellation, recovery and configuration correctness
 
@@ -918,6 +1002,137 @@ quality gate. Broader sports sources, automatic routing/review loops, persistent
 memory and general durable background roles remain longer-term work. Preserve manual
 model/thinking/scope controls, model-specific budgets, payload/context separation and
 the decision not to reject answers merely because expanded display references are large.
+
+### 6. Declarative role coordination — planned (2026-10-05)
+
+Goal: execute a selected roadmap section through implementation, independent
+review, corrections, validation, commit and an accurate next-task handoff. Roles,
+task dependencies and transitions are plan data, not a coding-specific pipeline
+embedded in the engine. Target a stable interpreter with configurable objects and
+registered capability adapters. New workflows using existing capabilities must
+not require engine changes; genuinely new external capabilities may require an
+adapter. Models may propose definitions and results, but cannot grant themselves
+permissions or bypass validated progression conditions.
+
+This workstream concerns development coordination. Product orchestration of
+users' ongoing background objectives remains a separate scope and acceptance
+decision. Contract design and a manually supervised experiment on an existing
+roadmap task may proceed alongside reliability work. Complete the current step 2
+review and explicit step 1 acceptance checkpoint first; do not silently reorder
+steps 1–5 or treat the experiment as evidence of production readiness. Remote
+execution requires authenticated ownership and the applicable step 2 deployment
+boundary; durable recovery requires the applicable reliability/recovery gates.
+
+#### Current foundation and gaps
+
+| Area        | Existing foundation                                                                             | Required addition                                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roles       | Versioned catalog, instructions, model bindings, tool allowlists, budgets and definition hashes | Logical roles separate from worker/model bindings; capability requirements, task context and validated result contracts beyond the fixed retrieval/evidence enums |
+| Plans       | Human roadmap and bounded answer/clarify/retrieve capability plans                              | Versioned executable tasks, dependencies, artifact inputs, acceptance gates and conditional transitions                                                           |
+| LangGraph   | Optional model → validation adapter; tools remain application-owned                             | Generic role execution and plan interpretation, persistent workflow state and resumable handoffs                                                                  |
+| Context     | Bounded conversation context, selected references, source provenance and snapshots              | Task packages containing repository rules, requirements, base revision, prerequisite outputs and review findings                                                  |
+| Dispatch    | Model/provider registry, eligibility, admission and resource controls                           | Worker registry with agent identity, machine/workspace access, capabilities, availability and assignment ownership                                                |
+| Execution   | Bounded, cancellable CLI generation and provider adapters                                       | Coding-worker execution; the current CLI runner deliberately requires answer-only programs                                                                        |
+| Transport   | Existing mailbox described by the user; implementation not located in this checkout             | Inspect the actual mailbox and integrate assignments/results through a transport adapter                                                                          |
+| Artifacts   | Tool results and answer/evidence validation                                                     | Revision-linked patches, findings, validation reports and review approvals                                                                                        |
+| Durability  | Python single-task checkpoint experiment with confirmed-pause restart                           | Production TypeScript persistence, ownership and reconciliation of uncertain side effects; no claim of automatic crash replay                                     |
+| Integration | Repository rules and required checks                                                            | Worktree lifecycle, exact-revision review gates, commit reconciliation and controlled roadmap updates                                                             |
+
+Reuse context, provider, budget and lifecycle components where their contracts fit.
+Do not turn the bounded retrieval planner into an unrestricted coding executor or
+import Hekate's full orchestration stack. Hekate provides design references for
+structured prompts, task policies and event-driven handoffs; its active-path and
+context-history findings reinforce one canonical execution path and recording the
+actual supplied context. Storage of context alone does not establish its delivery
+to the model. See [the ownership audit](adr/0001-chat-runtime-ownership.md) and
+[durability experiment limits](../reports/doc-agent/durable-findings-2026-09-27.md).
+
+#### Increment 1: executable contracts and context
+
+- Define versioned `Plan`, `Task`, `Role`, `Artifact`, `Transition` and
+  `ExecutionPolicy` schemas. Specify dependency/input references, role instructions,
+  required capabilities, result schemas, acceptance evidence, deadlines, budgets
+  and bounded attempts/review rounds. Validate identifiers, references, schemas
+  and reachability; allow deliberate bounded fix loops. Use a small validated
+  condition language rather than arbitrary executable expressions in plan data.
+- Give roadmap tasks stable IDs. Translate a selected prose section into a
+  structured proposal, validate it and snapshot its requirements before assignment.
+  Plan changes require an explicit revision/update or cancellation, not silent
+  reinterpretation by the next worker. Missing decisions become visible blockers.
+- Build task context through existing context machinery. Preserve assignment,
+  acceptance criteria and repository rules as mandatory context; shorten optional
+  background first. Split the task or choose a capable model when required context
+  cannot fit. Distinguish requirements, verified facts and agent conclusions.
+- Record plan/role versions, base revision, context sources/hashes and the actual
+  supplied context under bounded retention and access policy. Provide source
+  retrieval for further investigation. Each worker session must be able to start
+  fresh without relying on another model's conversation memory.
+- Define role-specific inputs: implementers receive the assignment and relevant
+  code/contracts; reviewers receive the original requirements, exact proposed
+  revision/diff and evidence. Implementation summaries supplement independent
+  inspection. Fix assignments preserve original requirements and findings.
+
+Acceptance: two meaningfully different workflows validate using the same schemas;
+invalid references, unsupported contracts/capabilities and unbounded loops are
+rejected. Context-budget tests preserve mandatory requirements and identify missing
+inputs. No executable plan can expand the configured tool/permission boundary.
+
+#### Increment 2: one local interpreter and complete handoff
+
+- Implement a generic LangGraph execution shell: load the current task, assemble
+  context, resolve a worker, invoke the role adapter, validate its output, persist
+  state and evaluate plan-defined transitions. Role names and coding-stage order
+  must not appear as engine-specific routing rules. Keep model/provider, tool
+  execution and native/graph comparison boundaries explicit.
+- Add a coding-worker adapter with explicitly configured workspace/tool access,
+  cancellation and bounded resource use. Preserve existing answer-only CLI
+  guarantees; do not relax that contract to obtain editing capabilities.
+- Represent patches, review findings, validation evidence and approvals as typed
+  artifacts with task/attempt identity and revision provenance. Approval applies
+  only to the reviewed content; subsequent changes require renewed review.
+- Manage isolated worktrees and a single integration owner. Transfer commits or
+  patches between machines rather than assuming shared files. Express Git/checks/
+  roadmap updates as registered operations used by plan steps, not engine stages.
+  Required repository checks and explicit human acceptance decisions remain gates.
+- Prepare a concise roadmap update with completed work, evidence, limitations and
+  next task. Include it in the final reviewed/validated content before committing;
+  store the resulting commit hash in execution state. Do not manufacture a
+  self-referential commit hash in its own roadmap update or overwrite unrelated
+  working-tree changes. A next task starts only when its dependencies are satisfied.
+
+Acceptance: an existing bounded roadmap task completes implement → independent
+review → fix if needed → checks → local commit → roadmap handoff. A second,
+meaningfully different workflow runs without engine-code changes, using only plan
+and role definitions plus existing capabilities. Regression coverage proves stale
+approval rejection, failed-check routing, cancellation and bounded fix loops.
+No push, merge or service restart is implied by local commit capability.
+
+#### Increment 3: durable mailbox coordination and recovery
+
+- Inspect mailbox identity, delivery, acknowledgement and reconnect behavior before
+  selecting integration details. Define versioned assignment, progress, question,
+  result and cancellation messages; keep transport separate from workflow logic.
+- Register workers separately from models. Track capabilities, authorized workspace,
+  machine identity and availability. Persist exclusive assignment ownership with
+  leases and attempt fencing; stale workers cannot advance a superseded task.
+- Persist authoritative workflow state and artifact references before progression.
+  Duplicate delivery must not duplicate transitions or commits. Bound queues,
+  artifacts, event history, retries and disconnected-worker retention.
+- Reconcile uncertain edits, validations and commits after interruption. A graph
+  checkpoint alone cannot prove whether a side effect occurred. Use operation
+  identities and inspect resulting repository state before replay; block ambiguous
+  outcomes with evidence instead of guessing. Authoritative persistence failure
+  stops advancement even if an optional searchable context copy can degrade.
+- Exercise remote cancellation/draining, lost acknowledgements, worker replacement
+  and coordinator restart. Preserve failures and measurement artifacts; distinguish
+  workflow correctness from subjective model quality.
+
+Acceptance: restart and duplicate-delivery tests preserve task ownership, artifacts
+and budgets; stale results cannot advance state; interruption around a commit is
+reconciled without duplicate commits. Demonstrate a cross-machine handoff through
+the actual mailbox. Record unresolved recovery cases and supported deployment scope
+before claiming unattended execution. Dynamic decomposition, semantic memory,
+specialist hierarchies and elaborate routing are deferred until demonstrated needs.
 
 ### Review interpretation and tracking
 

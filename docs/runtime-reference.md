@@ -89,6 +89,51 @@ chat models or UI integration is implied.
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
 JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and primitive values return `400`.
 
+### Local deployment boundary and request limits
+
+Local operation is the only supported deployment. The listener binds `BIND_HOST`
+(default `127.0.0.1`; `::1` and `localhost` are the only other accepted values)
+and startup fails for any other address. Shared or nonlocal deployment stays
+unsupported until requests carry an authenticated identity: `userId` in a JSON
+body is self-asserted, and a shared token would not separate users.
+
+Every request, including page loads, timeline reads, both event streams and
+operator endpoints, is checked before routing and before its body is read:
+
+- `403 HOST_NOT_ALLOWED` unless the `Host` header names `localhost`, `127.0.0.1`
+  or `[::1]` (any port). A DNS name rebound to the loopback address therefore
+  cannot reach the server from a browser.
+- `403 ORIGIN_NOT_ALLOWED` when an `Origin` header is present and is not exactly
+  `http://<Host>`. Another site, a page served from a different local port and
+  an opaque (`null`) origin are all refused. No CORS headers are sent.
+
+A client that sends no `Origin` (curl, the benchmark and evaluation commands, any
+other local process) is accepted. Local mode trusts every process on the machine;
+the policy only keeps other web content in the user's browser from reading or
+driving the server. A reverse proxy that rewrites `Host` or terminates TLS is
+outside this boundary and will be refused.
+
+POST bodies are limited to `HTTP_MAX_BODY_BYTES` (default 1048576, at most
+16777216; invalid values fail startup). Bytes are counted while reading, so the
+limit holds for chunked input with no declared length. A declared
+`Content-Length` over the limit is refused before any body byte is read. Either
+way the response is `413` with code `REQUEST_BODY_TOO_LARGE` and
+`Connection: close`; the server stops reading, nothing is appended or enqueued,
+and a `messageId` in the rejected body stays usable. A client that is still
+uploading may observe the closed connection instead of the 413. Bytes sent past a
+declared `Content-Length` are never treated as body: Node's parser refuses them
+as a malformed next request. A body that ends before its declared length settles
+the request when the client disconnects or Node's default request timeout fires;
+that timeout is not configured here. The limit applies per request. It does not
+bound concurrent requests, open event streams or stream backpressure.
+
+Body parsing and object validation occur outside operation-specific error handlers,
+including `/sports/chat`, so enabled routes preserve the shared HTTP error contract.
+Regression coverage checks declared and chunked oversized bodies on enabled optional
+routes, including status/code, connection closure and absence of downstream work.
+The default-limit integration test accepts valid JSON padded to exactly 1 MiB and
+rejects a declared length one byte larger.
+
 `POST /messages` accepts an optional UUID `messageId` (the server allocates one
 when absent) and returns the same response fields after the fast phase ends. It also returns:
 
@@ -164,8 +209,8 @@ Discarding removes the only replayable copy of the task. The failure itself stay
 in the conversation timeline as the task's terminal error event while that history
 is retained.
 
-Conversation identities (operator endpoints; no authentication, like the rest of
-this server):
+Conversation identities (operator endpoints; like the rest of this server they
+have no authentication and rely on the local deployment boundary above):
 
 ```bash
 curl http://localhost:3100/conversations/retention
@@ -254,9 +299,12 @@ AWS authentication uses the standard SDK credential chain, including environment
 credentials or configured profiles/roles. See `src/config/providerConfig.ts` and
 the provider adapters for the implemented behavior.
 
-The server has no built-in authentication. Conversation ownership checks use
-client-supplied identities and are only prototype guards. Production deployment
-requires a separate authentication and operational-hardening design.
+The server has no built-in authentication. It binds a loopback address and
+refuses cross-origin and non-loopback-`Host` requests (see "Local deployment
+boundary and request limits"). Conversation ownership checks use client-supplied
+identities and are only prototype guards: any local process can read a timeline
+or cancel a turn by conversation ID. Shared deployment requires a separate
+authentication and operational-hardening design and is refused at startup.
 
 ## Provider configuration
 

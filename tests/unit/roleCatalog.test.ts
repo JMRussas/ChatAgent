@@ -9,6 +9,8 @@ import {
 import { ContextManager } from "../../src/app/contextManager";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
+import { preloadLangGraph } from "../helpers/preloadLangGraph";
+preloadLangGraph();
 const role = {
   id: "researcher",
   version: "1",

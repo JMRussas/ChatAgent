@@ -49,6 +49,11 @@ import { renderHomePageHtml } from "./ui/homePage";
 import { z } from "zod";
 import { describeModelCatalog, loadModelCatalog } from "./config/modelCatalog";
 import { loadDiscoveryConfigFromEnv } from "./config/discoveryConfig";
+import {
+  checkLocalRequest,
+  DEFAULT_MAX_BODY_BYTES,
+  loadHttpBoundaryConfig
+} from "./config/httpBoundary";
 import { defaultConnectionsFromEnv, type Connection } from "./models/connections";
 import { InventoryStore, type DiscoveryAdapter } from "./models/inventory";
 import { OllamaDiscoveryAdapter } from "./models/discovery/ollamaDiscovery";
@@ -138,6 +143,8 @@ interface ServerOptions {
   dispatchTelemetry?: () => ReturnType<CatalogDispatch["telemetry"]>;
   evaluationStatus?: () => unknown;
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
+  /** Limit on a request body in bytes, enforced while reading. */
+  maxBodyBytes?: number;
 }
 
 function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo {
@@ -155,11 +162,17 @@ function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo 
 class HttpRequestError extends Error {
   constructor(
     public readonly statusCode: number,
-    message: string
+    message: string,
+    public readonly code?: string,
+    /** The request body was not fully read, so the connection cannot be reused. */
+    public readonly closeConnection = false
   ) {
     super(message);
   }
 }
+
+const bodyTooLarge = () =>
+  new HttpRequestError(413, "Request body too large", "REQUEST_BODY_TOO_LARGE", true);
 
 const MessageBodySchema = z.object({
   referenceSelections: referenceSelectionsSchema.optional(),
@@ -194,14 +207,37 @@ function requireObjectBody(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>;
 }
 
-async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
-  const chunks: Uint8Array[] = [];
+// Counts bytes as they arrive, so chunked input is bounded without a declared
+// length. Listeners are used instead of async iteration because leaving a
+// `for await` early destroys the socket before the rejection can be sent.
+function readBody(req: IncomingMessage, maxBytes: number): Promise<Buffer> {
+  // A declared length over the limit is refused before any body byte is read.
+  if (Number(req.headers["content-length"]) > maxBytes) return Promise.reject(bodyTooLarge());
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const settle = (finish: () => void) => {
+      req.off("data", onData).off("end", onEnd).off("error", onError).off("close", onClose);
+      finish();
+    };
+    const onData = (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= maxBytes) return void chunks.push(chunk);
+      settle(() => {
+        req.pause();
+        reject(bodyTooLarge());
+      });
+    };
+    const onEnd = () => settle(() => resolve(Buffer.concat(chunks, size)));
+    const onError = (error: Error) => settle(() => reject(error));
+    const onClose = () =>
+      settle(() => reject(new HttpRequestError(400, "Request body incomplete")));
+    req.on("data", onData).on("end", onEnd).on("error", onError).on("close", onClose);
+  });
+}
 
-  for await (const chunk of req) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
-  }
-
-  const raw = Buffer.concat(chunks).toString("utf8");
+async function parseJsonBody(req: IncomingMessage, maxBytes: number): Promise<unknown> {
+  const raw = (await readBody(req, maxBytes)).toString("utf8");
   if (!raw) return {};
 
   try {
@@ -251,16 +287,28 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       forget: () => undefined
     });
   const responses = new Set<ServerResponse>();
+  const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const server = createServer(async (req, res) => {
     responses.add(res);
     res.once("close", () => responses.delete(res));
+    // Every route reads its body through this limit.
+    const parseBody = () => parseJsonBody(req, maxBodyBytes);
     try {
+      const rejection = checkLocalRequest(req.headers);
+      if (rejection)
+        return json(res, 403, {
+          code: rejection,
+          error:
+            rejection === "HOST_NOT_ALLOWED"
+              ? "This server only answers requests addressed to a loopback host"
+              : "Cross-origin requests are not allowed"
+        });
       if (service.isShuttingDown)
         return json(res, 503, { code: "SHUTTING_DOWN", error: "Runtime is shutting down" });
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
 
-      if (await protocolV1(req, res, url, () => parseJsonBody(req))) return;
+      if (await protocolV1(req, res, url, parseBody)) return;
 
       if (method === "GET" && url.pathname === "/telemetry/evaluation")
         return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });
@@ -275,7 +323,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         if (!options.briefings?.reload) return json(res, 404, { code: "BRIEFING_RELOAD_DISABLED" });
         z.object({})
           .strict()
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         try {
           return json(res, 200, await options.briefings.reload());
         } catch {
@@ -289,7 +337,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       if (method === "POST" && url.pathname === "/briefings") {
         if (!options.briefings)
           return json(res, 404, { code: "BRIEFINGS_DISABLED", error: "Briefings are disabled" });
-        const result = options.briefings.request(requireObjectBody(await parseJsonBody(req)));
+        const result = options.briefings.request(requireObjectBody(await parseBody()));
         return json(res, result.status, result.body);
       }
 
@@ -308,7 +356,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
               .optional(),
             question: z.string().trim().min(1).max(2000).optional()
           })
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         if (body.op === "start" && (!body.requestId || !body.question))
           throw new HttpRequestError(400, "Start requires requestId and question");
         if (!["start", "list"].includes(body.op) && !body.taskId)
@@ -333,7 +381,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
             input: z.unknown()
           })
           .strict()
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         const games = options.briefings?.gameOperations;
         if (!games) return json(res, 404, { error: "Game operations disabled" });
         service.claimConversation(body.conversationId, body.userId);
@@ -373,7 +421,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
             conversationId: z.string().min(1).max(200)
           })
           .strict()
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         return json(res, 200, {
           context: service.detachTeamReference(body.conversationId, body.userId) ?? null
         });
@@ -385,7 +433,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
             conversationId: z.string().min(1).max(200)
           })
           .strict()
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         return json(res, 200, {
           context: service.getSelectedContext(body.conversationId, body.userId) ?? null
         });
@@ -400,7 +448,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
             attachReference: z.boolean()
           })
           .strict()
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         const directory = options.briefings?.directory;
         if (!directory) return json(res, 404, { error: "Directories disabled" });
         service.claimConversation(body.conversationId, body.userId, false);
@@ -431,7 +479,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
             resultId: z.string().uuid().optional()
           })
           .strict()
-          .parse(requireObjectBody(await parseJsonBody(req)));
+          .parse(requireObjectBody(await parseBody()));
         service.claimConversation(
           body.conversationId,
           body.userId,
@@ -478,12 +526,9 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       if (method === "POST" && url.pathname === "/sports/chat") {
         if (!options.briefings)
           return json(res, 404, { error: "Sports retrieval is not enabled on this server." });
+        const body = requireObjectBody(await parseBody());
         try {
-          return json(
-            res,
-            202,
-            options.briefings.startChat(requireObjectBody(await parseJsonBody(req)))
-          );
+          return json(res, 202, options.briefings.startChat(body));
         } catch (error) {
           if (error instanceof z.ZodError) throw error;
           return json(res, 400, {
@@ -494,7 +539,7 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
 
       if (method === "POST" && url.pathname === "/messages") {
-        const raw = requireObjectBody(await parseJsonBody(req));
+        const raw = requireObjectBody(await parseBody());
         rejectUnsupportedInputs(raw);
         const body = MessageBodySchema.parse(raw);
         const response = await service.submitMessage({
@@ -605,13 +650,13 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/tune") {
-        const body = QueueDepthBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
+        const body = QueueDepthBodySchema.parse(requireObjectBody(await parseBody()));
         const policy = service.tuneRoutingPolicy(body.queueDepth ?? 0);
         return json(res, 200, { policy });
       }
 
       if (method === "POST" && url.pathname === "/routing/policy/set") {
-        const body = RoutingPolicyBodySchema.parse(requireObjectBody(await parseJsonBody(req)));
+        const body = RoutingPolicyBodySchema.parse(requireObjectBody(await parseBody()));
         const policy = service.setRoutingPolicy({
           maxFastP95Ms: body.maxFastP95Ms
         });
@@ -792,7 +837,11 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
           { error: "Generation failed", code: error.code }
         );
       if (error instanceof HttpRequestError) {
-        return json(res, error.statusCode, { error: error.message });
+        if (error.closeConnection) res.setHeader("Connection", "close");
+        return json(res, error.statusCode, {
+          error: error.message,
+          ...(error.code ? { code: error.code } : {})
+        });
       }
 
       if (error instanceof z.ZodError) {
@@ -845,6 +894,7 @@ export async function startServer(
   port: number,
   extensions: { briefings?: BriefingHttp } = {}
 ): Promise<RuntimeHandle> {
+  const boundary = loadHttpBoundaryConfig();
   const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
@@ -1160,7 +1210,8 @@ export async function startServer(
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
     evaluationStatus: () =>
       recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
-    contextTelemetry: () => contextManager.getSummaryTelemetry()
+    contextTelemetry: () => contextManager.getSummaryTelemetry(),
+    maxBodyBytes: boundary.maxBodyBytes
   });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
@@ -1177,7 +1228,7 @@ export async function startServer(
       );
     };
     server.once("error", onError);
-    server.listen(port, () => {
+    server.listen(port, boundary.host, () => {
       server.removeListener("error", onError);
       resolve();
     });
@@ -1239,7 +1290,7 @@ export async function startServer(
   // region — see its docstring in ./config/providerConfig.
   const autoRunLabel = autoRunConfig.enabled ? `on/${autoRunConfig.intervalMs}ms` : "off";
   console.log(
-    `Chat server listening on port ${runtime.address.port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`
+    `Chat server listening on ${boundary.host} port ${runtime.address.port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`
   );
   return runtime;
 }

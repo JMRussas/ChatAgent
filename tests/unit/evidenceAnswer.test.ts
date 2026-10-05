@@ -8,6 +8,8 @@ import { ToolResultStore } from "../../src/app/toolResult";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { InMemoryTaskQueue, type FastModelProvider } from "../../src/providers/interfaces";
 import { runControlsSchema } from "../../src/app/runControls";
+import { preloadLangGraph } from "../helpers/preloadLangGraph";
+preloadLangGraph();
 afterEach(() => vi.useRealTimers());
 function setup(
   engine: "native" | "langgraph" = "native",

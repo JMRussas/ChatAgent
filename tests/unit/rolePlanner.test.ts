@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { runRolePlanner, rolePlannerEngine } from "../../src/app/rolePlanner";
+import { preloadLangGraph } from "../helpers/preloadLangGraph";
+preloadLangGraph();
 it.each(["native", "langgraph"] as const)(
   "%s validates once without retry and propagates validation errors",
   async (engine) => {

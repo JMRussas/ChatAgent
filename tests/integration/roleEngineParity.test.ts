@@ -10,6 +10,8 @@ import { entryBindingId } from "../../src/providers/providerRegistry";
 import { runtime, entry, message, evidence } from "../helpers/dispatchFixtures";
 import type { FastModelProvider } from "../../src/providers/interfaces";
 import type { RolePlannerEngine } from "../../src/app/rolePlanner";
+import { preloadLangGraph } from "../helpers/preloadLangGraph";
+preloadLangGraph();
 const config = JSON.parse(readFileSync("data/sports/nfl-live-briefing.example.json", "utf8"));
 const window = { league: "NBA", from: "2026-09-27T00:00:00Z", to: "2026-09-30T00:00:00Z" };
 const lookup = { action: "retrieve", calls: [{ tool: "sports:find-games", arguments: window }] };
