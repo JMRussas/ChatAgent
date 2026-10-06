@@ -277,14 +277,26 @@ abandoned (2026-10-06). Nothing is replayed, restarted, refunded or sent to a mo
   `POST /workers/document-tasks/abandon` also takes `operationId` (a UUID) and
   `expectedDigest`. Both are operator-only, use POST so ids stay out of URLs, and
   answer 404 when document tasks are disabled.
-- The server supplies the conversation's owner from its own record, never from the
-  request; an owner it does not know is refused with 409 `OWNER_UNKNOWN` and nothing
-  is adopted. Its record is process-local, so after a server restart a conversation
-  must be used again before its tasks can be inspected. The sidecar then checks that
-  owner and the task's binding as for any task command.
+- The owner is never taken from the request. The sidecar resolves it from its own
+  durable binding and owner rows (`recover_inspect` and `recover_abandon`, which
+  carry no `userId`): the task must be bound to the named conversation
+  (`TASK_NOT_FOUND`), the conversation must have an owner row (`TASK_UNAVAILABLE`
+  otherwise; never repaired), and that row must have the scoped owner-key form
+  (`OWNER_UNSCOPED`, 409, for a legacy label; never adopted). The form only
+  distinguishes scoped keys from legacy labels; authority comes from the trusted
+  binding and owner rows and the operator boundary.
+- The server's own owner record is process-local, so after a server restart it may
+  not know the owner. When it does, it sends that owner as `expectedOwner` and the
+  stored owner must equal it (`OWNER_MISMATCH`, 409); when it does not, the stored
+  owner alone decides. Either way the response is the same. Recovery claims nothing:
+  it writes no owner or binding row, and no owner, scope or history entry on the
+  server, so client access to the conversation is exactly what it was. Operator
+  authorization is global, as for the other operator routes.
 - The supervisor checks the expected generation and readiness and hands the request
   to that child in the same synchronous step; responses report that generation,
-  which may since have changed.
+  which may since have changed. Generation numbers are local to one server process:
+  a full server restart starts counting again and can reuse a number, so a matching
+  generation never stands in for the task digest and receipt checks.
 - Inspection reads the task's row once and returns a fixed, validated view: status
   as stored and as effective, an advisory `ownerActive` probe, a digest of the
   stored row, created and updated times, model and tool call counts, and any
@@ -293,14 +305,17 @@ abandoned (2026-10-06). Nothing is replayed, restarted, refunded or sent to a mo
   an inconsistent receipt make the task `TASK_UNAVAILABLE`; nothing is repaired.
 - Abandonment takes the task owner lock and then the checkpoint lock that durable
   execution holds, both without waiting (`TASK_OWNER_ACTIVE` if either is held). In
-  one write transaction it rechecks the binding and owner, then requires a running or
+  one write transaction it rechecks the binding and that the stored owner is still
+  the one resolved before the transaction (any change refuses, to another scoped
+  owner included), before any receipt is replayed, then requires a running or
   cancel-requested status (`NOT_ABANDONABLE`) and an unchanged row digest
   (`TASK_CHANGED`), then records status `abandoned` with a receipt of the operation,
   the digest it was made against, the previous status, the time and
   `externalOutcome: "unknown"`. Existing task content, checkpoint, owner and binding
   are preserved; the payload gains the receipt and an updated decision time.
 - The same `operationId` and `expectedDigest` return the stored receipt exactly, so a
-  lost reply (503 `BRIDGE_UNCERTAIN`) can be resolved by resending. The same
+  lost reply (503 `BRIDGE_UNCERTAIN`) can be resolved by resending. A lost
+  inspection reply is only unavailable. The same
   operation with another digest is `OPERATION_CONFLICT`; another operation is
   `ALREADY_ABANDONED`.
 - An abandoned task is terminal: it never resumes, runs, is cancelled again or

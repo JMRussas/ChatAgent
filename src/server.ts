@@ -466,8 +466,9 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       options.briefings?.gameOperations?.forgetResults?.(removed);
     }
   });
-  // The sidecar keeps durable tasks and its own owner table. There is no abandon
-  // operation yet, so a conversation with document tasks is not retired.
+  // The sidecar keeps durable tasks and its own owner table. Abandonment keeps the
+  // task, its binding and owner, so a conversation with any document task, abandoned
+  // ones included, is still not retired.
   if (options.documentTasks)
     service.addRetirementParticipant({
       blockers: async (conversationId, ownerUserId) => {
@@ -872,20 +873,18 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         const body = (abandon ? abandonTaskBodySchema : inspectTaskBodySchema).parse(
           requireObjectBody(await parseBody())
         );
-        // The owner comes from this server's record of the conversation, never the
-        // request; an unknown owner is refused rather than adopted.
+        // The sidecar resolves the owner from its own durable binding and owner rows,
+        // never from the request. When this server also knows the owner (it may not,
+        // after a restart), the stored owner must be that one. Nothing is claimed or
+        // adopted here: this server's owner and history maps are not written. No await
+        // separates this lookup from the dispatch below.
         const owner = service.conversationOwner(body.conversationId);
-        if (owner === undefined)
-          return json(res, 409, {
-            error: "The conversation's owner is not known to this server",
-            code: "OWNER_UNKNOWN"
-          });
         const { generation, result } = await options.documentTaskControl.operate(
           body.expectedGeneration,
           {
-            op: abandon ? "abandon_task" : "inspect_task",
+            op: abandon ? "recover_abandon" : "recover_inspect",
             conversationId: body.conversationId,
-            userId: owner,
+            ...(owner === undefined ? {} : { expectedOwner: owner }),
             taskId: body.taskId,
             ...(abandon
               ? {
@@ -920,7 +919,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         if (!parsed.success || !correlated)
           throw new DocumentTaskError(
             abandon ? "BRIDGE_UNCERTAIN" : "TASK_UNAVAILABLE",
-            abandon ? "abandon_task" : "inspect_task"
+            abandon ? "recover_abandon" : "recover_inspect"
           );
         // The generation the request was sent to; it may have changed since.
         return json(
@@ -1168,7 +1167,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           error:
             error.op === "start"
               ? "The task may have been accepted. Its outcome is unknown; inspect task state before submitting more work."
-              : error.op === "abandon_task"
+              : error.op === "abandon_task" || error.op === "recover_abandon"
                 ? "The abandonment may have been recorded. Resending the same operationId and expectedDigest returns the recorded outcome."
                 : "The outcome is unknown. Check the task's status before acting."
         });
@@ -1188,6 +1187,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             ? 429
             : [
                   "OWNER_MISMATCH",
+                  "OWNER_UNSCOPED",
                   "REQUEST_CONFLICT",
                   "NOT_RESUMABLE",
                   "TASK_OWNER_ACTIVE",

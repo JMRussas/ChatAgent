@@ -222,9 +222,11 @@ describe("what an unanswered request reports", () => {
       "resume",
       "cancel",
       "abandon_task",
+      "recover_abandon",
       "list",
       "status",
-      "inspect_task"
+      "inspect_task",
+      "recover_inspect"
     ].map((op) => code(b.request({ op })));
     c.emit("exit", 1);
     expect(await Promise.all(results)).toEqual([
@@ -232,9 +234,11 @@ describe("what an unanswered request reports", () => {
       "BRIDGE_UNCERTAIN:resume",
       "BRIDGE_UNCERTAIN:cancel",
       "BRIDGE_UNCERTAIN:abandon_task",
+      "BRIDGE_UNCERTAIN:recover_abandon",
       "BRIDGE_UNAVAILABLE:list",
       "BRIDGE_UNAVAILABLE:status",
-      "BRIDGE_UNAVAILABLE:inspect_task"
+      "BRIDGE_UNAVAILABLE:inspect_task",
+      "BRIDGE_UNAVAILABLE:recover_inspect"
     ]);
   });
 

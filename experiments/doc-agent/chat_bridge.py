@@ -10,6 +10,7 @@ from retrieval import Corpus
 from run import ROOT,api
 from urllib.parse import urlsplit
 from functools import partial
+import re
 
 def local_endpoint(value):
     u=urlsplit(value)
@@ -18,6 +19,13 @@ def local_endpoint(value):
     return value.rstrip('/')
 
 HEALTH={'service':'chatagent-document-tasks','protocol':1}
+# The form of an owner key the Node server scopes to an authenticated principal
+# (scopedOwnerKey), distinguished from legacy labels. The form proves neither the
+# principal nor who wrote the row: recovery authority comes from this store's own
+# binding and owner rows and from the operator boundary in front of it.
+SCOPED_OWNER=re.compile(r'o1:[A-Za-z0-9_-]{43}:[A-Za-z0-9_-]{43}')
+TASK_ID=re.compile(r'[0-9a-f]{32}')
+RECOVERY_OPS=('recover_inspect','recover_abandon')
 
 class BridgeError(ValueError):
     def __init__(self,code):self.code=code;super().__init__(code)
@@ -80,6 +88,51 @@ class ConversationTasks:
         with self.manager.connect() as c:row=c.execute('SELECT conversation FROM bindings WHERE task=?',(task_id,)).fetchone()
         if row is None or row[0]!=conversation:raise BridgeError('TASK_NOT_FOUND')
 
+    def stored_owner(self,c,conversation,task_id):
+        """The existing scoped owner of a task's bound conversation, read from this store.
+
+        Lookup only: nothing is claimed, bound or repaired. A missing binding is not
+        found, a binding without an owner row is damaged, and a legacy or unscoped
+        owner is refused rather than adopted.
+        """
+        row=c.execute('SELECT conversation FROM bindings WHERE task=?',(task_id,)).fetchone()
+        if row is None or row[0]!=conversation:raise BridgeError('TASK_NOT_FOUND')
+        owner=c.execute('SELECT user FROM owners WHERE conversation=?',(conversation,)).fetchone()
+        if owner is None:raise BridgeError('TASK_UNAVAILABLE')
+        if not isinstance(owner[0],str) or not SCOPED_OWNER.fullmatch(owner[0]):raise BridgeError('OWNER_UNSCOPED')
+        return owner[0]
+
+    def recover(self,data):
+        """Operator inspection or abandonment through the stored owner, never a caller's.
+
+        Used when the Node server may not know the conversation's owner, such as after
+        it restarts. expectedOwner, when the server does know it, must be the stored
+        owner. The owner resolved here must still be the owner inside the abandonment's
+        own transaction, before any receipt is replayed.
+        """
+        op=data.get('op');conversation=data.get('conversationId');task_id=data.get('taskId')
+        expected=data.get('expectedOwner')
+        if 'userId' in data:raise BridgeError('INVALID_REQUEST')
+        if not isinstance(conversation,str) or not 0<len(conversation)<=200:raise BridgeError('INVALID_SCOPE')
+        if not isinstance(task_id,str) or not TASK_ID.fullmatch(task_id):raise BridgeError('INVALID_REQUEST')
+        # Present means checked: a malformed expectation never disables the comparison.
+        if 'expectedOwner' in data and (not isinstance(expected,str) or not 0<len(expected)<=200):
+            raise BridgeError('INVALID_REQUEST')
+        if op=='recover_abandon':
+            operation,digest=data.get('operationId'),data.get('expectedDigest')
+            if not isinstance(operation,str) or not UUID.fullmatch(operation):raise BridgeError('INVALID_REQUEST')
+            if not isinstance(digest,str) or not DIGEST.fullmatch(digest):raise BridgeError('INVALID_REQUEST')
+        with self.manager.connect() as c:owner=self.stored_owner(c,conversation,task_id)
+        if expected is not None and expected!=owner:raise BridgeError('OWNER_MISMATCH')
+        try:
+            if op=='recover_inspect':return self.manager.inspect(task_id)
+            def guard(c):
+                # Any drift since the lookup refuses, to another scoped owner included.
+                if self.stored_owner(c,conversation,task_id)!=owner:raise BridgeError('OWNER_MISMATCH')
+            receipt=self.manager.abandon(task_id,operation,digest,guard)
+            return {'receipt':receipt,'task':self.manager.inspect(task_id)}
+        except TaskError as error:raise BridgeError(error.code)
+
     def view(self,task_id):
         s=self.manager.status(task_id);r=s['last_checkpoint'];answer=r.get('answer')
         with self.manager.connect() as c:question=c.execute('SELECT question FROM bindings WHERE task=?',(task_id,)).fetchone()[0]
@@ -115,6 +168,8 @@ class ConversationTasks:
             # Readiness: the owner lock is held and the store is open. No scope, no
             # model and no task state is read or changed.
             if data.get('op')=='health':return HEALTH
+            # Recovery resolves its owner from this store; it carries no userId.
+            if data.get('op') in RECOVERY_OPS:return self.recover(data)
             conversation=data.get('conversationId');user=data.get('userId')
             op=data.get('op');self.scope(conversation,user)
             if op=='start':

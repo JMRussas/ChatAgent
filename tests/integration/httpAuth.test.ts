@@ -473,7 +473,7 @@ describe("document sidecar operator control", () => {
       operate: vi.fn<DocumentTaskControl["operate"]>(async (generation, request) => ({
         generation,
         result:
-          request.op === "abandon_task"
+          request.op === "recover_abandon"
             ? {
                 receipt: { operationId: request.operationId },
                 task: { persistedStatus: "abandoned" }
@@ -603,7 +603,7 @@ describe("document task recovery routes", () => {
     const operate = vi.fn<DocumentTaskControl["operate"]>(async (generation, request) => ({
       generation,
       result:
-        request.op === "abandon_task"
+        request.op === "recover_abandon"
           ? { receipt: receipt(request.operationId), task: abandonedView(request.operationId) }
           : view()
     }));
@@ -624,7 +624,7 @@ describe("document task recovery routes", () => {
   const inspect = { expectedGeneration: 2, conversationId: "c1", taskId };
   const abandon = { ...inspect, operationId: randomUUID(), expectedDigest: digest };
 
-  it("inspects and abandons through the server's own owner record, for the operator only", async () => {
+  it("inspects and abandons with the server's owner as the expected owner, for the operator only", async () => {
     const { h, operate, post } = await harness();
     h.service.claimConversation("c1", "owner-key");
     const viewed = await post("inspect", inspect);
@@ -638,13 +638,13 @@ describe("document task recovery routes", () => {
       task: abandonedView(abandon.operationId)
     });
     expect(operate.mock.calls.map(([g, r]) => [g, r])).toEqual([
-      [2, { op: "inspect_task", conversationId: "c1", userId: "owner-key", taskId }],
+      [2, { op: "recover_inspect", conversationId: "c1", expectedOwner: "owner-key", taskId }],
       [
         2,
         {
-          op: "abandon_task",
+          op: "recover_abandon",
           conversationId: "c1",
-          userId: "owner-key",
+          expectedOwner: "owner-key",
           taskId,
           operationId: abandon.operationId,
           expectedDigest: digest
@@ -676,12 +676,24 @@ describe("document task recovery routes", () => {
     expect(operate).not.toHaveBeenCalled();
   });
 
-  it("refuses an unknown owner without calling the sidecar", async () => {
-    const { operate, post } = await harness();
-    const r = await post("inspect", inspect);
-    expect(r.status).toBe(409);
-    expect(await r.json()).toMatchObject({ code: "OWNER_UNKNOWN" });
-    expect(operate).not.toHaveBeenCalled();
+  it("leaves an owner this server does not know to the sidecar, and adopts nothing", async () => {
+    const { h, operate, post } = await harness();
+    const before = h.service.retentionStats();
+    expect((await post("inspect", inspect)).status).toBe(200);
+    expect((await post("abandon", abandon)).status).toBe(200);
+    expect(operate.mock.calls.map(([, r]) => r)).toEqual([
+      { op: "recover_inspect", conversationId: "c1", taskId },
+      {
+        op: "recover_abandon",
+        conversationId: "c1",
+        taskId,
+        operationId: abandon.operationId,
+        expectedDigest: digest
+      }
+    ]);
+    // No owner, scope or history is created for the conversation.
+    expect(h.service.conversationOwner("c1")).toBeUndefined();
+    expect(h.service.retentionStats()).toEqual(before);
   });
 
   it("maps sidecar and control refusals", async () => {
@@ -695,13 +707,15 @@ describe("document task recovery routes", () => {
     });
     for (const [error, http, extra] of [
       [new DocumentTaskError("TASK_NOT_FOUND"), 404, {}],
+      [new DocumentTaskError("OWNER_MISMATCH"), 409, {}],
+      [new DocumentTaskError("OWNER_UNSCOPED"), 409, {}],
       [new DocumentTaskError("TASK_OWNER_ACTIVE"), 409, {}],
       [new DocumentTaskError("NOT_ABANDONABLE"), 409, {}],
       [new DocumentTaskError("TASK_CHANGED"), 409, {}],
       [new DocumentTaskError("ALREADY_ABANDONED"), 409, {}],
       [new DocumentTaskError("OPERATION_CONFLICT"), 409, {}],
       [new DocumentTaskError("TASK_UNAVAILABLE"), 503, {}],
-      [new DocumentTaskError("BRIDGE_UNCERTAIN", "abandon_task"), 503, { uncertain: true }],
+      [new DocumentTaskError("BRIDGE_UNCERTAIN", "recover_abandon"), 503, { uncertain: true }],
       [stale, 409, {}]
     ] as const) {
       operate.mockRejectedValueOnce(error);
@@ -735,7 +749,11 @@ describe("document task recovery routes", () => {
     });
     const done = await post("abandon", abandon);
     expect(done.status).toBe(503);
-    expect(await done.json()).toMatchObject({ code: "BRIDGE_UNCERTAIN", uncertain: true });
+    const doneBody = await done.json();
+    expect(doneBody).toMatchObject({ code: "BRIDGE_UNCERTAIN", uncertain: true });
+    expect(doneBody.error).toMatch(
+      /same operationId and expectedDigest returns the recorded outcome/
+    );
   });
 
   it("treats well-formed replies about something else as unavailable or uncertain", async () => {

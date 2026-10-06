@@ -1190,12 +1190,23 @@ any shared deployment.
   [orphaned task recovery](implementation/11-conversation-tasks.md#orphaned-task-recovery):_
   operator routes guarded by generation, server-resolved owner, both execution
   locks, digest compare-and-set and an exactly replayable receipt; the external
-  outcome stays unknown. Owner adoption after a server restart remains open.
-  Validation: 1,215 tests across 128 files, 34 browser tests and 91 doc-agent tests
+  outcome stays unknown. _Recovery after a server restart implemented 2026-10-06:_
+  the sidecar resolves the owner from its durable binding and owner rows, checks it
+  against the server's owner when that is known, rechecks it inside the abandonment
+  transaction, and refuses legacy or unscoped owners; nothing is adopted and no client
+  access is created. Adopting conversations after a restart, migrating legacy owner
+  labels and an operator listing of orphans remain open.
+  Initial inspect/abandon validation: 1,215 tests across 128 files, 34 browser tests and 91 doc-agent tests
   through uv-managed Python 3.13.13 passed. Independent review reran 101 focused
   TypeScript tests (including seven real sidecar cases) and 34 Python recovery,
   creation and bridge tests. Nineteen distinct temporary mutations were rejected;
   corrupt timestamps/counters fail before any write. Format and lint passed.
+  Restart-recovery validation: 1,245 tests across 130 files, 34 browser tests and 102
+  doc-agent tests through uv-managed Python 3.13.13 passed. Independent review reran
+  84 TypeScript tests, including nine real-sidecar cases with required Python coverage,
+  and 45 Python recovery, creation and bridge tests. Fourteen temporary mutations were
+  rejected; format, lint and documentation checks passed. Generations remain process-local;
+  recovery neither adopts conversation identities nor grants client access.
 - Validate complete discovery batches before publishing inventory changes. Retain
   last good observations without extending freshness, and expose sanitized failure
   reasons without credentials or raw provider responses. _Implemented 2026-10-06;

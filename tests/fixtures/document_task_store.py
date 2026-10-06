@@ -1,6 +1,7 @@
 """Builds a document-task store for restart tests, offline, with a scripted fake model.
 
-Usage: python document_task_store.py <root>. Prints the created task ids as JSON.
+Usage: python document_task_store.py <root> [owner]. Prints the created task ids as JSON.
+The conversation's stored owner is "owner-1" (a legacy label) unless one is given.
 
 - "paused": really advanced once by the scripted model, so it has a durable
   checkpoint. Every fake model call is logged to <root>/fixture.calls.
@@ -19,13 +20,13 @@ from test_durable import Scripted, fixture_corpus  # noqa: E402
 IDENTITY = {"name": "fixture"}
 
 
-async def main(root):
+async def main(root, owner):
     bridge = ConversationTasks(root, IDENTITY, fixture_corpus())
     manager = bridge.manager
     calls = str(Path(root) / "fixture.calls")
     ids = {}
     with manager.connect() as c:
-        c.execute("INSERT INTO owners VALUES (?,?)", ("conversation-1", "owner-1"))
+        c.execute("INSERT INTO owners VALUES (?,?)", ("conversation-1", owner))
     for status in ("paused", "running"):
         question = f"A {status} question"
         task = manager.submit(question, fixture_corpus(), IDENTITY)
@@ -45,4 +46,4 @@ async def main(root):
     print(json.dumps(ids))
 
 
-asyncio.run(main(sys.argv[1]))
+asyncio.run(main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "owner-1"))

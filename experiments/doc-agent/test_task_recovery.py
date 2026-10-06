@@ -217,6 +217,142 @@ m.abandon(sys.argv[2],"{uuid.uuid4()}",sys.argv[3])
                 if stage=='after':self.assertEqual(manager.inspect(task)['abandonment']['previousStatus'],'running')
 
 
+OWNER='o1:'+'P'*43+':'+'K'*43
+OTHER='o1:'+'Q'*43+':'+'K'*43
+
+
+class RecoveryThroughStoredOwner(unittest.IsolatedAsyncioTestCase):
+    """recover_inspect and recover_abandon: the owner comes from the store, never the caller."""
+    async def asyncSetUp(self):
+        self.dir=tempfile.TemporaryDirectory();self.root=self.dir.name
+        self.task=seed(self.root,'running')
+        self.set_owner(OWNER)
+        self.bridge=ConversationTasks(self.root,{'name':'fixture'},fixture_corpus())
+
+    async def asyncTearDown(self):
+        await self.bridge.close();self.dir.cleanup()
+
+    def set_owner(self,owner):
+        with closing(sqlite3.connect(Path(self.root)/'tasks.sqlite')) as c,c:
+            c.execute('UPDATE owners SET user=? WHERE conversation=?',(owner,'c'))
+
+    async def inspect(self,**fields):
+        return await self.bridge.command({'op':'recover_inspect','conversationId':'c','taskId':self.task,**fields})
+
+    async def abandon(self,digest,operation=None,**fields):
+        return await self.bridge.command({'op':'recover_abandon','conversationId':'c','taskId':self.task,
+                                          'operationId':operation or str(uuid.uuid4()),'expectedDigest':digest,**fields})
+
+    async def test_inspects_through_the_stored_owner_without_writing(self):
+        before=rows(self.root)
+        for fields in ({},{'expectedOwner':OWNER}):
+            with self.subTest(fields=fields):
+                view=await self.inspect(**fields)
+                self.assertEqual((view['taskId'],view['effectiveStatus']),(self.task,'uncertain'))
+                self.assertNotIn(OWNER,json.dumps(view))
+        self.assertEqual(rows(self.root),before)
+
+    async def test_abandons_and_replays_through_either_path(self):
+        view=await self.inspect();op=str(uuid.uuid4())
+        done=await self.abandon(view['digest'],op)
+        self.assertEqual(done['task']['persistedStatus'],'abandoned')
+        self.assertEqual(await self.abandon(view['digest'],op,expectedOwner=OWNER),done)
+        # The receipt is the same one the owner-scoped operation replays.
+        replayed=await self.bridge.command({'op':'abandon_task','conversationId':'c','userId':OWNER,'taskId':self.task,
+                                            'operationId':op,'expectedDigest':view['digest']})
+        self.assertEqual(replayed,done)
+        data=rows(self.root)
+        self.assertEqual((data['owners'],len(data['bindings'])),([('c',OWNER)],1))
+
+    async def test_refuses_an_unbound_task_or_another_conversation(self):
+        with self.assertRaisesRegex(BridgeError,'TASK_NOT_FOUND'):await self.inspect(conversationId='d')
+        with self.assertRaisesRegex(BridgeError,'TASK_NOT_FOUND'):await self.inspect(taskId='0'*32)
+        with self.assertRaisesRegex(BridgeError,'TASK_NOT_FOUND'):await self.abandon('0'*64,conversationId='d')
+
+    async def test_a_binding_without_an_owner_is_unavailable(self):
+        with closing(sqlite3.connect(Path(self.root)/'tasks.sqlite')) as c,c:c.execute('DELETE FROM owners')
+        before=rows(self.root)
+        with self.assertRaisesRegex(BridgeError,'TASK_UNAVAILABLE'):await self.inspect()
+        with self.assertRaisesRegex(BridgeError,'TASK_UNAVAILABLE'):await self.abandon('0'*64)
+        self.assertEqual(rows(self.root),before)
+
+    async def test_legacy_or_unscoped_owners_are_refused_not_adopted(self):
+        for owner in ('u','o1:short:x',OWNER+'x',OWNER+'\n','o1:'+'P'*43+':'+'K'*42+'=',OWNER.upper()):
+            with self.subTest(owner=owner):
+                self.set_owner(owner);before=rows(self.root)
+                with self.assertRaisesRegex(BridgeError,'OWNER_UNSCOPED'):await self.inspect()
+                with self.assertRaisesRegex(BridgeError,'OWNER_UNSCOPED'):await self.inspect(expectedOwner=owner)
+                with self.assertRaisesRegex(BridgeError,'OWNER_UNSCOPED'):await self.abandon('0'*64)
+                self.assertEqual(rows(self.root),before)
+
+    async def test_a_different_expected_owner_is_refused(self):
+        view=await self.inspect()
+        with self.assertRaisesRegex(BridgeError,'OWNER_MISMATCH'):await self.inspect(expectedOwner=OTHER)
+        with self.assertRaisesRegex(BridgeError,'OWNER_MISMATCH'):await self.abandon(view['digest'],expectedOwner=OTHER)
+        self.assertEqual(rows(self.root)['tasks'][0][1],'running')
+
+    async def test_requests_are_validated_and_never_carry_a_user(self):
+        cases=[{'userId':OWNER},{'userId':None},{'conversationId':''},{'conversationId':'c'*201},{'conversationId':7},
+               {'taskId':'A'*32},{'taskId':'0'*31},{'taskId':None},{'expectedOwner':''},{'expectedOwner':'o'*201},
+               {'expectedOwner':1},{'expectedOwner':None},{'expectedOwner':False},{'expectedOwner':True},
+               {'expectedOwner':[OWNER]},{'expectedOwner':{'owner':OWNER}}]
+        for fields in cases:
+            with self.subTest(fields=fields):
+                with self.assertRaisesRegex(BridgeError,'INVALID_'):await self.inspect(**fields)
+        for operation,digest in (('not-a-uuid','0'*64),('ABCDEF01-2345-4678-9ABC-DEF012345678','0'*64),(None,'0'*64),(str(uuid.uuid4()),'XYZ'),(str(uuid.uuid4()),None)):
+            with self.subTest(operation=operation,digest=digest):
+                with self.assertRaisesRegex(BridgeError,'INVALID_REQUEST'):
+                    await self.bridge.command({'op':'recover_abandon','conversationId':'c','taskId':self.task,
+                                               'operationId':operation,'expectedDigest':digest})
+        self.assertEqual(rows(self.root)['tasks'][0][1],'running')
+
+    async def test_owner_drift_inside_the_transaction_refuses(self):
+        # The lookup sees OWNER; the abandonment's own transaction then sees another row.
+        for drifted,code in ((OTHER,'OWNER_MISMATCH'),('u','OWNER_UNSCOPED'),(None,'TASK_UNAVAILABLE')):
+            with self.subTest(drifted=drifted):
+                self.set_owner(OWNER);view=await self.inspect()
+                guarded=self.bridge.manager.abandon
+                def drift_first(*args):
+                    with closing(sqlite3.connect(Path(self.root)/'tasks.sqlite')) as c,c:
+                        if drifted is None:c.execute('DELETE FROM owners')
+                        else:c.execute('UPDATE owners SET user=? WHERE conversation=?',(drifted,'c'))
+                    return guarded(*args)
+                with patch.object(self.bridge.manager,'abandon',side_effect=drift_first):
+                    with self.assertRaisesRegex(BridgeError,code):await self.abandon(view['digest'])
+                self.assertEqual(rows(self.root)['tasks'][0][1],'running')
+                with closing(sqlite3.connect(Path(self.root)/'tasks.sqlite')) as c,c:
+                    c.execute('INSERT OR REPLACE INTO owners VALUES (?,?)',('c',OWNER))
+
+    async def test_a_moved_binding_inside_the_transaction_refuses(self):
+        view=await self.inspect();guarded=self.bridge.manager.abandon
+        def move_first(*args):
+            with closing(sqlite3.connect(Path(self.root)/'tasks.sqlite')) as c,c:
+                c.execute('UPDATE bindings SET conversation=? WHERE task=?',('d',self.task))
+            return guarded(*args)
+        with patch.object(self.bridge.manager,'abandon',side_effect=move_first):
+            with self.assertRaisesRegex(BridgeError,'TASK_NOT_FOUND'):await self.abandon(view['digest'])
+        self.assertEqual(rows(self.root)['tasks'][0][1],'running')
+
+    async def test_replay_rechecks_the_owner_first(self):
+        view=await self.inspect();op=str(uuid.uuid4())
+        await self.abandon(view['digest'],op)
+        self.set_owner(OTHER)
+        # The lookup itself now resolves OTHER; an expected owner exposes the drift.
+        with self.assertRaisesRegex(BridgeError,'OWNER_MISMATCH'):await self.abandon(view['digest'],op,expectedOwner=OWNER)
+        guarded=self.bridge.manager.abandon
+        def drift_first(*args):
+            self.set_owner('u');return guarded(*args)
+        self.set_owner(OWNER)
+        with patch.object(self.bridge.manager,'abandon',side_effect=drift_first):
+            with self.assertRaisesRegex(BridgeError,'OWNER_UNSCOPED'):await self.abandon(view['digest'],op)
+
+    async def test_recovery_never_claims_an_owner(self):
+        with closing(sqlite3.connect(Path(self.root)/'tasks.sqlite')) as c,c:
+            c.execute('DELETE FROM bindings');c.execute('DELETE FROM owners')
+        with self.assertRaisesRegex(BridgeError,'TASK_NOT_FOUND'):await self.inspect()
+        self.assertEqual(rows(self.root)['owners'],[])
+
+
 class CheckpointPreserved(unittest.IsolatedAsyncioTestCase):
     async def test_a_real_paused_checkpoint_and_rows_survive_abandonment(self):
         with tempfile.TemporaryDirectory() as root:
