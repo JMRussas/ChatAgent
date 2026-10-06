@@ -7,6 +7,7 @@ import { z } from "zod";
 import { GenerationError } from "../domain/generation";
 import type { ChatService } from "./chatService";
 import type { ChatTimelineEvent } from "../domain/types";
+import { sseFrame, type EventStreamRegistry } from "./eventStreams";
 
 const scopeSchema = z.object({
   accountId: z.string().min(1).max(200),
@@ -56,7 +57,7 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
 }
 
 /** Process-lifetime scope and replay only. Declared scope is not authentication. */
-export function createProtocolV1Handler(service: ChatService) {
+export function createProtocolV1Handler(service: ChatService, streams: EventStreamRegistry) {
   const runtimeId = randomUUID();
   const conversations = new Map<string, string>();
   // Retirement releases the wire mapping with the identity it points at.
@@ -178,8 +179,18 @@ export function createProtocolV1Handler(service: ChatService) {
       json(res, 409, { code: "RUNTIME_RESTARTED" });
       return true;
     }
-    const initial = internalId ? await service.getTimeline(internalId) : [];
+    // Admitted before any timeline read; a refused stream allocates no identity.
+    const sse = streams.open(res);
+    let initial: ChatTimelineEvent[];
+    try {
+      initial = internalId ? await sse.read(() => service.getTimeline(internalId!)) : [];
+    } catch (error) {
+      sse.close();
+      throw error;
+    }
+    if (!sse.open) return true;
     if (cursor > (initial.at(-1)?.sequence ?? 0)) {
+      sse.close();
       json(res, 409, { code: "CURSOR_UNAVAILABLE" });
       return true;
     }
@@ -187,13 +198,10 @@ export function createProtocolV1Handler(service: ChatService) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform"
     });
-    res.write(`event: ready\ndata: ${JSON.stringify({ protocolVersion: "1.0", runtimeId })}\n\n`);
-    let busy = false;
+    sse.write(sseFrame("ready", JSON.stringify({ protocolVersion: "1.0", runtimeId })));
     let boundId = internalId;
-    const push = async () => {
-      if (busy || res.destroyed) return;
-      busy = true;
-      try {
+    await sse.start(
+      async () => {
         // A stream may open before its first submission. It owns no identity slot.
         const currentId = conversations.get(key);
         // One stream follows one internal conversation. After retirement the wire ID
@@ -205,21 +213,20 @@ export function createProtocolV1Handler(service: ChatService) {
         for (const event of await service.getTimeline(currentId)) {
           if ((event.sequence ?? 0) <= cursor) continue;
           const wire = projectTurnEvent(conversationId, event);
-          if (wire)
-            res.write(`id: ${wire.sequence}\nevent: turn\ndata: ${JSON.stringify(wire)}\n\n`);
-          cursor = event.sequence!;
+          if (wire) {
+            const written = sse.write(sseFrame("turn", JSON.stringify(wire), wire.sequence));
+            // Not written: the cursor stays, so this event is sent after drain.
+            if (written === "closed" || written === "blocked") return;
+            // A full write was still buffered: advance past it, then wait for drain.
+            cursor = event.sequence!;
+            if (written === "full") return;
+          } else cursor = event.sequence!;
         }
-      } finally {
-        busy = false;
-      }
-    };
-    const poll = setInterval(() => void push().catch(() => res.destroy()), 100);
-    const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000);
-    res.on("close", () => {
-      clearInterval(poll);
-      clearInterval(heartbeat);
-    });
-    await push();
+      },
+      () => res.destroy()
+    );
+    sse.every(100, () => void sse.pump());
+    sse.heartbeat(15_000);
     return true;
   };
   return Object.assign(handle, {

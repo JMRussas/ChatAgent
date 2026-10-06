@@ -42,31 +42,37 @@ It is a code-read enumeration backed by regression tests, not a measurement.
 Review also fixed a worker recovery gap: attempt creation after dequeue now runs
 inside dead-letter recovery, so expired history cannot silently lose a task. The
 boundaries it found are listed there: findings 2, 3, 5 and 6 are now bounded;
-findings 1 and 4 remain step 2 work. Finding 7 is closed for the measured scope.
+finding 1 is bounded by the committed turn-admission limit (`b578256`), and
+finding 4 by the implemented and reviewed event-stream limit and write-backpressure
+slice. Authenticated shared deployment and ordinary HTTP connection limits remain
+open. Finding 7 is closed for the measured scope.
 
 Expiry UI, coordinated identity retirement and the assembled-runtime
 sustained-memory gate are implemented; see the two entries after the inventory.
-The gate passes for its stated scope and exclusions. This increment is in the
-working tree, uncommitted, with review fixes described below. Validation on
+The gate passes for its stated scope and exclusions. This increment, with the
+review fixes described below, is committed in `d9ef86d`. Validation on
 Windows Node 24.21.0: 875 tests across 105 files, 28 browser tests, formatting
 and lint; the strengthened memory gate also passes. No live
 provider calls or service restart.
 
-Step 2 has two increments. The first, committed in `f9c578f`, is a streaming
+Step 2 has three increments. The first, committed in `f9c578f`, is a streaming
 request-body limit and a local-only deployment boundary (loopback bind, `Host`
-and `Origin` policy). The second, in the working tree and uncommitted, is the
+and `Origin` policy). The second, committed in `b578256`, is the
 admission limit on concurrent turns (inventory finding 1): `CHAT_MAX_CONCURRENT_TURNS`
 refuses a further submission with 429 `TURN_CAPACITY` before anything is claimed,
-and a turn holds its slot until its detached inline retrieval settles. See the
-two increment entries under step 2 for contracts, decisions and what they leave
-open. Both were started at the user's direction; neither records a step 1
-acceptance decision. The second increment re-read the first against its contract
-while wiring the new limit through the same error path and found no divergence;
-that is a code read, not an independent review.
+and a turn holds its slot until its detached inline retrieval settles. The third,
+implemented and reviewed in this increment, bounds event streams (inventory finding 4):
+one shared `HTTP_MAX_EVENT_STREAMS` limit across the legacy and v1 stream routes,
+and bounded buffering for slow clients with a stall deadline. See the increment
+entries under step 2 for contracts, decisions and what they leave open. All were
+started at the user's direction; none records a step 1 acceptance decision. The
+second increment re-read the first against its contract while wiring the new
+limit through the same error path and found no divergence; that is a code read,
+not an independent review. The third was reviewed continuously by
+`codex-chatagent` over the agent bridge while it was implemented.
 
 **Next implementation:** record whether step 1 is accepted within its measured
-scope. Then continue step 2: event-stream connection limits and write
-backpressure (finding 4), and authenticated ownership of conversations, result
+scope. Then finish step 2: authenticated ownership of conversations, result
 handles, tasks and operator endpoints before any shared deployment.
 Rolling-window reconciliation belongs to step 3.
 
@@ -74,7 +80,27 @@ Declarative development coordination is now a planned workstream; see step 6.
 Its contract design and a bounded mailbox experiment may accompany existing
 reliability tasks, but do not replace this execution order or record acceptance
 implicitly. Production workflow execution and recovery follow the relevant
-reliability gates.
+reliability gates. The manually supervised multi-agent workflow used meanwhile is
+described in the [agent-bridge development workflow](agent-bridge-development-workflow.md).
+
+On 2026-10-06 the user directed a parallel workstream: Hekate plan-node planning
+on this machine, with Hekate started locally on demand. The ownership split and
+first pilot boundary are in the
+[Hekate plan-node integration contract](implementation/13-hekate-plan-node-integration.md);
+see step 6. This direction does not accept step 1, close step 2, or authorize
+remote execution or durable-recovery claims. The event-stream slice of step 2 was
+later resumed at the user's direction and is the third step 2 increment.
+
+A Hekate plan-only local launcher exists as a separate, uncommitted Hekate
+increment. Its mocked tests and the source were reviewed; see the contract's local
+profile entry for the exact checks. Live start, readiness, persistence, backup and
+graph restore remain unverified. On 2026-10-06 `codex-hekate` reported Docker
+Desktop installed and its Linux amd64 engine and Compose verified; that runtime
+check does not establish the Hekate live-operation gates.
+Hekate's pure plan-node contracts (no database, API or service changes) were
+reviewed by its lead, `codex-hekate`, with 101 passing unit tests as reported on
+the bridge; this is not database or API readiness. Open writer-path problems are
+listed in the contract's unresolved questions.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
@@ -464,24 +490,24 @@ Retained stores (survive the work that created them):
 
 Pending work (exists only while something is in flight):
 
-| State / owner                                                    | Limit                                                                      | Cleanup trigger                                               | Dependent references                                                               |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| In-flight requests / `ChatService.inFlight`, server `responses`  | Submissions ≤ `CHAT_MAX_CONCURRENT_TURNS` (8); other requests unlimited    | Settlement; socket close                                      | Request body, a history lease, one history clone plus its source snapshot          |
-| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | ≤ `CHAT_MAX_CONCURRENT_TURNS` admitted turns plus queued deep phases       | Attempt settlement and consumer release                       | Attempt buffers, history lease, emergency terminal reservation                     |
-| Deep task queue / `InMemoryTaskQueue`                            | 100 tasks and 16 MiB serialized bytes by default; direct enqueues included | Worker dequeue, queued cancellation or shutdown discard       | Task with context; if admitted: slot snapshot, task pin, history lease, phase      |
-| Retry counters / `DeepWorker.attemptsByTaskId`                   | One integer per task awaiting retry                                        | Success, cancellation or final failure                        | None                                                                               |
-| Inline retrieval work / `CapabilityChat.pending`                 | ≤ `CHAT_MAX_CONCURRENT_TURNS` turns of ≤ 3 tool calls, each tool-bounded   | Work settlement, then `releaseTask`; frees the turn's slot    | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
-| Pending summary snapshots / `ContextManager.jobs`, `pending`     | One job per conversation, each ≤ `CONTEXT_SUMMARY_TIMEOUT_MS` (5 s)        | Completion, timeout, supersession, history expiry, shutdown   | Cloned events, source snapshot and prefix; no history lease                        |
-| Active admission reservations / `ResourceAdmission.charges`      | None of its own; one per prepared phase, fallback or summary call          | `release` if unstarted, `finish` if started                   | Cloned request and resources; quota-pool slot; spend toward `SPEND_LIMIT`          |
-| Compute-pool keys / `ResourceAdmission.running`                  | One key per pool with started work; ≤ declared compute pools               | Deleted when the pool's count returns to zero                 | The started reservations it counts                                                 |
-| Live dispatch phases / `CatalogDispatch.phases`                  | None of its own; one per prepared phase                                    | `complete()` by the owning workflow, then count/TTL retention | Same payload as a completed phase, plus its reservation ticket                     |
-| Admission waiters / `reserveWithWait`, `begin`                   | Count unlimited; each ≤ `waitTimeoutMs` (≤ 120 s)                          | Grant, timeout, or abort (`begin` only)                       | One 10 ms poll timer each                                                          |
-| Briefing jobs and waiters / `BriefingCoordinator`                | Jobs ≤ runs × plan tasks, 2 running; waiters unlimited per run             | Settlement, deadline (30 s) or cancellation                   | Per-job timer and `AbortController`; a draining job protects its run from eviction |
-| Document-task requests / `PythonDocumentTasks.pending`           | 32                                                                         | Response, 30 s timeout or bridge failure                      | One timer each; the child's stdout line buffer has no length limit                 |
-| Discovery refreshes / `InventoryStore.inFlight`                  | One per connection, 4 concurrent                                           | Settlement, 10 s timeout or shutdown                          | One `AbortController` each                                                         |
-| CLI generations / `CliRunner`                                    | `CLI_MAX_CONCURRENCY` (1) running per pool; waiting callers unlimited      | `CLI_TIMEOUT_MS` (120 s), completion or cancellation          | Child process; stdout ≤ `CLI_MAX_OUTPUT_BYTES` (1 MiB)                             |
-| Telemetry saves / `FileLatencyTelemetryStore`                    | One physical write plus one latest replacement                             | Each write completing                                         | One serialized active snapshot plus one latest pending snapshot                    |
-| Event streams (v1 and legacy SSE)                                | None; one per open connection                                              | Client close; shutdown `closeStreams`                         | Two timers each; the legacy stream also keeps a serialized copy of the timeline    |
+| State / owner                                                    | Limit                                                                      | Cleanup trigger                                                                                         | Dependent references                                                               |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| In-flight requests / `ChatService.inFlight`, server `responses`  | Submissions ≤ `CHAT_MAX_CONCURRENT_TURNS` (8); other requests unlimited    | Settlement; socket close                                                                                | Request body, a history lease, one history clone plus its source snapshot          |
+| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | ≤ `CHAT_MAX_CONCURRENT_TURNS` admitted turns plus queued deep phases       | Attempt settlement and consumer release                                                                 | Attempt buffers, history lease, emergency terminal reservation                     |
+| Deep task queue / `InMemoryTaskQueue`                            | 100 tasks and 16 MiB serialized bytes by default; direct enqueues included | Worker dequeue, queued cancellation or shutdown discard                                                 | Task with context; if admitted: slot snapshot, task pin, history lease, phase      |
+| Retry counters / `DeepWorker.attemptsByTaskId`                   | One integer per task awaiting retry                                        | Success, cancellation or final failure                                                                  | None                                                                               |
+| Inline retrieval work / `CapabilityChat.pending`                 | ≤ `CHAT_MAX_CONCURRENT_TURNS` turns of ≤ 3 tool calls, each tool-bounded   | Work settlement, then `releaseTask`; frees the turn's slot                                              | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
+| Pending summary snapshots / `ContextManager.jobs`, `pending`     | One job per conversation, each ≤ `CONTEXT_SUMMARY_TIMEOUT_MS` (5 s)        | Completion, timeout, supersession, history expiry, shutdown                                             | Cloned events, source snapshot and prefix; no history lease                        |
+| Active admission reservations / `ResourceAdmission.charges`      | None of its own; one per prepared phase, fallback or summary call          | `release` if unstarted, `finish` if started                                                             | Cloned request and resources; quota-pool slot; spend toward `SPEND_LIMIT`          |
+| Compute-pool keys / `ResourceAdmission.running`                  | One key per pool with started work; ≤ declared compute pools               | Deleted when the pool's count returns to zero                                                           | The started reservations it counts                                                 |
+| Live dispatch phases / `CatalogDispatch.phases`                  | None of its own; one per prepared phase                                    | `complete()` by the owning workflow, then count/TTL retention                                           | Same payload as a completed phase, plus its reservation ticket                     |
+| Admission waiters / `reserveWithWait`, `begin`                   | Count unlimited; each ≤ `waitTimeoutMs` (≤ 120 s)                          | Grant, timeout, or abort (`begin` only)                                                                 | One 10 ms poll timer each                                                          |
+| Briefing jobs and waiters / `BriefingCoordinator`                | Jobs ≤ runs × plan tasks, 2 running; waiters unlimited per run             | Settlement, deadline (30 s) or cancellation                                                             | Per-job timer and `AbortController`; a draining job protects its run from eviction |
+| Document-task requests / `PythonDocumentTasks.pending`           | 32                                                                         | Response, 30 s timeout or bridge failure                                                                | One timer each; the child's stdout line buffer has no length limit                 |
+| Discovery refreshes / `InventoryStore.inFlight`                  | One per connection, 4 concurrent                                           | Settlement, 10 s timeout or shutdown                                                                    | One `AbortController` each                                                         |
+| CLI generations / `CliRunner`                                    | `CLI_MAX_CONCURRENCY` (1) running per pool; waiting callers unlimited      | `CLI_TIMEOUT_MS` (120 s), completion or cancellation                                                    | Child process; stdout ≤ `CLI_MAX_OUTPUT_BYTES` (1 MiB)                             |
+| Telemetry saves / `FileLatencyTelemetryStore`                    | One physical write plus one latest replacement                             | Each write completing                                                                                   | One serialized active snapshot plus one latest pending snapshot                    |
+| Event streams (v1 and legacy SSE)                                | `HTTP_MAX_EVENT_STREAMS` (32) across both routes, since 2026-10-06         | Client close, finish, stall timeout; shutdown `closeStreams`; slot held until an in-flight read settles | Two timers each; the legacy stream also keeps a serialized copy of the timeline    |
 
 Timers. Three process-lifetime intervals run in `startServer` and are cleared by
 `stopBackground` on shutdown or server close: telemetry save (5 s), deep-worker
@@ -533,11 +559,15 @@ before or during the sustained-memory gate:
    `ToolResultStore` caps aggregate serialized bytes (16 MiB default) as well as
    count; oldest eviction preserves the existing unavailable-reference behavior,
    and an oversized single result is rejected without evicting live evidence.
-4. **Event streams are unbounded per connection and in number.** There is no
-   connection limit and `res.write` backpressure is ignored. The legacy stream
-   re-sends the whole timeline on every change and keeps a serialized copy; the
-   v1 stream clones the whole timeline every 100 ms to find new events. Both scale
-   with `CONVERSATION_MAX_BYTES` per connection. Belongs with step 2.
+4. **Bounded (2026-10-06): event streams.** Open streams across both
+   routes are limited by `HTTP_MAX_EVENT_STREAMS`, admitted before any timeline
+   read. Write backpressure is honored: a blocked stream stops reading and
+   writing until drain and is disconnected after `HTTP_STREAM_STALL_TIMEOUT_MS`.
+   Each stream runs at most one timeline read at a time. Unchanged: the legacy
+   stream still re-sends the whole timeline on every change and keeps a
+   serialized copy, and the v1 stream still clones the whole timeline every
+   100 ms to find new events, so per-stream memory still scales with
+   `CONVERSATION_MAX_BYTES`. Only the stream count and buffering are bounded.
 5. **Bounded (2026-10-04): telemetry snapshots.** One physical write and one
    latest replacement snapshot are retained. Superseded callers share the final
    replacement's completion; a failed batch cannot poison later writes. Shutdown
@@ -695,13 +725,16 @@ retirement nothing identity-keyed remained (identities, owners, scopes, wire
 mappings, source and summary indexes all zero). Shared-pool consumption equalled
 the provider calls of both bindings sharing it, the scarce pool stopped at exactly
 its 25-request allowance, and a policy with a fourth pool was refused at
-construction. The separate ledger workload kept 50 pools and exact totals for
+construction. The separate historical isolated ledger workload used Windows
+Node 24.15.0, rather than the current pinned runtime, and kept 50 pools and exact totals for
 30,000 calls while rejecting 12,000 renamed pool identifiers, with heap samples
 of 27.04–27.07 MB. Post-warmup heap rose 0.5–0.9% between the first and last
 third of the measured rounds at each of the three sample points (limit 5%).
 
 A [200-round soak](measurements/sustained-memory-soak-2026-10-01.json) passed
-the same assertions. Its idle heap rose from 26.80 to 27.66 MB (20-round means),
+the same assertions with a stored `heapPlateauTolerance` of `0.1` (10%), not the
+5% threshold of the earlier gate/report comparison. The retained artifact is
+unchanged. Its idle heap rose from 26.80 to 27.66 MB (20-round means),
 slowing from about 7 KB to 2 KB per round. Heap-snapshot comparisons of an
 equivalent run (rounds 20 to 110, then 110 to 200) attribute that growth to V8
 code objects and their metadata (about 505 of 638 KB, then 141 of 201 KB) and to
@@ -709,6 +742,13 @@ the harness's own stored samples (about ten objects and nine numbers per round).
 The reported comparison found no growing runtime object class. The snapshots
 were not kept, so that attribution cannot be independently checked from the
 retained reports; it is supporting analysis rather than reproducible gate evidence.
+
+Current evidence: the [2026-10-06 run](measurements/sustained-memory-current-2026-10-06.json)
+used 16 histories and a live turn-admission limit of 16, passed 159 registry
+assertions, and used a 5% heap tolerance. Its
+[source-digest provenance](measurements/sustained-memory-current-2026-10-06.provenance.json)
+identifies the measured source, including the event-stream implementation;
+stream counts, backpressure and connection stress remain excluded from this gate.
 
 What this does not establish. The limits are scaled down, so there is no claim
 about absolute memory at the defaults: at defaults the live histories alone may
@@ -886,7 +926,7 @@ live provider calls or service restart.
 
 #### Second increment: concurrent-turn admission (2026-10-05)
 
-Implemented, uncommitted. The contract is in the
+Implemented and committed in `b578256`. The contract is in the
 [runtime reference](runtime-reference.md#local-deployment-boundary-and-request-limits);
 the setting is `CHAT_MAX_CONCURRENT_TURNS` in `.env.example` (default 8, at most
 1000, strict validation at startup; `src/config/turnAdmission.ts`).
@@ -930,9 +970,9 @@ concurrency. The default of 8 is a local-use figure with no measurement behind
 it; `CLI_MAX_CONCURRENCY` (1) and provider limits will usually bind first.
 
 Against the step 2 acceptance list: this adds concurrent-request bounding for
-submissions only. Still open: stream count and backpressure (finding 4),
-cross-owner denial and the authenticated identity design, so shared deployment
-remains refused.
+submissions only. Still open: stream count and backpressure (finding 4, now the
+third increment), cross-owner denial and the authenticated identity design, so
+shared deployment remains refused.
 
 Validation on Windows Node 24.21.0: 940 tests across 110 files, 29 browser
 tests, format and lint. The 9 new tests are 3 unit cases for the configuration
@@ -952,6 +992,72 @@ drains every slot, and the refused body is accepted afterwards. The gate passes
 (159 assertions, heap within tolerance); no new report was written, so the
 recorded evidence still describes the 12-history configuration. No temporary
 mutations were run. No live provider calls or service restart.
+
+#### Third increment: event-stream admission and backpressure (2026-10-06)
+
+Implemented and reviewed. The contract is in the
+[runtime reference](runtime-reference.md#event-stream-limits); the settings are
+`HTTP_MAX_EVENT_STREAMS` (default 32, at most 1000) and
+`HTTP_STREAM_STALL_TIMEOUT_MS` (default 30000, 1000 to 600000) in `.env.example`,
+validated strictly at startup and again for explicit `createChatServer` options
+(`src/config/streamAdmission.ts`). Both defaults are local-use choices, not
+measurements. `src/app/eventStreams.ts` holds one registry shared by both stream
+routes, so the limit is global; as with turns, self-asserted identities would make
+a per-user limit meaningless.
+
+Decisions:
+
+- Admission happens before any timeline read, header, listener or timer. At
+  capacity the answer is `429 STREAM_CAPACITY` with `Retry-After: 1`; a refused v1
+  stream allocates no identity.
+- A slot is held until the response finishes or closes and any timeline read the
+  stream started has settled, including the read before headers. Timers and
+  listeners are cleared at once, and a read that returns after close cannot write.
+- Bounded drain rather than disconnect on the first full write. A single snapshot
+  or replay routinely exceeds the 16 KiB high-water mark on a healthy client, so
+  disconnecting would make streams flap. Both streams derive from timeline state,
+  so pausing loses nothing and no event queue is needed. While blocked, a stream
+  does not read, write or ping; a frame refused while blocked is reported as not
+  written (`blocked`), separately from a full write that was accepted (`full`), so
+  neither the v1 cursor nor the legacy last snapshot records it.
+- Each frame is one write, so a full buffer never separates an event line from its
+  data. A stall deadline bounds both a blocked stream and an ended stream that has
+  not flushed. Shutdown destroys streams that are blocked, flushing or headerless.
+- Chromium closes an `EventSource` for good after a non-200 response: a probe on
+  Chromium 153 made one request to a `429` endpoint and none in the following 5 s.
+  The page therefore reopens a closed stream itself, with one pending timer tied to
+  the failed stream and conversation, after checking for expiry.
+
+Review over the bridge found and fixed, before verification: a skipped write while
+blocked being reported like an accepted one, which lost an event or snapshot; an
+untracked pre-header read that let an abort free a slot early; a synchronous throw
+in the stream step leaking its read flag; a drain arriving mid-read not scheduling
+the next step; shutdown cancelling the deadline of an ended but unflushed stream;
+and a stall timer armed after a synchronous finish.
+
+Validation on Windows Node 24.21.0: 968 tests across 113 files, 30 browser
+tests, format and lint; `npm run bench:sustained-memory` passes (159 assertions,
+heap within tolerance; no new report written). New tests are 4 configuration
+cases (`tests/unit/streamAdmission.test.ts`), 13 helper cases with a response
+whose writes can report full (`tests/unit/eventStreams.test.ts`), 10 integration
+cases through the real request handler (`tests/integration/eventStreams.test.ts`:
+shared cap across both routes with no read or identity on refusal; slot release on
+`410`, `409` and validation paths; a pre-header read keeping its slot after abort;
+v1 resume without gaps or duplicates; legacy not resending a buffered snapshot;
+the heartbeat-blocked race on both routes; no overlapping reads; stall disconnect;
+`closeStreams`), and 1 browser case in which the page's reconnect is refused with
+`429` and the page reopens on its own. Temporary mutations (reverting the
+blocked-write distinction, the cursor advance on a full write, the tracked
+pre-header read, the synchronous-finish timer guard and the page's reopen) each
+failed their targeted tests and were reverted. No live provider calls or service
+restart.
+
+Still open for step 2: per-stream memory still scales with the conversation size,
+since the legacy stream re-sends whole snapshots and the v1 stream re-reads the
+whole timeline; v1 ignores `Last-Event-ID` on native `EventSource` reconnects
+(unchanged replay limitation); plain HTTP connection counts are not limited; and
+cross-owner denial with an authenticated identity remains the prerequisite for
+any shared deployment.
 
 ### 3. Cancellation, recovery and configuration correctness
 
@@ -1104,18 +1210,18 @@ boundary; durable recovery requires the applicable reliability/recovery gates.
 
 #### Current foundation and gaps
 
-| Area        | Existing foundation                                                                             | Required addition                                                                                                                                                 |
-| ----------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Roles       | Versioned catalog, instructions, model bindings, tool allowlists, budgets and definition hashes | Logical roles separate from worker/model bindings; capability requirements, task context and validated result contracts beyond the fixed retrieval/evidence enums |
-| Plans       | Human roadmap and bounded answer/clarify/retrieve capability plans                              | Versioned executable tasks, dependencies, artifact inputs, acceptance gates and conditional transitions                                                           |
-| LangGraph   | Optional model → validation adapter; tools remain application-owned                             | Generic role execution and plan interpretation, persistent workflow state and resumable handoffs                                                                  |
-| Context     | Bounded conversation context, selected references, source provenance and snapshots              | Task packages containing repository rules, requirements, base revision, prerequisite outputs and review findings                                                  |
-| Dispatch    | Model/provider registry, eligibility, admission and resource controls                           | Worker registry with agent identity, machine/workspace access, capabilities, availability and assignment ownership                                                |
-| Execution   | Bounded, cancellable CLI generation and provider adapters                                       | Coding-worker execution; the current CLI runner deliberately requires answer-only programs                                                                        |
-| Transport   | Existing mailbox described by the user; implementation not located in this checkout             | Inspect the actual mailbox and integrate assignments/results through a transport adapter                                                                          |
-| Artifacts   | Tool results and answer/evidence validation                                                     | Revision-linked patches, findings, validation reports and review approvals                                                                                        |
-| Durability  | Python single-task checkpoint experiment with confirmed-pause restart                           | Production TypeScript persistence, ownership and reconciliation of uncertain side effects; no claim of automatic crash replay                                     |
-| Integration | Repository rules and required checks                                                            | Worktree lifecycle, exact-revision review gates, commit reconciliation and controlled roadmap updates                                                             |
+| Area        | Existing foundation                                                                              | Required addition                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roles       | Versioned catalog, instructions, model bindings, tool allowlists, budgets and definition hashes  | Logical roles separate from worker/model bindings; capability requirements, task context and validated result contracts beyond the fixed retrieval/evidence enums |
+| Plans       | Human roadmap and bounded answer/clarify/retrieve capability plans                               | Versioned executable tasks, dependencies, artifact inputs, acceptance gates and conditional transitions                                                           |
+| LangGraph   | Optional model → validation adapter; tools remain application-owned                              | Generic role execution and plan interpretation, persistent workflow state and resumable handoffs; engine and location pending the cross-repository decision below |
+| Context     | Bounded conversation context, selected references, source provenance and snapshots               | Task packages containing repository rules, requirements, base revision, prerequisite outputs and review findings                                                  |
+| Dispatch    | Model/provider registry, eligibility, admission and resource controls                            | Worker registry with agent identity, machine/workspace access, capabilities, availability and assignment ownership                                                |
+| Execution   | Bounded, cancellable CLI generation and provider adapters                                        | Coding-worker execution; the current CLI runner deliberately requires answer-only programs                                                                        |
+| Transport   | Agent-bridge mailbox confirmed reachable on this machine (2026-10-06); not part of this checkout | Inspect the actual mailbox and integrate assignments/results through a transport adapter                                                                          |
+| Artifacts   | Tool results and answer/evidence validation                                                      | Revision-linked patches, findings, validation reports and review approvals                                                                                        |
+| Durability  | Python single-task checkpoint experiment with confirmed-pause restart                            | Production persistence, ownership and reconciliation of uncertain side effects; storage and language pending the cross-repository decision; no crash-replay claim |
+| Integration | Repository rules and required checks                                                             | Worktree lifecycle, exact-revision review gates, commit reconciliation and controlled roadmap updates                                                             |
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
@@ -1125,6 +1231,27 @@ context-history findings reinforce one canonical execution path and recording th
 actual supplied context. Storage of context alone does not establish its delivery
 to the model. See [the ownership audit](adr/0001-chat-runtime-ownership.md) and
 [durability experiment limits](../reports/doc-agent/durable-findings-2026-09-27.md).
+
+#### Cross-repository direction (2026-10-06)
+
+The user prioritized Hekate plan-node planning, with Hekate startable locally when
+needed. The [integration contract](implementation/13-hekate-plan-node-integration.md)
+records the split. Hekate owns on-demand local startup, status and stop; plan nodes
+in its existing PostgreSQL/AGE store; and the choice of execution engine after its
+inventory. ChatAgent owns context assembly and the answer runtime, and may propose
+a worker contract. Who owns the coding-worker adapter is unresolved. Hekate already
+has coding executors, which should be considered for reuse before an owner is
+chosen. Any coding adapter stays separate from ChatAgent's answer-only CLI runner.
+
+This corrects an earlier assumption. `Odin/gods` is Hekate's designated engine
+in its source architecture. The initial missing import was subsequently recovered
+from existing source history, with successful offline imports and tests reported
+by `codex-hekate`; live engine integration remains unverified, as the contract records.
+`Odin/langgraph_engine` is an uncommitted, undeployed experimental candidate,
+not the canonical engine. Increment 2's generic interpreter therefore waits for a
+cross-repository engine decision. Do not build a second generic interpreter in
+ChatAgent before that decision. Increment 1 contract work should target fields
+that Hekate plan nodes can carry, rather than a ChatAgent-only plan store.
 
 #### Increment 1: executable contracts and context
 

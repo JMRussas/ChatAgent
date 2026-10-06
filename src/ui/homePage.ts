@@ -571,6 +571,13 @@ export function renderHomePageHtml(
     const thread = $("thread");
     const status = $("status");
     let timelineStream = null;
+    // A closed EventSource never reconnects by itself (for example after 429
+    // STREAM_CAPACITY). At most one pending reopen, tied to the stream that closed.
+    let streamRetry = null;
+    let streamRetryDelayMs = 1000;
+    function cancelStreamRetry() {
+      if (streamRetry) { clearTimeout(streamRetry); streamRetry = null; }
+    }
 
     function escapeHtml(input) {
       return input
@@ -610,6 +617,7 @@ export function renderHomePageHtml(
       state.pendingUserText = "";
       state.pendingUserSentAtMs = 0;
       if (timelineStream) { timelineStream.close(); timelineStream = null; }
+      cancelStreamRetry();
       showConversationNotice("CONVERSATION_EXPIRED");
       sendButton.disabled = true;
       setStatus("Conversation expired. Start a new conversation to continue.", true);
@@ -620,6 +628,18 @@ export function renderHomePageHtml(
         const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/events");
         if (res.status === 410) markConversationExpired(conversationId);
       } catch { /* Offline: the reconnecting status already says so. */ }
+      return state.expired;
+    }
+    async function recoverClosedStream(source, conversationId) {
+      if (await checkConversationExpiry(conversationId)) return;
+      // A newer stream or conversation supersedes this one; its error must not reopen anything.
+      if (source !== timelineStream || conversationId !== state.conversationId || streamRetry) return;
+      const delay = streamRetryDelayMs;
+      streamRetryDelayMs = Math.min(streamRetryDelayMs * 2, 30000);
+      streamRetry = setTimeout(() => {
+        streamRetry = null;
+        if (source === timelineStream && conversationId === state.conversationId && !state.expired) openTimelineStream();
+      }, delay);
     }
 
     function renderReasons() {
@@ -823,6 +843,7 @@ export function renderHomePageHtml(
     }
 
     function openTimelineStream() {
+      cancelStreamRetry();
       if (timelineStream) {
         timelineStream.close();
         timelineStream = null;
@@ -846,6 +867,7 @@ export function renderHomePageHtml(
           state.events = Array.isArray(payload.events) ? payload.events : [];
 
           state.reconnecting = false;
+          streamRetryDelayMs = 1000;
           if (state.pendingUserText && state.events.some((item) => item.type === "user" && item.messageId === state.pendingMessageId)) {
             state.pendingUserText = "";
             state.pendingUserSentAtMs = 0;
@@ -860,8 +882,9 @@ export function renderHomePageHtml(
       source.onerror = () => {
         if (source !== timelineStream) return;
         state.reconnecting = true; renderThread();
-        // A closed source never retries; an expired conversation answers 410.
-        if (source.readyState === 2) void checkConversationExpiry(conversationId);
+        // A closed source never retries: an expired conversation answers 410, and
+        // anything else (such as 429 STREAM_CAPACITY) is reopened with backoff.
+        if (source.readyState === 2) void recoverClosedStream(source, conversationId);
       };
     }
 
@@ -1167,6 +1190,7 @@ export function renderHomePageHtml(
     setInterval(updateActivityTimers, 1000);
 
     window.addEventListener("beforeunload", () => {
+      cancelStreamRetry();
       if (timelineStream) {
         timelineStream.close();
       }

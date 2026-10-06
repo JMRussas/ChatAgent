@@ -22,7 +22,7 @@ import {
   type GenerationResult
 } from "../../src/domain/generation";
 
-async function runtime() {
+async function runtime(maxEventStreams?: number) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
     worker: boolean;
@@ -204,7 +204,13 @@ async function runtime() {
     timeline,
     queue
   );
-  const server = createChatServer(service, { briefings: sports.http });
+  const server = createChatServer(service, { briefings: sports.http, maxEventStreams });
+  let streamRefusals = 0;
+  server.on("request", (req, res) =>
+    res.once("finish", () => {
+      if (req.url?.includes("/events/stream") && res.statusCode === 429) streamRefusals++;
+    })
+  );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   let workerError: unknown;
   const worker = setInterval(() => {
@@ -224,6 +230,26 @@ async function runtime() {
     pending,
     controls,
     disconnect: () => server.closeStreams(),
+    /** Occupies one event-stream slot from outside the page until the returned release. */
+    holdStream: async () => {
+      const controller = new AbortController();
+      const response = await fetch(
+        `http://127.0.0.1:${handle.address.port}/conversations/holder/events/stream`,
+        {
+          signal: controller.signal
+        }
+      );
+      if (response.status !== 200) throw new Error(`holder refused: ${response.status}`);
+      // Keep a live reader: an unreferenced response body can be collected and its
+      // connection closed, which would silently free the slot.
+      const reader = response.body!.getReader();
+      return () => {
+        void reader.cancel().catch(() => undefined);
+        controller.abort();
+      };
+    },
+    streamSlots: () => server.retentionStats().streams,
+    streamRefusals: () => streamRefusals,
     // Moves the retention clock past the idle TTL; settled conversations expire lazily.
     expireIdleConversations: () => {
       idleSkewMs += 2 * 86400000;
@@ -235,9 +261,13 @@ async function runtime() {
     }
   };
 }
-export const test = base.extend<{ app: Awaited<ReturnType<typeof runtime>> }>({
-  app: async ({}, use) => {
-    const app = await runtime();
+export const test = base.extend<{
+  streamCap: number | undefined;
+  app: Awaited<ReturnType<typeof runtime>>;
+}>({
+  streamCap: [undefined, { option: true }],
+  app: async ({ streamCap }, use) => {
+    const app = await runtime(streamCap);
     try {
       await use(app);
     } finally {

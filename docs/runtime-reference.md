@@ -124,8 +124,8 @@ uploading may observe the closed connection instead of the 413. Bytes sent past 
 declared `Content-Length` are never treated as body: Node's parser refuses them
 as a malformed next request. A body that ends before its declared length settles
 the request when the client disconnects or Node's default request timeout fires;
-that timeout is not configured here. The limit applies per request. It does not
-bound open event streams or stream backpressure.
+that timeout is not configured here. The limit applies per request; event streams
+have their own limits, below.
 
 Concurrent turns are limited to `CHAT_MAX_CONCURRENT_TURNS` (default 8, at most
 1000; invalid values fail startup). The count covers both submission paths
@@ -142,7 +142,54 @@ previously unclaimed message may be resent with the same body and `messageId`
 once a slot frees. Submissions are
 refused, never queued, and the deep worker's own runs do not count. Timeline
 reads, event streams, cancellation and operator endpoints are not admitted
-through this limit; connection and stream counts remain unbounded.
+through this limit. Event streams have their own limit, below; plain HTTP
+connection counts remain unbounded.
+
+### Event stream limits
+
+Open event streams are limited to `HTTP_MAX_EVENT_STREAMS` (default 32, at most 1000) across both stream routes together: `GET /conversations/:id/events/stream`
+and `GET /v1/conversations/:id/events/stream`. A stream is admitted after cheap
+validation (route match; v1 scope, cursor syntax and `runtimeId`) and before any
+timeline read, header, listener or timer. At capacity the response is `429` with
+code `STREAM_CAPACITY` and `Retry-After: 1`; nothing was read, and a refused v1
+stream allocates no conversation identity. A stream answered with `410` or `409
+CURSOR_UNAVAILABLE` after admission releases its slot. The browser page reopens
+a refused stream itself with backoff (1 s doubling to 30 s), because Chromium
+closes an `EventSource` for good after a non-200 response; at most one reopen is
+pending, and only for the stream and conversation that failed.
+
+A slot is held until the response has finished or closed and any timeline read
+the stream started has settled. A client that disconnects during a read therefore
+keeps its slot until that read returns, so reconnect churn cannot accumulate
+pending reads. `retentionStats()` reports held slots as `streams` and the closed
+streams still waiting for a read as `settlingStreams`.
+
+Both streams are derived from timeline state, so slow clients get bounded
+buffering rather than an event queue. Each stream runs at most one timeline read
+at a time. Each frame is one write. When a write reports a full buffer, the frame
+was still accepted: the v1 cursor moves past it and the legacy stream records it
+as its last snapshot. From then until `drain` the stream neither reads the
+timeline, writes frames, nor sends heartbeats, and a frame refused in that state
+is not recorded as sent, so it goes out after drain. After drain the next read
+sends whatever is current: v1 continues from its cursor without gaps or
+duplicates, and the legacy stream sends a new snapshot only if the timeline
+changed. A stream that has not drained within `HTTP_STREAM_STALL_TIMEOUT_MS`
+(default 30000, 1000 to 600000) is disconnected and its slot freed; clients
+reconnect through the existing replay rules. The same deadline applies to a
+stream that was ended but has not flushed. Per stream, memory is the current
+timeline copy from the read, its serialization, and the buffered frames: at most
+the response's high-water mark plus one frame (one v1 event, or one legacy
+snapshot bounded by the conversation byte limit). This is a per-stream bound, not
+a whole-process measurement.
+
+Shutdown (`closeStreams`) clears every stream's timers and listeners at once,
+ends idle streams, and destroys streams that are blocked, still flushing or have
+not sent headers, so it never waits on a stalled client. Server close alone does
+not end streams; the runtime shutdown sequence calls `closeStreams` first. Both
+defaults are local-use choices, not measurements. Known replay limitation, not
+changed here: v1 resumes from the `afterSequence` query parameter and ignores the
+`Last-Event-ID` header, so a native `EventSource` auto-reconnect replays from the
+original URL's cursor.
 
 Body parsing and object validation occur outside operation-specific error handlers,
 including `/sports/chat`, so enabled routes preserve the shared HTTP error contract.

@@ -19,6 +19,7 @@ import { rejectUnsupportedInputs } from "./providers/interfaces";
 import { resolve } from "node:path";
 import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./app/documentTasks";
 import { createProtocolV1Handler } from "./app/protocolV1";
+import { EventStreamRegistry, StreamCapacityError, sseFrame } from "./app/eventStreams";
 import { verifyThinkingConfig } from "./config/thinkingConfig";
 import { DuplicateMessageError } from "./app/generationLifecycle";
 import { GenerationError } from "./domain/generation";
@@ -55,6 +56,12 @@ import {
   loadHttpBoundaryConfig
 } from "./config/httpBoundary";
 import { loadTurnAdmissionConfig } from "./config/turnAdmission";
+import {
+  DEFAULT_MAX_EVENT_STREAMS,
+  DEFAULT_STREAM_STALL_TIMEOUT_MS,
+  assertStreamAdmission,
+  loadStreamAdmissionConfig
+} from "./config/streamAdmission";
 import { defaultConnectionsFromEnv, type Connection } from "./models/connections";
 import { InventoryStore, type DiscoveryAdapter } from "./models/inventory";
 import { OllamaDiscoveryAdapter } from "./models/discovery/ollamaDiscovery";
@@ -146,6 +153,10 @@ interface ServerOptions {
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
   /** Limit on a request body in bytes, enforced while reading. */
   maxBodyBytes?: number;
+  /** Open event streams across both stream routes; a further one is refused with 429. */
+  maxEventStreams?: number;
+  /** A stream unable to accept writes for this long is disconnected. */
+  streamStallTimeoutMs?: number;
 }
 
 function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo {
@@ -248,19 +259,19 @@ async function parseJsonBody(req: IncomingMessage, maxBytes: number): Promise<un
   }
 }
 
-function writeSseEvent(res: ServerResponse, eventName: string, payload: unknown): void {
-  const data = JSON.stringify(payload);
-  res.write(`event: ${eventName}\n`);
-  res.write(`data: ${data}\n\n`);
-}
-
 export function createChatServer(service: ChatService, options: ServerOptions = {}) {
   service.resolveReferences = (selections, userId, conversationId) => {
     const store = options.briefings?.directory?.results;
     if (!store) throw Error("REFERENCES_UNAVAILABLE");
     return selectReferences(store, selections, userId, conversationId);
   };
-  const protocolV1 = createProtocolV1Handler(service);
+  const eventStreams = new EventStreamRegistry(
+    assertStreamAdmission({
+      maxEventStreams: options.maxEventStreams ?? DEFAULT_MAX_EVENT_STREAMS,
+      streamStallTimeoutMs: options.streamStallTimeoutMs ?? DEFAULT_STREAM_STALL_TIMEOUT_MS
+    })
+  );
+  const protocolV1 = createProtocolV1Handler(service, eventStreams);
   // Evidence bound to a retired conversation goes with it; ownership is released last.
   service.addRetirementParticipant({
     forget: (conversationId) => {
@@ -703,71 +714,49 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
 
-        const initialVersion = service.conversationVersion(conversationId);
-        await service.getTimeline(conversationId); // Expired history returns 410 before SSE headers.
+        // Admitted before any timeline read, header or timer; refused at capacity.
+        const stream = eventStreams.open(res);
+        let boundVersion: symbol | undefined;
+        try {
+          boundVersion = service.conversationVersion(conversationId);
+          // Expired history returns 410 before SSE headers.
+          await stream.read(() => service.getTimeline(conversationId));
+        } catch (error) {
+          stream.close();
+          throw error;
+        }
+        if (!stream.open) return;
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
         res.setHeader("Cache-Control", "no-cache, no-transform");
         res.setHeader("Connection", "keep-alive");
         res.flushHeaders();
 
-        let lastSerializedEvents = "";
-        let boundVersion = initialVersion;
+        // The last snapshot the response accepted, including one buffered by a full write.
+        let lastSerializedEvents: string | undefined;
 
-        const pushTimeline = async (force = false) => {
-          if (res.writableEnded) return;
+        // An EventSource cannot read the 410 its reconnect would get, so say why first.
+        const endStream = (error: unknown) =>
+          stream.finish(
+            error instanceof GenerationError && error.code === "CONVERSATION_EXPIRED"
+              ? sseFrame("conversation-expired", JSON.stringify({ code: error.code }))
+              : undefined
+          );
 
+        await stream.start(async () => {
           const events = await service.getTimeline(conversationId);
           const currentVersion = service.conversationVersion(conversationId);
           if (boundVersion && currentVersion !== boundVersion)
             throw new GenerationError("CONVERSATION_EXPIRED", false);
           boundVersion = currentVersion;
           const serialized = JSON.stringify(events);
-
-          if (!force && serialized === lastSerializedEvents) {
-            return;
-          }
-
-          lastSerializedEvents = serialized;
-          writeSseEvent(res, "timeline", { events });
-        };
-
-        // An EventSource cannot read the 410 its reconnect would get, so say why first.
-        const endStream = (error: unknown) => {
-          if (
-            error instanceof GenerationError &&
-            error.code === "CONVERSATION_EXPIRED" &&
-            !res.writableEnded
-          )
-            writeSseEvent(res, "conversation-expired", { code: error.code });
-          res.end();
-        };
-
-        try {
-          await pushTimeline(true);
-        } catch (error) {
-          endStream(error);
-          return;
-        }
-
-        const pollTimer = setInterval(() => {
-          void pushTimeline(false).catch(endStream);
-        }, 350);
-
-        const heartbeatTimer = setInterval(() => {
-          if (!res.writableEnded) {
-            res.write(": ping\n\n");
-          }
-        }, 15_000);
-
-        req.on("close", () => {
-          clearInterval(pollTimer);
-          clearInterval(heartbeatTimer);
-          if (!res.writableEnded) {
-            res.end();
-          }
-        });
-
+          if (serialized === lastSerializedEvents) return;
+          // One frame per write, so a full buffer never splits an event from its data.
+          const written = stream.write(sseFrame("timeline", `{"events":${serialized}}`));
+          if (written === "ok" || written === "full") lastSerializedEvents = serialized;
+        }, endStream);
+        stream.every(350, () => void stream.pump());
+        stream.heartbeat(15_000);
         return;
       }
 
@@ -800,6 +789,11 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
       if (error instanceof DuplicateMessageError)
         return json(res, 409, { error: error.message, code: error.code });
+      if (error instanceof StreamCapacityError) {
+        // Refused before any read, header, listener or timer; retrying is safe.
+        res.setHeader("Retry-After", "1");
+        return json(res, 429, { error: error.message, code: error.code });
+      }
       if (error instanceof GenerationError && error.code === "TURN_CAPACITY") {
         // Nothing was claimed or appended; the same body may be resent as is.
         res.setHeader("Retry-After", "1");
@@ -882,15 +876,12 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     });
     return server;
   }) as typeof server.close;
-  const isStream = (response: ServerResponse) =>
-    String(response.getHeader("Content-Type")).startsWith("text/event-stream");
   return Object.assign(server, {
-    closeStreams: () => {
-      for (const response of responses) if (isStream(response)) response.end();
-    },
+    // Releases each stream's timers and listeners now; blocked streams are destroyed.
+    closeStreams: () => eventStreams.closeAll(),
     retentionStats: () => ({
       responses: responses.size,
-      streams: [...responses].filter(isStream).length,
+      ...eventStreams.stats(),
       wireConversations: protocolV1.retentionStats().conversations
     })
   });
@@ -902,6 +893,7 @@ export async function startServer(
 ): Promise<RuntimeHandle> {
   const boundary = loadHttpBoundaryConfig();
   const turnAdmission = loadTurnAdmissionConfig();
+  const streamAdmission = loadStreamAdmissionConfig();
   const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
@@ -1219,7 +1211,8 @@ export async function startServer(
     evaluationStatus: () =>
       recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry(),
-    maxBodyBytes: boundary.maxBodyBytes
+    maxBodyBytes: boundary.maxBodyBytes,
+    ...streamAdmission
   });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {

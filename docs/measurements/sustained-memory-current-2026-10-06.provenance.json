@@ -1,0 +1,39 @@
+{
+  "report": "docs/measurements/sustained-memory-current-2026-10-06.json",
+  "command": "npm run bench:sustained-memory -- --out docs/measurements/sustained-memory-current-2026-10-06.json",
+  "node": "v24.21.0",
+  "runAtIso": "2026-10-06T17:13:37.345Z",
+  "head": "b5782567ce888500fd17ca011edce84b68d80ec3",
+  "dirty": true,
+  "dirtyPaths": [
+    "M .env.example",
+    " M docs/12-development-roadmap.md",
+    " M docs/runtime-reference.md",
+    " M src/app/protocolV1.ts",
+    " M src/server.ts",
+    " M src/ui/homePage.ts",
+    " M tests/browser/chat.spec.ts",
+    " M tests/browser/fixture.ts",
+    "?? docs/agent-bridge-development-workflow.md",
+    "?? docs/implementation/13-hekate-plan-node-integration.md",
+    "?? docs/measurements/sustained-memory-current-2026-10-06.json",
+    "?? src/app/eventStreams.ts",
+    "?? src/config/streamAdmission.ts",
+    "?? tests/helpers/fakeResponse.ts",
+    "?? tests/integration/eventStreams.test.ts",
+    "?? tests/unit/eventStreams.test.ts",
+    "?? tests/unit/streamAdmission.test.ts"
+  ],
+  "sourceDigest": {
+    "algorithm": "sha256 over sorted (path, NUL, content, NUL) for every file under src/ plus package.json, package-lock.json, .node-version",
+    "files": 135,
+    "value": "b76bc9dee7a31fbc3969e49723797988db22ea21ebdad262c2dcfe6c3cde0317"
+  },
+  "scopeNotes": [
+    "Scaled-down limits (maxHistories 16, live maxConcurrentTurns 16, maxIdentities 40); no claim at default limits.",
+    "The queue-backed service workload reports the default maxConcurrentTurns 8; the live runtime workload uses 16.",
+    "Event-stream changes in the working tree are present in the measured source, but the gate does not stress stream counts, backpressure, request bodies or connections.",
+    "Heap figures are supporting evidence; the verdict comes from registry assertions. No whole-process memory bound is implied.",
+    "Earlier artifacts are unchanged. Known limitations of earlier evidence: sustained-memory-soak-2026-10-01.json used heapPlateauTolerance 0.1, not 0.05; admission-retention-2026-10-01.json ran on Node v24.15.0, the runtime with the reproduced native crash."
+  ]
+}

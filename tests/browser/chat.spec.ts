@@ -97,6 +97,36 @@ test("SSE reconnect restores exact text and clears connection status", async ({ 
   await expect(page.locator(".answer-content")).toHaveText("Final: Explain reconnect behavior");
 });
 
+test.describe("event stream capacity", () => {
+  test.use({ streamCap: 1 });
+  test("a stream refused at capacity is reopened by the page once a slot frees", async ({
+    page,
+    app
+  }) => {
+    await send(page, "Explain capacity");
+    await expect(page.locator(".answer-content")).toHaveText("Draft: Explain capacity");
+    // Server closes the page's stream; the holder takes the only slot before the
+    // browser's own reconnect, which is then refused with 429 and closes for good.
+    app.disconnect();
+    const release = await app.holdStream();
+    await expect(page.getByText("Live updates reconnecting", { exact: true })).toBeVisible();
+    await app.pending.get("fast:Explain capacity")!.emit(" plus late text");
+    // The browser's own reconnect was refused; a refused EventSource stays closed.
+    await expect.poll(() => app.streamRefusals(), { timeout: 15_000 }).toBeGreaterThan(0);
+    await page.waitForTimeout(500);
+    await expect(page.locator(".answer-content")).toHaveText("Draft: Explain capacity");
+    release();
+    await expect(page.locator(".answer-content")).toHaveText(
+      "Draft: Explain capacity plus late text",
+      { timeout: 10_000 }
+    );
+    await expect(page.getByText("Live updates reconnecting", { exact: true })).toHaveCount(0);
+    expect(app.streamSlots()).toBe(1);
+    app.pending.get("fast:Explain capacity")!.finish();
+    await expect(page.locator(".answer-content")).toHaveText("Final: Explain capacity");
+  });
+});
+
 test("history expiry is explained, keeps the last copy read-only and offers a new conversation", async ({
   page,
   app
