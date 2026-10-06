@@ -141,7 +141,7 @@ describe("runtime shutdown", () => {
     expect(r.queue.size()).toBe(0);
     expect(r.calls.get("a")!.deep.resolveDeepTask).not.toHaveBeenCalled();
   });
-  it("cancels attempts created after the grace period and releases their reservations", async () => {
+  it("ends a turn still preparing after the grace period, with no history or reservations", async () => {
     const r = runtime([entry("a")]);
     const preparation = deferred(),
       entered = deferred(),
@@ -163,8 +163,10 @@ describe("runtime shutdown", () => {
     const closing = handle.shutdown();
     await cancelled.promise;
     preparation.resolve();
-    await pending;
+    // Shutdown cancelled it before its user event existed.
+    await expect(pending).rejects.toMatchObject({ code: "CANCELLED" });
     await closing;
+    expect(await r.timeline.getEvents("c")).toEqual([]);
     expect(r.calls.get("a")!.fast.createProvisionalReply).not.toHaveBeenCalled();
     expect(r.calls.get("a")!.deep.resolveDeepTask).not.toHaveBeenCalled();
     expect(r.dispatch.telemetry().reservations.every((r) => r.status === "released")).toBe(true);

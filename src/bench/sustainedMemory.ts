@@ -765,6 +765,7 @@ function buildQueueRuntime() {
     timeline: timeline.retentionStats(),
     service: service.retentionStats(),
     lifecycle: generationLifecycle(queue).retentionStats(),
+    orchestrator: orchestrator.retentionStats(),
     worker: worker.retentionStats(),
     server: server.retentionStats(),
     queue: queue.size(),
@@ -1012,6 +1013,7 @@ function assertQueue(point: "payload" | "idle", s: ReturnType<QueueRuntime["stat
       s.timeline.identities <= settings.conversation.maxIdentities
   );
   c("owners match identities", s.service.owners === s.timeline.identities);
+  c("no preparation controller outlives its turn", s.orchestrator.preparing === 0);
   c(
     "no in-flight request, occupied turn, queued task, retry counter or summary job",
     s.service.inFlight === 0 &&

@@ -148,7 +148,11 @@ Hekate checks passed 132 pure, 25 live-store, 28 HTTP and 50 launcher tests.
 AGE availability is required for plan writes; no outbox is used. The API is
 opt-in and local-only. Legacy enrollment, execution integration, authentication
 and UI remain deferred, and full database credentials remain trusted. See the
-integration contract for evidence and remaining writer-path limits.
+integration contract for evidence and remaining writer-path limits. The attempt
+provenance audit (increment 3a) is accepted by that lead at `31274bc`: applied
+attempt, decision and content-revision operations derive append-only, per-plan
+sequenced audit events in the same transaction, with read-only event cursors;
+claim-next, durable claim receipts and worker execution remain deferred.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
@@ -638,8 +642,11 @@ before or during the sustained-memory gate:
 Unchanged boundaries carried from the earlier slices: durable identity lifecycle
 (ownership and deduplication across restart); operator visibility and recovery
 for a full dead-letter store or quota ledger; authoritative pool identity
-(step 3); cancellation through initial catalog admission (step 3: `prepare`
-passes no signal to the admission wait). UI treatment of history expiry and
+(step 3). Cancellation through initial catalog admission is implemented
+(2026-10-06): preparation takes an abort signal, admission waits are abortable,
+unstarted reservations and phases are rolled back, and legacy turns can be
+cancelled before their attempts exist; see
+[generation](implementation/02-generation.md). UI treatment of history expiry and
 operator retirement of owners and the wire scope mapping are implemented below.
 
 Inventory validation: `tests/integration/retentionInventory.test.ts` adds four
@@ -1111,6 +1118,20 @@ any shared deployment.
 
 - Pass cancellation/deadlines through initial catalog admission; release reservations
   on every aborted preparation path and stop cancelled callers waiting for quota.
+  _Implemented 2026-10-06; see
+  [generation](implementation/02-generation.md) and
+  `tests/integration/preparationCancellation.test.ts`:_ an abort ends a quota wait
+  promptly as `CANCELLED` or `WORKFLOW_DEADLINE`, never as a model exclusion or a
+  fallback to another candidate; an abort or failure after reserving (including in
+  phase creation or summary scheduling) releases every unstarted ticket and
+  registered phase; legacy turns are cancellable, and shutdown-cancellable, from
+  their history check onward, with 409 for the cancelled request. Started
+  consumption stays charged. Compute waits after an attempt exists already
+  honoured its signal; their sleep is now abortable too.
+  Validation: 1,117 tests across 124 files, 34 browser tests, format and lint;
+  the sustained-memory gate passed 162 assertions with heap within tolerance,
+  including zero preparation controllers after each completed workload. Independent
+  review reran 23 cancellation/shutdown tests and 53 adjacent regression tests.
 - Implement provider/model-specific rolling-window quota reconciliation after
   cancellation-aware admission. Define pool identity, units, fixed versus rolling
   windows, overlapping limits, authoritative snapshot/reset timestamps and whether

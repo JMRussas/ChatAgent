@@ -76,6 +76,26 @@ reasoning field. Incremental SSE transport is a separate optimization.
   emits one terminal cancellation per active phase, and suppresses late chunks.
   Do not retry/dead-letter cancellation. Cancellation before request registration
   returns 404; UI retries once after observing the user event, not indefinitely.
+- Cancellation during preparation (2026-10-06). A legacy turn registers a
+  preparation controller from its history check until it ends, so a cancel reaches
+  it while it captures context or waits for quota in catalog admission,
+  before any attempt exists. If its user-event append has not begun, the turn ends
+  with no history, attempt, queue entry or provider call, and its reservations
+  are released. The cancel answers 200 `{messageId, phases: {}, preparation:
+"cancelled"}`, and the message request answers 409 `{code: "CANCELLED"}`, as
+  any `GenerationError` `CANCELLED` now does (capability turns included, and v1
+  submissions through the same mapping). The message ID never entered history and
+  may be sent again. If cancellation arrives during the user-event append, the
+  append completes and the turn's attempts are created and immediately cancelled,
+  so history records the cancellation;
+  nothing is queued and no provider starts. Shutdown cancels every preparing turn
+  and refuses turns that enter the orchestrator afterwards. Capability turns pass
+  their attempt signal, combined with the workflow deadline in evidence and review
+  modes, so a quota wait ends as `CANCELLED` or `WORKFLOW_DEADLINE`.
+  `CatalogDispatch.prepare` never reports an abort as `NO_ELIGIBLE_MODEL` and
+  does not try further candidates after one. Until it returns a plan it owns every
+  reservation and registered phase, and releases them on any failure; started
+  consumption is never refunded.
 - Browser navigation/SSE disconnect does not cancel model work. A failed SSE
   connection displays “Live updates reconnecting” in affected active bubbles;
   reconnect replaces drafts from the authoritative snapshot.

@@ -412,8 +412,16 @@ Every claim needs citations. ${useCitationIds ? "Copy the exact citationId shown
         routeDecision: "direct" as const,
         planningInstruction: instruction
       };
+      // Cancellation and the workflow deadline also end a wait for admission.
       const context = this.dispatch
-        ? (dispatch = await this.dispatch.prepare(this.context, input, controls.bindingId)).context
+        ? (dispatch = await this.dispatch.prepare(
+            this.context,
+            input,
+            controls.bindingId,
+            evidenceMode || reviewPacket
+              ? AbortSignal.any([attempt.control.signal, deadlineController.signal])
+              : attempt.control.signal
+          )).context
         : await this.context.prepare(input);
       if (context instanceof ContextBudgetError) throw context;
       if (roleExecution && context.estimatedInputTokens > roleExecution.definition.maxInputTokens)

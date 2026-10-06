@@ -29,6 +29,19 @@ interface Charge {
   status: "reserved" | "unsettled" | "released" | "reported";
   reportedUsd: number | null;
 }
+/** Waits up to ms, or until the signal aborts; leaves no timer or listener behind. */
+export function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const done = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener("abort", done, { once: true });
+  });
+}
 export function fresh(e: { checkedAtIso: string; expiresAtIso: string }, now: number) {
   return Date.parse(e.checkedAtIso) <= now && Date.parse(e.expiresAtIso) > now;
 }
@@ -258,7 +271,7 @@ export class ResourceAdmission {
           Date.now() >= deadline
         )
           throw error;
-        await new Promise<void>((resolve) => setTimeout(resolve, 10));
+        await abortableSleep(10, signal);
       }
     }
   }
@@ -318,7 +331,7 @@ export class ResourceAdmission {
         this.release(id);
         throw new AdmissionError("COMPUTE_CAPACITY_EXHAUSTED");
       }
-      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      await abortableSleep(10, signal);
     }
   }
   finish(id: string, reported?: { usd: number; quotaUnits: number }) {

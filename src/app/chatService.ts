@@ -75,6 +75,8 @@ export class ChatService {
     if (this.queue) await generationLifecycle(this.queue).flushClosingWrites();
   }
   async cancelRemaining(): Promise<void> {
+    // The orchestrator owns these even when this service was given no queue.
+    this.orchestrator.cancelPreparations?.();
     if (!this.queue) return;
     const lifecycle = generationLifecycle(this.queue);
     lifecycle.closeAdmissions();
@@ -132,6 +134,8 @@ export class ChatService {
       detachedTurns?: () => number;
       runControlOptions?: () => unknown;
       thinkingOptions?: (bindingId?: string) => Promise<unknown>;
+      /** Shutdown: ends turns that are still preparing and have no attempts yet. */
+      cancelPreparations?: () => void;
     },
     private readonly worker: DeepWorker,
     private readonly timelineStore: ConversationTimelineStore,

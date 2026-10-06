@@ -71,6 +71,14 @@ function defaultTrustedFacts(): TrustedRuntimeFacts {
 export class ChatOrchestrator {
   private readonly contextManager: ContextManager;
   private readonly trustedFactsProvider: () => TrustedRuntimeFacts;
+  /**
+   * One controller per claimed turn, from before its history check until the turn
+   * ends, so a cancel reaches it before any attempt exists (for example while it
+   * waits for admission). Bounded by the turns in flight.
+   */
+  private readonly preparing = new Map<string, AbortController>();
+  /** Set by shutdown: no turn registers a preparation, or starts one, afterwards. */
+  private preparationsClosed = false;
 
   constructor(
     private readonly fastProvider: FastModelProvider,
@@ -98,10 +106,23 @@ export class ChatOrchestrator {
   private async handleRetainedMessage(message: UserMessage): Promise<OrchestratorResponse> {
     const messageId = message.messageId ?? randomUUID();
     const lifecycle = generationLifecycle(this.queue);
-    await lifecycle.claimMessage(message.conversationId, messageId, this.timelineStore);
+    const key = JSON.stringify([message.conversationId, messageId]);
+    // Admitted before shutdown but entered after it: nothing is claimed or written.
+    if (this.preparationsClosed) throw new GenerationError("CANCELLED", false);
+    // A turn already in flight under this key keeps its own controller; the claim
+    // below then refuses this duplicate.
+    const preparation = new AbortController();
+    const owned = !this.preparing.has(key);
+    if (owned) this.preparing.set(key, preparation);
+    try {
+      await lifecycle.claimMessage(message.conversationId, messageId, this.timelineStore);
+    } catch (error) {
+      if (owned) this.preparing.delete(key);
+      throw error;
+    }
     const release = lifecycle.retain(message.conversationId, messageId);
     try {
-      return await this.handleClaimedMessage({ ...message, messageId });
+      return await this.handleClaimedMessage({ ...message, messageId }, preparation.signal);
     } catch (error) {
       const attempt = lifecycle.get(message.conversationId, messageId, "fast");
       if (attempt?.active)
@@ -114,10 +135,12 @@ export class ChatOrchestrator {
       if (!lifecycle.get(message.conversationId, messageId, "fast"))
         lifecycle.release(message.conversationId, messageId);
       release();
+      this.preparing.delete(key);
     }
   }
   private async handleClaimedMessage(
-    message: UserMessage & { messageId: string }
+    message: UserMessage & { messageId: string },
+    preparation: AbortSignal
   ): Promise<OrchestratorResponse> {
     const messageId = message.messageId,
       lifecycle = generationLifecycle(this.queue);
@@ -147,12 +170,21 @@ export class ChatOrchestrator {
         trustedFacts: this.trustedFactsProvider(),
         routeDecision
       };
+      // Cancelled before its user event exists, a turn leaves no history, attempt,
+      // queue entry or provider call; its reservations are released below.
+      const cancelledEarly = () => {
+        if (preparation.aborted) throw new GenerationError("CANCELLED", false);
+      };
+      cancelledEarly();
       const contextResult = await (this.dispatch
-        ? this.dispatch.prepare(this.contextManager, contextInput).then((value) => {
-            plan = value;
-            return value.context;
-          })
+        ? this.dispatch
+            .prepare(this.contextManager, contextInput, undefined, preparation)
+            .then((value) => {
+              plan = value;
+              return value.context;
+            })
         : this.contextManager.prepare(contextInput));
+      cancelledEarly();
 
       if (contextResult instanceof ContextBudgetError) {
         throw contextResult;
@@ -205,14 +237,19 @@ export class ChatOrchestrator {
         this.timelineStore
       );
       fastAttempt.dispatchId = plan?.fast.id;
-      if (deepTask) {
-        const deepAttempt = lifecycle.create(
-          message.conversationId,
-          messageId,
-          "deep",
-          this.timelineStore,
-          deepTask.taskId
-        );
+      const deepAttempt = deepTask
+        ? lifecycle.create(
+            message.conversationId,
+            messageId,
+            "deep",
+            this.timelineStore,
+            deepTask.taskId
+          )
+        : undefined;
+      // The user event is recorded, so a cancel that arrived meanwhile is recorded
+      // too: the attempts end cancelled before anything is queued or started.
+      if (preparation.aborted) await lifecycle.cancel(message.conversationId, messageId);
+      if (deepTask && deepAttempt) {
         deepAttempt.dispatchId = plan?.deep?.id;
         if (plan?.deep) deepAttempt.model = this.dispatch!.metadata(plan.deep);
         try {
@@ -366,11 +403,27 @@ export class ChatOrchestrator {
   }
   async cancel(conversationId: string, messageId: string) {
     const lifecycle = generationLifecycle(this.queue);
+    const preparation = this.preparing.get(JSON.stringify([conversationId, messageId]));
+    preparation?.abort(new GenerationError("CANCELLED", false));
     for (const role of ["fast", "deep"] as const) {
       const id = lifecycle.get(conversationId, messageId, role)?.dispatchId;
       this.dispatch?.release(this.dispatch.get(id));
     }
-    return lifecycle.cancel(conversationId, messageId);
+    const result = await lifecycle.cancel(conversationId, messageId);
+    // Before its attempts exist, the turn ends without history of its own.
+    return (
+      result ??
+      (preparation ? { messageId, phases: {}, preparation: "cancelled" as const } : undefined)
+    );
+  }
+  /** Shutdown: ends every turn that has not yet created its attempts. */
+  cancelPreparations() {
+    this.preparationsClosed = true;
+    for (const preparation of this.preparing.values())
+      preparation.abort(new GenerationError("CANCELLED", false));
+  }
+  retentionStats() {
+    return { preparing: this.preparing.size };
   }
 }
 

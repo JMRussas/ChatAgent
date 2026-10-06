@@ -1096,6 +1096,9 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
               : 503,
           { error: error.code, code: error.code }
         );
+      if (error instanceof GenerationError && error.code === "CANCELLED")
+        // The caller (or shutdown) cancelled the turn; this is not a provider failure.
+        return json(res, 409, { error: "Generation cancelled", code: error.code });
       if (error instanceof GenerationError)
         return json(
           res,

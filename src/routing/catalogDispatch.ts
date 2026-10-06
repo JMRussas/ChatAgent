@@ -41,6 +41,12 @@ export interface DispatchMetric {
   result: string;
   elapsedMs: number;
 }
+/** The error a preparation abort ends with: the signal's own generation error, if any. */
+function abortError(signal: AbortSignal) {
+  return signal.reason instanceof GenerationError
+    ? signal.reason
+    : new GenerationError("CANCELLED", false);
+}
 export class CatalogDispatch {
   readonly admission: ResourceAdmission;
   private phases = new Map<string, PhaseDispatch>();
@@ -138,12 +144,24 @@ export class CatalogDispatch {
       task: c.requirements.task
     };
   }
+  /**
+   * Captures context, ranks candidates and reserves admission for one turn. An abort
+   * of signal ends preparation with its own reason (CANCELLED or WORKFLOW_DEADLINE),
+   * never as a model exclusion. Until the plan is returned, every reservation and
+   * registered phase belongs to this call and is undone on any exception.
+   */
   async prepare(
     manager: ContextManager,
     input: PrepareContextInput,
-    bindingId?: string
+    bindingId?: string,
+    signal?: AbortSignal
   ): Promise<DispatchPlan> {
+    const stopIfAborted = () => {
+      if (signal?.aborted) throw abortError(signal);
+    };
+    stopIfAborted();
     const capture = await manager.capture(input);
+    stopIfAborted();
     const task = input.planningInstruction
       ? {
           task: "conversation" as const,
@@ -229,15 +247,19 @@ export class CatalogDispatch {
           outputTokens: c.requirements.outputTokens
         }));
         let tickets: string[];
+        stopIfAborted();
         try {
-          tickets = await this.admission.reserveWithWait(requests);
+          tickets = await this.admission.reserveWithWait(requests, signal);
         } catch (error) {
+          // Cancellation or a deadline ends the turn; it is not this candidate's fault.
+          stopIfAborted();
           exclusions.push({
             bindingId: fast.selection.bindingId,
             reasons: [(error as Error).message]
           });
           continue;
         }
+        const registered: string[] = [];
         const phase = (
           c: Candidate,
           role: "fast" | "deep",
@@ -258,15 +280,24 @@ export class CatalogDispatch {
             context: structuredClone(context)
           };
           this.phases.set(result.id, result);
+          registered.push(result.id);
           return result;
         };
-        const plan = {
-          context,
-          fast: phase(fast, "fast", tickets[0], fastCandidates),
-          ...(deep ? { deep: phase(deep, "deep", tickets[1], deepCandidates!) } : {})
-        };
-        capture.schedule(budget, facts, task.task);
-        return plan;
+        try {
+          stopIfAborted();
+          const plan = {
+            context,
+            fast: phase(fast, "fast", tickets[0], fastCandidates),
+            ...(deep ? { deep: phase(deep, "deep", tickets[1], deepCandidates!) } : {})
+          };
+          capture.schedule(budget, facts, task.task);
+          return plan;
+        } catch (error) {
+          // Nothing has started: hand back every reservation and phase of this turn.
+          for (const ticket of tickets) this.admission.release(ticket);
+          for (const id of registered) this.phases.delete(id);
+          throw error;
+        }
       }
     throw new ModelSelectionError(exclusions);
   }
