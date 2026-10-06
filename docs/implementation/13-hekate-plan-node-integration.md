@@ -1,28 +1,29 @@
 # 13 — Hekate plan-node integration contract
 
-Date: 2026-10-06. Status: proposed contract. Documentation only.
+Date: 2026-10-06. Status: implemented bounded contracts and H1; execution integration remains gated.
 
 This records the ownership split between ChatAgent and Hekate for the
-user-directed plan-node workstream and defines the first pilot handoff. It does
-not describe implemented integration. This ChatAgent increment changes
-documentation only. The Hekate launcher implementation is a separate increment,
-and its checks are reported separately. Roadmap context:
+user-directed plan-node workstream and defines the first pilot handoff. Real-worker
+activation remains gated. ChatAgent's H1 receipt-to-context seam is
+lead-accepted; the Hekate launcher and plan-store/browser implementations are separate increments,
+and their checks are reported separately. Roadmap context:
 [step 6](../12-development-roadmap.md#6-declarative-role-coordination--planned-2026-10-05).
 Hekate's companion plan is `LOCAL-PLANNING-HANDOFF.md` in the Hekate repository
 (untracked there at the time of writing).
 
 ## Ownership
 
-| Concern                                 | Owner                    | Notes                                                                                                                                           |
-| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local startup, status and stop          | Hekate                   | On demand, without the Sisyphus host; separate from that deployment's database/queue                                                            |
-| Plan nodes, hierarchy and dependencies  | Hekate                   | Existing PostgreSQL/AGE context-store; no ChatAgent plan store                                                                                  |
-| Execution engine                        | Hekate, after inventory  | Choose between the active gods path and the experimental LangGraph engine                                                                       |
-| Context assembly and the answer runtime | ChatAgent                | Existing bounded context, provider dispatch, budgets, cancellation and recording                                                                |
-| Worker contract (assignment/result)     | ChatAgent proposes       | Shared fields below; must be carried by Hekate plan nodes, not a parallel ledger                                                                |
-| Coding-worker adapter                   | Unresolved               | Consider reusing Hekate's existing coding executors first; never by relaxing ChatAgent's answer-only CLI runner (`src/providers/cli/runner.ts`) |
-| Model provider and CLI provider modules | Unresolved               | Awaiting codex-hekate; avoid a second canonical provider implementation                                                                         |
-| Repository integration (commit/handoff) | Single integration owner | Local commits only in the pilot; no push, merge or service restart                                                                              |
+| Concern                                 | Owner                          | Notes                                                                                                                                                                  |
+| --------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local startup, status and stop          | Hekate                         | On demand, without the Sisyphus host; separate from that deployment's database/queue                                                                                   |
+| Plan nodes, hierarchy and dependencies  | Hekate                         | Existing PostgreSQL/AGE context-store; no ChatAgent plan store                                                                                                         |
+| Execution engine                        | Hekate, after inventory        | Choose between the active gods path and the experimental LangGraph engine                                                                                              |
+| Context assembly and the answer runtime | ChatAgent                      | Existing bounded context, provider dispatch, budgets, cancellation and recording                                                                                       |
+| Worker contract (assignment/result)     | ChatAgent proposes             | Shared fields below; must be carried by Hekate plan nodes, not a parallel ledger                                                                                       |
+| Claim, finish and release calls         | Hekate supervisor              | Caller-held durable keys; ChatAgent receives the raw claim response and has no claim or transition client                                                              |
+| Coding-worker adapter                   | Hekate supervisor adapter      | Sole claim/finish/release mutation owner; independent verifier/lead owns review decisions. Design 023 accepted at `68bab95`; E1a fake-worker checks remain in progress |
+| Model provider and CLI provider modules | Existing boundary, gated reuse | Hekate's prepared-prompt `CLIProvider` is a later reuse candidate; no live activation or relaxation of ChatAgent's answer-only CLI runner                              |
+| Repository integration (commit/handoff) | Single integration owner       | Local commits only in the pilot; no push, merge or service restart                                                                                                     |
 
 ## Corrections to earlier documents
 
@@ -85,6 +86,51 @@ locally, with a human acceptance decision. Fields are proposed, not implemented.
 | `findings`                | Review or self-reported findings, kept separate from verified facts        |
 | `context`                 | Sources and hashes of the context actually supplied to the worker          |
 | `openQuestions`           | Decisions the worker could not make                                        |
+
+## Receipt-to-context package (H1)
+
+Implemented 2026-10-06 in `src/integrations/hekate/planTask.ts`, tested in
+`tests/unit/hekatePlanTask.test.ts` against raw responses captured from Hekate at
+`bb2af8b` (`tests/fixtures/hekate/`, with their provenance). Validation and
+rendering are pure and deterministic; the context wrapper also creates a random
+snapshot ID. Nothing is wired: no network, worker launch, recording or route uses
+it yet.
+
+Lead acceptance evidence: raw fixtures are byte-identical to the Hekate `bb2af8b`
+captures. The earlier full primary gate passed 1,335 TypeScript tests across 132
+files and 34 browser tests before final raw-number/rule-framing corrections.
+After those corrections, primary and lead each passed 79 focused tests across
+two files (68 H1 and 11 contextBuilder); the lead also previously ran 105 adjacent
+tests. Twenty distinct retained mutations were rejected (17 earlier cases minus
+the replaced reviver case, plus four new cases). Format, lint and documentation
+checks passed. Supplied hashes identify mandatory current-user text and its
+sections, not system or role instructions. No runtime wiring, network, worker
+activation or recording is established by these checks.
+
+- **Input.** The raw claim-response body exactly as received, the required rule
+  texts (`{path, revision, text}`, read once into copies) and optional limits that
+  must name every field. Raw size is checked before parsing.
+- **Validation.** Every JSON number must be written as an exact safe integer;
+  others are refused instead of rounded. The raw text is scanned (skipping
+  strings), so a number hidden by a later duplicate key is checked as well. The
+  envelope (`contractVersion` exactly `plan-contract/v1`) and receipt are strict.
+  A claimed epoch is at least 1;
+  nested prerequisite values stay opaque. Content may be null, which stays distinct
+  from empty. `no_ready_work` is refused. `replayed` and `stillCurrent` are kept as
+  history and never treated as permission to run or relaunch.
+- **Output.** A frozen, deterministic text with every variable block length-framed:
+  the requirement, attributes in ordinal order, the prerequisite snapshot and each
+  rule's path, revision and text as separate blocks. Framing is an unambiguous
+  encoding, not protection against instructions inside the content. The pinned
+  source keeps Hekate's content and prerequisite
+  digests as received (opaque identities) and adds ChatAgent's own SHA-256 of the
+  exact supplied text for each section and the whole.
+- **Context.** `buildPlanTaskContext` validates its budget and instructions, then
+  uses the existing `buildContext` with the whole package as the current message,
+  so it is fixed cost: a package that does not fit is `CONTEXT_TOO_LARGE`, never
+  truncated. The result has exactly that one message and no history, memory or
+  sources. The estimate is the conservative UTF-8 count, not a provider tokenizer
+  or a proof of fit. The snapshot ID is random; provenance is the source and hashes.
 
 ## Acceptance and evidence boundaries
 
@@ -158,9 +204,10 @@ lint passed; full lint retains its disclosed two-error/three-warning baseline.
 
 The accepted browser is a local read-only projection, not a worker launcher,
 claim UI or authentication implementation. ChatAgent execution/recovery and bridge
-visualizations remain unimplemented. Both implementation agents are designing
-the smallest shared integration; its ownership and query seams are still to be
-agreed, rather than implied by acceptance of the Hekate browser.
+visualizations remain unimplemented. Supervisor/context ownership is agreed in
+Hekate design 023 (`68bab95`); ChatAgent H1 is lead-accepted and Hekate E1a
+independent fake-worker checks remain in progress, not accepted. Visualization
+query seams remain to be agreed separately from these bounded integration seams.
 
 The proposal is three linked views over existing authoritative state:
 
@@ -200,7 +247,8 @@ Source labels: _code_ means read directly from Hekate source for this document.
 _Inventory_ means reported by claude-hekate's read-only increment 1 inventory
 (2026-10-06, Hekate branch `feat/plan-nodes-migration`) and not re-derived here.
 _Spot-checked_ means part of an inventory finding was confirmed from source. These
-issues must be resolved before any adapter is built.
+remaining issues constrain real-worker activation; accepted pure/context seams
+and fake-worker experiments do not resolve them.
 
 0. **Gods source recovery and compatibility.** The initial 2026-10-06 inventory
    found that gods did not import on the inspected Hekate branch:
@@ -398,7 +446,8 @@ issues must be resolved before any adapter is built.
      release/cancel support but cannot finish; historical legacy acceptance is
      preserved while a new Accepted decision fails closed.
    - No leases, heartbeat expiry, reclaim, worker launching, authenticated
-     principals or ChatAgent adapter are implemented. Full database credentials
+     principals or real-worker execution adapter are implemented. ChatAgent H1
+     supplies pure context only. Full database credentials
      remain trusted and can bypass integrity guards.
    - **TypeScript integration precondition:** v1 serializes Int64 revisions,
      epochs and sequences as JSON numbers. A future adapter must parse them

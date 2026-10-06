@@ -14,7 +14,7 @@ Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fc
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                         |
 | Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks |
-| Hekate              | Lead accepted durable claims/pins at `979d471` and the read-only plan browser at `bb2af8b`; shared integration remains in design                                                  |
+| Hekate              | Lead accepted durable claims/pins and browser; supervisor/context ownership agreed at `68bab95`, ChatAgent H1 lead-accepted, E1a fake-worker checks in progress                   |
 | Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                       |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
@@ -38,8 +38,9 @@ Hekate's read-only plan browser is lead-accepted at `bb2af8b`, including ChatAge
 consumer review. Its lead reports 172 pure, 51 live-store and 66 HTTP checks,
 51 repository browser/parser tests plus one temporary visual check (52 total),
 and passing typecheck/build/scoped lint. Full lint retains the disclosed baseline
-diagnostics. Hekate's plans 021/022 record the exact scope and evidence. Both
-implementation agents are designing the smallest shared integration; ChatAgent
+diagnostics. Hekate's plans 021/022 record the exact scope and evidence. Shared
+supervisor/context ownership is agreed and H1 is lead-accepted; E1a fake-worker
+checks remain in progress. ChatAgent
 execution/recovery and bridge visualizations are not implemented by this browser.
 
 HTTP boundary review fixes are committed in `f9c578f`: `/sports/chat` now parses
@@ -1473,9 +1474,10 @@ needed. The [integration contract](implementation/13-hekate-plan-node-integratio
 records the split. Hekate owns on-demand local startup, status and stop; plan nodes
 in its existing PostgreSQL/AGE store; and the choice of execution engine after its
 inventory. ChatAgent owns context assembly and the answer runtime, and may propose
-a worker contract. Who owns the coding-worker adapter is unresolved. Hekate already
-has coding executors, which should be considered for reuse before an owner is
-chosen. Any coding adapter stays separate from ChatAgent's answer-only CLI runner.
+a worker contract. Hekate's supervisor adapter owns claim/finish/release mutations
+under accepted design 023; ChatAgent owns pure context assembly. Hekate already
+has coding executors; reuse of its prepared-prompt provider boundary remains gated.
+Any coding adapter stays separate from ChatAgent's answer-only CLI runner.
 
 This corrects an earlier assumption. `Odin/gods` is Hekate's designated engine
 in its source architecture. The initial missing import was subsequently recovered
@@ -1486,6 +1488,25 @@ not the canonical engine. Increment 2's generic interpreter therefore waits for 
 cross-repository engine decision. Do not build a second generic interpreter in
 ChatAgent before that decision. Increment 1 contract work should target fields
 that Hekate plan nodes can carry, rather than a ChatAgent-only plan store.
+
+_Receipt-to-context package (H1) implemented 2026-10-06; see
+[the contract](implementation/13-hekate-plan-node-integration.md#receipt-to-context-package-h1):_
+deterministic validation and rendering turn one raw Hekate claim response and the
+required rule texts into a frozen, length-framed task text, its supplied-text hashes
+and the pinned receipt source; a context wrapper builds the context with the whole
+package as fixed cost.
+Hekate's supervisor owns claiming, finishing and releasing; ChatAgent has no
+network client, worker launch or runtime wiring for it yet.
+
+H1 is lead-accepted. Earlier full primary validation passed 1,335 TypeScript tests
+across 132 files and 34 browser tests before final raw-number/rule-framing fixes;
+after those fixes primary and lead each passed 79 focused tests (68 H1 and 11
+contextBuilder), with 105 earlier adjacent lead tests and 20 distinct rejected
+mutations. Format, lint and docs checks passed; raw fixtures match Hekate `bb2af8b`
+byte-for-byte. Hashes cover mandatory current-user text, not system/role text.
+Hekate design 023 is accepted at `68bab95`; its independent E1a fake-worker checks
+remain in progress and unaccepted. Provider reuse and real execution remain gated;
+this does not decide the generic orchestration engine wholesale.
 
 #### Increment 1: executable contracts and context
 
