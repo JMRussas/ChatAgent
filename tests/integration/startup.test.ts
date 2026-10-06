@@ -130,6 +130,10 @@ it("rejects an invalid concurrent-turn limit before starting anything", async ()
   expect(interval).not.toHaveBeenCalled();
 });
 
+// An explicit enclosing budget for this test only. On Windows each identity check
+// starts PowerShell to read file ACLs: startup and the two auth-header loads add
+// substantial setup overhead, especially under full-suite load. The work
+// asserted here keeps its own bounds (2 s for refined output, 5 s benchmark deadline).
 it("returns an ephemeral runtime handle and completes deep work automatically without process signal listeners", async () => {
   const directory = await mkdtemp(join(tmpdir(), "chatagent-runtime-"));
   const telemetry = join(directory, "telemetry.json");
@@ -233,7 +237,7 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
     await handle.shutdown();
     await rm(directory, { recursive: true, force: true });
   }
-});
+}, 15_000);
 
 it("keeps mock chat working with a loaded role catalog and rejects role execution explicitly", async () => {
   const directory = await mkdtemp(join(tmpdir(), "chat-role-mock-"));
