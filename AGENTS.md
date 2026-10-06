@@ -10,6 +10,11 @@
   avoid appending duplicate session narratives to historical handoff journals.
 - Preserve generated evidence and measurement artifacts; `.prettierignore` defines
   the formatting exclusions. Python formatting is outside this Prettier setup.
+- Use `uv` for Python environment and dependency management and verification;
+  do not introduce standalone pip or manual venv workflows. Node sidecars and
+  tests may invoke a uv-managed interpreter directly; each subprocess does not
+  need its own uv wrapper. Follow the maintained setup's interpreter version and
+  dependency inputs, and preserve historical execution evidence.
 - Do not track or commit `docs/deep-review-2026-10-01.md` or
   `docs/engineering-judgment-notes-2026-10-01.md`. They are local review documents.
 - Components listed in `docs/contracts/pilot.json` carry `@lifetime`, `@invariant`,
