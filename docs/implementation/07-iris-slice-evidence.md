@@ -40,7 +40,9 @@ resume an outstanding turn. Durable recovery remains future work.
   `DUPLICATE_MESSAGE_ID` (the existing lifecycle code, superseding the proposed
   `IDEMPOTENT_REPLAY` spelling).
 - `GET /v1/conversations/{UUID}/events/stream`: required `accountId` and `projectId`
-  query fields, optional `afterSequence` (default 0) and reconnect `runtimeId`.
+  query fields, optional `afterSequence` (default 0) and reconnect `runtimeId`. A
+  `Last-Event-ID` header, when present, is also a cursor; the later one applies
+  (see the runtime reference).
   `ready` supplies the process identity; individual `turn` frames have SSE IDs
   and the same sequence in JSON. Only records after the cursor are emitted.
   User records are omitted, so sequence gaps are valid. Invalid/ahead cursors

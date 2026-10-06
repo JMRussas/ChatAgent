@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
+import { request } from "node:http";
 import { afterEach, expect, it, vi } from "vitest";
 import { createChatServer } from "../../src/server";
 import { ChatService } from "../../src/app/chatService";
@@ -92,7 +93,7 @@ async function setup(
       close: () => reader.cancel()
     };
   }
-  return { base, path, scope, post, events, service };
+  return { base, path, scope, post, events, service, server };
 }
 
 it("v1 preserves capacity refusal when the message ID already has a terminal event", async () => {
@@ -281,3 +282,176 @@ it.each([false, true])(
     await stream.close();
   }
 );
+
+// Raw frames with their SSE ids, opened with any headers (an array value sends the
+// header line more than once, as a repeated header).
+async function openStream(
+  h: Awaited<ReturnType<typeof setup>>,
+  query: string,
+  headers: Record<string, string | string[]> = {}
+) {
+  return new Promise<{
+    status: number;
+    body: string;
+    next(): Promise<{ id?: number; event: string; data: any }>;
+    close(): void;
+  }>((resolve, reject) => {
+    const req = request(
+      `${h.base}${h.path}/events/stream?${h.scope}&${query}`,
+      { headers },
+      (res) => {
+        let buffer = "";
+        const waiting: Array<() => void> = [];
+        res.setEncoding("utf8");
+        res.on("data", (chunk: string) => {
+          buffer += chunk;
+          waiting.splice(0).forEach((wake) => wake());
+        });
+        cleanups.push(async () => void req.destroy());
+        const frames = {
+          status: res.statusCode!,
+          get body() {
+            return buffer;
+          },
+          async next() {
+            while (!buffer.includes("\n\n"))
+              await new Promise<void>((wake, fail) => {
+                waiting.push(wake);
+                res.once("end", () => fail(new Error("EOF")));
+              });
+            const end = buffer.indexOf("\n\n");
+            const frame = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            const field = (name: string) =>
+              frame
+                .split("\n")
+                .find((line) => line.startsWith(name + ": "))
+                ?.slice(name.length + 2);
+            const id = field("id");
+            return {
+              id: id === undefined ? undefined : Number(id),
+              event: field("event")!,
+              data: JSON.parse(field("data") ?? "null")
+            };
+          },
+          close: () => req.destroy()
+        };
+        if (res.statusCode === 200) resolve(frames);
+        else res.on("end", () => resolve(frames)).resume();
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+/** Turn frames until the terminal fast frame of the given message. */
+async function turnsUntil(stream: Awaited<ReturnType<typeof openStream>>, messageId: string) {
+  const frames: { id: number; data: any }[] = [];
+  for (;;) {
+    const frame = await stream.next();
+    if (frame.event !== "turn") continue;
+    frames.push({ id: frame.id!, data: frame.data });
+    if (frame.data.messageId === messageId && frame.data.type === "terminal") return frames;
+  }
+}
+
+it("v1 resumes after Last-Event-ID on a reconnect, without replay, loss or duplicates", async () => {
+  const h = await setup({
+    createProvisionalReply: async (_input, control) => {
+      await control!.onDelta("part");
+      return { text: "answer", finishReason: "stop" };
+    }
+  });
+  const first = randomUUID(),
+    second = randomUUID();
+  await h.post("one", first);
+  await h.post("two", second);
+  const original = await openStream(h, "afterSequence=0");
+  expect((await original.next()).event).toBe("ready");
+  const all = await turnsUntil(original, second);
+  // The connection drops part-way: the client last received the first terminal.
+  original.close();
+  const last = all.find((f) => f.data.messageId === first && f.data.type === "terminal")!.id;
+  // A native EventSource reconnects to the original URL with Last-Event-ID.
+  const resumed = await openStream(h, "afterSequence=0", { "Last-Event-ID": String(last) });
+  expect(resumed.status).toBe(200);
+  expect((await resumed.next()).event).toBe("ready");
+  // Live events arriving around the replay point are delivered once, in order.
+  const third = randomUUID();
+  const live = h.post("three", third);
+  const replayed = await turnsUntil(resumed, third);
+  await live;
+  const ids = replayed.map((f) => f.id);
+  expect(ids).toEqual([...new Set(ids)].sort((a, b) => a - b));
+  expect(ids[0]).toBeGreaterThan(last);
+  expect(ids.slice(0, all.filter((f) => f.id > last).length)).toEqual(
+    all.filter((f) => f.id > last).map((f) => f.id)
+  );
+  expect(replayed.at(-1)!.data).toMatchObject({ messageId: third, type: "terminal" });
+  resumed.close();
+});
+
+it("v1 takes the later of afterSequence and Last-Event-ID", async () => {
+  const h = await setup({
+    createProvisionalReply: async () => ({ text: "a", finishReason: "stop" })
+  });
+  const one = randomUUID(),
+    two = randomUUID();
+  await h.post("one", one);
+  await h.post("two", two);
+  const all = await turnsUntil(await openStream(h, "afterSequence=0"), two);
+  const low = all[0].id,
+    high = all[all.length - 2].id;
+  for (const [query, header] of [
+    [high, low],
+    [low, high]
+  ]) {
+    const s = await openStream(h, `afterSequence=${query}`, { "Last-Event-ID": String(header) });
+    await s.next();
+    expect((await turnsUntil(s, two))[0].id).toBeGreaterThan(Math.max(query, header));
+    s.close();
+  }
+});
+
+it.each([
+  ["a word", "abc"],
+  ["a negative", "-1"],
+  ["a fraction", "1.5"],
+  ["an exponent", "1e2"],
+  ["a sign", "+1"],
+  ["internal whitespace", "1 2"],
+  ["an empty value", ""],
+  ["an unsafe integer", "9007199254740992"],
+  ["a list", "1, 2"],
+  ["a repeated header", ["1", "1"]]
+])("v1 refuses %s as Last-Event-ID before admission or any read", async (_, value) => {
+  const h = await setup({
+    createProvisionalReply: async () => ({ text: "a", finishReason: "stop" })
+  });
+  await h.post();
+  const reads = vi.spyOn(h.service, "getTimeline");
+  const s = await openStream(h, "afterSequence=0", { "Last-Event-ID": value });
+  expect(s.status).toBe(400);
+  expect(JSON.parse(s.body)).toMatchObject({ code: "INVALID_CURSOR" });
+  expect(reads).not.toHaveBeenCalled();
+  expect(h.server.retentionStats()).toMatchObject({ streams: 0 });
+});
+
+it("v1 applies its cursor and runtime checks to Last-Event-ID", async () => {
+  const h = await setup({
+    createProvisionalReply: async () => ({ text: "a", finishReason: "stop" })
+  });
+  await h.post();
+  const beyond = await openStream(h, "afterSequence=0", { "Last-Event-ID": "999" });
+  expect(beyond.status).toBe(409);
+  expect(JSON.parse(beyond.body)).toMatchObject({ code: "CURSOR_UNAVAILABLE" });
+  const restarted = await openStream(h, "afterSequence=0&runtimeId=old", { "Last-Event-ID": "1" });
+  expect(restarted.status).toBe(409);
+  expect(JSON.parse(restarted.body)).toMatchObject({ code: "RUNTIME_RESTARTED" });
+  // Zero is a valid cursor: everything from the start.
+  const zero = await openStream(h, "afterSequence=0", { "Last-Event-ID": "0" });
+  expect(zero.status).toBe(200);
+  zero.close();
+  await vi.waitFor(() => expect(h.server.retentionStats()).toMatchObject({ streams: 0 }));
+});

@@ -340,10 +340,20 @@ Shutdown (`closeStreams`) clears every stream's timers and listeners at once,
 ends idle streams, and destroys streams that are blocked, still flushing or have
 not sent headers, so it never waits on a stalled client. Server close alone does
 not end streams; the runtime shutdown sequence calls `closeStreams` first. Both
-defaults are local-use choices, not measurements. Known replay limitation, not
-changed here: v1 resumes from the `afterSequence` query parameter and ignores the
-`Last-Event-ID` header, so a native `EventSource` auto-reconnect replays from the
-original URL's cursor.
+defaults are local-use choices, not measurements.
+
+A v1 stream resumes after the later of the `afterSequence` query parameter and the
+`Last-Event-ID` header (2026-10-06). Turn frames carry their sequence as the SSE ID,
+so a native `EventSource` that reconnects to its original URL continues after the
+last event it received instead of replaying from the URL's cursor, and an explicit
+query skip is never undone by an older header. The header must be one decimal safe
+integer (0 included); a repeated header, a sign, an exponent, a fraction, internal
+whitespace or an unsafe value is `400 INVALID_CURSOR`, refused before stream
+admission or any timeline read. Node removes optional whitespace around a header
+value before it is checked. Without the header nothing changes. The cursor and
+runtime checks apply to the effective cursor: past the high-water mark it is
+`409 CURSOR_UNAVAILABLE`, and a stale `runtimeId` in the URL is still
+`409 RUNTIME_RESTARTED`. The legacy stream ignores the header.
 
 Body parsing and object validation occur outside operation-specific error handlers,
 including `/sports/chat`, so enabled routes preserve the shared HTTP error contract.

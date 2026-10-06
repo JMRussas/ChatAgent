@@ -1152,9 +1152,23 @@ restart.
 
 Still open for step 2: per-stream memory still scales with the conversation size,
 since the legacy stream re-sends whole snapshots and the v1 stream re-reads the
-whole timeline; v1 ignores `Last-Event-ID` on native `EventSource` reconnects
-(unchanged replay limitation); and cross-owner denial with an authenticated identity remains the prerequisite for
+whole timeline; and cross-owner denial with an authenticated identity remains the prerequisite for
 any shared deployment.
+
+_Last-Event-ID resumption implemented 2026-10-06; see the
+[runtime reference](runtime-reference.md#event-stream-limits):_ a v1 stream resumes after
+the later of `afterSequence` and a strictly validated `Last-Event-ID`, so a native
+`EventSource` reconnect no longer replays delivered events; cursor and runtime checks
+are unchanged, and the legacy stream is unaffected.
+Primary validation rejected five named cursor mutations and passed 34 browser
+tests, documentation checks/build and lint. The full suite exposed the earlier
+startup-test timeout: Windows identity ACL checks launch PowerShell during setup
+and authentication. A separate test-only correction gives that one integration
+test a 15-second enclosing budget while preserving its two-second refined-output
+check, five-second benchmark deadline and both real auth-header calls. Three
+consecutive full runs then passed 1,383 tests across 132 files. Independent review
+passed 30 protocol/startup checks before that timeout-only correction. There is
+no global timeout or runtime authentication change.
 
 _Connection limit implemented 2026-10-06; see
 [connection limit](runtime-reference.md#connection-limit):_ Node's native

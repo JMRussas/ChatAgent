@@ -183,11 +183,24 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
       return true;
     }
     const rawCursor = url.searchParams.get("afterSequence") ?? "0";
-    if (!/^\d+$/.test(rawCursor) || !Number.isSafeInteger(Number(rawCursor))) {
+    // A native EventSource reconnects to the original URL and reports the last event
+    // it received in Last-Event-ID. Both are "deliver after N": the later one wins, so
+    // a reconnect does not replay delivered events and a query skip is never undone.
+    const lastEventIds = req.headersDistinct["last-event-id"];
+    const cursorOf = (raw: string) =>
+      /^\d+$/.test(raw) && Number.isSafeInteger(Number(raw)) ? Number(raw) : undefined;
+    const queryCursor = cursorOf(rawCursor);
+    const headerCursor =
+      lastEventIds === undefined
+        ? 0
+        : lastEventIds.length === 1
+          ? cursorOf(lastEventIds[0])
+          : undefined;
+    if (queryCursor === undefined || headerCursor === undefined) {
       json(res, 400, { code: "INVALID_CURSOR" });
       return true;
     }
-    let cursor = Number(rawCursor);
+    let cursor = Math.max(queryCursor, headerCursor);
     if (url.searchParams.has("runtimeId") && url.searchParams.get("runtimeId") !== runtimeId) {
       json(res, 409, { code: "RUNTIME_RESTARTED" });
       return true;
