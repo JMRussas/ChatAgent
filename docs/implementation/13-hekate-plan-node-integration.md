@@ -100,6 +100,45 @@ locally, with a human acceptance decision. Fields are proposed, not implemented.
 - Delivery through the mailbox, or a worker reporting completion, is not evidence
   that the work was done or accepted.
 
+## Proposed review-pending handoff acceptance
+
+Status: proposed and unimplemented. The manual workflow exposed a failure in
+which the lead ended its turn, the implementer completed, and its bridge reply
+remained unread for about 20 minutes until the user prompted the lead. Mailbox
+delivery and a running process are insufficient evidence of review progress.
+
+The future handoff mechanism should pass this bounded scenario:
+
+1. Complete an authorized implementation attempt while its responsible lead is
+   inactive. Persist a `review-pending` record with assignment and attempt IDs,
+   responsible lead, exact result revision and check evidence before sending a
+   notification. Message consumption must not erase the pending review.
+2. Detect an inactive or stalled lead from recorded acknowledgments and advancing
+   review progress against a defined deadline. Transport connectivity, process
+   existence and repeated unchanged heartbeats do not count as progress.
+3. Wake the responsible lead through a supported session mechanism. Require an
+   acknowledgment tied to the pending record and subsequent evidence of resumed
+   review, such as a recorded finding or a completed review/check checkpoint.
+   Notification delivery alone must not mark the handoff complete.
+4. Exercise lost wakeups, duplicate delivery and an acknowledgment followed by
+   no progress. Use configured retry limits, deadlines and escalation to an
+   authorized operator when recovery is exhausted; never retry indefinitely or
+   silently transfer ownership to a second lead.
+5. Fence superseded attempts and deduplicate wakeups so only the current owner
+   can advance the current review. Preserve in-flight atomic work: do not cancel,
+   replay or interrupt an edit, command or commit merely because a progress
+   deadline expires. Resume or reconcile its recorded outcome at a safe boundary
+   before retrying an uncertain operation.
+6. Finish independent review, corrections and required checks, then record the
+   authorized local milestone commit and its exact evidence before the next
+   implementation increment. Preserve any separately required human acceptance
+   gate; a wakeup or commit does not satisfy it.
+
+Tests should establish bounded time to acknowledgment and resumed progress,
+durable pending state after restart or consumed notification, rejection of stale
+attempts, and bounded escalation without duplicate repository effects. The
+current bridge and this documentation provide none of these recovery guarantees.
+
 ## Unresolved questions
 
 Source labels: _code_ means read directly from Hekate source for this document.

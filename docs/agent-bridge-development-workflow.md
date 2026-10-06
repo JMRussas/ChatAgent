@@ -105,6 +105,14 @@ Facts that matter for both styles:
 - Answer questions and findings as they arrive and keep useful review going. Keep
   progress updates short.
 
+Observed manual failure: the lead ended its turn, the implementer completed, and
+the bridge reply remained unread for about 20 minutes until the user prompted
+the lead. A retained completion message cannot resume an inactive model turn.
+The user should not have to supply that wakeup. A proposed review-handoff
+acceptance scenario is recorded in the
+[integration contract](implementation/13-hekate-plan-node-integration.md#proposed-review-pending-handoff-acceptance).
+No watchdog or automatic lead recovery is implemented by this workflow.
+
 ## Review loop
 
 Acknowledge, then design, implement, review the source and diff, add targeted
@@ -118,6 +126,11 @@ scope-specific acceptance statement.
 - Engineering acceptance is separate from any explicit human gate. Do not add a
   routine user approval to every edit.
 - Check `git log` before declaring a module missing or never committed.
+- Before starting the next implementation increment, finish independent review,
+  corrections and required checks, then create the authorized local milestone
+  commit. Record the exact reviewed revision and evidence; leave unrelated dirty
+  work outside that checkpoint. A local commit does not imply human acceptance
+  of a separately gated milestone.
 
 ## Repository rules (ChatAgent)
 
