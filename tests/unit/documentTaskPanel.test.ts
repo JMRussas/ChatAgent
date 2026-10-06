@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { documentTaskScript } from "../../src/ui/documentTaskPanel";
 it("emits a syntactically valid task script that renders model text as text", () => {
   const script = documentTaskScript()
@@ -7,4 +7,53 @@ it("emits a syntactically valid task script that renders model text as text", ()
   expect(() => new Function(script)).not.toThrow();
   expect(script).toContain("answer.textContent=task.answer.answer");
   expect(script).not.toContain("innerHTML");
+});
+
+it("explains an abandoned task's unknown external outcome", async () => {
+  type Node = { textContent: string; children: Node[]; append: (...n: Node[]) => void };
+  const element = (): Node & Record<string, unknown> => {
+    const node = {
+      textContent: "",
+      value: "x",
+      children: [] as Node[],
+      append: (...n: Node[]) => node.children.push(...n),
+      replaceChildren: () => (node.children = []),
+      addEventListener: () => undefined
+    };
+    return node;
+  };
+  const elements: Record<string, ReturnType<typeof element>> = {};
+  const document = {
+    getElementById: (id: string) => (elements[id] ??= element()),
+    createElement: () => element()
+  };
+  const tasks = [
+    {
+      taskId: "t",
+      question: "How?",
+      status: "abandoned",
+      answer: null,
+      error: null,
+      scheduled: false,
+      externalOutcome: "unknown"
+    }
+  ];
+  const fetch = vi.fn(async () => ({ ok: true, json: async () => tasks }));
+  const script = documentTaskScript()
+    .replace(/^<script>/, "")
+    .replace(/<\/script>$/, "");
+  new Function("document", "fetch", "setInterval", "window", "crypto", script)(
+    document,
+    fetch,
+    () => 0,
+    { addEventListener: () => undefined },
+    {}
+  );
+  await vi.waitFor(() => expect(elements.documentTasks.children).toHaveLength(1));
+  const texts = elements.documentTasks.children[0].children.map((n) => n.textContent);
+  expect(texts).toContain("How? — abandoned");
+  expect(texts.join(" ")).toMatch(/unknown, and no answer will be shown/);
+  // No action is offered for an abandoned task.
+  expect(texts).not.toContain("Resume");
+  expect(texts).not.toContain("Cancel");
 });

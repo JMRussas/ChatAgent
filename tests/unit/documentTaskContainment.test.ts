@@ -217,16 +217,24 @@ describe("what an unanswered request reports", () => {
   it("on failure: sent start, resume and cancel are uncertain; reads are unavailable", async () => {
     const c = child(),
       b = bridge();
-    const results = ["start", "resume", "cancel", "list", "status"].map((op) =>
-      code(b.request({ op }))
-    );
+    const results = [
+      "start",
+      "resume",
+      "cancel",
+      "abandon_task",
+      "list",
+      "status",
+      "inspect_task"
+    ].map((op) => code(b.request({ op })));
     c.emit("exit", 1);
     expect(await Promise.all(results)).toEqual([
       "BRIDGE_UNCERTAIN:start",
       "BRIDGE_UNCERTAIN:resume",
       "BRIDGE_UNCERTAIN:cancel",
+      "BRIDGE_UNCERTAIN:abandon_task",
       "BRIDGE_UNAVAILABLE:list",
-      "BRIDGE_UNAVAILABLE:status"
+      "BRIDGE_UNAVAILABLE:status",
+      "BRIDGE_UNAVAILABLE:inspect_task"
     ]);
   });
 

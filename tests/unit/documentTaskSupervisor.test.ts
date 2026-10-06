@@ -307,6 +307,38 @@ describe("restart", () => {
   });
 });
 
+describe("operate", () => {
+  it("dispatches only to the expected, ready generation and reports it", async () => {
+    const { s, children } = supervisor();
+    await expect(s.operate(1, { op: "inspect_task" })).rejects.toMatchObject({
+      code: "NOT_READY"
+    });
+    children[0].answer(HEALTH);
+    await flush();
+    await expect(s.operate(2, { op: "inspect_task" })).rejects.toMatchObject({
+      code: "STALE_GENERATION"
+    });
+    expect(await s.operate(1, { op: "inspect_task", taskId: "t" })).toEqual({
+      generation: 1,
+      result: "answer:inspect_task"
+    });
+    expect(children[0].requests.at(-1)).toEqual({ op: "inspect_task", taskId: "t" });
+    s.close();
+    await expect(s.operate(1, { op: "inspect_task" })).rejects.toMatchObject({ code: "CLOSED" });
+  });
+
+  it("sends synchronously, so a later generation change cannot redirect it", async () => {
+    const { s, children } = supervisor();
+    children[0].answer(HEALTH);
+    await flush();
+    const pending = s.operate(1, { op: "abandon_task" });
+    // The request is already with generation 1's child before anything else runs.
+    expect(children[0].requests.at(-1)).toEqual({ op: "abandon_task" });
+    children[0].crash();
+    expect((await pending).generation).toBe(1);
+  });
+});
+
 describe("close", () => {
   it("settles a pending restart at once, clears the deadline and never promotes", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

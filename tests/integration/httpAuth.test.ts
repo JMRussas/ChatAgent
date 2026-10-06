@@ -11,6 +11,7 @@ import { LocalAuthenticator } from "../../src/auth/authenticator";
 import { PairingController } from "../../src/auth/pairing";
 import { ROUTES } from "../../src/auth/routePolicy";
 import type { LocalIdentity } from "../../src/auth/localIdentity";
+import { DocumentTaskError } from "../../src/app/documentTasks";
 import {
   DocumentTaskControlError,
   type DocumentTaskControl,
@@ -468,7 +469,17 @@ describe("document sidecar operator control", () => {
       status: vi.fn(() => status()),
       restart: vi.fn<DocumentTaskControl["restart"]>(async () =>
         status({ phase: "ready", generation: 4, restartable: false, failureCode: null })
-      )
+      ),
+      operate: vi.fn<DocumentTaskControl["operate"]>(async (generation, request) => ({
+        generation,
+        result:
+          request.op === "abandon_task"
+            ? {
+                receipt: { operationId: request.operationId },
+                task: { persistedStatus: "abandoned" }
+              }
+            : { persistedStatus: "running", digest: "d" }
+      }))
     };
     const h = await start(undefined, { documentTaskControl: control });
     const restart = (body: string, headers: Record<string, string> = h.operator) =>
@@ -551,10 +562,221 @@ describe("document sidecar operator control", () => {
       expect(r.status, code).toBe(http);
       expect(r.headers.get("retry-after")).toBeNull();
       expect(await r.json()).toEqual({
-        error: "Documentation task restart refused",
+        error: "Documentation task control request refused",
         code,
         status: current
       });
     }
+  });
+});
+
+describe("document task recovery routes", () => {
+  const taskId = "a".repeat(32),
+    digest = "b".repeat(64);
+  const view = (over: Record<string, unknown> = {}) => ({
+    taskId,
+    persistedStatus: "running",
+    effectiveStatus: "uncertain",
+    ownerActive: false,
+    digest,
+    createdAt: "2026-10-06T12:00:00+00:00",
+    updatedAt: "2026-10-06T12:00:00+00:00",
+    modelCalls: 1,
+    toolCalls: 0,
+    abandonment: null,
+    ...over
+  });
+  const receipt = (operationId: unknown) => ({
+    operationId,
+    expectedDigest: digest,
+    previousStatus: "running",
+    abandonedAt: "2026-10-06T12:01:00+00:00",
+    externalOutcome: "unknown"
+  });
+  const abandonedView = (operationId: unknown) =>
+    view({
+      persistedStatus: "abandoned",
+      effectiveStatus: "abandoned",
+      abandonment: receipt(operationId)
+    });
+  async function harness() {
+    const operate = vi.fn<DocumentTaskControl["operate"]>(async (generation, request) => ({
+      generation,
+      result:
+        request.op === "abandon_task"
+          ? { receipt: receipt(request.operationId), task: abandonedView(request.operationId) }
+          : view()
+    }));
+    const control: DocumentTaskControl = {
+      status: () => ({ phase: "ready", generation: 2, restartable: false, failureCode: null }),
+      restart: vi.fn(),
+      operate
+    };
+    const h = await start(undefined, { documentTaskControl: control });
+    const post = (path: string, body: unknown, headers: Record<string, string> = h.operator) =>
+      fetch(h.base + "/workers/document-tasks/" + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: typeof body === "string" ? body : JSON.stringify(body)
+      });
+    return { h, operate, post };
+  }
+  const inspect = { expectedGeneration: 2, conversationId: "c1", taskId };
+  const abandon = { ...inspect, operationId: randomUUID(), expectedDigest: digest };
+
+  it("inspects and abandons through the server's own owner record, for the operator only", async () => {
+    const { h, operate, post } = await harness();
+    h.service.claimConversation("c1", "owner-key");
+    const viewed = await post("inspect", inspect);
+    expect(viewed.status).toBe(200);
+    expect(await viewed.json()).toEqual({ generation: 2, task: view() });
+    const done = await post("abandon", abandon);
+    expect(done.status).toBe(200);
+    expect(await done.json()).toEqual({
+      generation: 2,
+      receipt: receipt(abandon.operationId),
+      task: abandonedView(abandon.operationId)
+    });
+    expect(operate.mock.calls.map(([g, r]) => [g, r])).toEqual([
+      [2, { op: "inspect_task", conversationId: "c1", userId: "owner-key", taskId }],
+      [
+        2,
+        {
+          op: "abandon_task",
+          conversationId: "c1",
+          userId: "owner-key",
+          taskId,
+          operationId: abandon.operationId,
+          expectedDigest: digest
+        }
+      ]
+    ]);
+    for (const path of ["inspect", "abandon"])
+      expect((await post(path, path === "inspect" ? inspect : abandon, h.client)).status).toBe(403);
+    expect(
+      (await post("abandon", abandon, { ...h.operator, origin: "http://evil.example" })).status
+    ).toBe(403);
+    expect(operate).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts only strict bodies and never an owner from the request", async () => {
+    const { h, operate, post } = await harness();
+    h.service.claimConversation("c1", "owner-key");
+    for (const [path, body] of [
+      ["inspect", { ...inspect, userId: "someone" }],
+      ["inspect", { ...inspect, taskId: "A".repeat(32) }],
+      ["inspect", { ...inspect, expectedGeneration: 0 }],
+      ["inspect", { ...inspect, conversationId: "" }],
+      ["abandon", { ...abandon, operationId: "not-a-uuid" }],
+      ["abandon", { ...abandon, expectedDigest: "B".repeat(64) }],
+      ["abandon", inspect],
+      ["inspect", "[]"]
+    ] as const)
+      expect((await post(path, body)).status, JSON.stringify(body)).toBe(400);
+    expect(operate).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unknown owner without calling the sidecar", async () => {
+    const { operate, post } = await harness();
+    const r = await post("inspect", inspect);
+    expect(r.status).toBe(409);
+    expect(await r.json()).toMatchObject({ code: "OWNER_UNKNOWN" });
+    expect(operate).not.toHaveBeenCalled();
+  });
+
+  it("maps sidecar and control refusals", async () => {
+    const { h, operate, post } = await harness();
+    h.service.claimConversation("c1", "owner-key");
+    const stale = new DocumentTaskControlError("STALE_GENERATION", {
+      phase: "ready",
+      generation: 3,
+      restartable: false,
+      failureCode: null
+    });
+    for (const [error, http, extra] of [
+      [new DocumentTaskError("TASK_NOT_FOUND"), 404, {}],
+      [new DocumentTaskError("TASK_OWNER_ACTIVE"), 409, {}],
+      [new DocumentTaskError("NOT_ABANDONABLE"), 409, {}],
+      [new DocumentTaskError("TASK_CHANGED"), 409, {}],
+      [new DocumentTaskError("ALREADY_ABANDONED"), 409, {}],
+      [new DocumentTaskError("OPERATION_CONFLICT"), 409, {}],
+      [new DocumentTaskError("TASK_UNAVAILABLE"), 503, {}],
+      [new DocumentTaskError("BRIDGE_UNCERTAIN", "abandon_task"), 503, { uncertain: true }],
+      [stale, 409, {}]
+    ] as const) {
+      operate.mockRejectedValueOnce(error);
+      const r = await post("abandon", abandon);
+      expect(r.status, (error as Error).message).toBe(http);
+      const body = await r.json();
+      expect(body).toMatchObject({ code: (error as { code: string }).code, ...extra });
+      if ("uncertain" in extra)
+        expect(body.error).toMatch(
+          /same operationId and expectedDigest returns the recorded outcome/
+        );
+    }
+  });
+
+  it("passes on only the defined shape; a malformed abandonment reply is uncertain", async () => {
+    const { h, operate, post } = await harness();
+    h.service.claimConversation("c1", "owner-key");
+    operate.mockResolvedValueOnce({ generation: 2, result: { ...view(), question: "secret" } });
+    const viewed = await post("inspect", inspect);
+    expect(viewed.status).toBe(503);
+    const viewedBody = await viewed.json();
+    expect(viewedBody).toMatchObject({ code: "TASK_UNAVAILABLE" });
+    expect(JSON.stringify(viewedBody)).not.toContain("secret");
+    operate.mockResolvedValueOnce({
+      generation: 2,
+      result: {
+        receipt: receipt(abandon.operationId),
+        task: abandonedView(abandon.operationId),
+        generation: 99
+      }
+    });
+    const done = await post("abandon", abandon);
+    expect(done.status).toBe(503);
+    expect(await done.json()).toMatchObject({ code: "BRIDGE_UNCERTAIN", uncertain: true });
+  });
+
+  it("treats well-formed replies about something else as unavailable or uncertain", async () => {
+    const { h, operate, post } = await harness();
+    h.service.claimConversation("c1", "owner-key");
+    for (const wrong of [
+      view({ taskId: "c".repeat(32) }),
+      view({ effectiveStatus: "running" }),
+      view({ persistedStatus: "uncertain", effectiveStatus: "uncertain" }),
+      view({ persistedStatus: "queued", effectiveStatus: "uncertain" }),
+      view({ persistedStatus: "abandoned", effectiveStatus: "abandoned" }),
+      view({ createdAt: "2026-10-06T12:00:00+99:99" })
+    ]) {
+      operate.mockResolvedValueOnce({ generation: 2, result: wrong });
+      const r = await post("inspect", inspect);
+      expect(r.status, JSON.stringify(wrong)).toBe(503);
+    }
+    const other = randomUUID();
+    for (const wrong of [
+      { receipt: receipt(other), task: abandonedView(other) },
+      {
+        receipt: { ...receipt(abandon.operationId), expectedDigest: "c".repeat(64) },
+        task: abandonedView(abandon.operationId)
+      },
+      { receipt: receipt(abandon.operationId), task: view() },
+      { receipt: receipt(abandon.operationId), task: abandonedView(other) }
+    ]) {
+      operate.mockResolvedValueOnce({ generation: 2, result: wrong });
+      const r = await post("abandon", abandon);
+      expect(r.status).toBe(503);
+      expect(await r.json()).toMatchObject({ code: "BRIDGE_UNCERTAIN", uncertain: true });
+    }
+  });
+
+  it("answers 404 when document tasks are disabled", async () => {
+    const h = await start();
+    const r = await fetch(h.base + "/workers/document-tasks/inspect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...h.operator },
+      body: JSON.stringify(inspect)
+    });
+    expect(r.status).toBe(404);
   });
 });

@@ -262,8 +262,54 @@ promotes nothing.
 
 A restart replays nothing. The replacement opens the same owners, bindings and
 checkpoints. A paused task stays paused and unscheduled, and a task abandoned
-while running is reported `uncertain` and is not resumed. Reconciling or
-abandoning such tasks is later work.
+while running is reported `uncertain` and is not resumed. Explicit operator
+inspection and abandonment are described below.
+
+### Orphaned task recovery
+
+An orphaned task is one whose persisted status is `running` or `cancel_requested`
+while no process holds its execution locks: its worker stopped, and what it did
+outside this application is unknown. Operators can inspect such a task and mark it
+abandoned (2026-10-06). Nothing is replayed, restarted, refunded or sent to a model.
+
+- `POST /workers/document-tasks/inspect` takes exactly
+  `{expectedGeneration, conversationId, taskId}`;
+  `POST /workers/document-tasks/abandon` also takes `operationId` (a UUID) and
+  `expectedDigest`. Both are operator-only, use POST so ids stay out of URLs, and
+  answer 404 when document tasks are disabled.
+- The server supplies the conversation's owner from its own record, never from the
+  request; an owner it does not know is refused with 409 `OWNER_UNKNOWN` and nothing
+  is adopted. Its record is process-local, so after a server restart a conversation
+  must be used again before its tasks can be inspected. The sidecar then checks that
+  owner and the task's binding as for any task command.
+- The supervisor checks the expected generation and readiness and hands the request
+  to that child in the same synchronous step; responses report that generation,
+  which may since have changed.
+- Inspection reads the task's row once and returns a fixed, validated view: status
+  as stored and as effective, an advisory `ownerActive` probe, a digest of the
+  stored row, created and updated times, model and tool call counts, and any
+  abandonment receipt. No question, answer, sources or error text is returned.
+  Unknown statuses, a non-integer version, a malformed result, an oversized row or
+  an inconsistent receipt make the task `TASK_UNAVAILABLE`; nothing is repaired.
+- Abandonment takes the task owner lock and then the checkpoint lock that durable
+  execution holds, both without waiting (`TASK_OWNER_ACTIVE` if either is held). In
+  one write transaction it rechecks the binding and owner, then requires a running or
+  cancel-requested status (`NOT_ABANDONABLE`) and an unchanged row digest
+  (`TASK_CHANGED`), then records status `abandoned` with a receipt of the operation,
+  the digest it was made against, the previous status, the time and
+  `externalOutcome: "unknown"`. Existing task content, checkpoint, owner and binding
+  are preserved; the payload gains the receipt and an updated decision time.
+- The same `operationId` and `expectedDigest` return the stored receipt exactly, so a
+  lost reply (503 `BRIDGE_UNCERTAIN`) can be resolved by resending. The same
+  operation with another digest is `OPERATION_CONFLICT`; another operation is
+  `ALREADY_ABANDONED`.
+- An abandoned task is terminal: it never resumes, runs, is cancelled again or
+  publishes an answer, and a resent start returns it unscheduled. Lists show it with
+  `externalOutcome: "unknown"`, and the task panel explains that the outcome
+  elsewhere is unknown. It still blocks conversation retirement.
+
+Callers with direct access to the database or task files can bypass these locks;
+the checks cover requests made through the sidecar.
 
 ## Verification
 

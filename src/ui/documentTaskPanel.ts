@@ -32,6 +32,7 @@ export function documentTaskScript(): string {
             for (const cite of task.answer.citations || []) {const source=document.createElement('p');source.textContent=cite.path+':'+cite.start_line+'–'+cite.end_line;row.append(source);}
           }
           if (task.error) {const error=document.createElement('p');error.textContent='Task failed: '+task.error;row.append(error);}
+          if (task.status==='abandoned' && task.externalOutcome==='unknown') {const unknown=document.createElement('p');unknown.textContent='Abandoned by an operator after its worker stopped. Whether it completed any work elsewhere is unknown, and no answer will be shown.';row.append(unknown);}
           const actions=[];
           if (['queued','paused'].includes(task.status) && !task.scheduled) actions.push('resume');
           if (['queued','paused','running'].includes(task.status)) actions.push('cancel');

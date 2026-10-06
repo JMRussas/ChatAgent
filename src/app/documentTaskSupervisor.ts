@@ -20,11 +20,21 @@ export interface DocumentTaskStatus {
 export interface DocumentTaskControl {
   status(): DocumentTaskStatus;
   restart(expectedGeneration: number): Promise<DocumentTaskStatus>;
+  /**
+   * Sends one operator request to the expected, ready generation. The check and the
+   * dispatch happen together, synchronously; the answer reports the generation it
+   * was sent to, which may no longer be current when it arrives.
+   */
+  operate(
+    expectedGeneration: number,
+    request: Record<string, unknown>
+  ): Promise<{ generation: number; result: unknown }>;
 }
 
 export class DocumentTaskControlError extends Error {
   constructor(
-    readonly code: "STALE_GENERATION" | "NOT_FAILED" | "NOT_EXITED" | "CLOSED" | "STARTUP_FAILED",
+    readonly code:
+      "STALE_GENERATION" | "NOT_FAILED" | "NOT_EXITED" | "CLOSED" | "STARTUP_FAILED" | "NOT_READY",
     readonly status: DocumentTaskStatus
   ) {
     super(code);
@@ -102,6 +112,19 @@ export class DocumentTaskSupervisor implements DocumentTasks, DocumentTaskContro
     if (this.status().phase !== "ready")
       return Promise.reject(new DocumentTaskError("BRIDGE_UNAVAILABLE", op));
     return this.current.child!.request(data);
+  }
+
+  operate(expectedGeneration: number, request: Record<string, unknown>) {
+    const status = this.status();
+    if (status.phase === "closed")
+      return Promise.reject(new DocumentTaskControlError("CLOSED", status));
+    if (expectedGeneration !== status.generation)
+      return Promise.reject(new DocumentTaskControlError("STALE_GENERATION", status));
+    if (status.phase !== "ready")
+      return Promise.reject(new DocumentTaskControlError("NOT_READY", status));
+    // No await between the checks above and handing the request to that child.
+    const generation = status.generation;
+    return this.current.child!.request(request).then((result) => ({ generation, result }));
   }
 
   async restart(expectedGeneration: number): Promise<DocumentTaskStatus> {

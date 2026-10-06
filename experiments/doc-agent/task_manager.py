@@ -5,8 +5,10 @@ Separate processes may advance different tasks; cancellation is persisted and po
 """
 import asyncio
 from contextlib import closing, contextmanager
+import hashlib
 import json
 import math
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sqlite3
@@ -15,7 +17,66 @@ import uuid
 from durable import run_durable, local_model
 from retrieval import Corpus, Source
 
-TERMINAL={'completed','failed','cancelled'}
+TERMINAL={'completed','failed','cancelled','abandoned'}
+ABANDONABLE=('running','cancel_requested')
+COUNT_LIMIT=10**9
+# Stored rows larger than this are reported unavailable rather than parsed.
+MAX_PAYLOAD_BYTES=32*1024*1024
+STATUSES={'queued','running','paused','cancel_requested','completed','failed','cancelled','abandoned'}
+UUID=re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+DIGEST=re.compile(r'[0-9a-f]{64}')
+
+
+class TaskError(ValueError):
+    """A named refusal an operator can act on; carries no stored content."""
+    def __init__(self,code):self.code=code;super().__init__(code)
+
+
+def row_digest(status,payload_text):
+    """Identifies one persisted state of a task; any change to the row changes it."""
+    return hashlib.sha256(json.dumps([status,payload_text]).encode()).hexdigest()
+
+
+def _instant(value):
+    if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<1e11:raise TaskError('TASK_UNAVAILABLE')
+    return datetime.fromtimestamp(value,timezone.utc).isoformat()
+
+
+def _count(value):
+    if value is None:return 0
+    if type(value) is not int or not 0<=value<=COUNT_LIMIT:raise TaskError('TASK_UNAVAILABLE')
+    return value
+
+
+def _stored(status,text):
+    """Parses a persisted row for operators; malformed or inconsistent rows are unavailable."""
+    if (status not in STATUSES or not isinstance(text,str) or len(text.encode())>MAX_PAYLOAD_BYTES):
+        raise TaskError('TASK_UNAVAILABLE')
+    try:p=json.loads(text)
+    except ValueError:raise TaskError('TASK_UNAVAILABLE')
+    # Exactly the integer 1: not True, not 1.0.
+    if not isinstance(p,dict) or type(p.get('version')) is not int or p['version']!=1:
+        raise TaskError('TASK_UNAVAILABLE')
+    if p.get('result') is not None and not isinstance(p['result'],dict):raise TaskError('TASK_UNAVAILABLE')
+    result=p.get('result') or {}
+    # Every field an operator sees is checked here, before any write may use the row.
+    fields={'createdAt':_instant(p.get('created_at')),'updatedAt':_instant(p.get('updated_at')),
+            'modelCalls':_count(result.get('model_calls')),'toolCalls':_count(result.get('tool_calls'))}
+    receipt=_receipt(p.get('abandonment'))
+    # Abandoned exactly when a valid receipt is stored; nothing is ever repaired here.
+    if (status=='abandoned')!=(receipt is not None):raise TaskError('TASK_UNAVAILABLE')
+    return p,receipt,fields
+
+
+def _receipt(value):
+    if value is None:return None
+    keys={'operationId','expectedDigest','previousStatus','abandonedAt','externalOutcome'}
+    if (not isinstance(value,dict) or set(value)!=keys
+            or not isinstance(value['operationId'],str) or not UUID.fullmatch(value['operationId'])
+            or not isinstance(value['expectedDigest'],str) or not DIGEST.fullmatch(value['expectedDigest'])
+            or value['previousStatus'] not in ABANDONABLE or value['externalOutcome']!='unknown'):
+        raise TaskError('TASK_UNAVAILABLE')
+    return {**value,'abandonedAt':_instant(value['abandonedAt'])}
 
 class TaskManager:
     def __init__(self,root):
@@ -100,6 +161,61 @@ class TaskManager:
         r=p.get('result') or {}
         return {'task_id':task_id,'status':status,'last_checkpoint':r,
                 'error':p.get('error'),'created_at':p['created_at'],'updated_at':p['updated_at']}
+
+    def inspect(self,task_id):
+        """A bounded operator view from one persisted row read; no question, answer or sources.
+
+        ownerActive is an advisory probe only; abandon() rechecks under the owner lock.
+        """
+        try:self.path(task_id)
+        except ValueError:raise TaskError('TASK_NOT_FOUND')
+        with self.connect() as c:row=c.execute('SELECT status,payload FROM tasks WHERE id=?',(task_id,)).fetchone()
+        if row is None:raise TaskError('TASK_NOT_FOUND')
+        status,text=row
+        _,receipt,fields=_stored(status,text)
+        active=status in ABANDONABLE and not self.owner_available(task_id)
+        return {'taskId':task_id,'persistedStatus':status,
+                'effectiveStatus':'uncertain' if status in ABANDONABLE and not active else status,
+                'ownerActive':active,'digest':row_digest(status,text),
+                **fields,'abandonment':receipt}
+
+    def abandon(self,task_id,operation_id,expected_digest,guard=None):
+        """Marks a confirmed orphan abandoned: its external outcome stays unknown.
+
+        Only with both execution locks free at zero wait, in the order execution takes
+        them (the task owner lock, then the checkpoint lock that durable execution holds
+        on its own), and the row unchanged since expected_digest. guard(c) runs inside
+        the same write transaction, so a caller's scope check is current. The receipt
+        is kept in the payload: the same operation and digest replay it exactly.
+        Payload, checkpoint, owner and binding are kept. Callers with direct file or
+        database access can still bypass these locks.
+        """
+        try:self.path(task_id)
+        except ValueError:raise TaskError('TASK_NOT_FOUND')
+        with closing(sqlite3.connect(self.path(task_id,'owner'),timeout=0)) as owner, \
+                closing(sqlite3.connect(str(self.path(task_id))+'.lock',timeout=0)) as checkpoint:
+            for lock in (owner,checkpoint):
+                try:lock.execute('BEGIN EXCLUSIVE')
+                except sqlite3.OperationalError:raise TaskError('TASK_OWNER_ACTIVE')
+            with self.transaction() as c:
+                if guard:guard(c)
+                row=c.execute('SELECT status,payload FROM tasks WHERE id=?',(task_id,)).fetchone()
+                if row is None:raise TaskError('TASK_NOT_FOUND')
+                status,text=row
+                p,receipt,_=_stored(status,text)
+                if receipt:
+                    # Exact replay needs the same operation and the digest it was made against.
+                    if receipt['operationId']!=operation_id:raise TaskError('ALREADY_ABANDONED')
+                    if receipt['expectedDigest']!=expected_digest:raise TaskError('OPERATION_CONFLICT')
+                    return receipt
+                if status not in ABANDONABLE:raise TaskError('NOT_ABANDONABLE')
+                if row_digest(status,text)!=expected_digest:raise TaskError('TASK_CHANGED')
+                now=time.time()
+                receipt={'operationId':operation_id,'expectedDigest':expected_digest,'previousStatus':status,
+                         'abandonedAt':now,'externalOutcome':'unknown'}
+                p['abandonment']=receipt;p['updated_at']=now
+                c.execute('UPDATE tasks SET status=?,payload=? WHERE id=?',('abandoned',json.dumps(p),task_id))
+            return _receipt(receipt)
 
     def list(self):
         with self.connect() as c:ids=[r[0] for r in c.execute('SELECT id FROM tasks ORDER BY rowid')]

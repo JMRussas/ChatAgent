@@ -4,7 +4,7 @@ from contextlib import closing
 import json
 import sqlite3
 import sys
-from task_manager import TaskManager
+from task_manager import TaskManager, TaskError, UUID, DIGEST
 from durable import local_model
 from retrieval import Corpus
 from run import ROOT,api
@@ -87,7 +87,9 @@ class ConversationTasks:
                 'modelCalls':r.get('model_calls',0),'toolCalls':r.get('tool_calls',0),
                 'answer':answer if s['status']=='completed' else None,
                 'error':(r.get('status') or 'execution_failed') if s['status']=='failed' else None,
-                'scheduled':task_id in self.jobs}
+                'scheduled':task_id in self.jobs,
+                # Abandoned by an operator: what the task did externally is not known.
+                **({'externalOutcome':'unknown'} if s['status']=='abandoned' else {})}
 
     async def drive(self,task_id):
         try:
@@ -143,6 +145,21 @@ class ConversationTasks:
                 with self.manager.connect() as c:ids=[r[0] for r in c.execute('SELECT task FROM bindings WHERE conversation=? ORDER BY rowid',(conversation,))]
                 return [self.view(i) for i in ids]
             task_id=data.get('taskId');self.scoped(task_id,conversation)
+            # Operator recovery, reached only through the bound conversation and its owner.
+            if op in ('inspect_task','abandon_task'):
+                try:
+                    if op=='inspect_task':return self.manager.inspect(task_id)
+                    operation,digest=data.get('operationId'),data.get('expectedDigest')
+                    if not isinstance(operation,str) or not UUID.fullmatch(operation):raise BridgeError('INVALID_REQUEST')
+                    if not isinstance(digest,str) or not DIGEST.fullmatch(digest):raise BridgeError('INVALID_REQUEST')
+                    def guard(c):
+                        # Scope rechecked in the abandonment's own transaction.
+                        row=c.execute('SELECT conversation FROM bindings WHERE task=?',(task_id,)).fetchone()
+                        if row is None or row[0]!=conversation:raise BridgeError('TASK_NOT_FOUND')
+                        self.check_owner(c,conversation,user)
+                    receipt=self.manager.abandon(task_id,operation,digest,guard)
+                    return {'receipt':receipt,'task':self.manager.inspect(task_id)}
+                except TaskError as error:raise BridgeError(error.code)
             if op=='cancel':
                 cancelled=self.manager.cancel(task_id)
                 job=self.jobs.get(task_id)

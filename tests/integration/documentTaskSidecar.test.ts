@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PythonDocumentTasks } from "../../src/app/documentTasks";
 import { DocumentTaskSupervisor } from "../../src/app/documentTaskSupervisor";
+import { abandonResultSchema, taskViewSchema } from "../../src/server";
 
 // The real Python sidecar, offline. It uses the repository's uv-managed virtual
 // environment and only list requests, so no model is contacted and no task runs.
@@ -207,6 +208,57 @@ describe.skipIf(!existsSync(PYTHON))("real document-task supervisor (offline)", 
     await expect(
       s.request({ op: "list", conversationId: "conversation-1", userId: "someone-else" })
     ).rejects.toMatchObject({ code: "OWNER_MISMATCH" });
+  }, 120_000);
+
+  it("lets an operator inspect and abandon an orphaned task, keeping its checkpoint", async () => {
+    const root = await mkdtemp(join(tmpdir(), "doc-supervisor-"));
+    cleanups.push(() => rm(root, { recursive: true, force: true }));
+    const fixture = spawnSync(PYTHON, [resolve("tests/fixtures/document_task_store.py"), root], {
+      encoding: "utf8"
+    });
+    expect(fixture.status, fixture.stderr).toBe(0);
+    const ids = JSON.parse(fixture.stdout) as { paused: string; running: string };
+    const scope = { conversationId: "conversation-1", userId: "owner-1" };
+    const checkpoint = join(root, `${ids.paused}.sqlite`);
+    const hash = async () =>
+      createHash("sha256")
+        .update(await readFile(checkpoint))
+        .digest("hex");
+    const before = await hash();
+    const s = await supervise(root);
+    await ready(s);
+    const { result: view } = (await s.operate(1, {
+      op: "inspect_task",
+      ...scope,
+      taskId: ids.running
+    })) as { result: { persistedStatus: string; effectiveStatus: string; digest: string } };
+    expect(view).toMatchObject({ persistedStatus: "running", effectiveStatus: "uncertain" });
+    // The real sidecar output satisfies the server's operator response contract.
+    expect(taskViewSchema.safeParse(view).success).toBe(true);
+    const request = {
+      op: "abandon_task",
+      ...scope,
+      taskId: ids.running,
+      operationId: "00000000-0000-4000-8000-000000000001",
+      expectedDigest: view.digest
+    };
+    const first = await s.operate(1, request);
+    expect(first.result).toMatchObject({
+      receipt: { previousStatus: "running", externalOutcome: "unknown" },
+      task: { persistedStatus: "abandoned" }
+    });
+    expect(abandonResultSchema.safeParse(first.result).success).toBe(true);
+    // Resending the same operation replays the recorded outcome exactly.
+    expect(await s.operate(1, request)).toEqual(first);
+    const listed = (await s.request({ op: "list", ...scope })) as Record<string, unknown>[];
+    expect(listed.find((t) => t.taskId === ids.running)).toMatchObject({
+      status: "abandoned",
+      answer: null,
+      externalOutcome: "unknown"
+    });
+    // The paused task and its checkpoint are untouched.
+    expect(listed.find((t) => t.taskId === ids.paused)).toMatchObject({ status: "paused" });
+    expect(await hash()).toBe(before);
   }, 120_000);
 
   it("never becomes ready while another sidecar holds the store", async () => {

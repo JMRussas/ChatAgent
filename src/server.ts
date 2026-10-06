@@ -205,6 +205,72 @@ function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo 
 }
 
 const pairBodySchema = z.object({ code: z.string().max(64) }).strict();
+const generation = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const recoveryTarget = {
+  expectedGeneration: generation,
+  conversationId: z.string().min(1).max(200),
+  taskId: z.string().regex(/^[0-9a-f]{32}$/)
+};
+const inspectTaskBodySchema = z.object(recoveryTarget).strict();
+const abandonTaskBodySchema = z
+  .object({
+    ...recoveryTarget,
+    operationId: z.string().uuid(),
+    expectedDigest: z.string().regex(/^[0-9a-f]{64}$/)
+  })
+  .strict();
+const persistedTaskStatus = z.enum([
+  "queued",
+  "running",
+  "paused",
+  "cancel_requested",
+  "completed",
+  "failed",
+  "cancelled",
+  "abandoned"
+]);
+/** A real instant: the format check alone admits offsets such as +99:99. */
+const instant = z
+  .string()
+  .max(64)
+  .datetime({ offset: true })
+  .refine((value) => Number.isFinite(Date.parse(value)));
+const receiptSchema = z
+  .object({
+    operationId: z.string().uuid(),
+    expectedDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    previousStatus: z.enum(["running", "cancel_requested"]),
+    abandonedAt: instant,
+    externalOutcome: z.literal("unknown")
+  })
+  .strict();
+const count = z.number().int().nonnegative().max(1e9);
+/** The sidecar's bounded operator view of one task; nothing else is passed on. */
+export const taskViewSchema = z
+  .object({
+    taskId: z.string().regex(/^[0-9a-f]{32}$/),
+    persistedStatus: persistedTaskStatus,
+    effectiveStatus: z.union([persistedTaskStatus, z.literal("uncertain")]),
+    ownerActive: z.boolean(),
+    digest: z.string().regex(/^[0-9a-f]{64}$/),
+    createdAt: instant,
+    updatedAt: instant,
+    modelCalls: count,
+    toolCalls: count,
+    abandonment: receiptSchema.nullable()
+  })
+  .strict()
+  .refine((v) => {
+    const orphanable = v.persistedStatus === "running" || v.persistedStatus === "cancel_requested";
+    // Effective differs only as an orphan's derived uncertainty; a live owner keeps it.
+    const statuses = orphanable
+      ? v.effectiveStatus === (v.ownerActive ? v.persistedStatus : "uncertain")
+      : v.effectiveStatus === v.persistedStatus && !v.ownerActive;
+    return statuses && (v.persistedStatus === "abandoned") === (v.abandonment !== null);
+  });
+export const abandonResultSchema = z
+  .object({ receipt: receiptSchema, task: taskViewSchema })
+  .strict();
 const restartBodySchema = z
   .object({ expectedGeneration: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) })
   .strict();
@@ -795,6 +861,81 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         return json(res, 200, { status });
       }
 
+      if (
+        method === "POST" &&
+        (url.pathname === "/workers/document-tasks/inspect" ||
+          url.pathname === "/workers/document-tasks/abandon")
+      ) {
+        if (!options.documentTaskControl)
+          return json(res, 404, { error: "Documentation tasks are disabled" });
+        const abandon = url.pathname.endsWith("/abandon");
+        const body = (abandon ? abandonTaskBodySchema : inspectTaskBodySchema).parse(
+          requireObjectBody(await parseBody())
+        );
+        // The owner comes from this server's record of the conversation, never the
+        // request; an unknown owner is refused rather than adopted.
+        const owner = service.conversationOwner(body.conversationId);
+        if (owner === undefined)
+          return json(res, 409, {
+            error: "The conversation's owner is not known to this server",
+            code: "OWNER_UNKNOWN"
+          });
+        const { generation, result } = await options.documentTaskControl.operate(
+          body.expectedGeneration,
+          {
+            op: abandon ? "abandon_task" : "inspect_task",
+            conversationId: body.conversationId,
+            userId: owner,
+            taskId: body.taskId,
+            ...(abandon
+              ? {
+                  operationId: (body as z.infer<typeof abandonTaskBodySchema>).operationId,
+                  expectedDigest: (body as z.infer<typeof abandonTaskBodySchema>).expectedDigest
+                }
+              : {})
+          }
+        );
+        // Only the fields this contract defines are returned. A malformed inspection
+        // is unavailable; a malformed abandonment reply leaves its outcome uncertain,
+        // because the change may already be committed.
+        const parsed = (abandon ? abandonResultSchema : taskViewSchema).safeParse(result);
+        // A well-formed reply about another task or operation is not this answer.
+        const task = parsed.success
+          ? abandon
+            ? (parsed.data as z.infer<typeof abandonResultSchema>).task
+            : (parsed.data as z.infer<typeof taskViewSchema>)
+          : undefined;
+        const receipt =
+          parsed.success && abandon
+            ? (parsed.data as z.infer<typeof abandonResultSchema>).receipt
+            : undefined;
+        const correlated =
+          task?.taskId === body.taskId &&
+          (!abandon ||
+            (receipt!.operationId === (body as z.infer<typeof abandonTaskBodySchema>).operationId &&
+              receipt!.expectedDigest ===
+                (body as z.infer<typeof abandonTaskBodySchema>).expectedDigest &&
+              task.persistedStatus === "abandoned" &&
+              JSON.stringify(task.abandonment) === JSON.stringify(receipt)));
+        if (!parsed.success || !correlated)
+          throw new DocumentTaskError(
+            abandon ? "BRIDGE_UNCERTAIN" : "TASK_UNAVAILABLE",
+            abandon ? "abandon_task" : "inspect_task"
+          );
+        // The generation the request was sent to; it may have changed since.
+        return json(
+          res,
+          200,
+          abandon
+            ? {
+                generation,
+                receipt: (parsed.data as z.infer<typeof abandonResultSchema>).receipt,
+                task: (parsed.data as z.infer<typeof abandonResultSchema>).task
+              }
+            : { generation, task: parsed.data }
+        );
+      }
+
       if (method === "POST" && url.pathname === "/workers/deep/run-once") {
         const result = await service.runDeepWorkerOnce();
         return json(res, 200, { result: result ?? null });
@@ -1012,7 +1153,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         // not-exited refusals are 409 and spawned nothing; CLOSED is also 409, but
         // shutdown may have overtaken a replacement that was already starting.
         return json(res, error.code === "STARTUP_FAILED" ? 503 : 409, {
-          error: "Documentation task restart refused",
+          error: "Documentation task control request refused",
           code: error.code,
           status: error.status
         });
@@ -1027,7 +1168,9 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           error:
             error.op === "start"
               ? "The task may have been accepted. Its outcome is unknown; inspect task state before submitting more work."
-              : "The outcome is unknown. Check the task's status before acting."
+              : error.op === "abandon_task"
+                ? "The abandonment may have been recorded. Resending the same operationId and expectedDigest returns the recorded outcome."
+                : "The outcome is unknown. Check the task's status before acting."
         });
       if (error instanceof DocumentTaskError && error.code === "BRIDGE_BUSY") {
         // Refused before anything was written to the sidecar; resending is safe.
@@ -1043,9 +1186,16 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         const status =
           error.code === "CAPACITY_FULL"
             ? 429
-            : error.code === "OWNER_MISMATCH" ||
-                error.code === "REQUEST_CONFLICT" ||
-                error.code === "NOT_RESUMABLE"
+            : [
+                  "OWNER_MISMATCH",
+                  "REQUEST_CONFLICT",
+                  "NOT_RESUMABLE",
+                  "TASK_OWNER_ACTIVE",
+                  "NOT_ABANDONABLE",
+                  "TASK_CHANGED",
+                  "ALREADY_ABANDONED",
+                  "OPERATION_CONFLICT"
+                ].includes(error.code)
               ? 409
               : error.code === "TASK_NOT_FOUND"
                 ? 404

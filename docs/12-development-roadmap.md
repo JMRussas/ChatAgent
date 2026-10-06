@@ -1171,6 +1171,16 @@ any shared deployment.
   [request admission](implementation/11-conversation-tasks.md#request-admission).
   Give orphaned document tasks an operator-visible reconciliation/abandon path that
   preserves uncertainty about external execution instead of claiming clean rollback.
+  _Inspect and abandon implemented 2026-10-06; see
+  [orphaned task recovery](implementation/11-conversation-tasks.md#orphaned-task-recovery):_
+  operator routes guarded by generation, server-resolved owner, both execution
+  locks, digest compare-and-set and an exactly replayable receipt; the external
+  outcome stays unknown. Owner adoption after a server restart remains open.
+  Validation: 1,215 tests across 128 files, 34 browser tests and 91 doc-agent tests
+  through uv-managed Python 3.13.13 passed. Independent review reran 101 focused
+  TypeScript tests (including seven real sidecar cases) and 34 Python recovery,
+  creation and bridge tests. Nineteen distinct temporary mutations were rejected;
+  corrupt timestamps/counters fail before any write. Format and lint passed.
 - Validate complete discovery batches before publishing inventory changes. Retain
   last good observations without extending freshness, and expose sanitized failure
   reasons without credentials or raw provider responses. _Implemented 2026-10-06;
