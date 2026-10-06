@@ -18,18 +18,20 @@ Concurrent model awaits do not guarantee that Ollama executes inference in paral
 
 ## Run
 
-Use the same environment/dependencies as [durable tasks](DURABILITY.md).
+Use the same isolated `uv` dependencies as [durable tasks](DURABILITY.md), from
+the repository root. The PowerShell example stores the common runner arguments;
+in WSL with the Windows installation use `uv.exe` for the equivalent invocation.
 
 ```powershell
-$python = 'D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe'
+$uvArgs = @('run', '--no-project', '--isolated', '--no-env-file', '--python', '3.13.13', '--no-python-downloads', '--with-requirements', 'experiments/doc-agent/requirements-durable.txt', 'python')
 $script = 'experiments/doc-agent/task_manager.py'
 $taskRoot = 'experiments/doc-agent/tasks'
-$a = & $python $script --root $taskRoot start --question 'Does ContextManager wait for a new background summary?' | ConvertFrom-Json
-$b = & $python $script --root $taskRoot start --question 'Does an SSE disconnect cancel generation?' | ConvertFrom-Json
-& $python $script --root $taskRoot list
-& $python $script --root $taskRoot resume $b.task_id
-& $python $script --root $taskRoot status $a.task_id
-& $python $script --root $taskRoot cancel $a.task_id
+$a = & uv @uvArgs $script --root $taskRoot start --question 'Does ContextManager wait for a new background summary?' | ConvertFrom-Json
+$b = & uv @uvArgs $script --root $taskRoot start --question 'Does an SSE disconnect cancel generation?' | ConvertFrom-Json
+& uv @uvArgs $script --root $taskRoot list
+& uv @uvArgs $script --root $taskRoot resume $b.task_id
+& uv @uvArgs $script --root $taskRoot status $a.task_id
+& uv @uvArgs $script --root $taskRoot cancel $a.task_id
 ```
 
 Repeat resume when the selected task reports paused. A fresh process uses the same

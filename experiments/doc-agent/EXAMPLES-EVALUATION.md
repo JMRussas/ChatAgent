@@ -15,10 +15,10 @@ systematic ordering effects. One run per question per variant is a small explora
 comparison, not a statistically reliable estimate. The first request may load the
 model, and prompt caching or machine load can affect latency.
 
-Run from the repository using the existing Windows course environment:
+Run from the repository root using the [uv setup](README.md#run):
 
 ```powershell
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe experiments/doc-agent/run.py `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements.txt python experiments/doc-agent/run.py `
   --compare-examples --model gemma4:26b --out reports/doc-agent/new-examples-comparison
 ```
 

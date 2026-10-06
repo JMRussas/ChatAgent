@@ -145,6 +145,20 @@ scope-specific acceptance statement.
 - Record current status in the roadmap rather than appending duplicate journals.
 - Configure `blame.ignoreRevsFile` as `AGENTS.md` describes.
 
+Current and future Python work uses `uv` and an explicitly selected interpreter,
+rather than borrowing a sibling project's environment. For the current doc-agent
+suite, use managed Python 3.13.13 and its pinned requirements:
+
+```sh
+# From experiments/doc-agent; offline tests, no model calls.
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements requirements-durable.txt python -m unittest -v test_chat_bridge
+```
+
+Use `uv.exe` in WSL with the Windows installation. See the
+[experiment setup](../experiments/doc-agent/README.md#run) for interpreter setup,
+the full suite and live run commands. Preserve existing requirements and historical
+evidence; new Python work should document its own dependency inputs and checks.
+
 ## Optional on-demand Hekate
 
 Bridge coordination does not need Hekate running. Hekate has a separate,

@@ -6,13 +6,21 @@ user-triggered work, not automatic agent routing or a scheduled-task service.
 
 ## Enable and use
 
-Use a dedicated Python environment in this repository (tested with Python 3.13):
+Use `uv` to manage a dedicated environment from the repository root with Python
+3.13.13. If needed, first run `uv python install 3.13.13`; subsequent commands
+disable implicit interpreter downloads. In WSL with the Windows installation,
+invoke `uv.exe` and select Windows interpreter paths when Node runs on Windows.
 
 ```bash
-python -m venv .venv
-# Activate .venv using your shell's activation command.
-python -m pip install -r experiments/doc-agent/requirements-durable.txt
+uv venv --python 3.13.13 --no-python-downloads .venv
+uv pip install --python .venv/bin/python -r experiments/doc-agent/requirements-durable.txt
 ```
+
+On Windows, use `.venv/Scripts/python.exe` for the install command's `--python`
+argument. The existing runtime starts that interpreter directly; activation and
+a launcher rewrite are unnecessary. The existing direct dependency pins remain
+unchanged; installation resolves transitive dependencies rather than treating
+these requirements as a complete lockfile.
 
 Ollama must already be running locally on port 11434 with the selected model
 installed. Published runs used `gemma4:26b`; the worker verifies tool support,

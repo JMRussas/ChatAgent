@@ -36,9 +36,9 @@ Inspect raw plan, actual_actions and answer together. This tests the whole plann
 intervention (extra call plus explicit plan), not whether structure alone helps.
 A larger held-out evaluation needs human/blinded scoring and repeated trials.
 
-Run from the repo root with the existing Python environment:
+Run from the repo root using the [uv setup](README.md#run), with a new output directory:
 
-    python experiments/doc-agent/run_plans.py --out reports/doc-agent/plans-v1-2026-09-28
+    uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements.txt python experiments/doc-agent/run_plans.py --out reports/doc-agent/new-plans
 
 Only the installed local gemma4:26b model is used. No source files, durable
 checkpoint contracts, production routing or runtime prompts are changed.

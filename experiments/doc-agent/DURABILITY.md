@@ -15,18 +15,19 @@ owns one task. There is no multi-task scheduler or production chat integration.
 
 ## Try it
 
-Install `requirements-durable.txt` in a dedicated Python environment. The existing
+Use the isolated `uv` workflow in [setup](README.md#run), selecting
+`requirements-durable.txt` for durable tasks. Historically, the existing
 course environment was reused without modification for validation; missing SQLite
 packages were placed in this experiment's ignored `.deps` directory. Those pinned
 PyPI wheels were checked against their published SHA-256 hashes before extraction.
 The wrapper supports that local directory as well as a normal pip installation.
 
 ```powershell
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe experiments/doc-agent/durable.py start `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements-durable.txt python experiments/doc-agent/durable.py start `
   --db experiments/doc-agent/my-task.sqlite `
   --question "Does ContextManager wait for a background summary?"
 
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe experiments/doc-agent/durable.py resume `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements-durable.txt python experiments/doc-agent/durable.py resume `
   --db experiments/doc-agent/my-task.sqlite
 ```
 

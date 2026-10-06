@@ -150,7 +150,7 @@ addresses), answers only requests with a loopback `Host`, refuses cross-origin
 browser requests and limits POST bodies to `HTTP_MAX_BODY_BYTES` (1 MiB by
 default). See the [deployment boundary](docs/runtime-reference.md#local-deployment-boundary-and-request-limits).
 
-For live documentation retrieval, install the Python dependencies and enable the
+For live documentation retrieval, manage the Python dependencies with `uv` and enable the
 optional worker using the [self-contained setup guide](docs/implementation/11-conversation-tasks.md#enable-and-use).
 The published live runs used locally installed `gemma4:26b`; it is not downloaded
 automatically. Node and Python must run on the same OS.
@@ -225,6 +225,11 @@ implemented. Older planning documents are historical where they conflict with
 this overview; the [current roadmap](docs/12-development-roadmap.md) tracks sequencing.
 
 ## Explore the engineering
+
+Current Python experiment setup uses `uv` with managed Python 3.13.13 and the
+existing pinned requirements. See the [doc-agent setup and offline checks](experiments/doc-agent/README.md#run)
+for isolated run commands; use `uv.exe` in WSL when using the Windows installation.
+Historical reports retain the environments and commands actually used.
 
 - [Case study: architecture, tradeoffs and AI-assisted development](docs/portfolio-case-study.md)
 - [Evidence guide: results, limitations and reproduction](docs/results.md)

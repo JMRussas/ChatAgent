@@ -52,34 +52,58 @@ An optional explicit LangGraph implementation is now available; see [the graph w
 
 ## Run
 
-Use Python 3.12+ and a dedicated environment with `requirements.txt`, or the
-already-installed course environment. No sibling module is imported or modified.
+Use `uv` with managed Python 3.13.13 and the pinned requirements below. Install
+that interpreter once with `uv python install 3.13.13` if it is not available.
+Commands run from the repository root; `--no-python-downloads` then prevents
+implicit interpreter downloads. In WSL using the Windows installation, invoke
+`uv.exe` instead of `uv`; it uses Windows Python. No sibling environment is needed.
 No `.env` is loaded and hosted LangSmith tracing is disabled for this process.
 The default model is `gemma4:26b`, validated in the final development smoke run.
 
 ```powershell
-# From D:\Git\ChatAgent; reuses the existing course environment unchanged.
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe experiments/doc-agent/run.py `
+# From the repository root; isolated dependencies, no project or dotenv loading.
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements.txt python experiments/doc-agent/run.py `
   --model gemma4:26b `
   --question "Does restarting the implemented Iris slice preserve queued work?" `
   --out reports/doc-agent/my-question
 
 # Four-case live smoke evaluation:
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe experiments/doc-agent/run.py `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements.txt python experiments/doc-agent/run.py `
   --model gemma4:26b --eval --out reports/doc-agent/new-eval
 
 # Offline deterministic checks; no Ollama calls:
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe -m unittest discover `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements-durable.txt python -m unittest discover `
   -s experiments/doc-agent -p "test_*.py"
 ```
 
-For an independent setup, use `python -m venv .venv` and install
-`experiments/doc-agent/requirements.txt` with that environment's pip. The run
+The complete offline suite uses `requirements-durable.txt`, which includes the
+base requirements and SQLite checkpoint dependencies. `uv` may fetch dependencies
+into its cache, but does not modify a sibling environment or the pinned files. The run
 accepts local loopback HTTP Ollama only. It verifies the model is installed,
 advertises tools, and reports at least 32768 context capacity. It does not download
 models or change the application's configured providers. Thinking is disabled
 only if the installed metadata advertises support. No paid/cloud fallback exists.
 Output directories must be new and empty.
+
+### Runtime sidecar environment
+
+The Node sidecar starts an interpreter directly. Manage that environment with
+`uv`; no launcher rewrite is needed. From the repository root:
+
+```sh
+uv venv --python 3.13.13 --no-python-downloads .venv
+uv pip install --python .venv/bin/python -r experiments/doc-agent/requirements-durable.txt
+```
+
+For Windows, use `.venv/Scripts/python.exe` as the
+`--python` argument to `uv pip install`. These files pin direct dependencies,
+not a complete transitive lockfile; installation resolves their dependencies.
+Configure `DOC_TASK_PYTHON` to the absolute
+path of that interpreter, using the same OS as Node; Windows Node needs Windows
+Python.
+See the [conversation-task setup](../../docs/implementation/11-conversation-tasks.md#enable-and-use)
+for the remaining runtime settings. Historical ignored `.deps` extraction is
+not needed for a new uv-managed environment.
 
 ## Corpus and retrieval
 

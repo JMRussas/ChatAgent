@@ -58,14 +58,15 @@ retries that could bypass those budgets.
 ## Run and verify
 
 ```powershell
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe experiments/doc-agent/run.py `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements.txt python experiments/doc-agent/run.py `
   --engine langgraph --model gemma4:26b --eval --out reports/doc-agent/my-graph-eval
 
-& D:\Git\LangChain\lca-lc-foundations\.venv\Scripts\python.exe -m unittest discover `
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements-durable.txt python -m unittest discover `
   -s experiments/doc-agent -p "test_*.py"
 ```
 
-The course environment already contained LangGraph; it was not modified. The
+Use the repository-root [uv setup](README.md#run). During historical validation,
+the course environment already contained LangGraph; it was not modified. The
 standalone requirements file now explicitly pins the version. Run metadata records
 the engine, framework version and implementation hashes.
 
