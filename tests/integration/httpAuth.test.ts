@@ -788,6 +788,125 @@ describe("document task recovery routes", () => {
     }
   });
 
+  describe("recovery-candidate listing", () => {
+    const ids = ["1".repeat(32), "2".repeat(32), "3".repeat(32)];
+    const candidate = (id: string, over: Record<string, unknown> = {}) => ({
+      ...view({ taskId: id }),
+      conversationId: "c1",
+      ownerScope: "scoped",
+      ...over
+    });
+    const list = (
+      h: Awaited<ReturnType<typeof harness>>["h"],
+      query: string,
+      headers = h.operator
+    ) => fetch(`${h.base}/workers/document-tasks/recovery-candidates${query}`, { headers });
+
+    it("lists through the sidecar for the operator only, claiming nothing", async () => {
+      const { h, operate } = await harness();
+      operate.mockResolvedValueOnce({
+        generation: 2,
+        result: {
+          tasks: [candidate(ids[0]), { taskId: ids[1], conversationId: null, unavailable: true }],
+          nextAfter: ids[1]
+        }
+      });
+      const before = h.service.retentionStats();
+      const r = await list(h, "?expectedGeneration=2&limit=2");
+      expect(r.status).toBe(200);
+      const body = await r.json();
+      expect(body).toEqual({
+        generation: 2,
+        tasks: [candidate(ids[0]), { taskId: ids[1], conversationId: null, unavailable: true }],
+        nextAfter: ids[1]
+      });
+      expect(operate.mock.calls).toEqual([[2, { op: "recover_list", limit: 2 }]]);
+      operate.mockResolvedValueOnce({ generation: 2, result: { tasks: [], nextAfter: null } });
+      expect((await list(h, `?expectedGeneration=2&after=${ids[1]}`)).status).toBe(200);
+      expect(operate.mock.calls[1]).toEqual([
+        2,
+        { op: "recover_list", limit: 50, afterTaskId: ids[1] }
+      ]);
+      expect(h.service.conversationOwner("c1")).toBeUndefined();
+      expect(h.service.retentionStats()).toEqual(before);
+      expect((await list(h, "?expectedGeneration=2", h.client)).status).toBe(403);
+      expect(operate).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      "",
+      "?expectedGeneration=0",
+      "?expectedGeneration=1.5",
+      "?expectedGeneration=two",
+      "?expectedGeneration=2&limit=0",
+      "?expectedGeneration=2&limit=101",
+      "?expectedGeneration=2&limit=05",
+      "?expectedGeneration=2&after=" + "A".repeat(32),
+      "?expectedGeneration=2&after=" + "1".repeat(31),
+      "?expectedGeneration=2&limit=5&limit=6",
+      "?expectedGeneration=2&expectedGeneration=2",
+      "?expectedGeneration=2&userId=u",
+      "?expectedGeneration=2&conversationId=c1",
+      "?expectedGeneration=2&__proto__=x",
+      "?expectedGeneration=2&%5F%5Fproto%5F%5F=x",
+      "?expectedGeneration=2&constructor=x"
+    ])("refuses the query %j before the sidecar", async (query) => {
+      const { h, operate } = await harness();
+      expect((await list(h, query)).status).toBe(400);
+      expect(operate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["an owner key", { tasks: [candidate(ids[0], { owner: "o1:x" })], nextAfter: null }],
+      [
+        "no binding",
+        { tasks: [candidate(ids[0], { conversationId: undefined })], nextAfter: null }
+      ],
+      [
+        "an unknown scope",
+        { tasks: [candidate(ids[0], { ownerScope: "legacy" })], nextAfter: null }
+      ],
+      ["question text", { tasks: [candidate(ids[0], { question: "secret" })], nextAfter: null }],
+      ["an invalid view", { tasks: [candidate(ids[0], { ownerActive: "no" })], nextAfter: null }],
+      ["unordered ids", { tasks: [candidate(ids[1]), candidate(ids[0])], nextAfter: null }],
+      ["a repeated id", { tasks: [candidate(ids[0]), candidate(ids[0])], nextAfter: null }],
+      ["a cursor that is not the last id", { tasks: [candidate(ids[0])], nextAfter: ids[2] }],
+      ["a cursor on an empty page", { tasks: [], nextAfter: ids[0] }],
+      ["too many items", { tasks: ids.map((id) => candidate(id)), nextAfter: null }],
+      ["an extra field", { tasks: [], nextAfter: null, total: 3 }],
+      ["no tasks list", { nextAfter: null }]
+    ])("treats a reply with %s as unavailable", async (_, result) => {
+      const { h, operate } = await harness();
+      operate.mockResolvedValueOnce({ generation: 2, result });
+      const r = await list(h, "?expectedGeneration=2&limit=2");
+      expect(r.status).toBe(503);
+      const text = await r.text();
+      expect(text).toContain("TASK_UNAVAILABLE");
+      expect(text).not.toContain("secret");
+      expect(text).not.toContain("o1:");
+    });
+
+    it("refuses an item at or before the cursor and maps a stale generation", async () => {
+      const { h, operate } = await harness();
+      operate.mockResolvedValueOnce({
+        generation: 2,
+        result: { tasks: [candidate(ids[1])], nextAfter: null }
+      });
+      expect((await list(h, `?expectedGeneration=2&after=${ids[1]}`)).status).toBe(503);
+      operate.mockRejectedValueOnce(
+        new DocumentTaskControlError("STALE_GENERATION", {
+          phase: "ready",
+          generation: 3,
+          restartable: false,
+          failureCode: null
+        })
+      );
+      const stale = await list(h, "?expectedGeneration=2");
+      expect(stale.status).toBe(409);
+      expect(await stale.json()).toMatchObject({ code: "STALE_GENERATION" });
+    });
+  });
+
   it("answers 404 when document tasks are disabled", async () => {
     const h = await start();
     const r = await fetch(h.base + "/workers/document-tasks/inspect", {

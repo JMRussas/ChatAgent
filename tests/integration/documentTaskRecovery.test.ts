@@ -143,7 +143,47 @@ describe.skipIf(!AVAILABLE)("operator recovery after a server restart (offline)"
     const second = await instance(other, root);
     expect(second.service.conversationOwner(conversationId)).toBeUndefined();
     const stats = second.service.retentionStats();
-    const target = { expectedGeneration: 1, conversationId, taskId: ids.running };
+    // The operator finds the candidate without knowing its ids: only the unfinished,
+    // bound task is listed (the paused one is not), with an advisory owner probe.
+    const candidates = await second.send(
+      "/workers/document-tasks/recovery-candidates?expectedGeneration=1&limit=10",
+      other.operatorToken,
+      undefined,
+      "GET"
+    );
+    expect(candidates.status).toBe(200);
+    const listedText = await candidates.text();
+    expect(listedText).not.toContain("o1:");
+    const listing = JSON.parse(listedText) as {
+      tasks: {
+        taskId: string;
+        conversationId: string;
+        ownerScope: string;
+        effectiveStatus: string;
+        ownerActive: boolean;
+      }[];
+      nextAfter: string | null;
+    };
+    expect(listing).toMatchObject({
+      generation: 1,
+      nextAfter: null,
+      tasks: [
+        {
+          taskId: ids.running,
+          conversationId,
+          ownerScope: "scoped",
+          effectiveStatus: "uncertain",
+          ownerActive: false
+        }
+      ]
+    });
+    expect(second.service.conversationOwner(conversationId)).toBeUndefined();
+    const [found] = listing.tasks;
+    const target = {
+      expectedGeneration: 1,
+      conversationId: found.conversationId,
+      taskId: found.taskId
+    };
     const viewed = await second.operator("inspect", target);
     expect(viewed.status).toBe(200);
     const viewedText = await viewed.text();
@@ -215,7 +255,18 @@ describe.skipIf(!AVAILABLE)("operator recovery after a server restart (offline)"
 
   it("refuses a legacy owner label rather than adopting it", async () => {
     const { root, ids } = await seed();
-    const s = await instance(newIdentity(), root);
+    const identity = newIdentity();
+    const s = await instance(identity, root);
+    // Listed as a candidate with its scope, but recovery still refuses it.
+    const listed = await s.send(
+      "/workers/document-tasks/recovery-candidates?expectedGeneration=1",
+      identity.operatorToken,
+      undefined,
+      "GET"
+    );
+    expect(await listed.json()).toMatchObject({
+      tasks: [{ taskId: ids.running, ownerScope: "unscoped" }]
+    });
     for (const [path, body] of [
       ["inspect", { expectedGeneration: 1, conversationId, taskId: ids.running }],
       [

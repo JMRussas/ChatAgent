@@ -10,12 +10,12 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fcceff2`:
 
-| Area                | Current scope                                                                                                                                                                     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                         |
-| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2 durable evidence is design-only                                                                         |
-| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                       |
+| Area                | Current scope                                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                              |
+| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                      |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a test-only evidence model accepted (`d0428dc`, plan 027); no durable journal, coherent production read, real workers or wake |
+| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                            |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1237,8 +1237,10 @@ connection cap; real-socket integration tests cover that boundary separately.
   the sidecar resolves the owner from its durable binding and owner rows, checks it
   against the server's owner when that is known, rechecks it inside the abandonment
   transaction, and refuses legacy or unscoped owners; nothing is adopted and no client
-  access is created. Adopting conversations after a restart, migrating legacy owner
-  labels and an operator listing of orphans remain open.
+  access is created. _Recovery-candidate listing implemented 2026-10-06:_ operators
+  page through bound running or cancel-requested tasks, including ones whose owner is
+  still active, with an advisory owner probe and the owner's scope but never its key.
+  Adopting conversations after a restart and migrating legacy owner labels remain open.
   Initial inspect/abandon validation: 1,215 tests across 128 files, 34 browser tests and 91 doc-agent tests
   through uv-managed Python 3.13.13 passed. Independent review reran 101 focused
   TypeScript tests (including seven real sidecar cases) and 34 Python recovery,
@@ -1250,6 +1252,19 @@ connection cap; real-socket integration tests cover that boundary separately.
   and 45 Python recovery, creation and bridge tests. Fourteen temporary mutations were
   rejected; format, lint and documentation checks passed. Generations remain process-local;
   recovery neither adopts conversation identities nor grants client access.
+  Recovery-listing validation: primary checks passed 1,367 TypeScript tests across
+  132 files, 34 browser tests and 114 doc-agent tests through uv-managed Python
+  3.13.13. The full TypeScript run preceded the final `__proto__` query fix; its
+  54 HTTP/authentication checks passed afterward. Independent review passed 101
+  focused TypeScript tests, including both required real-sidecar restart cases,
+  and 36 Python recovery tests on the final source. Twenty distinct final mutants
+  were rejected (14 Python, 6 TypeScript); two earlier mutants were superseded.
+  An earlier full run hit a five-second startup-test timeout; that test passed
+  alone and in the subsequent full run, so a possible timing flake remains disclosed.
+  Review corrections cover concurrent payload growth, corrupt-row byte accounting,
+  a non-creating owner probe with relative-path support, and strict query parsing.
+  Format, lint and documentation checks passed. Pages remain advisory and are not
+  a consistent snapshot; abandonment still rechecks its own locks and digest.
 - Validate complete discovery batches before publishing inventory changes. Retain
   last good observations without extending freshness, and expose sanitized failure
   reasons without credentials or raw provider responses. _Implemented 2026-10-06;
@@ -1510,8 +1525,10 @@ tests, and E1b `6f50dac` passed 113 default, 31 pure H1 interop and one live tes
 and Node 24.21.0. The bounded real-API → H1 → fake-worker → guarded-finish seam
 preserves structured uncertainty/holder evidence with no retries. Owned API,
 disposable databases and `.run` cleanup were verified; the container is stopped.
-Hekate plans 024/025 record the evidence. E2 durable launch/review-pending evidence
-is design-only; no restart recovery, real worker or model activation is established.
+Hekate plans 024/025 record the evidence. E2a, a test-only in-memory evidence model
+and classifier for launch and review-pending evidence, is accepted at `d0428dc` (plan
+027); no durable journal, coherent production read, restart recovery, real worker,
+wake or model activation is established.
 Provider reuse and real execution remain gated;
 this does not decide the generic orchestration engine wholesale.
 

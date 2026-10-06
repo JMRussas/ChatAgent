@@ -26,7 +26,14 @@ const LATE_REPLY_MEMORY = 64;
  * bound equals the character count Python sees whatever its stdin encoding.
  */
 const MAX_REQUEST_BYTES = 16_000;
-const READ_ONLY_OPS = new Set(["list", "status", "health", "inspect_task", "recover_inspect"]);
+const READ_ONLY_OPS = new Set([
+  "list",
+  "status",
+  "health",
+  "inspect_task",
+  "recover_inspect",
+  "recover_list"
+]);
 const ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 interface Pending {

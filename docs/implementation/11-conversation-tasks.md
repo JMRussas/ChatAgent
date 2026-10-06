@@ -323,6 +323,29 @@ abandoned (2026-10-06). Nothing is replayed, restarted, refunded or sent to a mo
   `externalOutcome: "unknown"`, and the task panel explains that the outcome
   elsewhere is unknown. It still blocks conversation retirement.
 
+- `GET /workers/document-tasks/recovery-candidates?expectedGeneration=N&limit=1..100&after=<taskId>`
+  (operator only; `limit` defaults to 50) lists **recovery candidates**: tasks that
+  are running or cancel-requested and bound to a conversation, whether or not their
+  owner is still active. It is not a list of confirmed orphans. Each item is the
+  inspection view above plus `conversationId` and `ownerScope` (`scoped`,
+  `unscoped` or `missing`); the owner key, question and answer are never returned.
+  `ownerActive` is an advisory probe and never makes abandonment safe: abandonment
+  rechecks under its own locks. The probe creates no files: a missing owner lock file
+  reads as not active, and one that cannot be opened or locked as active. A corrupt or oversized row is listed as
+  `{taskId, conversationId, unavailable: true}` without hiding the others. Unbound
+  tasks are not listed. Pages follow task-id order with a `nextAfter` cursor, and
+  tasks may change between pages.
+- The query is validated before anything reaches the sidecar: each parameter at most
+  once, nothing else. Listing writes nothing, here or in the sidecar, and claims no
+  ownership. Each page reads at most `limit` rows, and the stored payload bytes it
+  reads stay within the larger of 8 MiB and one row of up to 32 MiB (the first row
+  read may use the whole per-row limit). Bytes read from a row that is then refused
+  as corrupt still count. Each row's size is checked in the same read that loads it, so a row that grows after the page was enumerated ends the page
+  instead of exceeding the budget; a row over 32 MiB is reported unavailable without
+  being read. Stored conversation ids and owner values are length-checked in the
+  database before they are fetched. A malformed or out-of-order reply is
+  `TASK_UNAVAILABLE`; a lost reply is unavailable, not uncertain.
+
 Callers with direct access to the database or task files can bypass these locks;
 the checks cover requests made through the sidecar.
 

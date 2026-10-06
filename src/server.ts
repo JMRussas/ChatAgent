@@ -279,6 +279,47 @@ export const taskViewSchema = z
 export const abandonResultSchema = z
   .object({ receipt: receiptSchema, task: taskViewSchema })
   .strict();
+const taskId = z.string().regex(/^[0-9a-f]{32}$/);
+/** Query of the recovery-candidate listing: each parameter at most once, nothing else. */
+const candidateQuerySchema = z
+  .object({
+    expectedGeneration: z
+      .string()
+      .regex(/^[1-9]\d{0,15}$/)
+      .transform(Number)
+      .pipe(generation),
+    limit: z
+      .string()
+      .regex(/^[1-9]\d{0,2}$/)
+      .transform(Number)
+      .pipe(z.number().max(100))
+      .default("50"),
+    after: taskId.optional()
+  })
+  .strict();
+const unavailableCandidate = z
+  .object({
+    taskId,
+    conversationId: z.string().min(1).max(200).nullable(),
+    unavailable: z.literal(true)
+  })
+  .strict();
+const candidateScope = z
+  .object({
+    conversationId: z.string().min(1).max(200),
+    ownerScope: z.enum(["scoped", "unscoped", "missing"])
+  })
+  .strict();
+/** One listed task: its bounded view plus where it is bound; never the owner key. */
+function parseCandidate(value: unknown) {
+  const unavailable = unavailableCandidate.safeParse(value);
+  if (unavailable.success) return unavailable.data;
+  if (typeof value !== "object" || value === null) return undefined;
+  const { conversationId, ownerScope, ...view } = value as Record<string, unknown>;
+  const scope = candidateScope.safeParse({ conversationId, ownerScope });
+  const task = taskViewSchema.safeParse(view);
+  return scope.success && task.success ? { ...task.data, ...scope.data } : undefined;
+}
 const restartBodySchema = z
   .object({ expectedGeneration: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) })
   .strict();
@@ -872,6 +913,49 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         const body = restartBodySchema.parse(requireObjectBody(await parseBody()));
         const status = await options.documentTaskControl.restart(body.expectedGeneration);
         return json(res, 200, { status });
+      }
+
+      if (method === "GET" && url.pathname === "/workers/document-tasks/recovery-candidates") {
+        if (!options.documentTaskControl)
+          return json(res, 404, { error: "Documentation tasks are disabled" });
+        // Every parameter is checked before anything reaches the sidecar.
+        // No prototype: a `__proto__` key is an ordinary (refused) key, not a setter.
+        const params: Record<string, string> = Object.create(null);
+        for (const key of new Set(url.searchParams.keys())) {
+          const values = url.searchParams.getAll(key);
+          if (values.length !== 1)
+            throw new HttpRequestError(400, `Query parameter ${key} must appear once`);
+          params[key] = values[0];
+        }
+        const query = candidateQuerySchema.safeParse(params);
+        if (!query.success) throw new HttpRequestError(400, "Invalid recovery-candidate query");
+        // Read-only: no owner, binding or history is read from or written to this server.
+        const { generation, result } = await options.documentTaskControl.operate(
+          query.data.expectedGeneration,
+          {
+            op: "recover_list",
+            limit: query.data.limit,
+            ...(query.data.after === undefined ? {} : { afterTaskId: query.data.after })
+          }
+        );
+        const reply =
+          typeof result === "object" && result !== null
+            ? (result as { tasks?: unknown; nextAfter?: unknown })
+            : undefined;
+        const keys = reply ? Object.keys(reply).sort().join(",") : "";
+        const tasks = Array.isArray(reply?.tasks) ? reply.tasks.map(parseCandidate) : undefined;
+        const nextAfter = reply?.nextAfter;
+        // Ordered, after the cursor, within the limit, and a cursor that is the last item.
+        const ids = tasks?.map((t) => t?.taskId);
+        const valid =
+          keys === "nextAfter,tasks" &&
+          tasks !== undefined &&
+          tasks.length <= query.data.limit &&
+          tasks.every((t) => t !== undefined) &&
+          ids!.every((id, i) => id! > (i === 0 ? (query.data.after ?? "") : ids![i - 1]!)) &&
+          (nextAfter === null || (tasks.length > 0 && nextAfter === ids![ids!.length - 1]));
+        if (!valid) throw new DocumentTaskError("TASK_UNAVAILABLE", "recover_list");
+        return json(res, 200, { generation, tasks, nextAfter });
       }
 
       if (

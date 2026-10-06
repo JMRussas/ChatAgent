@@ -28,8 +28,11 @@ DIGEST=re.compile(r'[0-9a-f]{64}')
 
 
 class TaskError(ValueError):
-    """A named refusal an operator can act on; carries no stored content."""
-    def __init__(self,code):self.code=code;super().__init__(code)
+    """A named refusal an operator can act on; carries no stored content.
+
+    consumed is the number of stored payload bytes already read before the refusal.
+    """
+    def __init__(self,code,consumed=0):self.code=code;self.consumed=consumed;super().__init__(code)
 
 
 def row_digest(status,payload_text):
@@ -142,7 +145,16 @@ class TaskManager:
         return row[0],task
 
     def owner_available(self,task_id):
-        with closing(sqlite3.connect(self.path(task_id,'owner'),timeout=0)) as c:
+        """Whether no process holds the task owner lock. Advisory, and never creates files.
+
+        A missing owner file means no owner was observed (nothing can hold its lock); any
+        other failure to open or lock it is treated as held, the conservative answer.
+        """
+        path=self.path(task_id,'owner')
+        if not path.exists():return True
+        try:c=sqlite3.connect(f'{path.resolve().as_uri()}?mode=rw',uri=True,timeout=0)
+        except sqlite3.Error:return False
+        with closing(c):
             try:c.execute('BEGIN EXCLUSIVE');return True
             except sqlite3.OperationalError:return False
 
@@ -167,17 +179,33 @@ class TaskManager:
 
         ownerActive is an advisory probe only; abandon() rechecks under the owner lock.
         """
+        return self.inspect_within(task_id,MAX_PAYLOAD_BYTES)[0]
+
+    def inspect_within(self,task_id,max_bytes):
+        """inspect() plus the stored payload size, reading the payload only if it fits.
+
+        The size check and the read are one statement, so the bytes read are exactly
+        the bytes counted. Over MAX_PAYLOAD_BYTES the task is unavailable; over
+        max_bytes but within it, OVER_BUDGET, and nothing was read.
+        """
         try:self.path(task_id)
         except ValueError:raise TaskError('TASK_NOT_FOUND')
-        with self.connect() as c:row=c.execute('SELECT status,payload FROM tasks WHERE id=?',(task_id,)).fetchone()
+        with self.connect() as c:
+            row=c.execute('SELECT status,CASE WHEN length(CAST(payload AS BLOB))<=? THEN payload END,'
+                          'length(CAST(payload AS BLOB)) FROM tasks WHERE id=?',(min(max_bytes,MAX_PAYLOAD_BYTES),task_id)).fetchone()
         if row is None:raise TaskError('TASK_NOT_FOUND')
-        status,text=row
-        _,receipt,fields=_stored(status,text)
-        active=status in ABANDONABLE and not self.owner_available(task_id)
+        status,text,size=row
+        if text is None:raise TaskError('TASK_UNAVAILABLE' if size is None or size>MAX_PAYLOAD_BYTES else 'OVER_BUDGET')
+        # The bytes are read now: any later refusal reports them as consumed.
+        try:
+            _,receipt,fields=_stored(status,text)
+            active=status in ABANDONABLE and not self.owner_available(task_id)
+        except TaskError as error:raise TaskError(error.code,size) from None
+        except Exception:raise TaskError('TASK_UNAVAILABLE',size) from None
         return {'taskId':task_id,'persistedStatus':status,
                 'effectiveStatus':'uncertain' if status in ABANDONABLE and not active else status,
                 'ownerActive':active,'digest':row_digest(status,text),
-                **fields,'abandonment':receipt}
+                **fields,'abandonment':receipt},size
 
     def abandon(self,task_id,operation_id,expected_digest,guard=None):
         """Marks a confirmed orphan abandoned: its external outcome stays unknown.

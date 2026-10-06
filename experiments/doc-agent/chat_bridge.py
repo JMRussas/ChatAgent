@@ -4,7 +4,7 @@ from contextlib import closing
 import json
 import sqlite3
 import sys
-from task_manager import TaskManager, TaskError, UUID, DIGEST
+from task_manager import TaskManager, TaskError, UUID, DIGEST, MAX_PAYLOAD_BYTES
 from durable import local_model
 from retrieval import Corpus
 from run import ROOT,api
@@ -26,6 +26,9 @@ HEALTH={'service':'chatagent-document-tasks','protocol':1}
 SCOPED_OWNER=re.compile(r'o1:[A-Za-z0-9_-]{43}:[A-Za-z0-9_-]{43}')
 TASK_ID=re.compile(r'[0-9a-f]{32}')
 RECOVERY_OPS=('recover_inspect','recover_abandon')
+LIST_MAX_ITEMS=100
+# Stored payload bytes one listing page may read (at least one row is always read).
+LIST_PAYLOAD_BUDGET=8*1024*1024
 
 class BridgeError(ValueError):
     def __init__(self,code):self.code=code;super().__init__(code)
@@ -102,6 +105,55 @@ class ConversationTasks:
         if not isinstance(owner[0],str) or not SCOPED_OWNER.fullmatch(owner[0]):raise BridgeError('OWNER_UNSCOPED')
         return owner[0]
 
+    def recover_list(self,data):
+        """Bound, unfinished recovery candidates for operators: running or cancel-requested
+        tasks bound to a conversation, whether or not their owner is still active.
+
+        Read-only: no owner, binding or task row is written. ownerActive is an advisory
+        probe and never makes abandonment safe; abandon rechecks under its own locks.
+        Work per page is bounded: at most `limit` rows, and payload bytes read stay within
+        max(LIST_PAYLOAD_BUDGET, one row of up to MAX_PAYLOAD_BYTES), because the first
+        row may use the full per-row limit. Each row's size is checked in the same read
+        that loads it, so a row growing after enumeration cannot exceed the budget; a
+        row over MAX_PAYLOAD_BYTES is listed as unavailable without being read. Stored
+        conversation ids and owner values are length-bounded in SQL before they are
+        fetched. Unbound tasks are not listed.
+        """
+        limit=data.get('limit');after=data.get('afterTaskId')
+        if 'userId' in data or 'conversationId' in data:raise BridgeError('INVALID_REQUEST')
+        if type(limit) is not int or not 1<=limit<=LIST_MAX_ITEMS:raise BridgeError('INVALID_REQUEST')
+        if 'afterTaskId' in data and (not isinstance(after,str) or not TASK_ID.fullmatch(after)):raise BridgeError('INVALID_REQUEST')
+        with self.manager.connect() as c:
+            rows=c.execute("SELECT t.id,CASE WHEN typeof(b.conversation)='text' AND length(b.conversation) BETWEEN 1 AND 200 "
+                           "THEN b.conversation END FROM tasks t JOIN bindings b ON b.task=t.id "
+                           "WHERE t.status IN ('running','cancel_requested') AND length(t.id)=32 AND t.id>? "
+                           "ORDER BY t.id LIMIT ?",(after or '',limit+1)).fetchall()
+            scopes={}
+            for _,conversation in rows[:limit]:
+                if conversation is not None and conversation not in scopes:
+                    owner=c.execute("SELECT CASE WHEN typeof(user)='text' AND length(user)<=200 THEN user END "
+                                    "FROM owners WHERE conversation=?",(conversation,)).fetchone()
+                    scopes[conversation]=('missing' if owner is None else
+                                          'scoped' if owner[0] is not None and SCOPED_OWNER.fullmatch(owner[0]) else 'unscoped')
+        tasks=[];spent=0;read_any=False;more=len(rows)>limit
+        for task_id,conversation in rows[:limit]:
+            item={'taskId':task_id,'conversationId':conversation}
+            if conversation is None:
+                tasks.append({**item,'unavailable':True});continue
+            # Only the first payload read may use the whole per-row limit; after any read,
+            # valid or not, later rows get only what is left of the page budget.
+            allowed=MAX_PAYLOAD_BYTES if not read_any else max(0,LIST_PAYLOAD_BUDGET-spent)
+            try:view,size=self.manager.inspect_within(task_id,allowed)
+            except TaskError as error:
+                if error.code=='OVER_BUDGET':
+                    more=True;break
+                # Bytes read before a refusal (corrupt content, a failed probe) still count.
+                spent+=error.consumed;read_any=read_any or error.consumed>0
+                tasks.append({**item,'unavailable':True});continue
+            spent+=size;read_any=True
+            tasks.append({**view,'conversationId':conversation,'ownerScope':scopes[conversation]})
+        return {'tasks':tasks,'nextAfter':tasks[-1]['taskId'] if more and tasks else None}
+
     def recover(self,data):
         """Operator inspection or abandonment through the stored owner, never a caller's.
 
@@ -170,6 +222,7 @@ class ConversationTasks:
             if data.get('op')=='health':return HEALTH
             # Recovery resolves its owner from this store; it carries no userId.
             if data.get('op') in RECOVERY_OPS:return self.recover(data)
+            if data.get('op')=='recover_list':return self.recover_list(data)
             conversation=data.get('conversationId');user=data.get('userId')
             op=data.get('op');self.scope(conversation,user)
             if op=='start':

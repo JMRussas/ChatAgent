@@ -353,6 +353,166 @@ class RecoveryThroughStoredOwner(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rows(self.root)['owners'],[])
 
 
+class RecoveryCandidates(unittest.IsolatedAsyncioTestCase):
+    """recover_list: bound, unfinished tasks for operators; read-only and bounded."""
+    async def asyncSetUp(self):
+        self.dir=tempfile.TemporaryDirectory();self.root=self.dir.name
+        self.bridge=ConversationTasks(self.root,{'name':'fixture'},fixture_corpus())
+        self.manager=self.bridge.manager
+
+    async def asyncTearDown(self):
+        await self.bridge.close();self.dir.cleanup()
+
+    def add(self,status,conversation='c',owner=OWNER,bound=True):
+        task=self.manager.submit('Question',fixture_corpus(),{'name':'fixture'})
+        with self.manager.connect() as c:
+            if owner is not None:c.execute('INSERT OR IGNORE INTO owners VALUES (?,?)',(conversation,owner))
+            if bound:c.execute('INSERT INTO bindings VALUES (?,?,?,?)',(f'r-{task}',task,conversation,'Question'))
+            c.execute('UPDATE tasks SET status=? WHERE id=?',(status,task))
+        return task
+
+    async def page(self,**fields):
+        return await self.bridge.command({'op':'recover_list','limit':100,**fields})
+
+    async def test_lists_bound_unfinished_tasks_only_and_writes_nothing(self):
+        listed=sorted([self.add('running'),self.add('cancel_requested')])
+        for status in ('queued','paused','completed','failed','cancelled'):self.add(status)
+        self.add('running',bound=False)
+        before=rows(self.root);files=sorted(p.name for p in Path(self.root).iterdir())
+        page=await self.page()
+        self.assertEqual([t['taskId'] for t in page['tasks']],listed)
+        # Not even an owner lock file is created by the advisory probe.
+        self.assertEqual(sorted(p.name for p in Path(self.root).iterdir()),files)
+        self.assertIsNone(page['nextAfter'])
+        for item in page['tasks']:
+            self.assertEqual((item['conversationId'],item['ownerScope'],item['effectiveStatus'],item['ownerActive']),
+                             ('c','scoped','uncertain',False))
+        self.assertNotIn(OWNER,json.dumps(page))
+        self.assertNotIn('Question',json.dumps(page))
+        self.assertEqual(rows(self.root),before)
+
+    async def test_reports_owner_scope_without_the_key(self):
+        scoped=self.add('running','a',OWNER);legacy=self.add('running','b','u');missing=self.add('running','d',None)
+        scopes={t['taskId']:t['ownerScope'] for t in (await self.page())['tasks']}
+        self.assertEqual(scopes,{scoped:'scoped',legacy:'unscoped',missing:'missing'})
+
+    async def test_an_active_owner_is_listed_as_advisory_running(self):
+        task=self.add('running')
+        with closing(sqlite3.connect(Path(self.root)/f'{task}.owner')) as held:
+            held.execute('BEGIN EXCLUSIVE')
+            item=(await self.page())['tasks'][0]
+        self.assertEqual((item['ownerActive'],item['effectiveStatus']),(True,'running'))
+
+    async def test_an_owner_file_that_cannot_be_opened_counts_as_held(self):
+        task=self.add('running')
+        (Path(self.root)/f'{task}.owner').mkdir()
+        item=(await self.page())['tasks'][0]
+        self.assertEqual((item['ownerActive'],item['effectiveStatus']),(True,'running'))
+
+    def test_the_owner_probe_works_from_a_relative_root(self):
+        import os
+        cwd=os.getcwd();os.chdir(self.root)
+        try:
+            manager=TaskManager('relative-root')
+            task='a'*32;path=Path('relative-root')/f'{task}.owner'
+            self.assertTrue(manager.owner_available(task))          # missing: free, not created
+            self.assertFalse(path.exists())
+            with closing(sqlite3.connect(path)) as held:
+                held.execute('BEGIN EXCLUSIVE')
+                self.assertFalse(manager.owner_available(task))     # held
+            self.assertTrue(manager.owner_available(task))          # released
+        finally:os.chdir(cwd)
+
+    async def test_pages_are_stable_and_exhaustive(self):
+        tasks=sorted(self.add('running') for _ in range(5))
+        seen,after=[],None
+        for _ in range(4):
+            page=await self.page(limit=2,**({'afterTaskId':after} if after else {}))
+            seen+= [t['taskId'] for t in page['tasks']]
+            after=page['nextAfter']
+            if after is None:break
+        self.assertEqual(seen,tasks)
+        self.assertEqual((await self.page(limit=5))['nextAfter'],None)
+        self.assertEqual((await self.page(limit=4))['nextAfter'],tasks[3])
+
+    async def test_a_corrupt_or_oversized_row_is_unavailable_without_hiding_others(self):
+        good=self.add('running');bad=self.add('running')
+        with self.manager.connect() as c:c.execute('UPDATE tasks SET payload=? WHERE id=?',('not json',bad))
+        items={t['taskId']:t for t in (await self.page())['tasks']}
+        self.assertEqual(items[bad],{'taskId':bad,'conversationId':'c','unavailable':True})
+        self.assertEqual(items[good]['effectiveStatus'],'uncertain')
+        # Over the per-row limit: unavailable, and never handed to the parser.
+        with patch('task_manager.MAX_PAYLOAD_BYTES',5),patch('task_manager._stored',side_effect=AssertionError('read')):
+            items=(await self.page())['tasks']
+        self.assertTrue(all(t['unavailable'] for t in items))
+
+    async def test_corrupt_rows_still_spend_the_page_budget(self):
+        # Rows that are read and then refused as corrupt count against the budget,
+        # so many corrupt rows cannot each use the per-row allowance.
+        tasks=sorted(self.add('running') for _ in range(3))
+        with self.manager.connect() as c:
+            for t in tasks:c.execute('UPDATE tasks SET payload=? WHERE id=?',('x'*1000,t))
+        with patch('chat_bridge.LIST_PAYLOAD_BUDGET',1500):
+            page=await self.page()
+        self.assertEqual(page['tasks'],[{'taskId':tasks[0],'conversationId':'c','unavailable':True}])
+        self.assertEqual(page['nextAfter'],tasks[0])
+
+    async def test_stored_strings_are_bounded_before_they_are_read(self):
+        long_owner=self.add('running','a','x'*300)
+        long_binding=self.add('running','c'*300)
+        items={t['taskId']:t for t in (await self.page())['tasks']}
+        self.assertEqual(items[long_owner]['ownerScope'],'unscoped')
+        self.assertEqual(items[long_binding],{'taskId':long_binding,'conversationId':None,'unavailable':True})
+
+    async def test_a_row_growing_after_enumeration_cannot_exceed_the_budget(self):
+        tasks=sorted(self.add('running') for _ in range(3))
+        with self.manager.connect() as c:
+            sizes=dict(c.execute('SELECT id,length(CAST(payload AS BLOB)) FROM tasks').fetchall())
+        real=self.manager.inspect_within;parsed=[]
+        def grow_second(task_id,max_bytes):
+            if task_id==tasks[1]:
+                with self.manager.connect() as c:
+                    c.execute("UPDATE tasks SET payload=json_set(payload,'$.padding',?) WHERE id=?",('x'*5000,task_id))
+            return real(task_id,max_bytes)
+        import task_manager
+        stored=task_manager._stored
+        def record(status,text):
+            parsed.append(len(text.encode()));return stored(status,text)
+        with patch('chat_bridge.LIST_PAYLOAD_BUDGET',sizes[tasks[0]]+sizes[tasks[1]]),                patch.object(self.manager,'inspect_within',side_effect=grow_second),patch('task_manager._stored',side_effect=record):
+            page=await self.page()
+        # The grown row no longer fits what is left: the page stops before reading it.
+        self.assertEqual([t['taskId'] for t in page['tasks']],tasks[:1])
+        self.assertEqual(page['nextAfter'],tasks[0])
+        self.assertLessEqual(sum(parsed),sizes[tasks[0]]+sizes[tasks[1]])
+        # The next page starts with it, read whole as that page's first row.
+        nxt=await self.page(afterTaskId=page['nextAfter'])
+        self.assertEqual(nxt['tasks'][0]['taskId'],tasks[1])
+
+    async def test_payload_reads_are_bounded_per_page(self):
+        tasks=sorted(self.add('running') for _ in range(3))
+        with self.manager.connect() as c:
+            sizes=dict(c.execute('SELECT id,length(CAST(payload AS BLOB)) FROM tasks').fetchall())
+        with patch('chat_bridge.LIST_PAYLOAD_BUDGET',sizes[tasks[0]]+sizes[tasks[1]]):
+            page=await self.page()
+        self.assertEqual([t['taskId'] for t in page['tasks']],tasks[:2])
+        self.assertEqual(page['nextAfter'],tasks[1])
+        with patch('chat_bridge.LIST_PAYLOAD_BUDGET',1):
+            page=await self.page()
+        self.assertEqual(len(page['tasks']),1)   # at least one row per page
+
+    async def test_requests_are_validated_and_never_carry_a_scope(self):
+        before=rows(self.root)
+        for fields in ({'limit':0},{'limit':101},{'limit':'5'},{'limit':True},{'limit':None},{'limit':1.0},
+                       {'afterTaskId':'A'*32},{'afterTaskId':'0'*31},{'afterTaskId':None},
+                       {'userId':OWNER},{'conversationId':'c'}):
+            with self.subTest(fields=fields):
+                with self.assertRaisesRegex(BridgeError,'INVALID_REQUEST'):
+                    await self.bridge.command({'op':'recover_list','limit':10,**fields})
+        with self.assertRaisesRegex(BridgeError,'INVALID_REQUEST'):
+            await self.bridge.command({'op':'recover_list'})
+        self.assertEqual(rows(self.root),before)
+
+
 class CheckpointPreserved(unittest.IsolatedAsyncioTestCase):
     async def test_a_real_paused_checkpoint_and_rows_survive_abandonment(self):
         with tempfile.TemporaryDirectory() as root:
