@@ -55,16 +55,17 @@ For the full simulated release gate, set `BENCH_MODE=simulate` and
 syntax differs by shell. The command writes report files; keep generated changes
 separate from the dated historical evidence.
 
-Python agent checks in a dedicated environment (tested with Python 3.13):
+Python agent checks use isolated `uv` with managed Python 3.13.13. Install the
+interpreter once with `uv python install 3.13.13` if needed. From the repo root:
 
 ```bash
-python -m venv .venv
-# Activate the environment using your shell's activation command.
-python -m pip install -r experiments/doc-agent/requirements-durable.txt
-python -m unittest discover -s experiments/doc-agent -p "test_*.py"
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads --with-requirements experiments/doc-agent/requirements-durable.txt python -m unittest discover -s experiments/doc-agent -p "test_*.py"
 ```
 
-Keep the virtual environment untracked. Live runs additionally require a supported
+Use `uv.exe` in WSL with the Windows installation. See the
+[uv-managed sidecar environment](../experiments/doc-agent/README.md#runtime-sidecar-environment)
+when a persistent interpreter is needed; keep that environment untracked.
+Live runs additionally require a supported
 installed Ollama model and sufficient memory. They make model calls; they are not
 part of the default Node test command.
 

@@ -174,6 +174,23 @@ Use `uv.exe` in WSL with the Windows installation. See the
 the full suite and live run commands. Preserve existing requirements and historical
 evidence; new Python work should document its own dependency inputs and checks.
 
+The Hekate provider bridge has a separate mocked offline suite, run from the
+repository root without doc-agent dependencies or live usage inspection:
+
+```sh
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python -m unittest discover -s bridges/hekate -p 'test_*.py'
+```
+
+These contract tests read Hekate's shared provider source from the sibling
+checkout. Set `HEKATE_TEST_ROOT` to that checkout if it is elsewhere; no running
+Hekate service or model is required.
+
+Doc-agent TypeScript smoke/contention harnesses accept an interpreter path. Supply
+the Python executable from the uv-managed `.venv` described in the experiment
+setup, on the same OS as Node. Direct interpreter spawning uses that managed
+environment; the harnesses do not need to launch `uv` themselves. Live smoke and
+contention runs remain separate from offline checks.
+
 ## Optional on-demand Hekate
 
 Bridge coordination does not need Hekate running. Hekate has a separate,

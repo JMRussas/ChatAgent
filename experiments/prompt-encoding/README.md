@@ -50,18 +50,23 @@ Ollama timing separates loading, prompt evaluation and generation.
 
 ## Reproduce
 
-Python 3 standard library only; no new package dependencies.
+Use `uv` with managed Python 3.13.13 from the repository root. This experiment
+uses only the standard library; no doc-agent dependencies are needed. Install the
+interpreter once with `uv python install 3.13.13` if needed; use `uv.exe` in WSL
+with the Windows installation.
 
 ```bash
-python3 experiments/prompt-encoding/generate_cases.py
-python3 -m unittest discover -s experiments/prompt-encoding -p 'test_*.py'
-python3 experiments/prompt-encoding/run.py --out reports/prompt-encoding/new-run
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python experiments/prompt-encoding/generate_cases.py
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python -m unittest discover -s experiments/prompt-encoding -p 'test_*.py'
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python experiments/prompt-encoding/run.py --out reports/prompt-encoding/new-run
 ```
 
-If running in WSL while Ollama listens only on Windows localhost, add
-`--windows-host`. This transports synthetic requests through temporary files and
-Windows PowerShell, without reconfiguring Ollama's network binding. Direct mode
-can also run from Windows Python. `--base-url`, `--models`, `--repeats` and
+The default direct mode works with Windows Python launched by `uv.exe`.
+Add `--windows-host` only with Linux `uv`/Python inside WSL when Ollama listens
+only on Windows localhost. This transport uses Linux `wslpath`, temporary files
+and the mounted Windows PowerShell executable; it does not work with Windows
+Python and does not reconfigure Ollama's network binding.
+`--base-url`, `--models`, `--repeats` and
 `--case-limit` support explicit follow-up runs. Existing record files are never
 overwritten. Runs are not automatically resumed; choose a fresh output directory.
 The runner never changes the application's provider configuration.

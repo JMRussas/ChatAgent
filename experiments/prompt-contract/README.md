@@ -79,13 +79,21 @@ an explicit limitation. A later study can cross output formats independently.
 
 ## Execution and artifacts
 
+From the repository root, use `uv` with managed Python 3.13.13. These commands
+need only the standard library. Install the interpreter once with
+`uv python install 3.13.13` if needed; use `uv.exe` in WSL with the Windows
+installation. Choose a fresh output directory; preserve dated evidence.
+
 ```bash
-python3 experiments/prompt-contract/generate_cases.py
-python3 -m unittest discover -s experiments/prompt-contract -p 'test_*.py'
-python3 experiments/prompt-contract/run.py --windows-host --out reports/prompt-contract/run-2026-09-26
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python experiments/prompt-contract/generate_cases.py
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python -m unittest discover -s experiments/prompt-contract -p 'test_*.py'
+uv run --no-project --isolated --no-env-file --python 3.13.13 --no-python-downloads python experiments/prompt-contract/run.py --out reports/prompt-contract/new-run
 ```
 
-Omit `--windows-host` for direct API access. The first pilot's transport is reused
+The default is direct API access, including Windows Python launched by `uv.exe`.
+Add `--windows-host` only with Linux `uv`/Python inside WSL when Ollama is on
+Windows localhost: that transport uses Linux `wslpath` and the mounted Windows
+PowerShell executable, so it does not work with Windows Python. The first pilot's transport is reused
 without changing its renderer, scorer or results. No downloads, server restarts,
 provider configuration edits or cloud calls. The default models are the same
 five installed general/coding bindings; duplicate digests are rejected.
