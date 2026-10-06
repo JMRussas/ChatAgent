@@ -54,6 +54,7 @@ import {
   DEFAULT_MAX_BODY_BYTES,
   loadHttpBoundaryConfig
 } from "./config/httpBoundary";
+import { loadTurnAdmissionConfig } from "./config/turnAdmission";
 import { defaultConnectionsFromEnv, type Connection } from "./models/connections";
 import { InventoryStore, type DiscoveryAdapter } from "./models/inventory";
 import { OllamaDiscoveryAdapter } from "./models/discovery/ollamaDiscovery";
@@ -799,6 +800,11 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
         });
       if (error instanceof DuplicateMessageError)
         return json(res, 409, { error: error.message, code: error.code });
+      if (error instanceof GenerationError && error.code === "TURN_CAPACITY") {
+        // Nothing was claimed or appended; the same body may be resent as is.
+        res.setHeader("Retry-After", "1");
+        return json(res, 429, { error: error.message, code: error.code });
+      }
       if (error instanceof GenerationError && error.code === "CAPABILITY_PLAN_TRUNCATED")
         return json(res, 502, {
           code: error.code,
@@ -895,6 +901,7 @@ export async function startServer(
   extensions: { briefings?: BriefingHttp } = {}
 ): Promise<RuntimeHandle> {
   const boundary = loadHttpBoundaryConfig();
+  const turnAdmission = loadTurnAdmissionConfig();
   const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
@@ -1176,7 +1183,8 @@ export async function startServer(
     timeline,
     queue,
     deadLetters,
-    adaptiveRouting
+    adaptiveRouting,
+    turnAdmission
   );
 
   const saveTelemetry = () =>

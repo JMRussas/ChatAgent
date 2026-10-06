@@ -59,10 +59,20 @@ const heapOnly = process.argv.includes("--heap-only");
 const settings = {
   // --measured N runs a longer soak; the recorded evidence uses the default.
   rounds: { warmup: 3, measured: Number(flag("--measured") ?? 12) },
-  live: { conversationsPerRound: 24, concurrency: 8, payloadRows: 150, payloadCellChars: 180 },
+  live: {
+    conversationsPerRound: 24,
+    concurrency: 8,
+    // Twice the driver's concurrency: a pooled conversation can occupy one active
+    // turn plus its previous turn's detached retrieval, so the workload itself is
+    // never refused. The admission probe fills every slot deliberately and needs
+    // one leased history per slot, which conversation.maxHistories must allow.
+    maxConcurrentTurns: 16,
+    payloadRows: 150,
+    payloadCellChars: 180
+  },
   conversation: {
     maxIdentities: 40,
-    maxHistories: 12,
+    maxHistories: 16,
     idleTtlMs: 600000,
     maxEvents: 400,
     maxBytes: 1048576
@@ -432,7 +442,9 @@ function buildLiveRuntime() {
     }
   };
   const worker = new DeepWorker(queue, unusedDeep, timeline, 2, deadLetters, undefined, dispatch);
-  const service = new ChatService(chat, worker, timeline, queue, deadLetters);
+  const service = new ChatService(chat, worker, timeline, queue, deadLetters, undefined, {
+    maxConcurrentTurns: settings.live.maxConcurrentTurns
+  });
   const server = createChatServer(service, {
     briefings: sports.http,
     dispatchTelemetry: () => dispatch.telemetry(),
@@ -901,6 +913,7 @@ function assertLive(
   c("scopes belong to live histories", s.service.scopes <= s.timeline.histories);
   c("wire mappings belong to identities", s.server.wireConversations <= s.timeline.identities);
   c("no in-flight request", s.service.inFlight === 0);
+  c("no occupied turn", s.service.activeTurns === 0 && s.service.detachedTurns === 0);
   c("no summary job", s.context.jobs === 0 && s.context.pending === 0);
   c("no open stream", s.server.streams === 0);
   c("no inline retrieval work", s.chat.pending === 0);
@@ -974,8 +987,10 @@ function assertQueue(point: "payload" | "idle", s: ReturnType<QueueRuntime["stat
   );
   c("owners match identities", s.service.owners === s.timeline.identities);
   c(
-    "no in-flight request, queued task, retry counter or summary job",
+    "no in-flight request, occupied turn, queued task, retry counter or summary job",
     s.service.inFlight === 0 &&
+      s.service.activeTurns === 0 &&
+      s.service.detachedTurns === 0 &&
       s.queue === 0 &&
       s.worker.retryCounters === 0 &&
       s.context.jobs === 0 &&
@@ -1300,6 +1315,77 @@ check(
   () => live.calls
 );
 
+// Admission probe (inventory finding 1): fill every turn slot with held retrieval,
+// whose response has returned while its inline work still runs, and confirm the
+// next submission is refused before anything is claimed, then drained by cancel.
+{
+  const limit = settings.live.maxConcurrentTurns;
+  const probes: Array<{ conversationId: string; messageId: string; status: number; code: string }> =
+    [];
+  for (let n = 0; n <= limit; n++) {
+    const conversationId = `admission-${n}`,
+      messageId = randomUUID();
+    const response = await request(liveBase, "POST", "/messages", {
+      conversationId,
+      userId: "user-0",
+      messageId,
+      text: "hold for admission"
+    });
+    probes.push({ conversationId, messageId, ...response });
+  }
+  const admitted = probes.filter((p) => p.status === 200);
+  const refused = probes.filter((p) => p.code === "TURN_CAPACITY");
+  const full = live.stats();
+  check(
+    "admission.exactly the configured number of turns is admitted",
+    admitted.length === limit && refused.length === 1 && refused[0] === probes[limit],
+    () => probes.map((p) => [p.conversationId, p.status, p.code])
+  );
+  check(
+    "admission.held turns occupy every slot as detached inline work",
+    full.service.activeTurns === 0 &&
+      full.service.detachedTurns === limit &&
+      full.chat.pending === limit,
+    () => full.service
+  );
+  check(
+    "admission.the refused turn claimed no owner or history",
+    !live.service.hasConversationIdentity(`admission-${limit}`) &&
+      (await live.timeline.getEvents(`admission-${limit}`)).length === 0,
+    () => full
+  );
+  for (const p of admitted)
+    tally(
+      "live.admission-cancel",
+      (
+        await request(
+          liveBase,
+          "POST",
+          `/conversations/${p.conversationId}/messages/${p.messageId}/cancel`
+        )
+      ).status
+    );
+  await live.quiesce();
+  const drained = live.stats();
+  check(
+    "admission.cancelled turns free their slots",
+    drained.service.detachedTurns === 0 && drained.service.activeTurns === 0,
+    () => drained.service
+  );
+  const retried = await request(liveBase, "POST", "/messages", {
+    conversationId: `admission-${limit}`,
+    userId: "user-0",
+    messageId: probes[limit].messageId,
+    text: "answer after refusal"
+  });
+  check(
+    "admission.the refused body is accepted once a slot frees",
+    retried.status === 200,
+    () => retried
+  );
+  await live.quiesce();
+}
+
 // Shutdown with work in flight: held retrieval, an open stream and queued deep tasks.
 const held = [];
 for (let n = 0; n < 3; n++)
@@ -1424,7 +1510,7 @@ const report = {
     "Live provider adapters, CLI runner, evaluation recorder and the Python document sidecar are not constructed; InventoryStore and file telemetry run separately with scripted discovery and stalled writes",
     "The three startServer interval timers are not run; the deep worker is driven through its HTTP endpoint",
     "Execution-cache TTL expiry is not exercised (wall-clock); completed turns, phases and diagnostics are bounded here by count only",
-    "Concurrency is fixed by the driver: the live runtime still has no admission limit on concurrent turns (inventory finding 1)",
+    `Concurrent-turn admission is probed once with ${settings.live.maxConcurrentTurns} held turns, not under the round workload, whose concurrency stays below the limit by construction`,
     "Request bodies, stream backpressure and connection counts are not stressed (step 2)",
     "Limits are scaled down; no claim is made about absolute memory at default limits",
     "Role catalog, evidence-answer and review modes, and model summarization are not exercised",

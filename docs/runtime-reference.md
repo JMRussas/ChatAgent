@@ -125,7 +125,24 @@ declared `Content-Length` are never treated as body: Node's parser refuses them
 as a malformed next request. A body that ends before its declared length settles
 the request when the client disconnects or Node's default request timeout fires;
 that timeout is not configured here. The limit applies per request. It does not
-bound concurrent requests, open event streams or stream backpressure.
+bound open event streams or stream backpressure.
+
+Concurrent turns are limited to `CHAT_MAX_CONCURRENT_TURNS` (default 8, at most
+1000; invalid values fail startup). The count covers both submission paths
+(`POST /messages` and protocol v1) across all conversations, since both go
+through the same service. A turn occupies its slot from admission
+until its response has returned and any inline retrieval it detached has
+settled, including through cancellation; with the queue-backed mock runtime the
+slot is released when the response returns, because deep work is queued and
+bounded separately. The limit is checked synchronously before ownership, history
+or a `messageId` is claimed, so a refused submission leaves nothing behind. The
+response is `429` with code `TURN_CAPACITY` and `Retry-After: 1`, including on
+protocol v1 when the submitted ID already has a terminal event. A refused,
+previously unclaimed message may be resent with the same body and `messageId`
+once a slot frees. Submissions are
+refused, never queued, and the deep worker's own runs do not count. Timeline
+reads, event streams, cancellation and operator endpoints are not admitted
+through this limit; connection and stream counts remain unbounded.
 
 Body parsing and object validation occur outside operation-specific error handlers,
 including `/sports/chat`, so enabled routes preserve the shared HTTP error contract.

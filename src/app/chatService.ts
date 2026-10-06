@@ -1,4 +1,5 @@
 import { loadConversationRetention } from "../config/conversationRetention";
+import { assertConcurrentTurnLimit, loadTurnAdmissionConfig } from "../config/turnAdmission";
 import { randomUUID } from "node:crypto";
 import {
   conversationScopeSchema,
@@ -45,9 +46,17 @@ export interface ConversationRetirementParticipant {
 export type ConversationRetirement =
   { status: "retired" } | { status: "not_found" } | { status: "blocked"; blockers: string[] };
 
+export interface ChatServiceOptions {
+  /** Concurrent turns admitted at once; defaults to `CHAT_MAX_CONCURRENT_TURNS`. */
+  maxConcurrentTurns?: number;
+}
+
 export class ChatService {
   private stopping = false;
   private readonly inFlight = new Set<Promise<unknown>>();
+  /** Turns past admission and not yet settled; counted before anything is claimed. */
+  private activeTurns = 0;
+  readonly maxConcurrentTurns: number;
   get isShuttingDown() {
     return this.stopping;
   }
@@ -119,6 +128,8 @@ export class ChatService {
   constructor(
     private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & {
       whenIdle?: () => Promise<void>;
+      /** Turns whose response has returned while their inline work still runs. */
+      detachedTurns?: () => number;
       runControlOptions?: () => unknown;
       thinkingOptions?: (bindingId?: string) => Promise<unknown>;
     },
@@ -126,8 +137,13 @@ export class ChatService {
     private readonly timelineStore: ConversationTimelineStore,
     private readonly queue?: TaskQueue,
     private readonly deadLetterStore?: DeadLetterStore,
-    private readonly adaptiveRouting?: AdaptiveRoutingCoordinator
+    private readonly adaptiveRouting?: AdaptiveRoutingCoordinator,
+    options: ChatServiceOptions = {}
   ) {
+    this.maxConcurrentTurns =
+      options.maxConcurrentTurns === undefined
+        ? loadTurnAdmissionConfig().maxConcurrentTurns
+        : assertConcurrentTurnLimit(options.maxConcurrentTurns);
     timelineStore.onConversationExpired?.((id) => this.scopes.delete(id));
   }
   private readonly fallbackIdentityLimit = loadConversationRetention().maxIdentities;
@@ -140,8 +156,17 @@ export class ChatService {
   conversationRetentionStats() {
     return { owners: this.ownerUserIdByConversationId.size, scopes: this.scopes.size };
   }
+  private occupiedTurns() {
+    return this.activeTurns + (this.orchestrator.detachedTurns?.() ?? 0);
+  }
   retentionStats() {
-    return { ...this.conversationRetentionStats(), inFlight: this.inFlight.size };
+    return {
+      ...this.conversationRetentionStats(),
+      inFlight: this.inFlight.size,
+      activeTurns: this.activeTurns,
+      detachedTurns: this.orchestrator.detachedTurns?.() ?? 0,
+      maxConcurrentTurns: this.maxConcurrentTurns
+    };
   }
   private readonly retirementParticipants: ConversationRetirementParticipant[] = [];
   addRetirementParticipant(participant: ConversationRetirementParticipant) {
@@ -245,6 +270,26 @@ export class ChatService {
         message.runControls.roleId ? "ROLE_EXECUTION_UNSUPPORTED" : "RUN_CONTROLS_UNSUPPORTED",
         false
       );
+    // Admission is decided synchronously, before ownership, history or a message ID
+    // is claimed, so a refused turn leaves nothing behind and is safe to retry.
+    // A turn is still occupied after its response returns while inline retrieval
+    // runs; in the microtask between the two counts it is counted twice, which
+    // can only refuse one extra submission, never admit one too many.
+    if (this.occupiedTurns() >= this.maxConcurrentTurns)
+      throw new GenerationError(
+        "TURN_CAPACITY",
+        true,
+        `The server is already running ${this.maxConcurrentTurns} turns. Retry after one finishes.`
+      );
+    this.activeTurns += 1;
+    try {
+      return await this.admitMessage(message);
+    } finally {
+      this.activeTurns -= 1;
+    }
+  }
+
+  private async admitMessage(message: UserMessage): Promise<OrchestratorResponse> {
     this.claimConversation(message.conversationId, message.userId);
     const releaseHistory = this.timelineStore.retainConversation?.(message.conversationId);
     try {

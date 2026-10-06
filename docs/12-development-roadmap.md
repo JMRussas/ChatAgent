@@ -8,7 +8,7 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
-HTTP boundary review fixes are implemented, uncommitted: `/sports/chat` now parses
+HTTP boundary review fixes are committed in `f9c578f`: `/sports/chat` now parses
 and validates its body outside the scope-specific catch, preserving shared HTTP
 errors. Enabled-route regressions cover declared and chunked overflow, status/code,
 connection closure and absence of downstream operations or conversation claims.
@@ -52,18 +52,23 @@ Windows Node 24.21.0: 875 tests across 105 files, 28 browser tests, formatting
 and lint; the strengthened memory gate also passes. No live
 provider calls or service restart.
 
-Step 2 has a first increment in the working tree, uncommitted: a streaming
+Step 2 has two increments. The first, committed in `f9c578f`, is a streaming
 request-body limit and a local-only deployment boundary (loopback bind, `Host`
-and `Origin` policy). See "First increment" under step 2 for the contract,
-decisions and what it leaves open. It was started at the user's direction; no
-step 1 acceptance decision is recorded by it.
+and `Origin` policy). The second, in the working tree and uncommitted, is the
+admission limit on concurrent turns (inventory finding 1): `CHAT_MAX_CONCURRENT_TURNS`
+refuses a further submission with 429 `TURN_CAPACITY` before anything is claimed,
+and a turn holds its slot until its detached inline retrieval settles. See the
+two increment entries under step 2 for contracts, decisions and what they leave
+open. Both were started at the user's direction; neither records a step 1
+acceptance decision. The second increment re-read the first against its contract
+while wiring the new limit through the same error path and found no divergence;
+that is a code read, not an independent review.
 
-**Next implementation:** review the step 2 first increment, and record whether
-step 1 is accepted within its measured scope. Then continue step 2: an admission
-limit on concurrent turns (inventory finding 1), event-stream connection limits
-and write backpressure (finding 4), and authenticated ownership of
-conversations, result handles, tasks and operator endpoints before any shared
-deployment. Rolling-window reconciliation belongs to step 3.
+**Next implementation:** record whether step 1 is accepted within its measured
+scope. Then continue step 2: event-stream connection limits and write
+backpressure (finding 4), and authenticated ownership of conversations, result
+handles, tasks and operator endpoints before any shared deployment.
+Rolling-window reconciliation belongs to step 3.
 
 Declarative development coordination is now a planned workstream; see step 6.
 Its contract design and a bounded mailbox experiment may accompany existing
@@ -461,11 +466,11 @@ Pending work (exists only while something is in flight):
 
 | State / owner                                                    | Limit                                                                      | Cleanup trigger                                               | Dependent references                                                               |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| In-flight requests / `ChatService.inFlight`, server `responses`  | None; one per open request                                                 | Settlement; socket close                                      | Request body, a history lease, one history clone plus its source snapshot          |
-| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | None; one per in-flight message                                            | Attempt settlement and consumer release                       | Attempt buffers, history lease, emergency terminal reservation                     |
+| In-flight requests / `ChatService.inFlight`, server `responses`  | Submissions ≤ `CHAT_MAX_CONCURRENT_TURNS` (8); other requests unlimited    | Settlement; socket close                                      | Request body, a history lease, one history clone plus its source snapshot          |
+| Live turns / `GenerationLifecycle.turns`, `claimed`, `consumers` | ≤ `CHAT_MAX_CONCURRENT_TURNS` admitted turns plus queued deep phases       | Attempt settlement and consumer release                       | Attempt buffers, history lease, emergency terminal reservation                     |
 | Deep task queue / `InMemoryTaskQueue`                            | 100 tasks and 16 MiB serialized bytes by default; direct enqueues included | Worker dequeue, queued cancellation or shutdown discard       | Task with context; if admitted: slot snapshot, task pin, history lease, phase      |
 | Retry counters / `DeepWorker.attemptsByTaskId`                   | One integer per task awaiting retry                                        | Success, cancellation or final failure                        | None                                                                               |
-| Inline retrieval work / `CapabilityChat.pending`                 | None; ≤ 3 tool calls per turn, each bounded by its tool's limits           | Work settlement, then `releaseTask`                           | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
+| Inline retrieval work / `CapabilityChat.pending`                 | ≤ `CHAT_MAX_CONCURRENT_TURNS` turns of ≤ 3 tool calls, each tool-bounded   | Work settlement, then `releaseTask`; frees the turn's slot    | Message, tool snapshot and plan; deep attempt; history lease; lifecycle consumer   |
 | Pending summary snapshots / `ContextManager.jobs`, `pending`     | One job per conversation, each ≤ `CONTEXT_SUMMARY_TIMEOUT_MS` (5 s)        | Completion, timeout, supersession, history expiry, shutdown   | Cloned events, source snapshot and prefix; no history lease                        |
 | Active admission reservations / `ResourceAdmission.charges`      | None of its own; one per prepared phase, fallback or summary call          | `release` if unstarted, `finish` if started                   | Cloned request and resources; quota-pool slot; spend toward `SPEND_LIMIT`          |
 | Compute-pool keys / `ResourceAdmission.running`                  | One key per pool with started work; ≤ declared compute pools               | Deleted when the pool's count returns to zero                 | The started reservations it counts                                                 |
@@ -498,18 +503,23 @@ conversation data are not counted by that limit: the source identity index, the
 summary memory, each pending summary snapshot, the per-request history clone, the
 context copies in queued tasks, dead-letter slots and dispatch phases, and the
 serialized timeline each legacy SSE connection keeps. Each HTTP request body is
-limited to `HTTP_MAX_BODY_BYTES` (step 2, 2026-10-05); the number of concurrent
-requests is not.
+limited to `HTTP_MAX_BODY_BYTES` and concurrent submissions to
+`CHAT_MAX_CONCURRENT_TURNS` (step 2, 2026-10-05); the number of concurrent reads,
+streams and other requests is not.
 
 Open boundaries found by the inventory. None is implemented; each needs a decision
 before or during the sustained-memory gate:
 
-1. **The live runtime has no admission limit on concurrent turns.** In-flight
-   requests, live turns, inline retrieval work, reservations and live dispatch
-   phases are limited only by request arrival and per-call timeouts. Dead-letter
-   backpressure covers the mock `ChatOrchestrator` runtime only. This belongs with
-   step 2 request limits; the gate must drive `CapabilityChat` concurrently rather
-   than infer its bound from the dead-letter tests.
+1. **Bounded (2026-10-05): concurrent-turn admission.** `ChatService` admits at
+   most `CHAT_MAX_CONCURRENT_TURNS` turns (default 8) across both submission
+   paths, counting a turn until its response has returned and any detached
+   inline retrieval has settled. A further submission is refused with
+   `TURN_CAPACITY` before ownership, history or a message ID is claimed. In-flight
+   requests, live turns, inline retrieval work and the reservations and dispatch
+   phases they create are therefore bounded by that limit times their per-turn
+   caps. Reads, streams, cancellation and operator requests are not admitted
+   through it. The gate now probes `CapabilityChat` with held turns at the limit;
+   see "Second increment" under step 2.
 2. **Bounded (2026-10-04): deep queue and queued cancellation.** The in-memory
    queue caps count and serialized task bytes, defaulting to dead-letter limits.
    Direct enqueues own cloned tasks and cannot bypass those queue limits.
@@ -816,7 +826,7 @@ and keep shared deployment gated until its identity/ownership requirements pass.
 
 #### First increment: body limit and local boundary (2026-10-05)
 
-Implemented, uncommitted. The contract is in the
+Committed in `f9c578f`. The contract is in the
 [runtime reference](runtime-reference.md#local-deployment-boundary-and-request-limits);
 settings are `BIND_HOST` and `HTTP_MAX_BODY_BYTES` in `.env.example`.
 
@@ -873,6 +883,75 @@ the five-second test timeout is unchanged, and the cold case was not reproduced
 to confirm the fix. `npm run bench:sustained-memory` still passes under the new
 boundary (151 assertions, heap within tolerance); no new report was written. No
 live provider calls or service restart.
+
+#### Second increment: concurrent-turn admission (2026-10-05)
+
+Implemented, uncommitted. The contract is in the
+[runtime reference](runtime-reference.md#local-deployment-boundary-and-request-limits);
+the setting is `CHAT_MAX_CONCURRENT_TURNS` in `.env.example` (default 8, at most
+1000, strict validation at startup; `src/config/turnAdmission.ts`).
+
+- `ChatService.submitMessage` counts admitted turns and refuses the next one with
+  `TURN_CAPACITY` (retryable) when the count reaches the limit. The check runs
+  synchronously after the shutdown and unsupported-run-control checks and before
+  the conversation is claimed, the history leased or the message ID claimed by
+  the lifecycle, so a refused turn leaves no owner, event, identity, wire
+  mapping or duplicate-ID record. The same body may be resent unchanged.
+- The orchestrator may report `detachedTurns()`. `CapabilityChat` reports its
+  `pending` inline retrieval, so a turn whose response has returned keeps its
+  slot until that work settles or is cancelled. The mock `ChatOrchestrator`
+  reports nothing; its deep work is queued and bounded by the queue limits.
+  Between the response returning and the request count dropping, a detaching
+  turn is counted twice for one microtask; that can refuse one extra
+  submission, never admit one too many.
+- `createChatServer` answers `429` with code `TURN_CAPACITY`, the service's
+  message and `Retry-After: 1` on both `POST /messages` and protocol v1. Protocol
+  v1 now propagates capacity refusal before looking for an earlier terminal
+  event, so resubmitting a completed message ID while full cannot become a
+  false `200` generation-failure response. A regression in
+  `tests/integration/protocolV1.test.ts` covers this case and verifies that
+  duplicate detection returns `409` again after capacity frees. Protocol
+  v1 already released its wire mapping for an unclaimed identity. The page shows
+  a send-failed status for the code and re-enables the send button; it does not
+  retry on its own.
+- `retentionStats()` reports `activeTurns`, `detachedTurns` and
+  `maxConcurrentTurns`; `startServer` passes the loaded limit explicitly, and an
+  explicit constructor limit is validated like the environment value.
+
+Decisions and their cost. Submissions are refused, not queued: a wait would hold
+request bodies and history leases for callers that may have gone, and the page
+already serializes its own sends. The limit is global, not per user or per
+conversation, because identities are self-asserted; a per-identity limit would
+be trivial to evade and would suggest a fairness property that does not exist.
+Reads, event streams, cancellation and operator endpoints are not counted, so a
+client can still open any number of streams (finding 4). The deep worker's own
+runs are not counted either; they are bounded by the queue and worker
+concurrency. The default of 8 is a local-use figure with no measurement behind
+it; `CLI_MAX_CONCURRENCY` (1) and provider limits will usually bind first.
+
+Against the step 2 acceptance list: this adds concurrent-request bounding for
+submissions only. Still open: stream count and backpressure (finding 4),
+cross-owner denial and the authenticated identity design, so shared deployment
+remains refused.
+
+Validation on Windows Node 24.21.0: 940 tests across 110 files, 29 browser
+tests, format and lint. The 9 new tests are 3 unit cases for the configuration
+(`tests/unit/turnAdmission.test.ts`), 5 cases in
+`tests/integration/turnAdmission.test.ts` (refusal past the limit with no owner,
+history or identity claimed and admission after a slot frees; slot release on a
+failed turn; a detached turn keeping its slot until its work settles; `429` on
+both HTTP protocols with the wire mapping released and the refused body accepted
+afterwards; environment default and explicit-limit validation) and 1 startup
+case for an invalid value. The orchestrator in those tests is a stub that
+settles turns on command; the assembled `CapabilityChat` path is covered by the
+gate instead. `npm run bench:sustained-memory` now builds the live runtime with a
+limit of 16 and `maxHistories` 16 (one leased history per held turn), and adds
+five probe assertions: exactly the limit is admitted from 17 held submissions,
+every slot is detached inline work, the refused turn claimed nothing, cancelling
+drains every slot, and the refused body is accepted afterwards. The gate passes
+(159 assertions, heap within tolerance); no new report was written, so the
+recorded evidence still describes the 12-history configuration. No temporary
+mutations were run. No live provider calls or service restart.
 
 ### 3. Cancellation, recovery and configuration correctness
 

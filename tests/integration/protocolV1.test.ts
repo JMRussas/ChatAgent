@@ -21,7 +21,8 @@ afterEach(async () => {
 });
 async function setup(
   provider: FastModelProvider,
-  deep: DeepModelProvider = new MockDeepProvider()
+  deep: DeepModelProvider = new MockDeepProvider(),
+  maxConcurrentTurns?: number
 ) {
   const queue = new InMemoryTaskQueue(),
     timeline = new InMemoryConversationTimelineStore();
@@ -35,7 +36,10 @@ async function setup(
     ),
     new DeepWorker(queue, deep, timeline),
     timeline,
-    queue
+    queue,
+    undefined,
+    undefined,
+    { maxConcurrentTurns }
   );
   const server = createChatServer(service);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -89,6 +93,37 @@ async function setup(
   }
   return { base, path, scope, post, events, service };
 }
+
+it("v1 preserves capacity refusal when the message ID already has a terminal event", async () => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const h = await setup(
+    {
+      createProvisionalReply: async (input) => {
+        if (input.message.text === "hold") await held;
+        return { text: "answer", finishReason: "stop" };
+      }
+    },
+    new MockDeepProvider(),
+    1
+  );
+  const messageId = randomUUID();
+  expect((await h.post("hello", messageId)).status).toBe(200);
+  const occupant = h.post("hold");
+  try {
+    await vi.waitFor(() => expect(h.service.retentionStats().activeTurns).toBe(1));
+    const refused = await h.post("hello", messageId);
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("1");
+    expect(await refused.json()).toMatchObject({ code: "TURN_CAPACITY" });
+  } finally {
+    release();
+    await occupant;
+  }
+  expect((await h.post("hello", messageId)).status).toBe(409);
+});
 
 it("v1 preserves two-turn context, deduplicates submission, and isolates declared scopes and conversations", async () => {
   const inputs: any[] = [];

@@ -97,6 +97,15 @@ it("rejects an invalid request body limit before starting anything", async () =>
   expect(interval).not.toHaveBeenCalled();
 });
 
+it("rejects an invalid concurrent-turn limit before starting anything", async () => {
+  vi.stubEnv("CHAT_MAX_CONCURRENT_TURNS", "0");
+  const interval = vi.spyOn(globalThis, "setInterval");
+  await expect(startServer(0)).rejects.toThrow(
+    /CHAT_MAX_CONCURRENT_TURNS must be a positive integer/
+  );
+  expect(interval).not.toHaveBeenCalled();
+});
+
 it("returns an ephemeral runtime handle and completes deep work automatically without process signal listeners", async () => {
   const directory = await mkdtemp(join(tmpdir(), "chatagent-runtime-"));
   const telemetry = join(directory, "telemetry.json");

@@ -590,7 +590,9 @@ export function renderHomePageHtml(
     const conversationNotices = {
       CONVERSATION_EXPIRED: "This conversation expired on the server. Start a new conversation to continue. Anything shown below is only the last copy this page received.",
       CONVERSATION_HISTORY_CAPACITY: "This conversation's history is full, so it cannot accept more messages.",
-      CONVERSATION_CAPACITY: "The server cannot start another conversation right now. Existing conversations still work."
+      CONVERSATION_CAPACITY: "The server cannot start another conversation right now. Existing conversations still work.",
+      // Admission refusal: nothing was claimed, so the same message can be sent again.
+      TURN_CAPACITY: "The server is already running its maximum number of turns. Wait for one to finish, then send again."
     };
     function showConversationNotice(code) {
       $("conversationNoticeText").textContent = conversationNotices[code];

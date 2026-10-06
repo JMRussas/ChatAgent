@@ -142,6 +142,10 @@ export class CapabilityChat {
   retentionStats() {
     return { pending: this.pending.size };
   }
+  /** Each pending entry is one turn's inline retrieval, still occupying its admission slot. */
+  detachedTurns() {
+    return this.pending.size;
+  }
   cancel(conversationId: string, messageId: string) {
     const lifecycle = generationLifecycle(this.queue);
     this.dispatch?.release(

@@ -112,6 +112,9 @@ export function createProtocolV1Handler(service: ChatService) {
         // Admission failures before ownership is claimed must not consume a slot.
         if (!service.hasConversationIdentity(internalId!) && conversations.get(key) === internalId)
           conversations.delete(key);
+        // Admission refusal did not start a generation. An earlier terminal for
+        // this message ID must not turn the refusal into an accepted response.
+        if (error instanceof GenerationError && error.code === "TURN_CAPACITY") throw error;
         // A failed generation is still an accepted turn. Let clients consume its
         // partial text and terminal event instead of treating it as a transport failure.
         const timeline = await service.getTimeline(internalId!);
