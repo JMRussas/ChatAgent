@@ -1124,15 +1124,16 @@ any shared deployment.
   It provides strict bounded stdout framing and envelope validation, settlement
   exactly once (start, resume and cancel uncertain; reads unavailable), and
   termination confirmed by the child's exit. There is no respawn, no re-send and
-  no retry promise. Still open: an explicit operator restart (only after the old
-  child has provably exited; the sidecar's `bridge.owner` lock already refuses an
-  overlapping owner), automatic recovery, and making the start-and-binding
-  sequence idempotent. _Stdin admission implemented 2026-10-06:_ requests are sent
+  no retry promise. Still open: automatic recovery, and making the
+  start-and-binding sequence idempotent. _Operator restart implemented 2026-10-06:_
+  a supervisor runs one bridge per generation, waits for a fixed sidecar health
+  answer before serving, and replaces only a failed generation whose exit is
+  confirmed, on an explicit operator request with the expected generation; see
+  [operator restart](implementation/11-conversation-tasks.md#operator-restart). _Stdin admission implemented 2026-10-06:_ requests are sent
   as pure ASCII within the sidecar's 16000-character line limit (`REQUEST_TOO_LARGE`,
   413), and a full stdin buffer refuses new work with `BRIDGE_BUSY` (503,
   `Retry-After: 1`) until that child drains; see
   [request admission](implementation/11-conversation-tasks.md#request-admission).
-  Define explicit restart behavior without automatically replaying uncertain work.
   Give orphaned document tasks an operator-visible reconciliation/abandon path that
   preserves uncertainty about external execution instead of claiming clean rollback.
 - Validate complete discovery batches before publishing inventory changes. Retain

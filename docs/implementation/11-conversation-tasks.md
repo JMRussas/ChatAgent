@@ -126,9 +126,9 @@ The bridge fails in the following cases:
 On failure the bridge stops reading at once and settles every pending request
 exactly once. Then it closes stdin, sends SIGTERM, and sends SIGKILL after five
 seconds unless the child has exited. It reports itself down only once the child's
-exit is confirmed. It never spawns a replacement and never re-sends a request: the
-bridge stays down until the server restarts. Restart and automatic recovery are
-separate later work.
+exit is confirmed. A bridge never spawns a replacement and never re-sends a
+request. Only an operator restart starts a new child (see
+[operator restart](#operator-restart)); automatic recovery is separate later work.
 
 What an unanswered request reports:
 
@@ -169,6 +169,59 @@ semantics.
 
 Queued request bytes are therefore bounded by the stdin buffer's high-water mark
 plus one request of at most 16000 bytes, and at most 32 requests are pending.
+
+### Operator restart
+
+`DocumentTaskSupervisor` (`src/app/documentTaskSupervisor.ts`) is the stable
+document-task service the server uses. It runs one sidecar bridge per numbered
+generation. Each generation is a separate child with its own request ids, timers,
+stream buffers and drain listener, so nothing an earlier child does can reach a
+later one. A failed generation is never revived. The server fixes the Python
+path, script, store root and model once at startup, so a replacement always opens
+the same store with the same configuration.
+
+Readiness. A new generation answers no requests until the sidecar's `health`
+command returns exactly `{"service":"chatagent-document-tasks","protocol":1}`.
+The sidecar takes its `bridge.owner` lock before reading input and opens its
+store on the first request, so this answer proves both. `health` reads no scope,
+calls no model, and neither lists nor reconciles task state; the HTTP client
+schema cannot send it. The deadline is 5 seconds. A timeout, another payload or
+an error reply terminates that child, which is kept until its exit is confirmed.
+A child that fails on its own (spawn error, exit, closed output, or the owner
+lock held by another sidecar) is never ready either. A factory that throws is
+recorded as `SPAWN_FAILED` without a child. A failed startup stays failed until
+an operator restarts it; nothing restarts unattended.
+
+Operator routes. Both are operator-only and answer 404 when document tasks are
+disabled.
+
+- `GET /workers/document-tasks/status` returns
+  `{status: {phase, generation, restartable, failureCode}}`. The phases are
+  `starting`, `ready`, `stopping` (failed, exit not yet confirmed), `failed`
+  (exit confirmed) and `closed`. `failureCode` is a fixed internal code such as
+  `CHILD_EXITED`, `STDOUT_CLOSED`, `HEALTH_TIMEOUT` or `SPAWN_FAILED`. It
+  never carries a path, process id or raw error.
+- `POST /workers/document-tasks/restart` takes exactly
+  `{expectedGeneration: <positive safe integer>}`. Only a `failed` generation
+  of that number is replaced. A stale number gives 409 `STALE_GENERATION`; a
+  starting or ready generation, 409 `NOT_FAILED`; a generation whose child has
+  not confirmed its exit, 409 `NOT_EXITED`. These refusals spawn nothing and
+  never stop a running child. Server shutdown gives 409 `CLOSED`, possibly after
+  a replacement had started. A replacement that does not become ready gives 503
+  `STARTUP_FAILED`. Only a ready replacement gives 200. A successful restart and every
+  refusal above include the current status; validation, authentication and
+  disabled responses do not.
+
+The checks and the spawn run without yielding, so concurrent restarts with the
+same number spawn at most once; the others are stale. Shutdown is permanent: it
+settles a pending restart at once, clears the readiness deadline, closes the
+current child and keeps it until it exits. A readiness answer that arrives later
+promotes nothing.
+
+A restart replays nothing. The replacement opens the same owners, bindings and
+checkpoints. A paused task stays paused and unscheduled, and a task abandoned
+while running is reported `uncertain` and is not resumed. Reconciling or
+abandoning such tasks is later work.
 
 ## Verification
 

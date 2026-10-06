@@ -11,6 +11,11 @@ import { LocalAuthenticator } from "../../src/auth/authenticator";
 import { PairingController } from "../../src/auth/pairing";
 import { ROUTES } from "../../src/auth/routePolicy";
 import type { LocalIdentity } from "../../src/auth/localIdentity";
+import {
+  DocumentTaskControlError,
+  type DocumentTaskControl,
+  type DocumentTaskStatus
+} from "../../src/app/documentTaskSupervisor";
 
 // Real authentication end to end: LocalAuthenticator, the route table, pairing and
 // the cookie rules, over real HTTP. Other suites inject a test authenticator.
@@ -30,7 +35,10 @@ const newIdentity = (): LocalIdentity => ({
   epoch: 0
 });
 
-async function start(identity = newIdentity()) {
+async function start(
+  identity = newIdentity(),
+  extra: Partial<Parameters<typeof createChatServer>[1]> = {}
+) {
   const queue = new InMemoryTaskQueue(),
     timeline = new InMemoryConversationTimelineStore();
   const service = new ChatService(
@@ -49,7 +57,8 @@ async function start(identity = newIdentity()) {
       issueSession: () => auth.issueSession(),
       announce: (code) => announced.push(code)
     },
-    maxBodyBytes: 4096
+    maxBodyBytes: 4096,
+    ...extra
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const host = `127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -443,5 +452,109 @@ describe("no bypass of protocol v1 scoping", () => {
       }
     ]);
     expect(JSON.stringify(r.body)).not.toMatch(/secret/);
+  });
+});
+
+describe("document sidecar operator control", () => {
+  const status = (over: Partial<DocumentTaskStatus> = {}): DocumentTaskStatus => ({
+    phase: "failed",
+    generation: 3,
+    restartable: true,
+    failureCode: "CHILD_EXITED",
+    ...over
+  });
+  async function controlled() {
+    const control = {
+      status: vi.fn(() => status()),
+      restart: vi.fn<DocumentTaskControl["restart"]>(async () =>
+        status({ phase: "ready", generation: 4, restartable: false, failureCode: null })
+      )
+    };
+    const h = await start(undefined, { documentTaskControl: control });
+    const restart = (body: string, headers: Record<string, string> = h.operator) =>
+      fetch(h.base + "/workers/document-tasks/restart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body
+      });
+    return { h, control, restart };
+  }
+
+  it("answers 404 for both routes when document tasks are disabled", async () => {
+    const h = await start();
+    expect((await call(h, "GET", "/workers/document-tasks/status", h.operator)).status).toBe(404);
+    const r = await fetch(h.base + "/workers/document-tasks/restart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...h.operator },
+      body: JSON.stringify({ expectedGeneration: 1 })
+    });
+    expect(r.status).toBe(404);
+  });
+
+  it("gives the operator a bounded status and refuses the client token", async () => {
+    const { h, control, restart } = await controlled();
+    const r = await call(h, "GET", "/workers/document-tasks/status", h.operator);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ status: status() });
+    expect((await call(h, "GET", "/workers/document-tasks/status", h.client)).status).toBe(403);
+    const body = '{"expectedGeneration":3}';
+    expect((await restart(body, h.client)).status).toBe(403);
+    // A hostile Origin is refused even with the operator token.
+    expect((await restart(body, { ...h.operator, origin: "http://evil.example" })).status).toBe(
+      403
+    );
+    // A paired browser holds both roles, but its cookie must prove this exact origin.
+    const cookie = { cookie: `ca_session=${h.auth.issueSession()}` };
+    const noOrigin = await restart(body, cookie);
+    expect(noOrigin.status).toBe(403);
+    expect(await noOrigin.json()).toMatchObject({ code: "ORIGIN_REQUIRED" });
+    expect(control.restart).not.toHaveBeenCalled();
+    expect((await restart(body, { ...cookie, ...h.sameOrigin })).status).toBe(200);
+    expect(control.restart).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts only {expectedGeneration: positive safe integer}", async () => {
+    const { control, restart } = await controlled();
+    for (const body of [
+      "",
+      "[]",
+      "{}",
+      '{"expectedGeneration":0}',
+      '{"expectedGeneration":-1}',
+      '{"expectedGeneration":1.5}',
+      '{"expectedGeneration":"3"}',
+      '{"expectedGeneration":9007199254740992}',
+      '{"expectedGeneration":3,"force":true}'
+    ])
+      expect((await restart(body)).status, body).toBe(400);
+    expect(control.restart).not.toHaveBeenCalled();
+    const ok = await restart('{"expectedGeneration":3}');
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({
+      status: status({ phase: "ready", generation: 4, restartable: false, failureCode: null })
+    });
+    expect(control.restart).toHaveBeenCalledWith(3);
+  });
+
+  it("maps refusals to 409 and a failed replacement to 503, with the status", async () => {
+    const { control, restart } = await controlled();
+    for (const [code, http] of [
+      ["STALE_GENERATION", 409],
+      ["NOT_FAILED", 409],
+      ["NOT_EXITED", 409],
+      ["CLOSED", 409],
+      ["STARTUP_FAILED", 503]
+    ] as const) {
+      const current = status({ phase: code === "NOT_EXITED" ? "stopping" : "failed" });
+      control.restart.mockRejectedValueOnce(new DocumentTaskControlError(code, current));
+      const r = await restart('{"expectedGeneration":3}');
+      expect(r.status, code).toBe(http);
+      expect(r.headers.get("retry-after")).toBeNull();
+      expect(await r.json()).toEqual({
+        error: "Documentation task restart refused",
+        code,
+        status: current
+      });
+    }
   });
 });

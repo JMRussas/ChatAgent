@@ -26,7 +26,7 @@ const LATE_REPLY_MEMORY = 64;
  * bound equals the character count Python sees whatever its stdin encoding.
  */
 const MAX_REQUEST_BYTES = 16_000;
-const READ_ONLY_OPS = new Set(["list", "status"]);
+const READ_ONLY_OPS = new Set(["list", "status", "health"]);
 const ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 interface Pending {
@@ -244,6 +244,11 @@ export class PythonDocumentTasks implements DocumentTasks {
     if ("error" in envelope)
       entry.reject(new DocumentTaskError(envelope.error as string, entry.op));
     else entry.resolve(envelope.result);
+  }
+
+  /** Fails the bridge on the caller's behalf, as a protocol failure would. */
+  abort(code: string) {
+    this.fail(code);
   }
 
   private fail(code: string) {

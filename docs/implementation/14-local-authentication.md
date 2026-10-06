@@ -122,8 +122,9 @@ The server uses these on every request.
 ### Route inventory (source, commit 2cecb5b)
 
 There were 34 handlers at commit 2cecb5b. Activation added 4 routes: the pairing
-page, pairing, operator re-issue and `GET /auth/session`. That makes 38 routes,
-of which 4 are public, 21 client and 13 operator. Each handler is a
+page, pairing, operator re-issue and `GET /auth/session`. The document sidecar
+restart slice added 2 operator routes. That makes 40 routes,
+of which 4 are public, 21 client and 15 operator. Each handler is a
 `method === X && <path matcher>` branch in `src/server.ts`, or the v1 regular
 expression in `src/app/protocolV1.ts`.
 
@@ -131,7 +132,7 @@ expression in `src/app/protocolV1.ts`.
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Public   | `GET /`, `GET /pair`, `POST /pair`, `GET /auth/session`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Client   | `POST /briefings` (start, status and cancel), `POST /document-tasks`, `POST /sports/games`, `GET /sports/team-directories`, `POST /conversation-context/detach`, `POST /conversation-context`, `POST /sports/conversations`, `POST /sports/teams`, `POST /sports/results`, `POST /sports/chat`, `POST /messages`, `POST /conversations/:c/messages/:m/cancel`, `GET /telemetry/latency`, `GET /run-controls`, `GET /run-controls/thinking`, `GET /models`, `GET /conversations/:c/events`, `GET /conversations/:c/events/stream`, `POST /v1/conversations/:c/messages`, `GET /v1/conversations/:c/events/stream`, `POST /v1/conversations/:c/messages/:m/cancel` |
-| Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `GET /conversations/retention`, `DELETE /conversations/:c/identity`                                                                                                                                                                                                                                      |
+| Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `GET /workers/document-tasks/status`, `POST /workers/document-tasks/restart`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `GET /conversations/retention`, `DELETE /conversations/:c/identity`                                                                                                                                                        |
 
 Three of today's handlers match more loosely than this table, using `startsWith`
 and `endsWith` checks:

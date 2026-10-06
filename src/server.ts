@@ -18,6 +18,11 @@ import { connectHekateClaude } from "./providers/cli/hekateClaude";
 import { rejectUnsupportedInputs } from "./providers/interfaces";
 import { resolve } from "node:path";
 import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./app/documentTasks";
+import {
+  DocumentTaskControlError,
+  DocumentTaskSupervisor,
+  type DocumentTaskControl
+} from "./app/documentTaskSupervisor";
 import { createProtocolV1Handler } from "./app/protocolV1";
 import { renderPairingPageHtml } from "./ui/pairingPage";
 import { EventStreamRegistry, StreamCapacityError, sseFrame } from "./app/eventStreams";
@@ -166,6 +171,8 @@ interface ServerOptions {
   pairing?: PairingOptions;
   briefings?: BriefingHttp;
   documentTasks?: DocumentTasks;
+  /** Operator status and restart of the document sidecar; absent when it is disabled. */
+  documentTaskControl?: DocumentTaskControl;
   // A function, not a static value: discovery observations change over the
   // process lifetime, so each request must recompute readiness from current data.
   modelCatalog?: () => Omit<ReturnType<typeof describeModelCatalog>, "routingMode"> & {
@@ -197,6 +204,9 @@ function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo 
 }
 
 const pairBodySchema = z.object({ code: z.string().max(64) }).strict();
+const restartBodySchema = z
+  .object({ expectedGeneration: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) })
+  .strict();
 
 /**
  * The userId rule each client route applies, so a label is only turned into an
@@ -770,6 +780,20 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         return state ? json(res, 200, state) : json(res, 404, { error: "Message not found" });
       }
 
+      if (method === "GET" && url.pathname === "/workers/document-tasks/status") {
+        if (!options.documentTaskControl)
+          return json(res, 404, { error: "Documentation tasks are disabled" });
+        return json(res, 200, { status: options.documentTaskControl.status() });
+      }
+
+      if (method === "POST" && url.pathname === "/workers/document-tasks/restart") {
+        if (!options.documentTaskControl)
+          return json(res, 404, { error: "Documentation tasks are disabled" });
+        const body = restartBodySchema.parse(requireObjectBody(await parseBody()));
+        const status = await options.documentTaskControl.restart(body.expectedGeneration);
+        return json(res, 200, { status });
+      }
+
       if (method === "POST" && url.pathname === "/workers/deep/run-once") {
         const result = await service.runDeepWorkerOnce();
         return json(res, 200, { result: result ?? null });
@@ -982,6 +1006,15 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         res.destroy();
         return;
       }
+      if (error instanceof DocumentTaskControlError)
+        // A replacement that failed to become ready is 503. Stale, not-failed and
+        // not-exited refusals are 409 and spawned nothing; CLOSED is also 409, but
+        // shutdown may have overtaken a replacement that was already starting.
+        return json(res, error.code === "STARTUP_FAILED" ? 503 : 409, {
+          error: "Documentation task restart refused",
+          code: error.code,
+          status: error.status
+        });
       if (error instanceof DocumentTaskError && error.code === "BRIDGE_UNCERTAIN")
         // No Retry-After and no retry promise: the sidecar records a started task and
         // its request binding in separate transactions, so even resending a start
@@ -1444,13 +1477,19 @@ export async function startServer(
     throw error;
   }
   const runtimeMode = resolveRuntimeModeInfo(config);
-  const documentTasks = process.env.DOC_TASK_PYTHON
-    ? new PythonDocumentTasks(
+  // Each generation is a fresh child on the same store; only an operator restarts one.
+  // The configuration is fixed here, so a later change to the environment or working
+  // directory cannot point a replacement at another store or script.
+  const documentTaskConfig = process.env.DOC_TASK_PYTHON
+    ? ([
         process.env.DOC_TASK_PYTHON,
         resolve("experiments/doc-agent/chat_bridge.py"),
         resolve(process.env.DOC_TASK_ROOT ?? "data/document-tasks"),
         process.env.DOC_TASK_MODEL ?? "gemma4:26b"
-      )
+      ] as const)
+    : undefined;
+  const documentTasks = documentTaskConfig
+    ? new DocumentTaskSupervisor(() => new PythonDocumentTasks(...documentTaskConfig))
     : undefined;
 
   const pairing = new PairingController();
@@ -1463,6 +1502,7 @@ export async function startServer(
   const server = createChatServer(service, {
     briefings,
     documentTasks,
+    documentTaskControl: documentTasks,
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },

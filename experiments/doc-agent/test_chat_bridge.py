@@ -93,6 +93,21 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
                 await restarted.command({'op':'list','conversationId':'fresh','userId':'x'*201})
             await restarted.close()
 
+    async def test_health_is_fixed_and_touches_no_scope_or_task_state(self):
+        with tempfile.TemporaryDirectory() as td:
+            with patch('chat_bridge.identity_for') as identify:
+                b=ConversationTasks(td,None,fixture_corpus())
+                with b.manager.connect() as c:
+                    before=[c.execute(f'SELECT count(*) FROM {t}').fetchone()[0] for t in ('owners','bindings','tasks')]
+                self.assertEqual(await b.command({'op':'health'}),{'service':'chatagent-document-tasks','protocol':1})
+                # Scope fields are ignored rather than claimed or validated.
+                self.assertEqual(await b.command({'op':'health','conversationId':'c','userId':'u'}),{'service':'chatagent-document-tasks','protocol':1})
+                with b.manager.connect() as c:
+                    after=[c.execute(f'SELECT count(*) FROM {t}').fetchone()[0] for t in ('owners','bindings','tasks')]
+                self.assertEqual(after,before)
+                identify.assert_not_called()
+                await b.close()
+
     async def test_listing_does_not_claim_empty_conversation(self):
         with tempfile.TemporaryDirectory() as td:
             b=ConversationTasks(td,None,fixture_corpus())

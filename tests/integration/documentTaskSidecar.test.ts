@@ -1,10 +1,12 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PythonDocumentTasks } from "../../src/app/documentTasks";
+import { DocumentTaskSupervisor } from "../../src/app/documentTaskSupervisor";
 
 // The real Python sidecar, offline. It uses the repository's uv-managed virtual
 // environment and only list requests, so no model is contacted and no task runs.
@@ -111,4 +113,100 @@ describe.skipIf(!existsSync(PYTHON))("real document-task sidecar (offline)", () 
     // The first is unaffected.
     expect(await s.list()).toEqual([]);
   }, 60_000);
+});
+
+describe.skipIf(!existsSync(PYTHON))("real document-task supervisor (offline)", () => {
+  type Internals = { current: { child?: PythonDocumentTasks } };
+  const childOf = (s: DocumentTaskSupervisor) =>
+    (s as unknown as Internals).current.child as PythonDocumentTasks;
+  const exited = (s: DocumentTaskSupervisor) =>
+    vi.waitFor(() => expect(childOf(s).diagnostics().state).toBe("down"), { timeout: 15_000 });
+  const ready = (s: DocumentTaskSupervisor) =>
+    vi.waitFor(() => expect(s.status().phase).toBe("ready"), { timeout: 30_000 });
+
+  async function supervise(root: string) {
+    const s = new DocumentTaskSupervisor(
+      () => new PythonDocumentTasks(PYTHON, SCRIPT, root),
+      30_000
+    );
+    cleanups.unshift(async () => {
+      s.close();
+      await exited(s);
+    });
+    return s;
+  }
+
+  it("restarts a crashed sidecar on the same store without scheduling or replaying work", async () => {
+    const root = await mkdtemp(join(tmpdir(), "doc-supervisor-"));
+    cleanups.push(() => rm(root, { recursive: true, force: true }));
+    const fixture = spawnSync(PYTHON, [resolve("tests/fixtures/document_task_store.py"), root], {
+      encoding: "utf8"
+    });
+    expect(fixture.status, fixture.stderr).toBe(0);
+    const ids = JSON.parse(fixture.stdout) as { paused: string; running: string };
+    const scope = { conversationId: "conversation-1", userId: "owner-1" };
+    const tasks = async (s: DocumentTaskSupervisor) =>
+      (await s.request({ op: "list", ...scope })) as Record<string, unknown>[];
+    // The paused task's durable checkpoint and the scripted model's call log.
+    const checkpoint = join(root, `${ids.paused}.sqlite`);
+    const evidence = async () => ({
+      checkpoint: createHash("sha256")
+        .update(await readFile(checkpoint))
+        .digest("hex"),
+      modelCalls: (await readFile(join(root, "fixture.calls"), "utf8")).trim().split("\n")
+    });
+    const before = await evidence();
+    expect(before.modelCalls).toEqual(["0"]);
+
+    const s = await supervise(root);
+    await ready(s);
+    const listed = await tasks(s);
+    expect(listed).toMatchObject([
+      {
+        taskId: ids.paused,
+        question: "A paused question",
+        status: "paused",
+        modelCalls: 1,
+        scheduled: false
+      },
+      // Abandoned while running: uncertain, and never resumed automatically.
+      { taskId: ids.running, question: "A running question", status: "uncertain", scheduled: false }
+    ]);
+    const expected = listed;
+
+    process.kill((childOf(s) as unknown as { child: { pid: number } }).child.pid, "SIGKILL");
+    await exited(s);
+    expect(s.status()).toMatchObject({ phase: "failed", generation: 1, restartable: true });
+    await expect(s.request({ op: "list", ...scope })).rejects.toMatchObject({
+      code: "BRIDGE_UNAVAILABLE"
+    });
+
+    expect(await s.restart(1)).toEqual({
+      phase: "ready",
+      generation: 2,
+      restartable: false,
+      failureCode: null
+    });
+    // Same tasks, same views, nothing scheduled; the checkpoint is byte-identical and
+    // no model was called again.
+    expect(await tasks(s)).toEqual(expected);
+    expect(await evidence()).toEqual(before);
+    // The owner survives the restart.
+    await expect(
+      s.request({ op: "list", conversationId: "conversation-1", userId: "someone-else" })
+    ).rejects.toMatchObject({ code: "OWNER_MISMATCH" });
+  }, 120_000);
+
+  it("never becomes ready while another sidecar holds the store", async () => {
+    const root = await mkdtemp(join(tmpdir(), "doc-supervisor-"));
+    cleanups.push(() => rm(root, { recursive: true, force: true }));
+    const first = await supervise(root);
+    await ready(first);
+    const second = await supervise(root);
+    await exited(second);
+    expect(second.status()).toMatchObject({ phase: "failed", generation: 1, restartable: true });
+    expect(second.status().failureCode).toMatch(/^(CHILD_EXITED|STDOUT_CLOSED)$/);
+    // The first is unaffected.
+    expect(first.status().phase).toBe("ready");
+  }, 120_000);
 });

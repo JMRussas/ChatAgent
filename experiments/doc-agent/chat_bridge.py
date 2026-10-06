@@ -17,6 +17,8 @@ def local_endpoint(value):
         raise ValueError('Requires a loopback HTTP Ollama endpoint')
     return value.rstrip('/')
 
+HEALTH={'service':'chatagent-document-tasks','protocol':1}
+
 class BridgeError(ValueError):
     def __init__(self,code):self.code=code;super().__init__(code)
 
@@ -73,6 +75,9 @@ class ConversationTasks:
 
     async def command(self,data):
         async with self.command_lock:
+            # Readiness: the owner lock is held and the store is open. No scope, no
+            # model and no task state is read or changed.
+            if data.get('op')=='health':return HEALTH
             conversation=data.get('conversationId');user=data.get('userId')
             op=data.get('op');self.scope(conversation,user,claim=op=='start')
             if op=='start':
