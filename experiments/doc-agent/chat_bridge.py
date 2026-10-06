@@ -33,13 +33,48 @@ class ConversationTasks:
             c.execute('CREATE TABLE IF NOT EXISTS owners (conversation TEXT PRIMARY KEY, user TEXT NOT NULL)')
             c.execute('CREATE TABLE IF NOT EXISTS bindings (request TEXT PRIMARY KEY, task TEXT UNIQUE NOT NULL, conversation TEXT NOT NULL, question TEXT NOT NULL)')
 
-    def scope(self,conversation,user,claim=False):
+    def scope(self,conversation,user):
         if not all(isinstance(s,str) and 0<len(s)<=200 for s in (conversation,user)):raise BridgeError('INVALID_SCOPE')
-        with self.manager.connect() as c:
-            row=c.execute('SELECT user FROM owners WHERE conversation=?',(conversation,)).fetchone()
-            if row is None:
-                if claim:c.execute('INSERT INTO owners VALUES (?,?)',(conversation,user))
-            elif row[0]!=user:raise BridgeError('OWNER_MISMATCH')
+        with self.manager.connect() as c:self.check_owner(c,conversation,user)
+
+    def check_owner(self,c,conversation,user):
+        """True if this user owns the conversation, False if nobody does yet.
+
+        A conversation with bound tasks but no owner row is damaged: it fails closed
+        for every operation instead of reading as unclaimed, and is never repaired.
+        """
+        row=c.execute('SELECT user FROM owners WHERE conversation=?',(conversation,)).fetchone()
+        if row is None:
+            if c.execute('SELECT 1 FROM bindings WHERE conversation=? LIMIT 1',(conversation,)).fetchone():
+                raise BridgeError('TASK_UNAVAILABLE')
+            return False
+        if row[0]!=user:raise BridgeError('OWNER_MISMATCH')
+        return True
+
+    def claim(self,c,conversation,user):
+        if not self.check_owner(c,conversation,user):c.execute('INSERT INTO owners VALUES (?,?)',(conversation,user))
+
+    def bind(self,c,request,task_id,conversation,question):
+        c.execute('INSERT INTO bindings VALUES (?,?,?,?)',(request,task_id,conversation,question))
+
+    def binding(self,c,request,conversation,question,user):
+        """The task bound to this request, if any, for this owner only.
+
+        The same id with other content conflicts. A bound conversation must have an
+        owner row, and it must be this user; check_owner fails closed when it is
+        missing, rather than letting any label read the task or claim the conversation.
+        """
+        row=c.execute('SELECT task,conversation,question FROM bindings WHERE request=?',(request,)).fetchone()
+        if row is None:return None
+        if row[1:]!=(conversation,question):raise BridgeError('REQUEST_CONFLICT')
+        self.check_owner(c,conversation,user)
+        return row[0]
+
+    def existing(self,task_id):
+        # A binding whose task row is missing or unreadable fails closed: no repair,
+        # adoption or deletion, and never a second task for the same request.
+        try:return self.view(task_id)
+        except (ValueError,KeyError,TypeError,IndexError):raise BridgeError('TASK_UNAVAILABLE')
 
     def scoped(self,task_id,conversation):
         with self.manager.connect() as c:row=c.execute('SELECT conversation FROM bindings WHERE task=?',(task_id,)).fetchone()
@@ -79,19 +114,30 @@ class ConversationTasks:
             # model and no task state is read or changed.
             if data.get('op')=='health':return HEALTH
             conversation=data.get('conversationId');user=data.get('userId')
-            op=data.get('op');self.scope(conversation,user,claim=op=='start')
+            op=data.get('op');self.scope(conversation,user)
             if op=='start':
                 request=data.get('requestId');question=data.get('question')
                 if not isinstance(request,str) or not 1<=len(request)<=100:raise BridgeError('INVALID_REQUEST')
                 if not isinstance(question,str) or not 1<=len(question.strip().encode())<=2000:raise BridgeError('INVALID_QUESTION')
-                with self.manager.connect() as c:row=c.execute('SELECT task,conversation,question FROM bindings WHERE request=?',(request,)).fetchone()
-                if row:
-                    if row[1:]!=(conversation,question):raise BridgeError('REQUEST_CONFLICT')
-                    return self.view(row[0])
+                # A request already accepted returns its task, unscheduled, before any
+                # capacity or model lookup.
+                with self.manager.connect() as c:bound=self.binding(c,request,conversation,question,user)
+                if bound:return self.existing(bound)
                 if len(self.jobs)>=self.capacity:raise BridgeError('CAPACITY_FULL')
                 if self.identity is None:self.identity=await asyncio.to_thread(identity_for,self.model_name,self.base_url)
-                task_id=self.manager.submit(question,self.corpus,self.identity)
-                with self.manager.connect() as c:c.execute('INSERT INTO bindings VALUES (?,?,?,?)',(request,task_id,conversation,question))
+                task_id,payload=self.manager.prepare(question,self.corpus,self.identity)
+                # Owner, queued task and binding commit together or not at all. Nothing
+                # awaits inside the transaction, and both checks are repeated in it.
+                with self.manager.transaction() as c:
+                    # The binding is checked before any write, so a request accepted
+                    # meanwhile, or a binding whose owner vanished, is never repaired.
+                    bound=self.binding(c,request,conversation,question,user)
+                    # A concurrent duplicate makes no write and schedules nothing.
+                    if not bound:
+                        self.claim(c,conversation,user)
+                        self.manager.insert(c,task_id,payload);self.bind(c,request,task_id,conversation,question)
+                if bound:return self.existing(bound)
+                # Only a task created by this request is scheduled, once, after commit.
                 self.schedule(task_id);return self.view(task_id)
             if op=='list':
                 with self.manager.connect() as c:ids=[r[0] for r in c.execute('SELECT task FROM bindings WHERE conversation=? ORDER BY rowid',(conversation,))]

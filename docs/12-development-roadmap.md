@@ -1124,8 +1124,13 @@ any shared deployment.
   It provides strict bounded stdout framing and envelope validation, settlement
   exactly once (start, resume and cancel uncertain; reads unavailable), and
   termination confirmed by the child's exit. There is no respawn, no re-send and
-  no retry promise. Still open: automatic recovery, and making the
-  start-and-binding sequence idempotent. _Operator restart implemented 2026-10-06:_
+  no retry promise. Still open: automatic recovery. _Atomic task creation
+  implemented 2026-10-06:_ a new start's owner, queued task and binding commit in
+  one transaction, a resent request returns its one task without scheduling it
+  again, and a start that fails before the commit leaves no new sidecar rows (a
+  scheduling failure after the commit keeps the bound task by design); see
+  [atomic task creation](implementation/11-conversation-tasks.md#atomic-task-creation).
+  This does not make model execution exactly-once. _Operator restart implemented 2026-10-06:_
   a supervisor runs one bridge per generation, waits for a fixed sidecar health
   answer before serving, and replaces only a failed generation whose exit is
   confirmed, on an explicit operator request with the expected generation; see

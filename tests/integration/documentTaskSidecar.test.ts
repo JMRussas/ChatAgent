@@ -21,8 +21,8 @@ afterEach(async () => {
 });
 
 describe.skipIf(!existsSync(PYTHON))("real document-task sidecar (offline)", () => {
-  async function start() {
-    const root = await mkdtemp(join(tmpdir(), "doc-sidecar-"));
+  async function start(existing?: string) {
+    const root = existing ?? (await mkdtemp(join(tmpdir(), "doc-sidecar-")));
     const bridge = new PythonDocumentTasks(PYTHON, SCRIPT, root);
     cleanups.push(async () => {
       bridge.close();
@@ -45,15 +45,27 @@ describe.skipIf(!existsSync(PYTHON))("real document-task sidecar (offline)", () 
   }, 60_000);
 
   it("delivers non-ASCII labels exactly, whatever the sidecar's stdin encoding", async () => {
-    const s = await start();
     // 150 supplementary characters are 150 Python code points, within the sidecar's
     // 200-character scope limit only if each surrogate pair arrives as one character.
     const conversationId = "\u{1d11e}".repeat(150);
     const owner = "é".repeat(200);
-    // An invalid start still claims the conversation for its user, without any model.
-    await expect(
-      s.bridge.request({ op: "start", conversationId, userId: owner, requestId: "" })
-    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    // The owner is written by Python itself, offline, from ASCII-escaped JSON; the
+    // labels sent over stdin must then match it exactly.
+    const root = await mkdtemp(join(tmpdir(), "doc-sidecar-"));
+    const seeded = spawnSync(
+      PYTHON,
+      [
+        resolve("tests/fixtures/document_task_owner.py"),
+        root,
+        JSON.stringify({ conversationId, userId: owner }).replace(
+          /[\u0080-\uffff]/g,
+          (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0")
+        )
+      ],
+      { encoding: "utf8" }
+    );
+    expect(seeded.status, seeded.stderr).toBe(0);
+    const s = await start(root);
     expect(await s.bridge.request({ op: "list", conversationId, userId: owner })).toEqual([]);
     // The stored owner is the exact string: one different accent is someone else.
     await expect(

@@ -137,10 +137,52 @@ What an unanswered request reports:
 - **`list` or `status`:** `BRIDGE_UNAVAILABLE`, or `BRIDGE_TIMEOUT` on a timeout.
 - **`start`, `resume` or `cancel`:** `BRIDGE_UNCERTAIN`. HTTP answers
   `503 {code, op, uncertain: true}` with an operation-specific message, and with
-  no `Retry-After` and no retry advice. The sidecar records a started task and its
-  request binding in separate transactions. A crash between them leaves a durable
-  task with no binding, so resending the same `requestId` is not proven to avoid
-  a duplicate. Making this idempotent is deferred reconciliation work.
+  no `Retry-After` and no retry advice. A new start is created atomically (see
+  [atomic task creation](#atomic-task-creation)), so resending the same
+  `requestId` returns at most the one task it created. The message stays
+  conservative because whether that task ran, and the outcome of a resume or
+  cancel, remain unknown.
+
+### Atomic task creation
+
+The sidecar keeps conversation owners, tasks and request bindings in one SQLite
+registry (`tasks.sqlite`). A new `start` proceeds in this order:
+
+1. Validate the scope, request id and question, and refuse an owner mismatch.
+2. If the request id is already bound, return that task without scheduling it,
+   before any capacity check or model lookup. A binding with another conversation
+   or question is `REQUEST_CONFLICT`. A binding whose owner row or task row is
+   missing or unreadable is `TASK_UNAVAILABLE`: nothing is repaired, adopted or
+   deleted, and no second task is created.
+3. Check capacity, look up the model identity and build the task record, all
+   outside any transaction.
+4. In one `BEGIN IMMEDIATE` transaction, with nothing awaited inside it: check the
+   binding again (a duplicate accepted meanwhile is returned after the
+   transaction, with no write), then claim the owner, insert the queued task and
+   insert the binding, and commit.
+5. Schedule the new task, only after the commit.
+
+A crash or failure before the commit leaves none of the three new rows. A crash
+after the commit but before scheduling leaves one bound, queued, unscheduled task;
+resending the request returns it, still unscheduled, and only an explicit `resume`
+runs it. A resent
+request whose task is already scheduled is not scheduled again. If scheduling
+fails after the commit, the bound task is kept.
+
+A conversation that has bound tasks but no owner row is damaged. Every operation
+on it (`start`, `list`, `status`, `resume`, `cancel`) fails with
+`TASK_UNAVAILABLE` for any user, and it is never claimed or repaired. A
+conversation with no tasks and no owner still lists as empty.
+
+A start that is invalid, conflicting, refused for capacity or unable to find its
+model no longer claims the conversation in the sidecar's store. This applies to
+the sidecar's durable rows only: the server still claims the conversation in
+ChatAgent's own memory before it calls the sidecar.
+
+This establishes one durable task per accepted request. It does not make model
+execution exactly-once, and it does not prove that a task completed. Tasks
+created before this change may still be unbound or ownerless; they are not
+adopted or repaired.
 
 ### Request admission
 

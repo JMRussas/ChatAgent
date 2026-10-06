@@ -1016,9 +1016,9 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           status: error.status
         });
       if (error instanceof DocumentTaskError && error.code === "BRIDGE_UNCERTAIN")
-        // No Retry-After and no retry promise: the sidecar records a started task and
-        // its request binding in separate transactions, so even resending a start
-        // with the same requestId is not proven to avoid a duplicate.
+        // No Retry-After and no retry advice. A new start's owner, task and binding
+        // commit atomically, so resending its requestId returns that one task, but the
+        // outcome of resume or cancel, and whether a model call ran, stay unknown.
         return json(res, 503, {
           code: error.code,
           op: error.op,

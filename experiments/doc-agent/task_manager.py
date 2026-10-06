@@ -32,7 +32,24 @@ class TaskManager:
         if not re.fullmatch(r'[0-9a-f]{32}',task_id):raise ValueError('Invalid task ID')
         return self.root/(task_id+'.'+suffix)
 
+    @contextmanager
+    def transaction(self):
+        # One write transaction, taken before any read it depends on. If COMMIT itself
+        # fails, closing the connection discards everything written in it.
+        with closing(sqlite3.connect(self.registry,timeout=5,isolation_level=None)) as c:
+            c.execute('BEGIN IMMEDIATE')
+            try:yield c
+            except BaseException:
+                c.execute('ROLLBACK');raise
+            c.execute('COMMIT')
+
     def submit(self,question,corpus,identity,*,options=None):
+        task_id,payload=self.prepare(question,corpus,identity,options=options)
+        with self.connect() as c:self.insert(c,task_id,payload)
+        return task_id
+
+    def prepare(self,question,corpus,identity,*,options=None):
+        """Validates a new task and builds its record without touching the registry."""
         if not isinstance(question,str) or not 1<=len(question.strip().encode())<=2000:raise ValueError('Invalid question')
         options=dict(options or {})
         if options.get('deadline_mode','active')!='active':raise ValueError('Managed tasks use active execution time')
@@ -50,8 +67,10 @@ class TaskManager:
         task_id=uuid.uuid4().hex
         payload={'version':1,'question':question,'sources':corpus.snapshot(),'identity':identity,
                  'options':options,'created_at':time.time(),'updated_at':time.time(),'result':None,'error':None}
-        with self.connect() as c:c.execute('INSERT INTO tasks VALUES (?,?,?)',(task_id,'queued',json.dumps(payload)))
-        return task_id
+        return task_id,payload
+
+    def insert(self,c,task_id,payload):
+        c.execute('INSERT INTO tasks VALUES (?,?,?)',(task_id,'queued',json.dumps(payload)))
 
     def load(self,task_id):
         self.path(task_id)
