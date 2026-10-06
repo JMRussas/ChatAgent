@@ -226,11 +226,14 @@ issues must be resolved before any adapter is built.
    operations and whole-graph validation for new managed roots, with a database
    fence preventing legacy mutation of their protected structure and content.
    This does not retrofit revision checks onto unmanaged legacy plans.
-3. **Claims and ownership.** There are two mechanisms, and neither covers
-   context-store plan nodes. `context-store/AgentCoordination/SubtreeLock.cs` is a
+3. **Claims and ownership.** The initial inventory found two mechanisms, neither
+   covering context-store plan nodes. Increment 3b1 below adds durable receipts
+   for new managed plan leaves, without leases or authenticated ownership.
+   `context-store/AgentCoordination/SubtreeLock.cs` is a
    session-scoped advisory lock; its only caller is the console demo in
    `context-store/Program.cs`. The atomic `tasks.claimed_by`/`claimed_at` update is
-   the only persisted claim. _Inventory; the `claimed_by` column is spot-checked._
+   the only persisted claim identified in that initial inventory. _Inventory;
+   the `claimed_by` column is spot-checked._
 4. **Recovery.** According to the comparison table in `Odin/langgraph_engine/README.md`,
    gods durability uses a relay-event table and cursor, and the experimental engine
    uses LangGraph SQLite checkpoints (documentation, not code). Neither, as documented,
@@ -348,10 +351,46 @@ issues must be resolved before any adapter is built.
      the store flag set. Sequence guarantees cover store-written transactions;
      full database credentials can bypass guards. This is integrity protection,
      not tamper-proofing or authentication.
-   - Claim-next, durable claim receipts, worker launching, execution-ledger
-     integration and structural history remain deferred. Tests used disposable
+   - At the 3a milestone, claim-next and durable receipts remained deferred;
+     increment 3b1 below subsequently adds them. Worker launching,
+     execution-ledger integration and structural history remain deferred. Tests used disposable
      databases with verified cleanup; no production, model or gods changes were
      involved.
-9. **Provider ownership.** ChatAgent's `src/providers/cli/hekateClaude.ts` with
-   `bridges/hekate/claude_bridge.py`, Hekate's `Odin/gods/providers/` and its
-   `llm-gateway` overlap. Which is canonical for each use is undecided.
+9. **Durable claim receipts and attempt pins.** Increment 3b1 is accepted by
+   `codex-hekate` at local commit `979d471`, as reported by the lead. Hekate's
+   `context-store/plans/019-durable-claims-and-pins.md` defines the contract and
+   `context-store/plans/020-durable-claims-validation.md` records independent
+   verification: 172 pure, 48 live PostgreSQL/AGE and 59 HTTP checks. The live
+   suites used isolated owned databases with cleanup; no worker, provider,
+   production, auth, UI or launcher changes are established by this evidence.
+   - A claim chooses the first ready leaf under the project lock and atomically
+     writes its attempt state, audit event, append-only receipt and AGE projection.
+     The receipt records exact content and prerequisite snapshots. Identical
+     `(root, claimKey)` requests replay the original receipt without writes;
+     changed actor, attempt or executor payload gives `operation_key_reused`.
+     A `no_ready_work` receipt is durable too; new work requires a new key.
+   - Start/reopen pins the content revision and canonical prerequisite digest;
+     finish preserves them, release/cancel clears them after audit capture.
+     Relevant content or prerequisite drift rejects finish or new acceptance
+     with `stale_content` or `stale_prerequisites`. Unrelated sibling work and
+     bookkeeping do not invalidate these pins. This is strict input provenance,
+     not an execution adapter or automatic retry policy.
+   - Replay preserves historical correlation; `stillCurrent` separately reports
+     current attempt, pins and content-digest agreement. It is not authority or
+     proof that external effects are safe. Invalid/unreadable or unsupported
+     current plans fail closed for correlation without changing the receipt.
+   - A real frozen-3a schema upgrade preserves prior rows and fingerprints, with
+     no receipt or pin backfill. Legacy unpinned attempts retain exact replay and
+     release/cancel support but cannot finish; historical legacy acceptance is
+     preserved while a new Accepted decision fails closed.
+   - No leases, heartbeat expiry, reclaim, worker launching, authenticated
+     principals or ChatAgent adapter are implemented. Full database credentials
+     remain trusted and can bypass integrity guards.
+   - **TypeScript integration precondition:** v1 serializes Int64 revisions,
+     epochs and sequences as JSON numbers. A future adapter must parse them
+     losslessly or reject values outside JavaScript's safe-integer range before
+     acting; ordinary rounded `Number` values cannot fence attempts. A future
+     decimal-string wire contract is another option, not implemented by 3b1.
+10. **Provider ownership.** ChatAgent's `src/providers/cli/hekateClaude.ts` with
+    `bridges/hekate/claude_bridge.py`, Hekate's `Odin/gods/providers/` and its
+    `llm-gateway` overlap. Which is canonical for each use is undecided.
