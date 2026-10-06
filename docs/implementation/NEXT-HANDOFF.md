@@ -4,16 +4,15 @@
 
 Execution order and acceptance gates now live in the
 [current roadmap](../12-development-roadmap.md#current-plan--reliability-before-feature-expansion-2026-10-01).
-The reviewed evidence-delivery and lifecycle/coordinator retention changes are
-committed in `c9ce23f`. Admission-ledger compaction and its decimal-accounting fix are implemented;
-its behavior, measurement and remaining retention limits are in roadmap step 1.
-Use the roadmap for current verification and execution order. Next: finish store
-retention and end-to-end memory checks in step 1 before request limits in step 2. Rolling-window quota reconciliation
-has an explicit implementation and acceptance gate in step 3. Neither limitation is
-resolved by the current ledger benchmark.
+Use the roadmap's current checkpoint for reviewed milestones, verification and
+the next bounded increment. Its step 1 acceptance decision, fixed/rolling quota
+reconciliation, shared-deployment boundary and quality gates remain explicit;
+older benchmark or implementation results do not close them.
 
-Documentation maintenance remains planned in
+The scoped generated-reference pilot is implemented in
 [roadmap step 4](../12-development-roadmap.md#4-current-state-documentation-and-maintenance-checks).
+Use the [implementation reading path](README.md) and
+[bridge workflow](../agent-bridge-development-workflow.md) for current navigation.
 Keep future status in the current roadmap; preserve the entries below as history until
 remaining commitments and inbound links have been reconciled.
 

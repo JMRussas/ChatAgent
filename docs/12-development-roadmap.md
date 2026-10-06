@@ -8,6 +8,21 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
+Current reading checkpoint (2026-10-06), based on reviewed milestone `d61cf74`:
+
+| Area                | Current scope                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                         |
+| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks |
+| Hekate              | Lead accepted durable claims and pins at `979d471`; browser visualization remains a proposal awaiting lead coordination                                                           |
+| Open gates          | Step 1 measured-scope acceptance, fixed/rolling quota reconciliation, shared deployment and independent quality evidence                                                          |
+
+Read the [runtime reference](runtime-reference.md), the relevant implementation
+contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
+`npm run docs:build` generates `dist/docs/index.html`; `npm run docs:check` checks
+the pilot contracts, and `npm run docs:graph` generates the static import graph.
+The dated validation paragraphs below retain their original slice scope.
+
 HTTP boundary review fixes are committed in `f9c578f`: `/sports/chat` now parses
 and validates its body outside the scope-specific catch, preserving shared HTTP
 errors. Enabled-route regressions cover declared and chunked overflow, status/code,
@@ -16,8 +31,8 @@ The default-limit test now omits the option explicitly, accepts valid JSON padde
 to exactly 1 MiB and rejects one byte beyond it. Temporary mutations restoring the
 catch bug and lowering the default to 256 bytes each fail their targeted tests;
 both are reverted. Validation on Windows Node 24.21.0: 931 tests across 108 files
-and 29 browser tests pass. These checks do not establish concurrent-request or stream bounds; those
-remain step 2 work.
+and 29 browser tests pass. That historical slice did not establish concurrent-request
+or stream bounds; later step 2 increments below cover their stated limits.
 
 The October 5 review findings are resolved: conversation changes preserve the
 in-flight submission lock and stale send errors cannot alter the new conversation;
@@ -71,9 +86,9 @@ limit through the same error path and found no divergence; that is a code read,
 not an independent review. The third was reviewed continuously by
 `codex-chatagent` over the agent bridge while it was implemented.
 
-**Next implementation:** record whether step 1 is accepted within its measured
-scope. Then finish step 2: authenticated ownership of conversations, result
-handles, tasks and operator endpoints before any shared deployment. The user
+**Acceptance and deployment checkpoint:** record whether step 1 is accepted within
+its measured scope. Local authenticated ownership of conversations, result handles,
+tasks and operator endpoints is implemented; shared deployment remains open. The user
 approved a local-first design with one trusted installation principal. It is now
 activated, meaning the source enforces it for newly started servers (no running
 service was restarted):
@@ -166,13 +181,13 @@ not a required repository artifact. Read `AGENTS.md`, preserve generated evidenc
 and keep the two excluded local review documents out of Git. No live provider
 calls or service restart were needed for these retention changes.
 
-Current state: a manual prototype with configurable roles, selected evidence,
+Earlier prototype baseline (2026-10-01): configurable roles, selected evidence,
 separate display payloads and native/graph execution comparisons. The four delivery,
 grading, review and reference-layout fixes are committed in `c9ce23f`; their
 last verification was 740 tests / 95 files, 26 browser tests and TypeScript build.
 These results establish covered behavior, not sustained-operation or calibrated
-factual-quality guarantees. Review the existing increment separately before a
-subsequent increment; preserve its changes while implementing reliability work.
+factual-quality guarantees. Subsequent reviewed milestones and open commitments
+are recorded in the current checkpoint and numbered reliability steps above/below.
 
 Formatting maintenance is implemented ahead of further retention work: the overflow
 fix is committed in `ccfeba3`, pinned Prettier tooling in `e9f1238`, and mechanical

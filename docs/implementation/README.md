@@ -2,12 +2,18 @@
 
 ## Current direction — 2026-09-30
 
-Follow [the latest handoff](NEXT-HANDOFF.md) and the
-[NBA briefing demo](../18-nba-briefing-demo.md). Sports is now the selected concrete
-workflow for remaining multitask evaluation, superseding older sports-deferral
-instructions below. Spec 06 remains open. The offline briefing planner is the first
-slice; source fixtures and bounded coordination are next. Earlier entries are dated
-evidence, not current task ordering.
+For current work, read the [authoritative roadmap](../12-development-roadmap.md),
+then the [runtime reference](../runtime-reference.md), the relevant numbered
+contract and its linked evidence. [NEXT-HANDOFF](NEXT-HANDOFF.md) preserves the
+historical handoff; it delegates current sequencing to the roadmap.
+
+The three-component documentation pilot is implemented: `npm run docs:check`
+validates its contracts, and `npm run docs:build` generates `dist/docs/index.html`
+with source, test and decision links. See the
+[bridge development workflow](../agent-bridge-development-workflow.md) for lead
+ownership and milestone discipline. Sports remains a demonstration of the general
+runtime; spec 06 quality acceptance and the roadmap's reliability limits remain
+open. The dated entries below are historical evidence, not next-task instructions.
 
 ## 2026-09-30: Chromium browser acceptance
 

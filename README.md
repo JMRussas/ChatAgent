@@ -210,19 +210,29 @@ See [repository conventions](AGENTS.md) for maintenance and commit conventions.
 
 ## Scope and next work
 
-This prototype has no built-in authentication or production deployment hardening;
-it refuses to bind a nonlocal address rather than run shared without them.
-Conversation ownership checks are not authentication. Source IDs and valid output
+This local prototype enforces installation-principal authentication, browser
+pairing and operator/client route permissions. Shared deployment remains outside
+its supported boundary; it refuses nonlocal binding. Source IDs and valid output
 schemas do not establish that every answer claim is supported by its citation.
 Provider adapters exist for Azure and Bedrock, but the linked agent and contention
 results are local Ollama measurements.
 
-As of 2026-09-29, active development resumed on the numbered runtime spec
-(spec 03 — provider discovery/inventory); the documentation-agent/learning
-track referenced below is parked, not the active priority. Automatic
-task-result insertion, timed triggers and automatic learning are not
-implemented. Older planning documents are historical where they conflict with
-this overview; the [current roadmap](docs/12-development-roadmap.md) tracks sequencing.
+Development follows the [current reliability roadmap](docs/12-development-roadmap.md).
+Local request limits, authentication, cancellation and document-task recovery are
+implemented within their reviewed scopes. Fixed/rolling quota reconciliation,
+shared deployment and independent quality acceptance remain open. Automatic
+task-result insertion, timed triggers and automatic learning are not implemented.
+Older dated plans preserve history rather than direct the next increment.
+
+For current contracts, start with the [runtime reference](docs/runtime-reference.md)
+and the [implementation reading path](docs/implementation/README.md). The
+[agent bridge workflow](docs/agent-bridge-development-workflow.md) describes how
+the development leads coordinate implementation and review.
+
+Run `npm run docs:check` for the scoped documentation gate, `npm run docs:build`
+to generate the browsable reference at `dist/docs/index.html`, and
+`npm run docs:graph` for the static import graph. Generated artifacts are not
+tracked source; documentation checks do not replace behavioral tests.
 
 ## Explore the engineering
 
