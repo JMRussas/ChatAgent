@@ -21,7 +21,12 @@ import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./ap
 import { createProtocolV1Handler } from "./app/protocolV1";
 import { renderPairingPageHtml } from "./ui/pairingPage";
 import { EventStreamRegistry, StreamCapacityError, sseFrame } from "./app/eventStreams";
-import { LocalAuthenticator, type Authenticator } from "./auth/authenticator";
+import {
+  LocalAuthenticator,
+  ownerBelongsToPrincipal,
+  scopedOwnerKey,
+  type Authenticator
+} from "./auth/authenticator";
 import { loadOrCreateIdentity } from "./auth/localIdentity";
 import { PairingController } from "./auth/pairing";
 import { checkExactOrigin, extractCredentials, SESSION_COOKIE } from "./auth/credentials";
@@ -194,6 +199,18 @@ function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo 
 const pairBodySchema = z.object({ code: z.string().max(64) }).strict();
 
 /**
+ * The userId rule each client route applies, so a label is only turned into an
+ * owner key when the route itself would have accepted it (MessageBodySchema,
+ * briefingHttp's trimmed userId, and the 1-200 rule of the other routes).
+ */
+const DEFAULT_LABEL = z.string().min(1).max(200);
+const LABEL_CONTRACTS: Record<string, z.ZodType<string>> = {
+  "POST /messages": z.string().min(1),
+  "POST /briefings": z.string().trim().min(1).max(200),
+  "POST /sports/chat": z.string().trim().min(1).max(200)
+};
+
+/**
  * The failure categories normalizeGenerationError produces; any other dead-letter
  * error text, even one shaped like a code, is reported as OTHER.
  */
@@ -312,6 +329,16 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
   const protocolV1 = createProtocolV1Handler(service, eventStreams);
   const conversationNotFound = (res: ServerResponse) =>
     json(res, 404, { code: "CONVERSATION_NOT_FOUND", error: "No such conversation" });
+  /**
+   * Whether a legacy read may show these events to this principal: a claimed
+   * conversation only to its owner's principal, an unclaimed one only while empty.
+   * Clients may subscribe before their first message; once anyone claims the
+   * conversation, the check is decided by ownership again.
+   */
+  const visibleTo = (conversationId: string, principalId: string, eventCount: number) => {
+    const owner = service.conversationOwner(conversationId);
+    return owner === undefined ? eventCount === 0 : ownerBelongsToPrincipal(owner, principalId);
+  };
 
   /** /pair and /pair/reissue. Codes travel only in a request body or the console. */
   const handlePairing = async (
@@ -444,14 +471,26 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         return await handlePairing(req, res, method, url.pathname, readBody);
 
       if (url.pathname.startsWith("/v1/")) {
-        if (await protocolV1(req, res, url, parseBody)) return;
+        // Every /v1 route is a client route, so a principal is present here.
+        if (await protocolV1(req, res, url, parseBody, principal!.principalId)) return;
       } else if (rule?.access === "client") {
         // Legacy client routes take conversation ids from the path or the body; none
         // of them may name a conversation the v1 protocol allocated internally.
         // Operator routes (retention, retirement) work on internal ids by design.
         const pathId = /^\/conversations\/([^/]+)\//.exec(url.pathname)?.[1];
-        if (pathId !== undefined && protocolV1.isProtocolConversation(decodeURIComponent(pathId)))
-          return conversationNotFound(res);
+        if (pathId !== undefined) {
+          const id = decodeURIComponent(pathId);
+          const owner = service.conversationOwner(id);
+          // Reads and cancellation carry no owner, so a claimed conversation's owner
+          // must belong to this principal. An unclaimed one may be read (it must still
+          // be empty; see visibleTo) but has nothing to cancel.
+          if (
+            protocolV1.isProtocolConversation(id) ||
+            (owner !== undefined && !ownerBelongsToPrincipal(owner, principal!.principalId)) ||
+            (owner === undefined && method !== "GET")
+          )
+            return conversationNotFound(res);
+        }
         // The body is read and checked here, before any handler, so the refusal does
         // not depend on whether or when a handler reads it.
         if (method === "POST") {
@@ -459,6 +498,18 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           const id = (body as { conversationId?: unknown } | null)?.conversationId;
           if (typeof id === "string" && protocolV1.isProtocolConversation(id))
             return conversationNotFound(res);
+          // Ownership is per principal: the userId label is replaced by the owner key
+          // scoped to the authenticated principal before any handler or store sees it.
+          // A missing or invalid label is left for the route's own validation.
+          // The label is checked against the route's own contract first and derived
+          // from its normalized value; anything else is left for the route to reject
+          // exactly as before.
+          const userId = (body as { userId?: unknown } | null)?.userId;
+          const label = (LABEL_CONTRACTS[rule!.name] ?? DEFAULT_LABEL).safeParse(userId);
+          if (label.success)
+            (body as { userId: string }).userId = scopedOwnerKey(principal!.principalId, [
+              label.data
+            ]);
           parseBody = async () => body;
         }
       }
@@ -857,6 +908,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         const parts = url.pathname.split("/");
         const conversationId = parts[2];
         const events = await service.getTimeline(conversationId);
+        if (!visibleTo(conversationId, principal!.principalId, events.length))
+          return conversationNotFound(res);
         return json(res, 200, { events });
       }
 
@@ -874,7 +927,11 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         try {
           boundVersion = service.conversationVersion(conversationId);
           // Expired history returns 410 before SSE headers.
-          await stream.read(() => service.getTimeline(conversationId));
+          const initial = await stream.read(() => service.getTimeline(conversationId));
+          if (!visibleTo(conversationId, principal!.principalId, initial.length)) {
+            stream.close();
+            return conversationNotFound(res);
+          }
         } catch (error) {
           stream.close();
           throw error;
@@ -899,9 +956,14 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
 
         await stream.start(async () => {
           const events = await service.getTimeline(conversationId);
+          // A retired id reused by new work ends the stream as expired, first.
           const currentVersion = service.conversationVersion(conversationId);
           if (boundVersion && currentVersion !== boundVersion)
             throw new GenerationError("CONVERSATION_EXPIRED", false);
+          // Re-checked on every read: a stream opened before the first message must
+          // not follow a conversation that another principal then claims.
+          if (!visibleTo(conversationId, principal!.principalId, events.length))
+            throw new Error("CONVERSATION_NOT_VISIBLE");
           boundVersion = currentVersion;
           const serialized = JSON.stringify(events);
           if (serialized === lastSerializedEvents) return;

@@ -67,6 +67,32 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(BridgeError,'OWNER'):await restarted.command({**base,'userId':'other','op':'list'})
             await restarted.close()
 
+    async def test_principal_scoped_owner_keys_fit_and_legacy_rows_stay_unreachable(self):
+        # The server now sends owners as 90-character keys scoped to a principal
+        # ("o1:" + SHA-256 of the principal + ":" + SHA-256 of principal and label).
+        # Rows written earlier with a plain userId are kept as they are, and a scoped
+        # owner cannot reach them; ChatAgent turns that refusal into a retirement blocker.
+        owner='o1:0EyiaUtH0zLjC9JOG5Hx3q0xXW84KePOkJJV_3RPizM:8_SrTF2p_MbkjN6Uw8hA3UHxW9bI1nEtrWsShyKep-s'
+        self.assertEqual(len(owner),90)
+        with tempfile.TemporaryDirectory() as td:
+            # A given identity ({}) keeps start from looking one up over the network.
+            b=ConversationTasks(td,{},fixture_corpus())
+            with patch.object(b,'schedule'):
+                await b.command({'op':'start','conversationId':'legacy','userId':'u','requestId':'old','question':'Question'})
+                await b.command({'op':'start','conversationId':'fresh','userId':owner,'requestId':'new','question':'Question'})
+            await b.close()
+            restarted=ConversationTasks(td,None,fixture_corpus())
+            with self.assertRaisesRegex(BridgeError,'OWNER_MISMATCH'):
+                await restarted.command({'op':'list','conversationId':'legacy','userId':owner})
+            with restarted.manager.connect() as c:
+                self.assertEqual(c.execute('SELECT user FROM owners WHERE conversation=?',('legacy',)).fetchone(),('u',))
+                self.assertEqual(c.execute('SELECT user FROM owners WHERE conversation=?',('fresh',)).fetchone(),(owner,))
+            self.assertEqual(len(await restarted.command({'op':'list','conversationId':'fresh','userId':owner})),1)
+            # The existing 200-character limit is unchanged.
+            with self.assertRaisesRegex(BridgeError,'INVALID_SCOPE'):
+                await restarted.command({'op':'list','conversationId':'fresh','userId':'x'*201})
+            await restarted.close()
+
     async def test_listing_does_not_claim_empty_conversation(self):
         with tempfile.TemporaryDirectory() as td:
             b=ConversationTasks(td,None,fixture_corpus())

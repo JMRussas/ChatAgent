@@ -16,7 +16,7 @@ import { InMemoryTaskQueue, type DeepModelProvider } from "../../src/providers/i
 import { MockFastProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
 import { entry, message as dispatchMessage, runtime } from "../helpers/dispatchFixtures";
-import { allowAllTestAuth } from "../helpers/testAuth";
+import { allowAllTestAuth, testOwner } from "../helpers/testAuth";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -81,8 +81,8 @@ function setup(limits: { maxRecords?: number; maxBytes?: number } = {}, maxRetri
     text,
     timestampIso: new Date().toISOString()
   });
-  const fail = async (messageId: string) => {
-    const response = await service.submitMessage(message(messageId));
+  const fail = async (messageId: string, userId = "u") => {
+    const response = await service.submitMessage({ ...message(messageId), userId });
     await service.runDeepWorkerOnce();
     return response.deepTask!.taskId;
   };
@@ -315,7 +315,8 @@ it("releases catalog dispatch reservations when dead-letter capacity rejects a t
 
 it("returns explicit HTTP capacity, discard and capacity-inspection responses", async () => {
   const r = setup({ maxRecords: 1 });
-  const taskId = await r.fail("m1");
+  // Claimed as the test principal owner, as an HTTP submission would claim it.
+  const taskId = await r.fail("m1", testOwner("u"));
   const server = createChatServer(r.service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   cleanups.push(async () => {

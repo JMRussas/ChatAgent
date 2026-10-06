@@ -17,7 +17,7 @@ import { ContextManager } from "../../src/app/contextManager";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
 import { createChatServer } from "../../src/server";
 import type { AddressInfo } from "node:net";
-import { allowAllTestAuth } from "../helpers/testAuth";
+import { allowAllTestAuth, testOwner } from "../helpers/testAuth";
 const event = (id = "m") => ({
   type: "user" as const,
   text: "hello",
@@ -243,7 +243,7 @@ it("returns explicit HTTP expiry and capacity errors", async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  await r.service.submitMessage(r.message());
+  await r.service.submitMessage({ ...r.message(), userId: testOwner("u") });
   r.advance(10);
   for (const path of ["/conversations/c/events", "/conversations/c/events/stream"]) {
     const response = await fetch(base + path);
@@ -415,7 +415,7 @@ it("tells an open legacy stream why it ends when its history expires", async () 
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
-  await r.service.submitMessage(r.message());
+  await r.service.submitMessage({ ...r.message(), userId: testOwner("u") });
   const response = await fetch(
     `http://127.0.0.1:${(server.address() as AddressInfo).port}/conversations/c/events/stream`
   );

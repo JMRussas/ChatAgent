@@ -99,9 +99,21 @@ Known side effect: before a test was isolated, one test run created a real
 installation identity in the user profile (`%LOCALAPPDATA%\ChatAgent`). It was
 left in place; whether to keep it is the user's decision.
 
-Still open for step 2: per-principal ownership (a second principal, for example a
-shared login) and adoption of existing document-task owners. Shared deployment
-stays refused. See
+Ownership is now per principal:
+
+- owners are principal-scoped 90-character keys across conversations, v1,
+  results, games, briefings and document tasks;
+- reads without an owner check the principal;
+- unclaimed conversations are visible only while empty, with a re-check on every
+  stream read;
+- legacy document-task rows are preserved and unreachable, and retirement fails
+  closed on them.
+
+Two principals are exercised only in tests: 12 cases in
+`tests/integration/principalOwnership.test.ts`, plus a real-sidecar Python
+regression. Still open for step 2: a second principal type in production (for
+example a shared login), adoption of legacy document-task owners, and the
+decision to allow shared deployment, which stays refused. See
 [local authentication](implementation/14-local-authentication.md) and the runtime
 reference.
 Rolling-window reconciliation belongs to step 3.

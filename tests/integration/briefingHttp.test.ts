@@ -11,7 +11,7 @@ import { BriefingHttp } from "../../src/sports/briefingHttp";
 import { defaultNbaProfile } from "../../src/sports/briefingConfig";
 import { FixtureSportsSource, type SportsSource } from "../../src/sports/sources";
 import games from "../../data/sports/games.fixture.json";
-import { allowAllTestAuth } from "../helpers/testAuth";
+import { allowAllTestAuth, testOwner } from "../helpers/testAuth";
 const request = { now: games.capturedAt, timezone: "UTC", team: games.supportedTeams[0] };
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -93,7 +93,7 @@ describe("briefing HTTP integration", () => {
     expect(started.status).toBe(202);
     expect(started.body.tasks).toHaveLength(1);
     a.release();
-    const finished = await a.coordinator.wait("u", started.body.id);
+    const finished = await a.coordinator.wait(testOwner("u"), started.body.id);
     expect(finished.tasks[0].results[0].evidence.records.length).toBeGreaterThan(0);
     expect((await a.post({ ...body, league: "NFL" }, "/sports/chat")).status).toBe(400);
   });
@@ -140,7 +140,7 @@ describe("briefing HTTP integration", () => {
       "cancelled"
     ]);
     a.release();
-    await a.coordinator.wait("user", run.id);
+    await a.coordinator.wait(testOwner("user"), run.id);
     const final = await a.post({ op: "status", userId: "user", runId: run.id });
     expect(final.body.tasks[0].status).toBe("complete");
     expect(final.body.tasks[0].results[0].evidence.mode).toBe("synthetic");
@@ -193,7 +193,7 @@ describe("briefing HTTP integration", () => {
     const start = await a.post({ op: "start", userId: "user", requestId: "request", request });
     await a.close();
     expect(a.signals[0].aborted).toBe(true);
-    const run = await a.coordinator.wait("user", start.body.id);
+    const run = await a.coordinator.wait(testOwner("user"), start.body.id);
     expect(run.tasks.every((t) => t.status === "cancelled" && t.results.length === 0)).toBe(true);
   });
 });

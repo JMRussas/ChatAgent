@@ -8,6 +8,7 @@ import { GenerationError } from "../domain/generation";
 import type { ChatService } from "./chatService";
 import type { ChatTimelineEvent } from "../domain/types";
 import { sseFrame, type EventStreamRegistry } from "./eventStreams";
+import { scopedOwnerKey } from "../auth/authenticator";
 
 const scopeSchema = z.object({
   accountId: z.string().min(1).max(200),
@@ -77,7 +78,8 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     req: IncomingMessage,
     res: ServerResponse,
     url: URL,
-    parseBody: () => Promise<unknown>
+    parseBody: () => Promise<unknown>,
+    principalId: string
   ): Promise<boolean> => {
     const match = url.pathname.match(
       /^\/v1\/conversations\/([^/]+)\/(messages|events\/stream|messages\/([^/]+)\/cancel)$/
@@ -92,7 +94,9 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     if (submit) rejectUnsupportedInputs(raw);
     const body = submit ? submitSchema.parse(raw) : undefined;
     const scope = scopeSchema.parse(body ?? Object.fromEntries(url.searchParams));
-    const key = JSON.stringify([scope.accountId, scope.projectId, conversationId]);
+    // Scope is per principal: the same declared account, project and conversation
+    // under another principal is a different conversation.
+    const key = JSON.stringify([principalId, scope.accountId, scope.projectId, conversationId]);
     let internalId = conversations.get(key);
     if (submit && !internalId) {
       if (conversations.size >= service.maxConversationIdentities)
@@ -106,7 +110,7 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
       try {
         result = await service.submitMessage({
           conversationId: internalId!,
-          userId: scope.accountId,
+          userId: scopedOwnerKey(principalId, [scope.accountId, scope.projectId]),
           messageId: body.messageId,
           runControls: body.runControls,
           referenceSelections: body.referenceSelections,

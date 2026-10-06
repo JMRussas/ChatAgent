@@ -1,4 +1,7 @@
-import type { Authenticator, Principal } from "../../src/auth/authenticator";
+import { scopedOwnerKey, type Authenticator, type Principal } from "../../src/auth/authenticator";
+
+/** The owner key a label becomes for allowAllTestAuth's principal, for direct store access. */
+export const testOwner = (...labels: string[]) => scopedOwnerKey("local:test", labels);
 
 /**
  * TEST ONLY. Treats every request as the installation owner, so suites that test

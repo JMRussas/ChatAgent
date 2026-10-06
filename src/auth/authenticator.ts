@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { localIdentitySchema, type LocalIdentity } from "./localIdentity";
 
@@ -158,6 +158,31 @@ export class LocalAuthenticator implements Authenticator {
       return undefined;
     return { principalId: identity.principalId, roles: owner(), via: "session" };
   }
+}
+
+const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("base64url");
+// JSON encoding first: hashing a raw string as UTF-8 would map distinct unpaired
+// surrogates to the same replacement character, so two principals could collide.
+const principalDigest = (principalId: string) =>
+  digest(JSON.stringify(["chatagent-principal", principalId]));
+const SCOPED_OWNER = /^o1:([A-Za-z0-9_-]{43}):[A-Za-z0-9_-]{43}$/;
+
+/**
+ * The owner string stored for a resource: "o1:" + SHA-256 of the principal + ":" +
+ * SHA-256 of the canonical (principal, labels) array, 90 characters in a URL-safe
+ * alphabet. It fits every downstream limit whatever the labels are. The digests
+ * are collision-resistant: two principals, or two label sets, are not expected to
+ * produce the same owner. The principal part lets a read with no owner in it check
+ * the principal without any other map.
+ */
+export function scopedOwnerKey(principalId: string, labels: readonly string[]) {
+  return `o1:${principalDigest(principalId)}:${digest(ownerKey(principalId, labels))}`;
+}
+
+/** True only for a well-formed scoped owner whose principal part is this principal. */
+export function ownerBelongsToPrincipal(owner: string | undefined, principalId: string) {
+  const match = owner === undefined ? null : SCOPED_OWNER.exec(owner);
+  return !!match && sameSecret(match[1], principalDigest(principalId));
 }
 
 /**

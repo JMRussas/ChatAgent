@@ -153,6 +153,10 @@ export class ChatService {
   hasConversationIdentity(conversationId: string) {
     return this.ownerUserIdByConversationId.has(conversationId);
   }
+  /** The owner a conversation was claimed by, or undefined if it was never claimed. */
+  conversationOwner(conversationId: string) {
+    return this.ownerUserIdByConversationId.get(conversationId);
+  }
   conversationRetentionStats() {
     return { owners: this.ownerUserIdByConversationId.size, scopes: this.scopes.size };
   }

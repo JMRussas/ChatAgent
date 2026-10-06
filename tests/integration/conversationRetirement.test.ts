@@ -14,7 +14,7 @@ import { GenerationError } from "../../src/domain/generation";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
-import { allowAllTestAuth } from "../helpers/testAuth";
+import { allowAllTestAuth, testOwner } from "../helpers/testAuth";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -565,7 +565,7 @@ it.each(["teams", "games", "document"] as const)(
 
 it("ends a legacy stream before it can follow a retired ID into another user's history", async () => {
   const r = setup();
-  await r.service.submitMessage(r.message());
+  await r.service.submitMessage({ ...r.message(), userId: testOwner("u") });
   const { base } = await listen(r, {});
   const controller = new AbortController();
   const stream = await fetch(base + "/conversations/c/events/stream", {

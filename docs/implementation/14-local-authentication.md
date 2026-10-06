@@ -151,6 +151,27 @@ coverage probe sends a request to every table entry with the operator token and
 requires it to reach a handler, so it catches a table entry whose handler is
 missing, but not the reverse.
 
+## Per-principal ownership
+
+`scopedOwnerKey(principalId, labels)` produces the stored owner: `o1:` + SHA-256
+of `JSON.stringify(["chatagent-principal", principalId])` + `:` + SHA-256 of the
+canonical `[principalId, ...labels]`, 90 characters. JSON encoding comes first
+because raw UTF-8 hashing maps distinct unpaired surrogates to the same bytes.
+`ownerBelongsToPrincipal` checks the strict format and compares the principal
+part in constant time. No map stores principals separately.
+
+The server derives the owner in one place, before dispatch, as follows:
+
+- for each legacy client POST, from `userId`, validated first against that
+  route's own contract. `/messages` requires a non-empty string; `/briefings`
+  and `/sports/chat` trim, then require 1–200 characters; the other routes
+  require 1–200 characters. An invalid label is left for the route to reject as
+  before;
+- for v1, from (`accountId`, `projectId`), after the scope schema has validated
+  them.
+
+The owner fits the document-task sidecar's 200-character `scope()` limit.
+
 ## Activation notes
 
 - Legacy client routes cannot reach a conversation that protocol v1 allocated

@@ -199,9 +199,47 @@ operator. The operator dead-letter view lists only the task
 id, its timestamps, size band and a known failure category. It omits prompts,
 context, conversation and message identities, and free error text.
 
-Not provided: separate users, per-user ownership (`userId`, `accountId` and
-`projectId` remain labels inside the one principal), adoption of existing
-document-task owners, and shared deployment.
+**Ownership is per principal.** Before any handler or store sees it, a valid
+`userId` label (as each route already validates it) becomes an owner key scoped
+to the authenticated principal: `o1:` + SHA-256 of the principal + `:` + SHA-256
+of the principal and label, 90 characters. Protocol v1 derives its owner from
+(`accountId`, `projectId`), and its conversation key includes the principal. All
+existing ownership checks therefore apply per principal:
+
+- conversation claims (`409 CONVERSATION_OWNER_MISMATCH`);
+- evidence and result references;
+- games, teams and topics;
+- briefing runs;
+- document tasks.
+
+The same label under two principals names two different owners. The digests are
+collision-resistant; that is a cryptographic expectation, not an absolute
+guarantee.
+
+Reads and cancellation carry no owner, so they check the conversation's stored
+owner against the caller's principal and answer `404 CONVERSATION_NOT_FOUND`
+otherwise. Holding the operator role makes no difference on these client routes.
+Operator routes remain installation-wide.
+
+One exception keeps subscribe-before-first-message working: a conversation that
+nobody has claimed may be read or streamed while it is empty, and only then. Once
+it has events without an owner it is never shown. Once anyone claims it, an open
+stream re-checks on every read and ends, before writing, if the claim belongs to
+another principal. Cancelling an unclaimed conversation answers `404`.
+
+Behaviour changes in local mode, with its one principal:
+
+- internal owner strings have the new format, including in new document-task
+  sidecar rows;
+- events without an owner are not readable;
+- document-task rows stored earlier under a plain `userId` are kept unchanged, but
+  are unreachable through client routes;
+- a conversation with such rows cannot be retired. The blocker check sees the
+  sidecar's owner mismatch as `DOCUMENT_TASKS_UNKNOWN`, which fails closed.
+  Adopting legacy rows is a later, explicit step.
+
+Not provided: a second principal type in production (only tests use two
+principals), adoption of existing document-task owners, and shared deployment.
 
 POST bodies are limited to `HTTP_MAX_BODY_BYTES` (default 1048576, at most
 16777216; invalid values fail startup). Bytes are counted while reading, so the
