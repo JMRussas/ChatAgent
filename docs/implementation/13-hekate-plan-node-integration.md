@@ -149,7 +149,7 @@ issues must be resolved before any adapter is built.
 
 0. **Gods source recovery and compatibility.** The initial 2026-10-06 inventory
    found that gods did not import on the inspected Hekate branch:
-   `Odin/gods/handlers/registration.py:18` imports `gods.handlers.athena_complete`.
+   `Odin/gods/handlers/registration.py:18` imports `gods.handlers.athena_complete`;
    no such module existed in `Odin/gods/handlers/` on that branch. The inventory
    reports it only on `origin/chore/sisyphus-cleanup` (`4e44d3f`). _Spot-checked._
    Later on 2026-10-06, `codex-hekate` reported recovery of `athena_complete` from
@@ -159,6 +159,9 @@ issues must be resolved before any adapter is built.
    and 16 offline Athena node-tree tests. These later results are reported here,
    not directly re-derived. Integration compatibility remains unverified; no
    live model call or service startup is established by source recovery.
+   The lead subsequently reported recovery committed as `a1f8237`, including the
+   fixture, with 26 gateway and 30 Odin offline tests passing. This does not
+   establish a fully passing Odin suite or live gods integration.
 1. **Authoritative task ledger.** The inventory reports that SQLite `tasks` and
    `task_deps` form the active execution ledger. A comment in `Odin/gods/engine.py`
    instead describes Postgres (asyncpg) as primary, with SQLite (aiosqlite) for
@@ -202,30 +205,49 @@ issues must be resolved before any adapter is built.
    Compose verified. That runtime report is not directly re-derived here and
    does not establish live Hekate operation or persistent planning data.
 
-   A plan-only local launcher now exists as a separate, uncommitted Hekate
-   increment: `scripts/local/` and `context-store/docker-compose.local.yml`, plus
+   A plan-only local launcher is committed in Hekate as `b94c276`, as reported by
+   `codex-hekate`: `scripts/local/` and `context-store/docker-compose.local.yml`, plus
    readiness, shutdown and dispatcher-switch changes in
    `context-store/Api/Program.cs`. It requires PowerShell 7.5 or later.
-   Evidence as of 2026-10-06:
-   - **Executed:** an independent run of its Pester 3.4 suite passed 45 of 45. The
+   Evidence as of 2026-10-06; source identifiers below are relative to the Hekate
+   repository, not this checkout:
+   - **Earlier executed evidence:** an independent run of its Pester 3.4 suite passed 45 of 45. The
      tests mock Docker, dotnet, processes and HTTP, except one argument-forwarding
      test against a fake `docker` executable. A separate unmocked probe confirmed
      that Api ownership survives a real state-file round-trip and is rejected
      after a simulated PID reuse.
-   - **Reported by claude-hekate:** the Api builds.
-   - **Source review only:** backup, restore and readiness behaviour.
-   - **Not verified:** live start, readiness, data persisting across stop and
-     start, backup, and graph restore. These gates remain unrun in the reported
-     evidence despite the runtime now being available; mocked or source evidence
-     does not satisfy them.
-   - **Review notes still open:** restore compares graph labels with the live
-     database rather than the backup, and does not compare vertex or edge counts
-     with the backup. The state file stores an unsalted SHA-256 of the local
-     database password.
+   - **Live evidence reported by the Hekate lead and read from
+     `scripts/local/VALIDATION.md`:** S0–S13 passed after fixes. The lead's final
+     independent run passed 49 of 49 Pester tests; start returned in 11.3 seconds
+     with the API healthy, and graceful stop returned in 1.3 seconds. Plan
+     hierarchy and dependency edges read back identically after restart cycles.
+     Backup and a fresh repaired restore matched the archive baseline: six
+     relational nodes, six Cypher vertices and one edge. These are Hekate-side
+     checks, not a new independent ChatAgent review or execution.
+   - **Restore repair:** `scripts/local/README.md` documents the upstream AGE
+     logical-restore OID issue (`apache/age#2503`). Repair runs on the new target
+     only, atomically, with a single-graph guard and fail-closed outcome. The
+     source database was unchanged. A supplementary live multi-graph rejection
+     probe was not run; unsupported-shape rejection is covered by mocked tests.
+   - **Build and final state:** the API built against a clean committed-source
+     archive. The profile is stopped with volume, image and data retained. No
+     production service, model call or push is established by these checks.
+   - **Limits:** the launcher is Windows-only with PowerShell 7.5 or later;
+     validation supplied `rootPath` to avoid an existing project-create API bug.
+     Disposable validation projects and restore databases remain for inspection.
+     The record reports 18 failures in a partial broader Odin run, outside the
+     local-profile gate. Restore's wrapper compares labels with the live source
+     and checks Cypher usability; archive-baseline count equality above is
+     validation evidence, not an automatic backup-baseline comparison guarantee.
+     The state file still stores an unsalted SHA-256 password fingerprint; that
+     concern remains separate from successful lifecycle and restore evidence.
 
 7. **Plan-node writers.** Hekate's pure plan-node contracts (no database, API or
-   service changes) were reviewed by `codex-hekate` with 101 passing unit tests,
-   as reported on the bridge. Its writer inventory, reported but not re-derived
+   service changes) are committed as `3fb3663`, with 101 of 101 tests passing in
+   a clean isolated dependency closure, as reported by `codex-hekate`. Store
+   integration (increment 2b), authenticated principals and API enforcement have
+   not started; pure contracts do not establish those capabilities.
+   Its writer inventory, reported but not re-derived
    here, found problems that must be resolved before any adapter or
    compare-and-set integration:
    - On completion, `context_bridge` replaces the node's name and value and all of

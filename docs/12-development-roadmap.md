@@ -97,16 +97,17 @@ see step 6. This direction does not accept step 1, close step 2, or authorize
 remote execution or durable-recovery claims. The event-stream slice of step 2 was
 later resumed at the user's direction and is the third step 2 increment.
 
-A Hekate plan-only local launcher exists as a separate, uncommitted Hekate
-increment. Its mocked tests and the source were reviewed; see the contract's local
-profile entry for the exact checks. Live start, readiness, persistence, backup and
-graph restore remain unverified. On 2026-10-06 `codex-hekate` reported Docker
-Desktop installed and its Linux amd64 engine and Compose verified; that runtime
-check does not establish the Hekate live-operation gates.
-Hekate's pure plan-node contracts (no database, API or service changes) were
-reviewed by its lead, `codex-hekate`, with 101 passing unit tests as reported on
-the bridge; this is not database or API readiness. Open writer-path problems are
-listed in the contract's unresolved questions.
+Hekate's plan-only local profile is committed as `b94c276`. Its lead and Hekate's
+`scripts/local/VALIDATION.md` report live lifecycle, plan/dependency persistence,
+backup and repaired fresh-restore gates passing, with final 49/49 Pester tests.
+The profile is stopped with image, volume and data retained; see the contract's
+local-profile entry for evidence scope and remaining limits. Pure plan-node
+contracts are committed as `3fb3663`, with 101/101 tests in a clean isolated
+dependency closure, and source recovery as `a1f8237`, with 26 gateway and 30 Odin
+offline tests, as reported by `codex-hekate`. Store integration (increment 2b),
+authenticated principals and API enforcement have not started. These checks do
+not establish live gods integration or database/API enforcement; open writer-path
+problems are listed in the contract's unresolved questions.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
