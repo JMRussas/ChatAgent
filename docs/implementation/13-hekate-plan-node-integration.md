@@ -139,6 +139,47 @@ durable pending state after restart or consumed notification, rejection of stale
 attempts, and bounded escalation without duplicate repository effects. The
 current bridge and this documentation provide none of these recovery guarantees.
 
+## Proposed shared agent and task visualization
+
+Status: proposed and unimplemented. The user identified a task/agent map as a
+possible shared interface for Hekate and ChatAgent, with a possible bridge
+visualization. The reference shows
+a parent-child tree, task names, status, elapsed time, token counts and clickable
+details; its product origin is unverified. Hekate's lead has not acknowledged
+this direction, so ownership and query seams are not jointly accepted.
+
+The proposal is three linked views over existing authoritative state:
+
+| View                | Visible state                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| Hekate planning     | Plan tasks, dependencies, owners, review gates and accepted results                         |
+| ChatAgent execution | Agents, assignments, last meaningful progress, pending handoffs, wakeups and recovery state |
+| Bridge transport    | Sender, recipient, thread, message history and observed delivery/consumption                |
+
+Reuse shared task, assignment-attempt, plan-revision and artifact identifiers to
+link these projections. Each field must identify its authoritative source;
+missing or stale evidence stays visible as unknown or stale. Reuse the agreed
+plan/execution state and transport history rather than adding independent or
+conflicting UI ledgers. Query contracts and projection ownership remain to be
+agreed between the leads.
+
+Keep edge types distinct: delegation means `spawned-by`, dependency means
+`depends-on`, and communication means `message-to`. A parent-child display must
+not imply that every message recipient is a delegated worker or that every
+delegated worker is a plan dependency.
+
+The bridge has no explicit message acknowledgment. Delivery or consumption is
+not workflow acknowledgment, and acknowledgment is not resumed work. Show these
+as separate textual states, backed by progress evidence, so a consumed completion
+message cannot hide a stalled review. Elapsed time and token usage should name
+their source and scope; unavailable measurements must not appear as zero.
+
+Provide drilldown to assignment scope, review findings, checks and the exact
+result or local commit. Allow collapsing completed branches and filtering for
+items needing attention, including overdue acknowledgment, stalled progress and
+pending review. Status dots may supplement clear textual status; they must not
+carry the only indication of blocked or incomplete work.
+
 ## Unresolved questions
 
 Source labels: _code_ means read directly from Hekate source for this document.
