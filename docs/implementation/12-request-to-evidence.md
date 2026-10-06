@@ -356,7 +356,32 @@ search row. Details are a snapshot, not a fresh request or box score. Results us
 existing owned/expiring payload handles, selected-row attachment and source provenance.
 The direct UI needs no model. Shared provider admission/cache remains in force.
 `gameSearch` config controls leagues, window days/count, result TTL, row limit and
-snapshot count; reload invalidates handles and aborts active operations.
+snapshot count. A reload that changes `gameSearch`, `games` or `directories`
+replaces game operations, invalidating their handles and aborting their active
+operations; other reloads keep them (see [component reload](#component-reload)).
+
+### Component reload
+
+A live briefing reload (2026-10-06) replaces only the components whose configuration
+changed. The team directory depends on `directories`; game operations depend on
+`directories`, `games` and `gameSearch`. Each component carries its own revision,
+separate from the global briefing version, so a kept component keeps issuing and
+accepting the same snapshots and result revisions.
+
+- Profile, news-feed and coordinator changes keep both components: earlier team
+  snapshots, directory and game results, previously issued tools and in-flight reads
+  stay valid.
+- `games` or `gameSearch` changes replace game operations only. Closing the old
+  instance aborts its in-flight work, which cannot publish afterwards, and removes
+  only the search and detail results it issued from the directory's shared store; it
+  marks them with a private owner token. Directory snapshots and results remain.
+- `directories` changes replace both, as before.
+
+Replacements are constructed before anything is published, and replaced components
+are closed afterwards. Unchanged game options reuse the same game sources, so the
+coordinator and kept game operations share one source cache. All components share
+one request budget, whose usage survives every reload. An invalid or unchanged
+configuration changes nothing.
 
 Next: role containers with enforced tool exposure, then manual budget visibility
 and the framework comparison below, before broader grounded reporting. Still pending: dependent tool
@@ -378,7 +403,7 @@ Implemented slice: `sports:list-teams` plus direct UI directory browsing. The la
 calls no model and does not attach data to the conversation. Model-requested lists
 render tables alongside compact result metadata. `POST /sports/results` retrieves an
 immutable result by user/conversation-scoped handle. Stores are bounded, process-local,
-expire with directory evidence and clear on reload/close. Timeline snapshots already
+expire with directory evidence and clear when the directory is replaced or closed. Timeline snapshots already
 delivered remain historical records; handle expiry does not erase those records.
 Existing development-server caller-supplied identity is used; this is not a new
 authentication layer. Production authentication remains a separate concern.

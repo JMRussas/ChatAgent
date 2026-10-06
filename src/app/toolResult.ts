@@ -39,7 +39,14 @@ export type ToolResult = z.infer<typeof toolResultSchema>;
 export class ToolResultStore {
   private records = new Map<
     string,
-    { userId: string; conversationId: string; result: ToolResult; bytes: number }
+    {
+      userId: string;
+      conversationId: string;
+      result: ToolResult;
+      bytes: number;
+      /** Opaque component that issued the record; never exposed. */
+      owner?: object;
+    }
   >();
   constructor(
     private clock = Date.now,
@@ -61,7 +68,8 @@ export class ToolResultStore {
   put(
     userId: string,
     conversationId: string,
-    value: Omit<ToolResult, "context"> & { context: Omit<ToolResult["context"], "resultId"> }
+    value: Omit<ToolResult, "context"> & { context: Omit<ToolResult["context"], "resultId"> },
+    owner?: object
   ) {
     for (const [id, record] of this.records)
       if (Date.parse(record.result.context.expiresAt) <= this.clock()) this.remove(id);
@@ -78,7 +86,8 @@ export class ToolResultStore {
       userId,
       conversationId,
       result: structuredClone(result),
-      bytes
+      bytes,
+      ...(owner ? { owner } : {})
     });
     this.bytes += bytes;
     return result;
@@ -98,6 +107,16 @@ export class ToolResultStore {
     const removed: string[] = [];
     for (const [id, record] of this.records)
       if (record.conversationId === conversationId) {
+        this.remove(id);
+        removed.push(id);
+      }
+    return removed;
+  }
+  /** Drops every record the given component issued; a scan of this bounded store. */
+  forgetOwner(owner: object) {
+    const removed: string[] = [];
+    for (const [id, record] of this.records)
+      if (record.owner === owner) {
         this.remove(id);
         removed.push(id);
       }

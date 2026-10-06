@@ -63,6 +63,8 @@ export class GameOperations {
   private closed = false;
   private shutdown = new AbortController();
   private games = new Map<string, { records: Game[]; expires: number }>();
+  /** Marks this instance's results in the directory's shared store. */
+  private readonly owner = {};
   private config: z.infer<typeof gameOperationsOptionsSchema>;
   constructor(
     private directory: TeamDirectory,
@@ -76,10 +78,12 @@ export class GameOperations {
   leagues() {
     return [...this.config.leagues];
   }
+  /** Ends this instance: aborts its work and drops its results from the shared store. */
   close() {
     this.closed = true;
     this.shutdown.abort();
     this.games.clear();
+    this.directory.results.forgetOwner(this.owner);
   }
   /** Game snapshots are reachable only through their parent result. */
   forgetResults(resultIds: readonly string[]) {
@@ -208,33 +212,38 @@ export class GameOperations {
     if (args.selection === "latest_completed")
       limitations.add("Most recent final found by start time; latest completion is not confirmed");
     const expires = this.clock() + this.config.resultTtlMs;
-    const result = this.directory.results.put(userId, conversationId, {
-      version: "tool-result-v1",
-      context: {
-        status: successfulReads ? "ready" : "unavailable",
-        summary: `${selected.length} ${league} game records prepared. ${reads} bounded source reads; stop: ${stopReason}.`,
-        scope: `${league} games starting ${new Date(lower).toISOString()} to ${new Date(end).toISOString()}${team ? "; " + team.name : ""}`,
-        coverage: successfulReads ? "partial" : "unavailable",
-        limitations: [...limitations].slice(0, 20),
-        expiresAt: new Date(expires).toISOString()
+    const result = this.directory.results.put(
+      userId,
+      conversationId,
+      {
+        version: "tool-result-v1",
+        context: {
+          status: successfulReads ? "ready" : "unavailable",
+          summary: `${selected.length} ${league} game records prepared. ${reads} bounded source reads; stop: ${stopReason}.`,
+          scope: `${league} games starting ${new Date(lower).toISOString()} to ${new Date(end).toISOString()}${team ? "; " + team.name : ""}`,
+          coverage: successfulReads ? "partial" : "unavailable",
+          limitations: [...limitations].slice(0, 20),
+          expiresAt: new Date(expires).toISOString()
+        },
+        payload: successfulReads
+          ? {
+              kind: "table",
+              title: `${league} games${args.selection === "latest_completed" ? " — most recent completed found" : ""}`,
+              columns: ["Start (UTC)", "Away", "Home", "Status", "Away score", "Home score"],
+              rows: selected.map((r) => [
+                r.startsAt,
+                r.away.name,
+                r.home.name,
+                r.status,
+                r.score ? String(r.score.away) : "Unknown",
+                r.score ? String(r.score.home) : "Unknown"
+              ])
+            }
+          : null,
+        evidence: { sourceUrl, observedAt, revision: this.revision }
       },
-      payload: successfulReads
-        ? {
-            kind: "table",
-            title: `${league} games${args.selection === "latest_completed" ? " — most recent completed found" : ""}`,
-            columns: ["Start (UTC)", "Away", "Home", "Status", "Away score", "Home score"],
-            rows: selected.map((r) => [
-              r.startsAt,
-              r.away.name,
-              r.home.name,
-              r.status,
-              r.score ? String(r.score.away) : "Unknown",
-              r.score ? String(r.score.home) : "Unknown"
-            ])
-          }
-        : null,
-      evidence: { sourceUrl, observedAt, revision: this.revision }
-    });
+      this.owner
+    );
     for (const [id, r] of this.games) if (r.expires <= this.clock()) this.games.delete(id);
     if (this.games.size >= this.config.maxSnapshots)
       this.games.delete(this.games.keys().next().value!);
@@ -247,28 +256,33 @@ export class GameOperations {
     const parent = this.directory.results.get(resultId, userId, conversationId),
       record = this.games.get(resultId)?.records[row];
     if (!record) throw Error("GAME_REFERENCE_UNAVAILABLE");
-    return this.directory.results.put(userId, conversationId, {
-      version: "tool-result-v1",
-      context: {
-        ...parent.context,
-        summary:
-          "Selected game record prepared from the retrieved snapshot. No fresh lookup was performed."
+    return this.directory.results.put(
+      userId,
+      conversationId,
+      {
+        version: "tool-result-v1",
+        context: {
+          ...parent.context,
+          summary:
+            "Selected game record prepared from the retrieved snapshot. No fresh lookup was performed."
+        },
+        payload: {
+          kind: "table",
+          title: "Selected game record",
+          columns: ["Field", "Value"],
+          rows: [
+            ["Start (UTC)", record.startsAt],
+            ["Status", record.status],
+            ["Away", record.away.name],
+            ["Home", record.home.name],
+            ["Away score", record.score ? String(record.score.away) : "Unknown"],
+            ["Home score", record.score ? String(record.score.home) : "Unknown"]
+          ]
+        },
+        evidence: { ...parent.evidence, sourceUrl: record.provenance.url }
       },
-      payload: {
-        kind: "table",
-        title: "Selected game record",
-        columns: ["Field", "Value"],
-        rows: [
-          ["Start (UTC)", record.startsAt],
-          ["Status", record.status],
-          ["Away", record.away.name],
-          ["Home", record.home.name],
-          ["Away score", record.score ? String(record.score.away) : "Unknown"],
-          ["Home score", record.score ? String(record.score.home) : "Unknown"]
-        ]
-      },
-      evidence: { ...parent.evidence, sourceUrl: record.provenance.url }
-    });
+      this.owner
+    );
   }
   tools(): CapabilityTool[] {
     return [

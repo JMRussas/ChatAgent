@@ -67,15 +67,19 @@ export function createLiveBriefing(
     createHash("sha256").update(JSON.stringify(value)).digest("hex");
   let version = digest(config),
     closed = false;
+  // Each component is replaced only when what it depends on changes; the global
+  // version still identifies the whole configuration.
+  const directoryDigest = (value: typeof config) => digest({ directories: value.directories });
+  const gamesDigest = (value: typeof config) =>
+    digest({ directories: value.directories, games: value.games, gameSearch: value.gameSearch });
   const budget = new SportsRequestBudget(
     config.games.requestsPerMinute,
     config.games.minIntervalMs,
     clock
   );
-  const sources = (value: typeof config) => {
-    const registry = new Map(
-      createBalldontlieSources(apiKey, value.games, transport, clock, budget)
-    );
+  let gameSources = createBalldontlieSources(apiKey, config.games, transport, clock, budget);
+  const sources = (value: typeof config, games = gameSources) => {
+    const registry = new Map(games);
     for (const feed of value.feeds)
       registry.set(feed.id, new RssNewsSource(feed, transport, clock));
     bindBriefingSources(value.profile, registry);
@@ -85,9 +89,22 @@ export function createLiveBriefing(
   const coordinator = new BriefingCoordinator(registry, config.coordinator, clock);
   coordinator.configure(registry, config.coordinator, version);
   const http = new BriefingHttp(coordinator, config.profile);
-  let directory = new TeamDirectory(apiKey, budget, config.directories, version, transport, clock);
+  let directory = new TeamDirectory(
+    apiKey,
+    budget,
+    config.directories,
+    directoryDigest(config),
+    transport,
+    clock
+  );
   http.directory = directory;
-  let games = new GameOperations(directory, registry, config.gameSearch, version, clock);
+  let games = new GameOperations(
+    directory,
+    registry,
+    config.gameSearch,
+    gamesDigest(config),
+    clock
+  );
   http.gameOperations = games;
   http.additionalTools = () => [...directory.tools(), ...games.tools()];
   http.close = () => {
@@ -110,26 +127,47 @@ export function createLiveBriefing(
       const next = liveBriefingConfigSchema.parse(configuration),
         nextVersion = digest(next);
       if (nextVersion === version) return { version, changed: false };
-      const nextRegistry = sources(next);
+      const replaceDirectory = directoryDigest(next) !== directoryDigest(config),
+        replaceGames = replaceDirectory || gamesDigest(next) !== gamesDigest(config);
+      // Unchanged game options keep the same game sources, so the coordinator and a
+      // retained GameOperations share one source cache. All share the one budget.
+      const nextGameSources =
+        JSON.stringify(next.games) === JSON.stringify(config.games)
+          ? gameSources
+          : createBalldontlieSources(apiKey, next.games, transport, clock, budget);
+      const nextRegistry = sources(next, nextGameSources);
+      // Replacements are built before anything is published; constructors do no I/O.
+      const nextDirectory = replaceDirectory
+        ? new TeamDirectory(
+            apiKey,
+            budget,
+            next.directories,
+            directoryDigest(next),
+            transport,
+            clock
+          )
+        : directory;
+      const nextGames = replaceGames
+        ? new GameOperations(nextDirectory, nextRegistry, next.gameSearch, gamesDigest(next), clock)
+        : games;
       // No await between validation and publication. Old adapters retain this same budget.
       budget.configure(next.games.requestsPerMinute, next.games.minIntervalMs);
       coordinator.configure(nextRegistry, next.coordinator, nextVersion);
       http.setProfile(next.profile);
-      games.close();
-      directory.close();
-      directory = new TeamDirectory(
-        apiKey,
-        budget,
-        next.directories,
-        nextVersion,
-        transport,
-        clock
-      );
-      games = new GameOperations(directory, nextRegistry, next.gameSearch, nextVersion, clock);
+      const previousDirectory = directory,
+        previousGames = games;
+      directory = nextDirectory;
+      games = nextGames;
+      gameSources = nextGameSources;
       http.gameOperations = games;
       http.directory = directory;
       config = next;
       version = nextVersion;
+      // Then what was replaced is closed: its in-flight work aborts and cannot publish.
+      // A retained directory keeps its own results; closing old game operations drops
+      // only the results they issued.
+      if (replaceGames) previousGames.close();
+      if (replaceDirectory) previousDirectory.close();
       return { version, changed: true };
     }
   };

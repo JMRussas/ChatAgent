@@ -1183,12 +1183,21 @@ any shared deployment.
   the relevant league/provider so an NFL read cannot invalidate NBA resolutions.
   _League-scoped revisions implemented 2026-10-06; see
   [request to evidence](implementation/12-request-to-evidence.md):_ each snapshot
-  certifies only the leagues its lookup searched, with the revisions it read;
-  reload compatibility remains open.
-  Validation: 1,165 tests across 125 files and 34 browser tests passed on Windows
+  certifies only the leagues its lookup searched, with the revisions it read.
+  _Component reload implemented 2026-10-06; see
+  [component reload](implementation/12-request-to-evidence.md#component-reload):_
+  profile, news and coordinator reloads keep the directory and game operations;
+  game-only reloads replace game operations and drop only their results;
+  directory reloads replace both.
+  League revision validation: 1,165 tests across 125 files and 34 browser tests passed on Windows
   Node 24.21.0; independent review reran all 26 team-directory and game-operation
   tests. The expired-cache regression rejects a mutation restoring the old
   comparison. Format and lint passed.
+  Reload validation: 1,179 tests across 126 files, 34 browser tests and the
+  sustained-memory gate's 163 assertions passed, with heap within tolerance.
+  Independent review reran 53 focused tests and then the final 14 reload tests;
+  seven temporary mutations were rejected, including loss of the shared game
+  cache. Format and lint passed.
 - Make Azure/Bedrock deadlines configurable through the appropriate provider/model
   settings; retain separate workflow bounds. Audit Claude usage inspection and make
   its credential access/undocumented endpoint explicit and opt-in if not already so.
