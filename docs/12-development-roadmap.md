@@ -1238,9 +1238,18 @@ coordination and is not implied by this process-local reconciliation work.
 
 ### 4. Current-state documentation and maintenance checks
 
-Planned, not implemented. The next reliability work is step 2. This documentation rollout
-follows steps 1–3; update nearby contracts and regression tests during those changes
-without waiting for the generator rollout.
+The generated-reference and documentation-maintenance rollout below is planned, not
+implemented. Update nearby contracts and regression tests with each change without
+waiting for it. Quota reconciliation and the other open reliability limits in steps
+1–3 remain open.
+
+_Implemented 2026-10-06, a related maintenance check:_ the Ubuntu CI job sets up
+uv-managed Python, installs and checks the document-agent requirements, runs the offline
+Python suites and requires the real document-task sidecar tests; see the
+[README](../README.md). Linux runner execution was not exercised locally; equivalent
+commands passed against a fresh Windows environment: 91 document-agent, 9 prompt-contract,
+7 prompt-encoding and 4 inspection tests. Required-mode missing Python fails; optional
+mode reports seven skips. All seven sidecar cases pass with the interpreter installed.
 
 First increment: document `GenerationLifecycle`, `CatalogDispatch` and
 `BriefingCoordinator`, then generate a browsable reference for those modules.

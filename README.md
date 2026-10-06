@@ -237,7 +237,16 @@ Historical reports retain the environments and commands actually used.
 - [Task lifecycle and cancellation](experiments/doc-agent/TASKS.md)
 - [Durability and fail-closed recovery](experiments/doc-agent/DURABILITY.md)
 - [Conversation context and memory evidence](docs/implementation/01b-evidence.md)
-- [CI workflow](.github/workflows/verify.yml): TypeScript checks and simulated regression gates; live Ollama and Python evaluations run separately.
+- [CI workflow](.github/workflows/verify.yml): TypeScript checks and simulated regression gates.
+  The Ubuntu job also sets up uv 0.11.19 and Python 3.13.13, installs
+  `experiments/doc-agent/requirements-durable.txt` into `.venv` with `uv pip install` and
+  `uv pip check` (the requirements are not a full lock), and runs the offline Python suites
+  for the document agent, prompt contract, prompt encoding and Claude usage inspection.
+  There the real document-task sidecar tests are required
+  (`DOC_TASK_SIDECAR_REQUIRED=true`: a missing interpreter fails instead of skipping);
+  on Windows CI and locally they run only when `.venv` exists. `bridges/hekate/test_bridge.py`
+  needs a sibling Hekate checkout and remains separate integration evidence, as do live
+  Ollama and Python evaluations.
 
 Live chat planning uses strict validated JSON and bounded original conversation history.
 The default mock-only demo retains the legacy simulated pipeline. Low output-token

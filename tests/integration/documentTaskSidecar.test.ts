@@ -10,8 +10,8 @@ import { DocumentTaskSupervisor } from "../../src/app/documentTaskSupervisor";
 import { abandonResultSchema, taskViewSchema } from "../../src/server";
 
 // The real Python sidecar, offline. It uses the repository's uv-managed virtual
-// environment and only list requests, so no model is contacted and no task runs.
-// Skipped when that interpreter is not present.
+// environment, temporary stores and seeded checkpoints. No live model is contacted.
+// A missing interpreter fails when required; otherwise these cases are skipped.
 const PYTHON = resolve(
   process.platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python"
 );
@@ -21,7 +21,17 @@ afterEach(async () => {
   for (const fn of cleanups.splice(0)) await fn();
 });
 
-describe.skipIf(!existsSync(PYTHON))("real document-task sidecar (offline)", () => {
+// CI sets DOC_TASK_SIDECAR_REQUIRED=true: there a missing interpreter is a failure,
+// not a silent skip. Elsewhere (Windows CI, local runs) the suite is optional.
+const AVAILABLE = existsSync(PYTHON);
+if (process.env.DOC_TASK_SIDECAR_REQUIRED === "true" && !AVAILABLE)
+  it("requires the uv-managed sidecar environment", () => {
+    throw new Error(
+      `DOC_TASK_SIDECAR_REQUIRED is set but ${PYTHON} is missing. Create .venv with uv and install experiments/doc-agent/requirements-durable.txt.`
+    );
+  });
+
+describe.skipIf(!AVAILABLE)("real document-task sidecar (offline)", () => {
   async function start(existing?: string) {
     const root = existing ?? (await mkdtemp(join(tmpdir(), "doc-sidecar-")));
     const bridge = new PythonDocumentTasks(PYTHON, SCRIPT, root);
@@ -128,7 +138,7 @@ describe.skipIf(!existsSync(PYTHON))("real document-task sidecar (offline)", () 
   }, 60_000);
 });
 
-describe.skipIf(!existsSync(PYTHON))("real document-task supervisor (offline)", () => {
+describe.skipIf(!AVAILABLE)("real document-task supervisor (offline)", () => {
   type Internals = { current: { child?: PythonDocumentTasks } };
   const childOf = (s: DocumentTaskSupervisor) =>
     (s as unknown as Internals).current.child as PythonDocumentTasks;

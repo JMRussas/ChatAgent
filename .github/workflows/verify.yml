@@ -8,8 +8,33 @@ jobs:
     env:
       BENCH_MODE: simulate
       BENCH_SIM_SEED: default-v1
+      # The real document-task sidecar suite must run here, not skip.
+      DOC_TASK_SIDECAR_REQUIRED: "true"
     steps:
       - uses: actions/checkout@v4
+      # Python is managed by uv; the requirements are installed and checked, not
+      # locked, so this is install-and-check rather than a reproducible sync.
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.19"
+          enable-cache: true
+          cache-dependency-glob: |
+            experiments/doc-agent/requirements.txt
+            experiments/doc-agent/requirements-durable.txt
+      - run: uv python install 3.13.13
+      - run: uv venv --python 3.13.13 --no-python-downloads .venv
+      - run: uv pip install --python .venv/bin/python -r experiments/doc-agent/requirements-durable.txt
+      - run: uv pip check --python .venv/bin/python
+      # Offline suites only; bridges/hekate/test_bridge.py needs a sibling Hekate
+      # checkout and stays separate integration evidence.
+      - name: Python document agent
+        run: uv run --no-project --no-env-file --python .venv/bin/python --no-python-downloads python -m unittest discover -s experiments/doc-agent -p 'test_*.py'
+      - name: Python prompt contract
+        run: uv run --no-project --no-env-file --python .venv/bin/python --no-python-downloads python -m unittest discover -s experiments/prompt-contract -p 'test_*.py'
+      - name: Python prompt encoding
+        run: uv run --no-project --no-env-file --python .venv/bin/python --no-python-downloads python -m unittest discover -s experiments/prompt-encoding -p 'test_*.py'
+      - name: Python Claude usage inspection
+        run: uv run --no-project --no-env-file --python .venv/bin/python --no-python-downloads python -m unittest discover -s bridges/hekate -p 'test_inspection.py'
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
