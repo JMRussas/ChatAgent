@@ -75,7 +75,8 @@ not an independent review. The third was reviewed continuously by
 scope. Then finish step 2: authenticated ownership of conversations, result
 handles, tasks and operator endpoints before any shared deployment. The user
 approved a local-first design with one trusted installation principal. Its core
-(identity file with proven file privacy, authenticator and sessions) is
+(identity file with proven file privacy, authenticator and sessions) and its
+activation primitives (pairing, route policy, credential and Origin checks) are
 implemented but not yet activated on any route, so the running server's local
 boundary is unchanged; see
 [local authentication core](implementation/14-local-authentication.md).

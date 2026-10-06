@@ -1,7 +1,8 @@
 # 14 — Local authentication core
 
-Date: 2026-10-06. Status: core implemented, **not activated**. No HTTP route, page,
-client or sidecar uses it yet, and the running server's local boundary is unchanged.
+Date: 2026-10-06. Status: core and activation primitives implemented, **not
+activated**. No HTTP route, page, client or sidecar uses them yet, and the running
+server's local boundary is unchanged.
 This is roadmap step 2 work toward authenticated ownership; it does not complete
 step 2 and claims no cross-user ownership.
 
@@ -79,6 +80,69 @@ ownership is unaffected.
 - A running server is not affected until it is given the new identity
   (`LocalAuthenticator.useIdentity`, intended for a later operator endpoint) or
   restarted. Rotation alone does not revoke sessions in a running server.
+
+## Activation primitives (implemented, unused)
+
+These are built and tested, but nothing in the server calls them yet.
+
+- `src/auth/pairing.ts`, `PairingController`:
+  - One active code at a time: ten characters from a 32-symbol alphabet without
+    I, L, O and U (50 bits), shown as `XXXXX-XXXXX`.
+  - Single use, valid for ten minutes. The code is compared exactly, in constant
+    time, against its displayed form.
+  - Five wrong attempts discard it, and nothing re-issues automatically. Issuing
+    is explicit and replaces any earlier code.
+  - Expiry is computed from an injected clock, so no timer is kept. `clear()`
+    forgets the code at shutdown.
+- `src/auth/credentials.ts`:
+  - Both helpers take Node's `headersDistinct`, never the plain `headers` object,
+    because Node keeps only the first of a repeated `Authorization` or `Host`
+    header and the repetition would otherwise be invisible.
+  - `extractCredentials(headers)` reads one `Authorization` header and exactly one
+    `ca_session` cookie. An over-long or repeated `Authorization` header yields an
+    unusable credential, which prevents falling back to the cookie. Repeated
+    `Cookie` headers are combined first. An over-long `Cookie` header, or a session
+    cookie that is repeated, bare (no `=`) or empty, yields no session.
+  - `checkExactOrigin(headers)` reports `same-origin` only when there is exactly
+    one `Origin`, exactly one `Host`, and the Origin equals `http://<Host>`. A
+    missing Origin is reported, not trusted.
+- `src/auth/routePolicy.ts`:
+  - `ROUTES` lists every route with an anchored pattern, so a parameter matches
+    exactly one path segment. Literal routes win over parameterized ones.
+  - `classifyRoute` returns the matching rule, or nothing (default deny).
+  - `decideAccess` answers `401 UNAUTHENTICATED` to any unauthenticated request
+    for a non-public or unknown route, so routes cannot be enumerated. An
+    authenticated request for an unknown route gets `404`, and a client token on
+    an operator route gets `403 OPERATOR_REQUIRED`.
+
+### Route inventory (source, commit 2cecb5b)
+
+There are 34 handlers today, plus 3 pairing routes for activation: 37 routes in
+all, of which 3 are public, 21 client and 13 operator. Each handler is a
+`method === X && <path matcher>` branch in `src/server.ts`, or the v1 regular
+expression in `src/app/protocolV1.ts`.
+
+| Access   | Routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public   | `GET /`, `GET /pair`, `POST /pair`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Client   | `POST /briefings` (start, status and cancel), `POST /document-tasks`, `POST /sports/games`, `GET /sports/team-directories`, `POST /conversation-context/detach`, `POST /conversation-context`, `POST /sports/conversations`, `POST /sports/teams`, `POST /sports/results`, `POST /sports/chat`, `POST /messages`, `POST /conversations/:c/messages/:m/cancel`, `GET /telemetry/latency`, `GET /run-controls`, `GET /run-controls/thinking`, `GET /models`, `GET /conversations/:c/events`, `GET /conversations/:c/events/stream`, `POST /v1/conversations/:c/messages`, `GET /v1/conversations/:c/events/stream`, `POST /v1/conversations/:c/messages/:m/cancel` |
+| Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `GET /conversations/retention`, `DELETE /conversations/:c/identity`                                                                                                                                                                                                                                      |
+
+Three of today's handlers match more loosely than this table, using `startsWith`
+and `endsWith` checks:
+
+- the legacy events route;
+- the legacy event-stream route;
+- dead-letter replay.
+
+For example, `/conversations/a/b/events` currently reaches the events handler
+with conversation `a`. Once the server consults the table first, such paths
+return 404.
+
+The table covers the current inventory only: it cannot notice a handler added
+later. Activation must make the server dispatch through these definitions, or
+check them against the source mechanically, so that a new handler cannot bypass
+the policy.
 
 ## For the HTTP activation slice (not implemented)
 
