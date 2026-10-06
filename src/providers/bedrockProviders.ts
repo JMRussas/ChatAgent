@@ -26,7 +26,8 @@ async function converseBedrock(
   temperature: number,
   system?: string,
   maxOutputTokens?: number,
-  control?: GenerationControl
+  control?: GenerationControl,
+  timeoutMs = 60_000
 ): Promise<GenerationResult> {
   const input = {
     modelId,
@@ -37,7 +38,7 @@ async function converseBedrock(
       ...(maxOutputTokens !== undefined ? { maxTokens: maxOutputTokens } : {})
     }
   };
-  return withGenerationDeadline("Bedrock", 60_000, control, async (signal) => {
+  return withGenerationDeadline("Bedrock", timeoutMs, control, async (signal) => {
     const collector = new AnswerCollector(control);
     if (!control) {
       const response = await client.send(new ConverseCommand(input), { abortSignal: signal });
@@ -115,7 +116,8 @@ export class BedrockFastProvider implements FastModelProvider {
     region: string,
     private readonly modelId: string,
     private readonly temperature: number,
-    private readonly maxOutputTokens?: number
+    private readonly maxOutputTokens?: number,
+    private readonly timeoutMs = 60_000
   ) {
     this.client = new BedrockRuntimeClient({ region, maxAttempts: 1 });
   }
@@ -138,7 +140,8 @@ export class BedrockFastProvider implements FastModelProvider {
         this.temperature,
         system,
         this.maxOutputTokens,
-        control
+        control,
+        this.timeoutMs
       );
     }
 
@@ -149,7 +152,8 @@ export class BedrockFastProvider implements FastModelProvider {
       this.temperature,
       undefined,
       this.maxOutputTokens,
-      control
+      control,
+      this.timeoutMs
     );
   }
 }
@@ -164,7 +168,8 @@ export class BedrockDeepProvider implements DeepModelProvider {
     region: string,
     private readonly modelId: string,
     private readonly temperature: number,
-    private readonly maxOutputTokens?: number
+    private readonly maxOutputTokens?: number,
+    private readonly timeoutMs = 60_000
   ) {
     this.client = new BedrockRuntimeClient({ region, maxAttempts: 1 });
   }
@@ -182,7 +187,8 @@ export class BedrockDeepProvider implements DeepModelProvider {
             this.temperature,
             system,
             this.maxOutputTokens,
-            control
+            control,
+            this.timeoutMs
           );
         })()
       : await converseBedrock(
@@ -192,7 +198,8 @@ export class BedrockDeepProvider implements DeepModelProvider {
           this.temperature,
           undefined,
           this.maxOutputTokens,
-          control
+          control,
+          this.timeoutMs
         );
 
     return {

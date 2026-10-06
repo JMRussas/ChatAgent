@@ -77,6 +77,32 @@ export function parseStrictNonNegativeIntEnv(
   return parsed;
 }
 
+export const MAX_PROVIDER_TIMEOUT_MS = 600_000;
+/** A provider deadline: a whole number of milliseconds from 1 to 600000. */
+export function assertProviderTimeoutMs(value: number, name: string): number {
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_PROVIDER_TIMEOUT_MS)
+    throw new Error(
+      `${name} must be a whole number of milliseconds from 1 to ${MAX_PROVIDER_TIMEOUT_MS}.`
+    );
+  return value;
+}
+/**
+ * Unset uses the fallback. Anything else, including an empty value, must be plain
+ * decimal digits within range; the error names the setting, never the value.
+ */
+export function parseProviderTimeoutEnv(
+  raw: string | undefined,
+  name: string,
+  fallback: number
+): number {
+  if (raw === undefined) return fallback;
+  if (!/^[0-9]+$/.test(raw))
+    throw new Error(
+      `${name} must be a whole number of milliseconds from 1 to ${MAX_PROVIDER_TIMEOUT_MS}.`
+    );
+  return assertProviderTimeoutMs(Number(raw), name);
+}
+
 export function parseBooleanEnv(raw: string | undefined, fallback: boolean): boolean {
   if (raw === undefined || raw.trim() === "") {
     return fallback;

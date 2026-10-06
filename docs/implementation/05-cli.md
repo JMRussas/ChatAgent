@@ -12,6 +12,16 @@ sessions or guarantee zero overage. User accepted this approach, citing existing
 local `.env` now enables `headroom`. These protections are user-reported, not
 independently verified by ChatAgent. Extra-usage controls remain a later enhancement.
 
+2026-10-06: usage inspection is opt-in. The account usage endpoint is undocumented
+and reads the CLI's stored OAuth credentials, so the bridge calls it only when
+`HEKATE_CLAUDE_USAGE_INSPECTION_ENABLED=true`. The variable accepts exactly `true` or
+`false` and defaults to `false`; when the bridge is configured, any other value stops
+startup. This is separate from the admission policy. With inspection
+disabled, an authenticated subscription reports `CLI_USAGE_INSPECTION_DISABLED`,
+so `headroom` blocks with that reason instead of admitting without evidence;
+`strict` is unchanged. This is an intentional compatibility change: an installation
+using `headroom` must now also enable inspection.
+
 Status: 05A and 05B implemented and live acceptance passed for Claude 2.1.285
 under the approved headroom policy. See the current review evidence.
 See [Claude review](05-claude-review.md) and [offline evidence](05-evidence.md).

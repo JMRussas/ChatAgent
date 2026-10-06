@@ -12,7 +12,8 @@ export interface CliReadiness {
     | "CLI_USAGE_UNAVAILABLE"
     | "CLI_USAGE_HEADROOM"
     | "CLI_USAGE_RATE_LIMITED"
-    | "CLI_USAGE_HTTP_ERROR";
+    | "CLI_USAGE_HTTP_ERROR"
+    | "CLI_USAGE_INSPECTION_DISABLED";
   usage?: {
     source: string;
     observedAt: string;

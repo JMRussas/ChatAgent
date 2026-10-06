@@ -4,6 +4,12 @@ import type { RuntimeProviderConfig } from "../config/providerConfig";
 import { parsePositiveIntEnv } from "../config/runtimeEnv";
 import type { DeepModelProvider, FastModelProvider } from "./interfaces";
 import { AzureDeepProvider, AzureFastProvider } from "./azureProviders";
+import {
+  AZURE_DEFAULT_TIMEOUT_MS,
+  BEDROCK_DEFAULT_TIMEOUT_MS,
+  type ProviderTimeouts
+} from "../config/providerConfig";
+import { assertProviderTimeoutMs } from "../config/runtimeEnv";
 import { BedrockDeepProvider, BedrockFastProvider } from "./bedrockProviders";
 import { MockDeepProvider, MockFastProvider } from "./mockProviders";
 import { OllamaDeepProvider, OllamaFastProvider } from "./ollamaProviders";
@@ -11,6 +17,19 @@ import { OllamaDeepProvider, OllamaFastProvider } from "./ollamaProviders";
 interface ProviderPair {
   fastProvider: FastModelProvider;
   deepProvider: DeepModelProvider;
+}
+
+/** A role's deadline from validated settings; hand-built values are checked too. */
+function roleTimeout(
+  settings: ProviderTimeouts,
+  role: "fast" | "deep",
+  fallback: number,
+  provider: string
+) {
+  const value = role === "fast" ? settings.fastTimeoutMs : settings.deepTimeoutMs;
+  return value === undefined
+    ? fallback
+    : assertProviderTimeoutMs(value, `${provider}.${role}TimeoutMs`);
 }
 
 function resolveOllamaFastTimeoutMs(): number {
@@ -53,7 +72,7 @@ export function buildFastProvider(
       config.azure.apiVersion,
       fast.model,
       fast.temperature,
-      10_000,
+      roleTimeout(config.azure, "fast", AZURE_DEFAULT_TIMEOUT_MS, "azure"),
       contextBudget.fastOutputTokens
     );
   }
@@ -67,7 +86,8 @@ export function buildFastProvider(
     config.bedrock.region,
     fast.model,
     fast.temperature,
-    contextBudget.fastOutputTokens
+    contextBudget.fastOutputTokens,
+    roleTimeout(config.bedrock, "fast", BEDROCK_DEFAULT_TIMEOUT_MS, "bedrock")
   );
 }
 
@@ -103,7 +123,7 @@ export function buildDeepProvider(
       config.azure.apiVersion,
       deep.model,
       deep.temperature,
-      10_000,
+      roleTimeout(config.azure, "deep", AZURE_DEFAULT_TIMEOUT_MS, "azure"),
       contextBudget.deepOutputTokens
     );
   }
@@ -117,7 +137,8 @@ export function buildDeepProvider(
     config.bedrock.region,
     deep.model,
     deep.temperature,
-    contextBudget.deepOutputTokens
+    contextBudget.deepOutputTokens,
+    roleTimeout(config.bedrock, "deep", BEDROCK_DEFAULT_TIMEOUT_MS, "bedrock")
   );
 }
 

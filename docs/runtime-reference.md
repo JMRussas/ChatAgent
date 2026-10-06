@@ -543,9 +543,13 @@ Provider-specific settings:
 AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
 AZURE_OPENAI_API_KEY=<key>
 AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_OPENAI_FAST_TIMEOUT_MS=10000
+AZURE_OPENAI_DEEP_TIMEOUT_MS=10000
 
 # AWS Bedrock
 BEDROCK_REGION=us-east-1
+BEDROCK_FAST_TIMEOUT_MS=60000
+BEDROCK_DEEP_TIMEOUT_MS=60000
 
 # Ollama
 OLLAMA_BASE_URL=http://localhost:11434
@@ -555,7 +559,13 @@ OLLAMA_FAST_NUM_PREDICT=256
 OLLAMA_DEEP_NUM_PREDICT=512
 ```
 
-Azure, Ollama and Bedrock calls have deadlines covering response headers and streamed bodies. Bedrock uses a 60-second deadline; Azure uses 10 seconds.
+Azure, Ollama and Bedrock calls have deadlines covering response headers and streamed bodies.
+Azure (default 10 seconds) and Bedrock (default 60 seconds) take a separate deadline for
+the fast and deep role. Each value is whole milliseconds from 1 to 600000, written as
+plain digits. Only an unset variable uses the default; an empty or malformed value stops
+startup with an error that names the setting, even when that provider is not in use.
+Hand-built provider configurations are checked against the same range. These are
+request deadlines; workflow deadlines are separate and unchanged.
 If local Ollama models are large or cold-start slowly on your hardware, increase `OLLAMA_FAST_TIMEOUT_MS` and `OLLAMA_DEEP_TIMEOUT_MS`.
 If a model emits long reasoning traces and returns empty final text at low token budgets, increase `OLLAMA_FAST_NUM_PREDICT` and `OLLAMA_DEEP_NUM_PREDICT`.
 

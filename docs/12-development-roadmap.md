@@ -1201,6 +1201,15 @@ any shared deployment.
 - Make Azure/Bedrock deadlines configurable through the appropriate provider/model
   settings; retain separate workflow bounds. Audit Claude usage inspection and make
   its credential access/undocumented endpoint explicit and opt-in if not already so.
+  _Implemented 2026-10-06:_ `AZURE_OPENAI_FAST/DEEP_TIMEOUT_MS` (default 10000) and
+  `BEDROCK_FAST/DEEP_TIMEOUT_MS` (default 60000) accept whole milliseconds from 1 to
+  600000 and are validated at startup, including hand-built factory settings;
+  workflow deadlines are unchanged. Claude usage inspection now requires
+  `HEKATE_CLAUDE_USAGE_INSPECTION_ENABLED=true`; see [CLI](implementation/05-cli.md).
+  Validation: 1,204 tests across 128 files, 34 browser tests and 20 offline bridge
+  tests through uv-managed Python 3.13.13 passed. Nine temporary mutations were
+  rejected. Bedrock streamed-body tests cover both roles, configured timeout,
+  caller cancellation and timer/listener cleanup; format and lint passed.
 
 Acceptance: cancellation while quota-blocked leaves no reservation; malformed stdout
 and process kills leave no child/promise leaks or automatic duplicate execution;

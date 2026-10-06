@@ -53,7 +53,7 @@ def environment():
     return env
 
 
-def inspect(executable):
+def inspect(executable, inspect_usage=False):
     env = environment()
     version = subprocess.run([executable, "--version"], capture_output=True, timeout=10, env=env, check=True).stdout.decode().strip()
     result = subprocess.run([executable, "auth", "status"], capture_output=True, timeout=10, env=env)
@@ -62,7 +62,10 @@ def inspect(executable):
     supported = all(flag in help_text for flag in ("--tools", "--disallowedTools", "--strict-mcp-config", "--setting-sources", "--settings", "--no-session-persistence", "--disable-slash-commands", "--include-partial-messages"))
     subscription = status.get("loggedIn") is True and status.get("authMethod") == "claude.ai" and status.get("apiProvider") == "firstParty"
     errors = []
-    usage = read_usage(errors.append) if subscription else None
+    # The usage endpoint is undocumented, so it is read only when explicitly enabled.
+    if subscription and not inspect_usage:
+        errors.append("CLI_USAGE_INSPECTION_DISABLED")
+    usage = read_usage(errors.append) if subscription and inspect_usage else None
     # Utilization is a fresh observation, not a token/call allowance or billing grant.
     return {"version": version, "authenticated": "yes" if subscription else "no",
             "authentication": "subscription-login" if subscription else "unknown",
@@ -236,13 +239,14 @@ def main():
     parser.add_argument("--executable", required=True)
     parser.add_argument("--model", default="sonnet")
     parser.add_argument("--max-bytes", type=int, default=1048576)
+    parser.add_argument("--inspect-usage", action="store_true")
     args = parser.parse_args()
     try:
         shared = load_provider(args.root)
         if args.mode == "contract":
             print(json.dumps(build_command(shared, args.executable, args.model)))
         elif args.mode == "inspect":
-            print(json.dumps(inspect(args.executable)))
+            print(json.dumps(inspect(args.executable, args.inspect_usage)))
         else:
             generate(shared, args.executable, args.model, args.max_bytes)
     except Exception as error:

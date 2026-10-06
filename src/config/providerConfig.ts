@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseProviderTimeoutEnv } from "./runtimeEnv";
 
 export const providerKindSchema = z.enum(["mock", "azure", "bedrock", "ollama"]);
 
@@ -10,15 +11,22 @@ const providerConfigSchema = z.object({
   temperature: z.number().min(0).max(2).default(0.2)
 });
 
-export interface AzureProviderSettings {
+/** Per-role deadlines; absent fields keep each provider's default. */
+export interface ProviderTimeouts {
+  fastTimeoutMs?: number;
+  deepTimeoutMs?: number;
+}
+export interface AzureProviderSettings extends ProviderTimeouts {
   endpoint: string;
   apiKey: string;
   apiVersion: string;
 }
 
-export interface BedrockProviderSettings {
+export interface BedrockProviderSettings extends ProviderTimeouts {
   region: string;
 }
+export const AZURE_DEFAULT_TIMEOUT_MS = 10_000;
+export const BEDROCK_DEFAULT_TIMEOUT_MS = 60_000;
 
 export interface OllamaProviderSettings {
   baseUrl: string;
@@ -66,6 +74,18 @@ export function loadRuntimeProviderConfigFromEnv(): RuntimeProviderConfig {
   const fast = readProviderConfigFromPrefix("CHAT_FAST");
   const deep = readProviderConfigFromPrefix("CHAT_DEEP");
 
+  // Parsed whether or not the provider is configured, so a typo never goes unnoticed.
+  const timeout = (name: string, fallback: number) =>
+    parseProviderTimeoutEnv(process.env[name], name, fallback);
+  const azureTimeouts = {
+    fastTimeoutMs: timeout("AZURE_OPENAI_FAST_TIMEOUT_MS", AZURE_DEFAULT_TIMEOUT_MS),
+    deepTimeoutMs: timeout("AZURE_OPENAI_DEEP_TIMEOUT_MS", AZURE_DEFAULT_TIMEOUT_MS)
+  };
+  const bedrockTimeouts = {
+    fastTimeoutMs: timeout("BEDROCK_FAST_TIMEOUT_MS", BEDROCK_DEFAULT_TIMEOUT_MS),
+    deepTimeoutMs: timeout("BEDROCK_DEEP_TIMEOUT_MS", BEDROCK_DEFAULT_TIMEOUT_MS)
+  };
+
   const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
   const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
 
@@ -74,13 +94,15 @@ export function loadRuntimeProviderConfigFromEnv(): RuntimeProviderConfig {
       ? {
           endpoint: azureEndpoint,
           apiKey: azureApiKey,
-          apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? "2024-10-21"
+          apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? "2024-10-21",
+          ...azureTimeouts
         }
       : undefined;
 
   const bedrock = process.env.BEDROCK_REGION
     ? {
-        region: process.env.BEDROCK_REGION
+        region: process.env.BEDROCK_REGION,
+        ...bedrockTimeouts
       }
     : undefined;
 

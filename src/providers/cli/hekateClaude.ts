@@ -60,6 +60,11 @@ export interface HekateBridgeConfig {
   executable: string;
   workingDirectory: string;
   usagePolicy?: ClaudeUsagePolicy;
+  /**
+   * Reading account usage uses an undocumented endpoint, so it happens only when
+   * enabled. Independent of the admission policy: headroom without it is blocked.
+   */
+  usageInspection?: boolean;
 }
 export function hekateBridgeConfig(env: NodeJS.ProcessEnv): HekateBridgeConfig | undefined {
   if (!env.HEKATE_CLI_ROOT) return;
@@ -68,8 +73,12 @@ export function hekateBridgeConfig(env: NodeJS.ProcessEnv): HekateBridgeConfig |
   const usagePolicy = env.HEKATE_CLAUDE_USAGE_POLICY ?? "strict";
   if (usagePolicy !== "strict" && usagePolicy !== "headroom")
     throw new Error("HEKATE_CLI_USAGE_POLICY_INVALID");
+  const inspection = env.HEKATE_CLAUDE_USAGE_INSPECTION_ENABLED;
+  if (inspection !== undefined && inspection !== "true" && inspection !== "false")
+    throw new Error("HEKATE_CLI_USAGE_INSPECTION_INVALID");
   return {
     usagePolicy,
+    usageInspection: inspection === "true",
     python: env.HEKATE_CLI_PYTHON,
     root: env.HEKATE_CLI_ROOT,
     executable: env.HEKATE_CLAUDE_EXECUTABLE,
@@ -182,7 +191,15 @@ function accountInspection(config: HekateBridgeConfig) {
     const result = await new Promise<string>((resolve, reject) =>
       execFile(
         config.python,
-        [script, "inspect", "--root", config.root, "--executable", config.executable],
+        [
+          script,
+          "inspect",
+          "--root",
+          config.root,
+          "--executable",
+          config.executable,
+          ...(config.usageInspection ? ["--inspect-usage"] : [])
+        ],
         {
           cwd: config.workingDirectory,
           signal,
@@ -223,7 +240,8 @@ export function createHekateClaudeAdapter(
     const usageErrorCode = [
       "CLI_USAGE_RATE_LIMITED",
       "CLI_USAGE_HTTP_ERROR",
-      "CLI_USAGE_UNAVAILABLE"
+      "CLI_USAGE_UNAVAILABLE",
+      "CLI_USAGE_INSPECTION_DISABLED"
     ].includes(status.usageErrorCode ?? "")
       ? (status.usageErrorCode as CliReadiness["blockedReason"])
       : undefined;
