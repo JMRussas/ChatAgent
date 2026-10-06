@@ -51,6 +51,57 @@ incremental spend. Optional amortized cost must be explicitly labeled with its
 allocation method; never add the monthly fee to every request or present invented
 per-token prices. Do not compare credits, GPU seconds and dollars as one number.
 
+## Quota observation contract (v1, 2026-10-06)
+
+`src/routing/quotaObservation.ts` is a validation and description boundary for
+what a source reports about one quota limit. It is not reconciliation: nothing in
+it grants, refunds or resets an allowance, nothing consumes it yet, and the
+configured `bindings[].quota` and the admission ledger are unchanged. A schema
+does not prove what a provider means.
+
+- **Payload and capability are separate.** The trusted
+  `QuotaSourceCapability` comes from the adapter, never from the payload. It
+  states provenance, who states the as-of time (provider, local adapter or
+  nobody), whether window semantics are documented, whether usage coverage can be
+  declared, and request correlation. A payload claiming more than its capability
+  is ambiguous.
+- **Window and measure.** Windows are fixed (start and reset), rolling (duration),
+  none, or unknown (a reported reset of undocumented meaning). Measures are
+  quantitative (unit with limit, used and remaining, which must agree and may not
+  be overdrawn) or headroom (a percentage, over 100 kept as reported), which never
+  yields a number of requests or tokens.
+- **Clocks.** `sourceAsOf` is never synthesized from receipt. Freshness is
+  anchored to the source as-of, or to a configured declaration time, and capped by
+  a declared expiry, so re-receiving or re-mapping a snapshot never makes it
+  fresher. Without either it is labelled local-receipt freshness, for display
+  only. Timestamps are canonicalized to UTC before comparison.
+- **Coverage** may describe which events (accepted, completed, billed) and whose
+  calls a figure covers, up to `throughAt`. Reporting lag and in-flight accepted
+  requests mean this does not prove completeness, and request correlation does
+  not either.
+- **`describeAllowance`** reports a number only for a fresh quantitative figure
+  inside its fixed window (not before it starts or after it ends), always with
+  `authoritative: false`.
+- **`classifySuccessor`** describes how a newer observation differs: different
+  identity, no provider as-of (order unknown), out of order, duplicate (every
+  accounting field and the capability equal; freshness is not extended),
+  same-instant conflict, conflict (changed capability, window kind, unit, limit,
+  rolling duration or overlapping fixed bounds), same window, a later disjoint
+  fixed window, or an unknown window with a changed reset time. It lists
+  descriptive changes and the capabilities a reconciler would lack. An empty list
+  does not mean the evidence is complete or eligible. A future reconciler must
+  still match authoritative covered charges, keep unstarted reservations and treat
+  unmatched usage as uncertain.
+- **Adapters.** `fromClaudeUsageWindows` maps the existing CLI usage shape as
+  headroom over unknown windows with an adapter-reported as-of, all or nothing,
+  without assuming what `five_hour` or `seven_day` mean. `fromConfiguredQuota`
+  maps configuration as declared, with its configured check and expiry times.
+- **Identity** keys combine source, pool and limit ids. They are internal and
+  opaque, and must not reach user telemetry.
+
+Validation: 30 focused contract tests; 1,147 tests across 125 files, 34 browser
+tests, format and lint passed. No live provider calls or admission changes.
+
 ## Admission and selection (04)
 
 Policy names must express intent: allowed execution scopes, allowed billing modes,

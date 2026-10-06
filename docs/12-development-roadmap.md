@@ -1133,7 +1133,11 @@ any shared deployment.
   including zero preparation controllers after each completed workload. Independent
   review reran 23 cancellation/shutdown tests and 53 adjacent regression tests.
 - Implement provider/model-specific rolling-window quota reconciliation after
-  cancellation-aware admission. Define pool identity, units, fixed versus rolling
+  cancellation-aware admission. _Prerequisite contract implemented 2026-10-06:_
+  [quota observation v1](implementation/08-resource-policy.md#quota-observation-contract-v1-2026-10-06)
+  validates and describes observations (capability-gated provenance, as-of
+  anchored freshness, explicit coverage, successor classification) but grants,
+  resets and reconciles nothing, and is not yet wired into admission. Define pool identity, units, fixed versus rolling
   windows, overlapping limits, authoritative snapshot/reset timestamps and whether
   provider observations already include our reservations or completed usage.
   Preserve outstanding reservations across refresh/reset and account for reports
