@@ -59,8 +59,8 @@ inside dead-letter recovery, so expired history cannot silently lose a task. The
 boundaries it found are listed there: findings 2, 3, 5 and 6 are now bounded;
 finding 1 is bounded by the committed turn-admission limit (`b578256`), and
 finding 4 by the implemented and reviewed event-stream limit and write-backpressure
-slice. Authenticated shared deployment and ordinary HTTP connection limits remain
-open. Finding 7 is closed for the measured scope.
+slice. Ordinary HTTP connections are limited by `HTTP_MAX_CONNECTIONS` (2026-10-06).
+Authenticated shared deployment remains open. Finding 7 is closed for the measured scope.
 
 Expiry UI, coordinated identity retirement and the assembled-runtime
 sustained-memory gate are implemented; see the two entries after the inventory.
@@ -1125,9 +1125,24 @@ restart.
 Still open for step 2: per-stream memory still scales with the conversation size,
 since the legacy stream re-sends whole snapshots and the v1 stream re-reads the
 whole timeline; v1 ignores `Last-Event-ID` on native `EventSource` reconnects
-(unchanged replay limitation); plain HTTP connection counts are not limited; and
-cross-owner denial with an authenticated identity remains the prerequisite for
+(unchanged replay limitation); and cross-owner denial with an authenticated identity remains the prerequisite for
 any shared deployment.
+
+_Connection limit implemented 2026-10-06; see
+[connection limit](runtime-reference.md#connection-limit):_ Node's native
+`server.maxConnections`, set from `HTTP_MAX_CONNECTIONS` (default 128, at most 4096)
+or a validated direct option before listening. Incomplete, keep-alive and stream
+connections count alike; an excess connection is closed before HTTP, with no 429.
+Server timeouts, per-connection request counts and fairness between clients are
+unchanged and not claimed.
+
+Validation on Windows Node 24.21.0: 1,272 tests across 131 files and 34 browser
+tests passed. Independent review reran 92 boundary, connection, startup and stream
+tests. Seven temporary mutations were rejected, including omitted bootstrap wiring.
+The sustained-memory gate passed all 163 assertions with heap within tolerance;
+its before/after source digests match the independently reviewed source. Format,
+lint and documentation checks passed. The memory workload does not stress the
+connection cap; real-socket integration tests cover that boundary separately.
 
 ### 3. Cancellation, recovery and configuration correctness
 

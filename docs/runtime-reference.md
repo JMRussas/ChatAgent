@@ -270,8 +270,34 @@ previously unclaimed message may be resent with the same body and `messageId`
 once a slot frees. Submissions are
 refused, never queued, and the deep worker's own runs do not count. Timeline
 reads, event streams, cancellation and operator endpoints are not admitted
-through this limit. Event streams have their own limit, below; plain HTTP
-connection counts remain unbounded.
+through this limit. Event streams and connections have their own limits, below.
+
+### Connection limit
+
+Open TCP connections to the server are limited to `HTTP_MAX_CONNECTIONS` (default
+128, at most 4096; decimal digits only, and an empty or invalid explicit value fails
+startup). It is Node's own `server.maxConnections`, set before the server listens.
+Every open connection counts the same: one that has not finished sending a
+request, an idle keep-alive connection after its response, and an event stream.
+A further connection is accepted by the operating system and then closed by Node
+before any HTTP is read: the client sees a reset or a closed connection, with no
+status code, no `Retry-After` and no authentication or Host check. A slot frees
+only when its connection actually closes.
+
+The limit is independent of the event stream, turn and body limits: each applies
+at its own boundary, and a new event stream may be refused by either the
+connection limit or the stream limit. It reserves nothing: a local process holding
+connections open can delay every other client, operator requests included, until
+those connections close, and there is no fairness between clients. How long an
+incomplete or idle connection is kept is left to Node's default server timeouts,
+which are not configured here. The limit counts connections only; it does not
+bound the requests sent over one connection, memory or work.
+
+The limit applies to one server instance in one process. Only that single-process
+loopback deployment is supported: clustering, sharing a listener between
+processes or handing sockets to child processes is not. Shutdown is unchanged:
+the listener stops accepting, and idle and then all remaining connections are
+closed, those that filled the limit included.
 
 ### Event stream limits
 

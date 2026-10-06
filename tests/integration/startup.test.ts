@@ -258,7 +258,10 @@ it("keeps mock chat working with a loaded role catalog and rejects role executio
   vi.stubEnv("TELEMETRY_STORE_PATH", join(directory, "telemetry.json"));
   vi.stubEnv("SHUTDOWN_GRACE_MS", "0");
   vi.stubEnv("HTTP_MAX_BODY_BYTES", "512");
+  vi.stubEnv("HTTP_MAX_CONNECTIONS", "7");
   const handle = await startServer(0);
+  // The configured connection limit reaches the assembled server natively.
+  expect(handle.server.maxConnections).toBe(7);
   const base = `http://127.0.0.1:${handle.address.port}`;
   const operator = await clientAuthHeaders(base, "operator");
   const client = await clientAuthHeaders(base, "client");

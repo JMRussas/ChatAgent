@@ -68,8 +68,10 @@ import { z } from "zod";
 import { describeModelCatalog, loadModelCatalog } from "./config/modelCatalog";
 import { loadDiscoveryConfigFromEnv } from "./config/discoveryConfig";
 import {
+  assertMaxConnections,
   checkLocalRequest,
   DEFAULT_MAX_BODY_BYTES,
+  DEFAULT_MAX_CONNECTIONS,
   loadHttpBoundaryConfig
 } from "./config/httpBoundary";
 import { loadTurnAdmissionConfig } from "./config/turnAdmission";
@@ -186,6 +188,12 @@ interface ServerOptions {
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
   /** Limit on a request body in bytes, enforced while reading. */
   maxBodyBytes?: number;
+  /**
+   * Open TCP connections, counted alike whether incomplete, idle keep-alive or an
+   * event stream. Node closes a further connection before any HTTP is read: no
+   * status, no Retry-After. Only undefined takes the default.
+   */
+  maxConnections?: number;
   /** Open event streams across both stream routes; a further one is refused with 429. */
   maxEventStreams?: number;
   /** A stream unable to accept writes for this long is disconnected. */
@@ -392,6 +400,10 @@ async function parseJsonBody(req: IncomingMessage, maxBytes: number): Promise<un
 export function createChatServer(service: ChatService, options: ServerOptions) {
   // No default: a server built without an authenticator would answer everyone.
   if (!options?.auth) throw new Error("createChatServer requires an authenticator (options.auth).");
+  // Validated before the service is changed or anything is allocated.
+  const maxConnections = assertMaxConnections(
+    options.maxConnections === undefined ? DEFAULT_MAX_CONNECTIONS : options.maxConnections
+  );
   service.resolveReferences = (selections, userId, conversationId) => {
     const store = options.briefings?.directory?.results;
     if (!store) throw Error("REFERENCES_UNAVAILABLE");
@@ -1285,6 +1297,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       return json(res, 500, { error: (error as Error).message });
     }
   });
+  // Native and per server instance; set before anyone can listen.
+  server.maxConnections = maxConnections;
   let shutdown: Promise<void> | undefined;
   const close = server.close.bind(server);
   // Node's close callback must not announce completion before internal jobs settle.
@@ -1666,6 +1680,7 @@ export async function startServer(
       recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry(),
     maxBodyBytes: boundary.maxBodyBytes,
+    maxConnections: boundary.maxConnections,
     ...streamAdmission,
     auth,
     pairing: {
