@@ -69,12 +69,30 @@ type Directory = {
   revision: string;
 };
 type Snapshot = z.infer<typeof resolutionSnapshotSchema>;
+type League = "NBA" | "NFL";
+/**
+ * One searched league as a snapshot depends on it: the directory revision that was
+ * actually read, or null when that league could not be read.
+ */
+type Dependency = { league: League; provider: string; url: string; revision: string | null };
+/** A snapshot with the server-held dependencies its revision certifies. */
+type Issued = { snapshot: Snapshot; dependencies: Dependency[] };
+const dependencyDigest = (dependencies: readonly Dependency[]) =>
+  createHash("sha256")
+    .update(
+      JSON.stringify(
+        dependencies
+          .map((d) => [d.league, d.provider, d.url, d.revision])
+          .sort((a, b) => (a[0]! < b[0]! ? -1 : 1))
+      )
+    )
+    .digest("hex");
 
 /** Account budget is shared with game reads. Failed or partial directories never establish absence. */
 export class TeamDirectory {
   readonly results: ToolResultStore;
   private cache = new Map<string, Directory>();
-  private snapshots = new Map<string, Snapshot>();
+  private snapshots = new Map<string, Issued>();
   private busy = new Set<string>();
   private closed = false;
   private shutdown = new AbortController();
@@ -99,8 +117,8 @@ export class TeamDirectory {
   }
   /** Identity retirement: drops results and resolution snapshots bound to the conversation. */
   forgetConversation(conversationId: string) {
-    for (const [id, snapshot] of this.snapshots)
-      if (snapshot.conversationId === conversationId) this.snapshots.delete(id);
+    for (const [id, issued] of this.snapshots)
+      if (issued.snapshot.conversationId === conversationId) this.snapshots.delete(id);
     return this.results.forgetConversation(conversationId);
   }
   retentionStats() {
@@ -110,10 +128,20 @@ export class TeamDirectory {
       directories: this.cache.size
     };
   }
-  private directoryRevision() {
-    return createHash("sha256")
-      .update(JSON.stringify([...this.cache].map(([k, v]) => [k, v.revision]).sort()))
-      .digest("hex");
+  /**
+   * The same dependencies as they stand now: only those leagues, never others. An
+   * expired directory counts as unavailable, as it does when a lookup reads it.
+   */
+  private currentDependencies(dependencies: readonly Dependency[], now: number): Dependency[] {
+    return dependencies.map(({ league }) => {
+      const cached = this.cache.get(league);
+      return {
+        league,
+        provider: definitions[league].provider,
+        url: definitions[league].url,
+        revision: cached && cached.expires > now ? cached.revision : null
+      };
+    });
   }
   private async read(league: "NBA" | "NFL", signal: AbortSignal): Promise<Directory> {
     signal.throwIfAborted();
@@ -205,11 +233,19 @@ export class TeamDirectory {
     if (requested.sport) requested.sport = definitions[eligible[0]].sport;
     const candidates: Snapshot["candidates"] = [],
       limitations: string[] = [],
-      expirations: number[] = [];
+      expirations: number[] = [],
+      dependencies: Dependency[] = [];
     for (const league of eligible) {
+      const def = definitions[league];
       try {
-        const directory = await this.read(league, signal),
-          def = definitions[league];
+        const directory = await this.read(league, signal);
+        // Captured with the data consumed below, not recomputed after later awaits.
+        dependencies.push({
+          league,
+          provider: def.provider,
+          url: def.url,
+          revision: directory.revision
+        });
         expirations.push(directory.expires);
         for (const team of directory.data) {
           const aliases = [
@@ -238,6 +274,9 @@ export class TeamDirectory {
           });
         }
       } catch (error) {
+        // A league that could not be read is a dependency too: if it becomes readable,
+        // this partial snapshot no longer describes the directory.
+        dependencies.push({ league, provider: def.provider, url: def.url, revision: null });
         limitations.push(`${league}:${error instanceof Error ? error.message : "transport"}`);
       }
     }
@@ -258,14 +297,17 @@ export class TeamDirectory {
       limitations.push("CANDIDATE_LIMIT");
     }
     const now = this.clock();
+    // A league read before a later await may have expired meanwhile: then what was
+    // read is not issued at all. A fresh directory is never re-read, so a revision
+    // captured above is still the cached one whenever this passes.
     if (expirations.some((t) => t <= now))
       return teamResolutionResultSchema.parse({
         status: "unavailable",
         requested,
         reason: "stale_directory"
       });
-    for (const [id, s] of this.snapshots)
-      if (Date.parse(s.expiresAt) <= now) this.snapshots.delete(id);
+    for (const [id, issued] of this.snapshots)
+      if (Date.parse(issued.snapshot.expiresAt) <= now) this.snapshots.delete(id);
     if (this.snapshots.size >= this.options.maxSnapshots)
       this.snapshots.delete(this.snapshots.keys().next().value!);
     const snapshot = resolutionSnapshotSchema.parse({
@@ -274,7 +316,7 @@ export class TeamDirectory {
       userId,
       conversationId,
       registryRevision: this.revision,
-      directoryRevision: this.directoryRevision(),
+      directoryRevision: dependencyDigest(dependencies),
       createdAt: new Date(now).toISOString(),
       expiresAt: new Date(
         Math.min(now + this.options.selectionTtlMs, ...expirations)
@@ -284,7 +326,10 @@ export class TeamDirectory {
       candidates,
       limitations
     });
-    this.snapshots.set(snapshot.snapshotId, structuredClone(snapshot));
+    this.snapshots.set(snapshot.snapshotId, {
+      snapshot: structuredClone(snapshot),
+      dependencies: structuredClone(dependencies)
+    });
     const status = limitations.length
       ? "partial"
       : candidates.length > 1
@@ -301,14 +346,17 @@ export class TeamDirectory {
   select(input: unknown, userId: string, conversationId: string) {
     if (this.closed) throw new Error("CAPABILITIES_CHANGED");
     const choice = candidateSelectionSchema.parse(input),
-      snapshot = this.snapshots.get(choice.snapshotId);
-    if (!snapshot) throw new Error("RESOLUTION_NOT_FOUND");
-    return selectTeamCandidate(snapshot, choice, {
+      issued = this.snapshots.get(choice.snapshotId);
+    if (!issued) throw new Error("RESOLUTION_NOT_FOUND");
+    // One clock value for both directory freshness and the snapshot's own expiry.
+    const now = this.clock();
+    // Only the leagues this snapshot searched; no fetch happens here.
+    return selectTeamCandidate(issued.snapshot, choice, {
       userId,
       conversationId,
       registryRevision: this.revision,
-      directoryRevision: this.directoryRevision(),
-      now: new Date(this.clock()).toISOString()
+      directoryRevision: dependencyDigest(this.currentDependencies(issued.dependencies, now)),
+      now: new Date(now).toISOString()
     });
   }
   topics() {

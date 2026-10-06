@@ -1181,6 +1181,14 @@ any shared deployment.
 - Define reload compatibility: preserve unaffected result handles/in-flight work;
   invalidate incompatible dependencies explicitly. Scope directory revisions to
   the relevant league/provider so an NFL read cannot invalidate NBA resolutions.
+  _League-scoped revisions implemented 2026-10-06; see
+  [request to evidence](implementation/12-request-to-evidence.md):_ each snapshot
+  certifies only the leagues its lookup searched, with the revisions it read;
+  reload compatibility remains open.
+  Validation: 1,165 tests across 125 files and 34 browser tests passed on Windows
+  Node 24.21.0; independent review reran all 26 team-directory and game-operation
+  tests. The expired-cache regression rejects a mutation restoring the old
+  comparison. Format and lint passed.
 - Make Azure/Bedrock deadlines configurable through the appropriate provider/model
   settings; retain separate workflow bounds. Audit Claude usage inspection and make
   its credential access/undocumented endpoint explicit and opt-in if not already so.

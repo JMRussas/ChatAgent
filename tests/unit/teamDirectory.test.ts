@@ -123,18 +123,18 @@ describe("provider-backed team directories", () => {
     ).toMatchObject({ status: "unavailable", reason: "cancelled" });
     expect(s.transport).not.toHaveBeenCalled();
   });
-  it("invalidates selection when another lookup changes directory evidence", async () => {
+  it("keeps a league-scoped selection valid when another league is read", async () => {
     const s = setup();
     const r = await s.directory.lookup({ query: "Comets", league: "NFL" }, "u", "c", signal());
     if (r.status !== "matched") throw Error();
     await s.directory.lookup({ query: "Comets", league: "NBA" }, "u", "c", signal());
-    expect(() =>
+    expect(
       s.directory.select(
         { snapshotId: r.snapshot.snapshotId, candidateId: r.candidateId },
         "u",
         "c"
-      )
-    ).toThrow("RESOLUTION_STALE");
+      ).scope.league
+    ).toBe("NFL");
   });
   it("aborts active requests on close without publishing a snapshot", async () => {
     const budget = new SportsRequestBudget();
@@ -166,5 +166,127 @@ describe("provider-backed team directories", () => {
     await expect(tool.execute({ query: "Comets" }, "u", "r", signal(), "c")).rejects.toThrow(
       "CAPABILITIES_CHANGED"
     );
+  });
+});
+
+describe("league-scoped resolution revisions", () => {
+  const isNfl = (url: string) => url.includes("/nfl/");
+  const pick = (
+    s: ReturnType<typeof setup>,
+    r: Awaited<ReturnType<TeamDirectory["lookup"]>>,
+    candidateId?: string
+  ) => {
+    if (!("snapshot" in r) || !r.snapshot) throw Error(r.status);
+    return s.directory.select(
+      {
+        snapshotId: r.snapshot.snapshotId,
+        candidateId: candidateId ?? r.snapshot.candidates[0].candidateId
+      },
+      "u",
+      "c"
+    );
+  };
+
+  it("an NBA selection survives NFL being populated and later refreshed", async () => {
+    let nflName = "Comets";
+    const s = setup((url) =>
+      Response.json({ data: [team(isNfl(url) ? 2 : 1, isNfl(url) ? nflName : "Comets")] })
+    );
+    await s.directory.lookup({ query: "Comets", league: "NFL" }, "u", "c", signal());
+    // Late in NFL's cache life, NBA is read; then NFL expires and is re-read changed.
+    s.advance(3_600_000 - 60_000);
+    const nba = await s.directory.lookup({ query: "Comets", league: "NBA" }, "u", "c", signal());
+    expect(nba.status).toBe("matched");
+    s.advance(60_001);
+    nflName = "Rockets";
+    await s.directory.lookup({ query: "Rockets", league: "NFL" }, "u", "c", signal());
+    expect(s.transport).toHaveBeenCalledTimes(3);
+    expect(pick(s, nba).scope.league).toBe("NBA");
+  });
+
+  it("an unscoped snapshot depends on both leagues", async () => {
+    let nflUp = false;
+    const s = setup((url) =>
+      isNfl(url) && !nflUp
+        ? new Response("down", { status: 500 })
+        : Response.json({ data: [team(isNfl(url) ? 2 : 1, "Comets")] })
+    );
+    // NFL could not be read: a partial snapshot that records NFL as unavailable.
+    const partial = await s.directory.lookup({ query: "Comets" }, "u", "c", signal());
+    expect(partial.status).toBe("partial");
+    expect(pick(s, partial).scope.league).toBe("NBA");
+    // Once NFL becomes readable, the partial snapshot no longer describes it.
+    nflUp = true;
+    const both = await s.directory.lookup({ query: "Comets" }, "u", "c", signal());
+    expect(both.status).toBe("ambiguous");
+    expect(() => pick(s, partial)).toThrow("RESOLUTION_STALE");
+    expect(pick(s, both).scope.league).toBeDefined();
+  });
+
+  it("a partial snapshot stays selectable when a league's expired directory fails to refresh", async () => {
+    let nflUp = true;
+    const s = setup((url) =>
+      isNfl(url) && !nflUp
+        ? new Response("down", { status: 500 })
+        : Response.json({ data: [team(isNfl(url) ? 2 : 1, "Comets")] })
+    );
+    await s.directory.lookup({ query: "Comets", league: "NFL" }, "u", "c", signal());
+    s.advance(3_600_001); // NFL's cached directory is now expired but still held.
+    nflUp = false;
+    const partial = await s.directory.lookup({ query: "Comets" }, "u", "c", signal());
+    expect(partial.status).toBe("partial");
+    expect(pick(s, partial).scope.league).toBe("NBA");
+    // A later successful NFL refresh, even with identical content, invalidates it.
+    nflUp = true;
+    await s.directory.lookup({ query: "Comets", league: "NFL" }, "u", "c", signal());
+    expect(() => pick(s, partial)).toThrow("RESOLUTION_STALE");
+  });
+
+  it("does not issue a snapshot when a league read earlier expires while another is awaited", async () => {
+    let releaseNfl!: () => void;
+    const held = new Promise<void>((resolve) => (releaseNfl = resolve));
+    let now = Date.parse("2026-09-30T12:00:00Z");
+    const clock = () => now;
+    const transport = vi.fn(async (url: unknown) => {
+      if (isNfl(String(url))) await held;
+      return Response.json({ data: [team(isNfl(String(url)) ? 2 : 1, "Comets")] });
+    }) as unknown as typeof fetch;
+    const directory = new TeamDirectory(
+      "secret",
+      new SportsRequestBudget(5, 0, clock),
+      { cacheTtlMs: 60_000 },
+      "v1",
+      transport,
+      clock
+    );
+    const pending = directory.lookup({ query: "Comets" }, "u", "c", signal());
+    await vi.waitFor(() => expect(transport).toHaveBeenCalledTimes(2));
+    now += 60_000; // NBA's directory expires while NFL is still being read.
+    releaseNfl();
+    expect(await pending).toMatchObject({ status: "unavailable", reason: "stale_directory" });
+    expect(directory.retentionStats().snapshots).toBe(0);
+  });
+
+  it("selection uses the server's dependencies, not anything in a returned snapshot", async () => {
+    const s = setup();
+    const r = await s.directory.lookup({ query: "Comets", league: "NBA" }, "u", "c", signal());
+    if (r.status !== "matched") throw Error();
+    const original = structuredClone(r.snapshot.candidates[0]);
+    r.snapshot.directoryRevision = "forged";
+    r.snapshot.candidates[0].team.id = "999";
+    expect(pick(s, r, r.candidateId)).toEqual(original);
+  });
+
+  it("keeps the snapshot store bounded", async () => {
+    const s = setup(undefined, { maxSnapshots: 3 });
+    for (let n = 0; n < 10; n++)
+      await s.directory.lookup(
+        { query: "Comets", league: n % 2 ? "NBA" : "NFL" },
+        "u",
+        "c",
+        signal()
+      );
+    expect(s.directory.retentionStats().snapshots).toBe(3);
+    expect(s.directory.retentionStats().directories).toBe(2);
   });
 });

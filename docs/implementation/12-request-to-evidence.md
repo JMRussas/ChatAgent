@@ -669,6 +669,18 @@ answers preserve the same unexpired choices; stale or revised evidence triggers 
 fresh lookup. Snapshot storage and the conversational selection lifecycle are next-step
 implementation work; only their contract and selection guard are implemented now.
 
+The directory revision in a snapshot is scoped to the leagues its lookup searched
+(2026-10-06). The server keeps, beside each stored snapshot, one dependency per
+searched league: its provider, source and the directory revision actually read, or
+none when that league could not be read. An explicit NBA lookup depends on NBA only;
+an unscoped lookup depends on every eligible league, including one with no match or
+a failed read. Selection recomputes the digest from the current cache for those
+leagues only, without fetching: reading or refreshing an unrelated league does not
+stale the snapshot, while a change to a searched league, including a previously
+unreadable league becoming readable, does. A league that expires while a later one
+is awaited prevents the snapshot from being issued at all. The dependencies never
+leave the server and cannot be supplied by a caller; the wire schema is unchanged.
+
 A partial directory cannot certify unique resolution or absence. Multiple observed
 candidates may still justify clarification, with partial coverage retained. A user can
 explicitly select a known candidate from a partial snapshot without claiming the
