@@ -13,17 +13,17 @@ Hekate's companion plan is `LOCAL-PLANNING-HANDOFF.md` in the Hekate repository
 
 ## Ownership
 
-| Concern                                 | Owner                          | Notes                                                                                                                                                                  |
-| --------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local startup, status and stop          | Hekate                         | On demand, without the Sisyphus host; separate from that deployment's database/queue                                                                                   |
-| Plan nodes, hierarchy and dependencies  | Hekate                         | Existing PostgreSQL/AGE context-store; no ChatAgent plan store                                                                                                         |
-| Execution engine                        | Hekate, after inventory        | Choose between the active gods path and the experimental LangGraph engine                                                                                              |
-| Context assembly and the answer runtime | ChatAgent                      | Existing bounded context, provider dispatch, budgets, cancellation and recording                                                                                       |
-| Worker contract (assignment/result)     | ChatAgent proposes             | Shared fields below; must be carried by Hekate plan nodes, not a parallel ledger                                                                                       |
-| Claim, finish and release calls         | Hekate supervisor              | Caller-held durable keys; ChatAgent receives the raw claim response and has no claim or transition client                                                              |
-| Coding-worker adapter                   | Hekate supervisor adapter      | Sole claim/finish/release mutation owner; independent verifier/lead owns review decisions. Design 023 accepted at `68bab95`; E1a fake-worker checks remain in progress |
-| Model provider and CLI provider modules | Existing boundary, gated reuse | Hekate's prepared-prompt `CLIProvider` is a later reuse candidate; no live activation or relaxation of ChatAgent's answer-only CLI runner                              |
-| Repository integration (commit/handoff) | Single integration owner       | Local commits only in the pilot; no push, merge or service restart                                                                                                     |
+| Concern                                 | Owner                          | Notes                                                                                                                                                                        |
+| --------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local startup, status and stop          | Hekate                         | On demand, without the Sisyphus host; separate from that deployment's database/queue                                                                                         |
+| Plan nodes, hierarchy and dependencies  | Hekate                         | Existing PostgreSQL/AGE context-store; no ChatAgent plan store                                                                                                               |
+| Execution engine                        | Hekate, after inventory        | Choose between the active gods path and the experimental LangGraph engine                                                                                                    |
+| Context assembly and the answer runtime | ChatAgent                      | Existing bounded context, provider dispatch, budgets, cancellation and recording                                                                                             |
+| Worker contract (assignment/result)     | ChatAgent proposes             | Shared fields below; must be carried by Hekate plan nodes, not a parallel ledger                                                                                             |
+| Claim, finish and release calls         | Hekate supervisor              | Caller-held durable keys; ChatAgent receives the raw claim response and has no claim or transition client                                                                    |
+| Coding-worker adapter                   | Hekate supervisor adapter      | Sole claim/finish/release mutation owner; independent verifier/lead owns review decisions. Design 023 and bounded E1a/E1b experiments accepted; real execution remains gated |
+| Model provider and CLI provider modules | Existing boundary, gated reuse | Hekate's prepared-prompt `CLIProvider` is a later reuse candidate; no live activation or relaxation of ChatAgent's answer-only CLI runner                                    |
+| Repository integration (commit/handoff) | Single integration owner       | Local commits only in the pilot; no push, merge or service restart                                                                                                           |
 
 ## Corrections to earlier documents
 
@@ -146,9 +146,27 @@ activation or recording is established by these checks.
 - Delivery through the mailbox, or a worker reporting completion, is not evidence
   that the work was done or accepted.
 
+## Accepted fake-worker interop (E1a/E1b)
+
+Hekate E1a (`bf61588`) passed 103 independent tests. E1b (`6f50dac`) is accepted
+after independent clean-source validation and ChatAgent consumer review: 113
+default supervisor tests, 31 pure H1 interop tests and one live case (145 total,
+zero skips). Hekate's `context-store/plans/024-supervisor-e1a-validation.md` and
+`025-supervisor-e1b-validation.md` record the evidence. The live seam exercises
+real local API receipt → ChatAgent H1 → fake worker → guarded finish, using
+ChatAgent `5255daa` and Node 24.21.0 with explicit clean-source/runtime checks.
+
+Structured uncertainty preserves claim/holder evidence instead of retrying or
+automatically releasing uncertain work. Result correlation includes the mandatory
+supplied-text hash and separate system/fast/deep instruction strings; H1's hash
+still covers mandatory user text only. Owned API exit, disposable database deletion
+and `.run` cleanup were verified; the container is stopped. These checks establish
+no real worker/model activation, process safety or restart recovery. E2 durable
+launch/review-pending evidence is queued for design only, not implemented.
+
 ## Proposed review-pending handoff acceptance
 
-Status: proposed and unimplemented. The manual workflow exposed a failure in
+Status: proposed and unimplemented. E1a/E1b acceptance does not implement restart recovery. The manual workflow exposed a failure in
 which the lead ended its turn, the implementer completed, and its bridge reply
 remained unread for about 20 minutes until the user prompted the lead. Mailbox
 delivery and a running process are insufficient evidence of review progress.
@@ -205,8 +223,8 @@ lint passed; full lint retains its disclosed two-error/three-warning baseline.
 The accepted browser is a local read-only projection, not a worker launcher,
 claim UI or authentication implementation. ChatAgent execution/recovery and bridge
 visualizations remain unimplemented. Supervisor/context ownership is agreed in
-Hekate design 023 (`68bab95`); ChatAgent H1 is lead-accepted and Hekate E1a
-independent fake-worker checks remain in progress, not accepted. Visualization
+Hekate design 023 (`68bab95`); ChatAgent H1 and bounded E1a/E1b fake-worker
+experiments are lead-accepted. Visualization
 query seams remain to be agreed separately from these bounded integration seams.
 
 The proposal is three linked views over existing authoritative state:

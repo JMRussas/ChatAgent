@@ -14,7 +14,7 @@ Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fc
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                         |
 | Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks |
-| Hekate              | Lead accepted durable claims/pins and browser; supervisor/context ownership agreed at `68bab95`, ChatAgent H1 lead-accepted, E1a fake-worker checks in progress                   |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2 durable evidence is design-only                                                                         |
 | Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                       |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
@@ -39,8 +39,8 @@ consumer review. Its lead reports 172 pure, 51 live-store and 66 HTTP checks,
 51 repository browser/parser tests plus one temporary visual check (52 total),
 and passing typecheck/build/scoped lint. Full lint retains the disclosed baseline
 diagnostics. Hekate's plans 021/022 record the exact scope and evidence. Shared
-supervisor/context ownership is agreed and H1 is lead-accepted; E1a fake-worker
-checks remain in progress. ChatAgent
+supervisor/context ownership, H1 and bounded E1a/E1b fake-worker interop are
+lead-accepted. ChatAgent
 execution/recovery and bridge visualizations are not implemented by this browser.
 
 HTTP boundary review fixes are committed in `f9c578f`: `/sports/chat` now parses
@@ -1504,8 +1504,15 @@ after those fixes primary and lead each passed 79 focused tests (68 H1 and 11
 contextBuilder), with 105 earlier adjacent lead tests and 20 distinct rejected
 mutations. Format, lint and docs checks passed; raw fixtures match Hekate `bb2af8b`
 byte-for-byte. Hashes cover mandatory current-user text, not system/role text.
-Hekate design 023 is accepted at `68bab95`; its independent E1a fake-worker checks
-remain in progress and unaccepted. Provider reuse and real execution remain gated;
+Hekate design 023 is accepted at `68bab95`; E1a `bf61588` passed 103 independent
+tests, and E1b `6f50dac` passed 113 default, 31 pure H1 interop and one live test
+(145 total, zero skips). Clean-source/runtime checks pinned ChatAgent `5255daa`
+and Node 24.21.0. The bounded real-API → H1 → fake-worker → guarded-finish seam
+preserves structured uncertainty/holder evidence with no retries. Owned API,
+disposable databases and `.run` cleanup were verified; the container is stopped.
+Hekate plans 024/025 record the evidence. E2 durable launch/review-pending evidence
+is design-only; no restart recovery, real worker or model activation is established.
+Provider reuse and real execution remain gated;
 this does not decide the generic orchestration engine wholesale.
 
 #### Increment 1: executable contracts and context
