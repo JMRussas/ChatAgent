@@ -141,12 +141,26 @@ current bridge and this documentation provide none of these recovery guarantees.
 
 ## Proposed shared agent and task visualization
 
-Status: proposed and unimplemented. The user identified a task/agent map as a
+Status: shared integration proposed; Hekate's read-only plan projection is accepted.
+The user identified a task/agent map as a
 possible shared interface for Hekate and ChatAgent, with a possible bridge
 visualization. The reference shows
 a parent-child tree, task names, status, elapsed time, token counts and clickable
-details; its product origin is unverified. Hekate's lead has not acknowledged
-this direction, so ownership and query seams are not jointly accepted.
+details; its product origin is unverified. Hekate's lead accepted local commit
+`bb2af8b` after independent checks and ChatAgent consumer review. Hekate's
+`context-store/plans/021-local-plan-browser-proposal.md` and
+`022-local-plan-browser-validation.md` record managed-plan listing, hierarchy,
+dependency map, API-derived leaf/container statuses, detail and paged audit
+history, with stale-response guards and GET-only traffic. Lead evidence passed
+172 pure, 51 live-store and 66 HTTP checks, and 51 repository browser/parser
+tests plus one temporary visual check (52 total). Typecheck, build and scoped
+lint passed; full lint retains its disclosed two-error/three-warning baseline.
+
+The accepted browser is a local read-only projection, not a worker launcher,
+claim UI or authentication implementation. ChatAgent execution/recovery and bridge
+visualizations remain unimplemented. Both implementation agents are designing
+the smallest shared integration; its ownership and query seams are still to be
+agreed, rather than implied by acceptance of the Hekate browser.
 
 The proposal is three linked views over existing authoritative state:
 

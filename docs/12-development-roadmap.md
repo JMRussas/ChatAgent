@@ -14,7 +14,7 @@ Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fc
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                         |
 | Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks |
-| Hekate              | Lead accepted durable claims and pins at `979d471`; read-only plan browser is under final lead review                                                                             |
+| Hekate              | Lead accepted durable claims/pins at `979d471` and the read-only plan browser at `bb2af8b`; shared integration remains in design                                                  |
 | Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                       |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
@@ -34,7 +34,13 @@ records 151 source files with digest
 `4e065abbaf0d509bf09a89b5557c1403d4ed96855084bea44189251dc86c6fbf`,
 matched to the accepted source. Primary validation passed 1,272 TypeScript tests
 across 131 files and 34 browser tests; independent lead review ran 92 focused tests.
-Hekate's plan-browser proposal remains under final review, not accepted here.
+Hekate's read-only plan browser is lead-accepted at `bb2af8b`, including ChatAgent
+consumer review. Its lead reports 172 pure, 51 live-store and 66 HTTP checks,
+51 repository browser/parser tests plus one temporary visual check (52 total),
+and passing typecheck/build/scoped lint. Full lint retains the disclosed baseline
+diagnostics. Hekate's plans 021/022 record the exact scope and evidence. Both
+implementation agents are designing the smallest shared integration; ChatAgent
+execution/recovery and bridge visualizations are not implemented by this browser.
 
 HTTP boundary review fixes are committed in `f9c578f`: `/sports/chat` now parses
 and validates its body outside the scope-specific catch, preserving shared HTTP
