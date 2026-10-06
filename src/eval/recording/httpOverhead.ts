@@ -1,4 +1,5 @@
 import { createChatServer } from "../../server";
+import { createEphemeralAuth } from "../../auth/ephemeral";
 import { createRuntimeHandle } from "../../app/runtimeHandle";
 import { ChatOrchestrator, DeepWorker } from "../../app/orchestrator";
 import { ChatService } from "../../app/chatService";
@@ -87,7 +88,9 @@ export async function startHttpOverhead(
     timeline,
     queue
   );
-  const server = createChatServer(service);
+  // In-process server: an in-memory identity, and the client token for its requests.
+  const ephemeral = createEphemeralAuth();
+  const server = createChatServer(service, { auth: ephemeral.auth });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
@@ -112,6 +115,7 @@ export async function startHttpOverhead(
     run: async () => {
       const records = await runLiveBenchmark(dataset.prompts, {
         baseUrl: `http://127.0.0.1:${handle.address.port}`,
+        headers: ephemeral.headers("client"),
         deadlineMs: 5000,
         pollIntervalMs: 5
       });

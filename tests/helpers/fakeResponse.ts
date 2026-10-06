@@ -72,7 +72,12 @@ export class FakeResponse extends EventEmitter {
 
 export function fakeRequest(url: string) {
   const req = new EventEmitter() as IncomingMessage;
-  Object.assign(req, { method: "GET", url, headers: { host: "127.0.0.1" } });
+  Object.assign(req, {
+    method: "GET",
+    url,
+    headers: { host: "127.0.0.1" },
+    headersDistinct: { host: ["127.0.0.1"] }
+  });
   return req;
 }
 

@@ -7,6 +7,7 @@ import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockFastProvider, MockDeepProvider } from "../../src/providers/mockProviders";
 import { DocumentTaskError } from "../../src/app/documentTasks";
+import { allowAllTestAuth } from "../helpers/testAuth";
 const servers: ReturnType<typeof createChatServer>[] = [];
 afterEach(async () => {
   for (const s of servers.splice(0)) {
@@ -29,7 +30,10 @@ async function setup(enabled = true) {
     })),
     close: vi.fn()
   };
-  const server = createChatServer(service, enabled ? { documentTasks: bridge } : {});
+  const server = createChatServer(service, {
+    auth: allowAllTestAuth,
+    ...(enabled ? { documentTasks: bridge } : {})
+  });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   servers.push(server);
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

@@ -8,6 +8,7 @@ import type { OrchestratorResponse, UserMessage } from "../../src/domain/types";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockDeepProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
@@ -97,7 +98,7 @@ function response(message: UserMessage): OrchestratorResponse {
 }
 
 async function listen(service: ChatService) {
-  const server = createChatServer(service);
+  const server = createChatServer(service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   cleanups.push(async () => {
     server.closeAllConnections();

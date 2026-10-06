@@ -11,6 +11,7 @@ import { BriefingHttp } from "../../src/sports/briefingHttp";
 import { defaultNbaProfile } from "../../src/sports/briefingConfig";
 import { FixtureSportsSource, type SportsSource } from "../../src/sports/sources";
 import games from "../../data/sports/games.fixture.json";
+import { allowAllTestAuth } from "../helpers/testAuth";
 const request = { now: games.capturedAt, timezone: "UTC", team: games.supportedTeams[0] };
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -45,7 +46,10 @@ async function app(enabled = true) {
     queue
   );
   const briefings = new BriefingHttp(coordinator, profile);
-  const server = createChatServer(service, { briefings: enabled ? briefings : undefined });
+  const server = createChatServer(service, {
+    auth: allowAllTestAuth,
+    briefings: enabled ? briefings : undefined
+  });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   let closed = false;

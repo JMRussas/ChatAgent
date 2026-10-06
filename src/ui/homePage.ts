@@ -571,6 +571,33 @@ export function renderHomePageHtml(
     const thread = $("thread");
     const status = $("status");
     let timelineStream = null;
+    // Unpaired or no longer valid: go to the pairing page and stop everything here.
+    let leavingForPairing = false;
+    function goPair() {
+      if (leavingForPairing) return;
+      leavingForPairing = true;
+      cancelStreamRetry();
+      if (timelineStream) { timelineStream.close(); timelineStream = null; }
+      location.replace("/pair");
+    }
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const response = await nativeFetch(...args);
+      if (response.status === 401) goPair();
+      return response;
+    };
+    // "invalid" only on an authoritative answer: the server said this browser is not
+    // authenticated. Offline, 5xx or a malformed reply prove nothing ("unknown").
+    async function sessionState() {
+      try {
+        const res = await nativeFetch("/auth/session", { cache: "no-store" });
+        if (res.status === 401) return "invalid";
+        if (!res.ok) return "unknown";
+        const body = await res.json();
+        return body.authenticated === true ? "valid" : body.authenticated === false ? "invalid" : "unknown";
+      } catch { return "unknown"; }
+    }
+    void sessionState().then((state) => { if (state === "invalid") goPair(); });
     // A closed EventSource never reconnects by itself (for example after 429
     // STREAM_CAPACITY). At most one pending reopen, tied to the stream that closed.
     let streamRetry = null;
@@ -631,6 +658,8 @@ export function renderHomePageHtml(
       return state.expired;
     }
     async function recoverClosedStream(source, conversationId) {
+      // An EventSource cannot see its 401; an ended session must not be retried.
+      if ((await sessionState()) === "invalid") return goPair();
       if (await checkConversationExpiry(conversationId)) return;
       // A newer stream or conversation supersedes this one; its error must not reopen anything.
       if (source !== timelineStream || conversationId !== state.conversationId || streamRetry) return;

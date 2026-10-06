@@ -14,6 +14,7 @@ import { GenerationError } from "../../src/domain/generation";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -74,9 +75,9 @@ const task = (conversationId = "c"): DeepTask => ({
 });
 async function listen(
   r: ReturnType<typeof setup>,
-  options: Parameters<typeof createChatServer>[1]
+  options: Omit<Parameters<typeof createChatServer>[1], "auth">
 ) {
-  const server = createChatServer(r.service, options);
+  const server = createChatServer(r.service, { auth: allowAllTestAuth, ...options });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   cleanups.push(async () => {
     server.closeAllConnections();

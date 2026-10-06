@@ -19,6 +19,7 @@ import {
 } from "../../src/config/modelCatalog";
 import { bindingKey } from "../../src/models/connections";
 import type { ModelObservation } from "../../src/models/inventory";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const servers: Array<{ close: () => void }> = [];
 
@@ -42,7 +43,10 @@ describe("chat server", () => {
       fast: { provider: "mock", model: "mock-v1", temperature: 0.2 },
       deep: { provider: "mock", model: "mock-v1", temperature: 0.2 }
     });
-    const server = createChatServer(service, { modelCatalog: () => modelCatalog });
+    const server = createChatServer(service, {
+      auth: allowAllTestAuth,
+      modelCatalog: () => modelCatalog
+    });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
     const response = await fetch(
@@ -103,7 +107,7 @@ describe("chat server", () => {
 
     const modelCatalog = () =>
       describeModelCatalog(catalog, config, { observations: [freshLocal, staleCloud] });
-    const server = createChatServer(service, { modelCatalog });
+    const server = createChatServer(service, { auth: allowAllTestAuth, modelCatalog });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -128,7 +132,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -171,7 +175,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -198,7 +202,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -261,7 +265,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new AlwaysFailingProvider(), timeline, 0, deadLetters);
     const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -328,7 +332,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline, 2, undefined, adaptive);
     const service = new ChatService(orchestrator, worker, timeline, queue, undefined, adaptive);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -386,7 +390,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -423,7 +427,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -473,7 +477,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 
@@ -508,7 +512,7 @@ describe("chat server", () => {
     const worker = new DeepWorker(queue, new MockDeepProvider(), timeline);
     const service = new ChatService(orchestrator, worker, timeline);
 
-    const server = createChatServer(service);
+    const server = createChatServer(service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     servers.push(server);
 

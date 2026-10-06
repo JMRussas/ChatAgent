@@ -60,10 +60,13 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
 export function createProtocolV1Handler(service: ChatService, streams: EventStreamRegistry) {
   const runtimeId = randomUUID();
   const conversations = new Map<string, string>();
+  // Internal ids this protocol allocated, so legacy routes can refuse them.
+  const internalIds = new Set<string>();
   // Retirement releases the wire mapping with the identity it points at.
   service.addRetirementParticipant({
     forget: (internalId) => {
       for (const [key, id] of conversations) if (id === internalId) conversations.delete(key);
+      internalIds.delete(internalId);
     }
   });
   const json = (res: ServerResponse, status: number, body: unknown) => {
@@ -96,6 +99,7 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
         throw new GenerationError("CONVERSATION_CAPACITY", false);
       internalId = randomUUID();
       conversations.set(key, internalId);
+      internalIds.add(internalId);
     }
     if (submit && body) {
       let result;
@@ -111,8 +115,13 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
         });
       } catch (error) {
         // Admission failures before ownership is claimed must not consume a slot.
-        if (!service.hasConversationIdentity(internalId!) && conversations.get(key) === internalId)
+        if (
+          !service.hasConversationIdentity(internalId!) &&
+          conversations.get(key) === internalId
+        ) {
           conversations.delete(key);
+          internalIds.delete(internalId!);
+        }
         // Admission refusal did not start a generation. An earlier terminal for
         // this message ID must not turn the refusal into an accepted response.
         if (error instanceof GenerationError && error.code === "TURN_CAPACITY") throw error;
@@ -230,6 +239,8 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     return true;
   };
   return Object.assign(handle, {
-    retentionStats: () => ({ conversations: conversations.size })
+    retentionStats: () => ({ conversations: conversations.size }),
+    /** True for an internal id allocated here; legacy routes must not reach it. */
+    isProtocolConversation: (id: string) => internalIds.has(id)
   });
 }

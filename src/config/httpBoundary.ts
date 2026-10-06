@@ -40,14 +40,21 @@ export type BoundaryRejection = "HOST_NOT_ALLOWED" | "ORIGIN_NOT_ALLOWED";
  * reaching the loopback listener; the Origin check stops another site (or
  * another local web app) open in the same browser from driving it. Clients
  * that send no Origin are local processes, which local mode trusts.
+ *
+ * Pass every received value (Node's `headersDistinct`): Node keeps only the first
+ * of a repeated Host header, so a repeated Host or Origin is refused here.
  */
 export function checkLocalRequest(headers: {
-  host?: string;
-  origin?: string;
+  host?: string | readonly string[];
+  origin?: string | readonly string[];
 }): BoundaryRejection | undefined {
-  const host = headers.host?.toLowerCase();
+  const one = (value: string | readonly string[] | undefined) =>
+    typeof value === "string" ? value : value?.length === 1 ? value[0] : undefined;
+  const host = one(headers.host)?.toLowerCase();
   if (!host || !LOOPBACK_HOST_HEADER.test(host)) return "HOST_NOT_ALLOWED";
-  if (headers.origin !== undefined && headers.origin.toLowerCase() !== `http://${host}`)
+  if (headers.origin === undefined) return undefined;
+  const origin = one(headers.origin);
+  if (origin === undefined || origin.toLowerCase() !== `http://${host}`)
     return "ORIGIN_NOT_ALLOWED";
   return undefined;
 }

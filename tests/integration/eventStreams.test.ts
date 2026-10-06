@@ -13,6 +13,7 @@ import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
 import { GenerationError } from "../../src/domain/generation";
 import type { ChatTimelineEvent } from "../../src/domain/types";
 import { FakeResponse, fakeRequest, frames } from "../helpers/fakeResponse";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -40,7 +41,11 @@ async function setup(maxEventStreams = 2) {
     timeline,
     queue
   );
-  const server = createChatServer(service, { maxEventStreams, streamStallTimeoutMs: 1000 });
+  const server = createChatServer(service, {
+    auth: allowAllTestAuth,
+    maxEventStreams,
+    streamStallTimeoutMs: 1000
+  });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   cleanups.push(async () => {

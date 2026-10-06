@@ -9,6 +9,7 @@ import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { MockDeepProvider } from "../../src/providers/mockProviders";
 import type { GenerationControl } from "../../src/domain/generation";
 import { deriveTurns } from "../../src/ui/turnViewModel";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 it("HTTP/SSE exposes a delta before POST completes, reconnects exactly once and cancels by client ID", async () => {
   const queue = new InMemoryTaskQueue(),
@@ -36,7 +37,8 @@ it("HTTP/SSE exposes a delta before POST completes, reconnects exactly once and 
       new DeepWorker(queue, new MockDeepProvider(), timeline),
       timeline,
       queue
-    )
+    ),
+    { auth: allowAllTestAuth }
   );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

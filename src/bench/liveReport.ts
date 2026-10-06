@@ -77,9 +77,10 @@ const statusSchema = z.object({
   failureCode: z.null(),
   droppedEvents: z.literal(0)
 });
-async function recorderIdentity(baseUrl: string) {
+async function recorderIdentity(baseUrl: string, headers?: Readonly<Record<string, string>>) {
   try {
     const response = await fetch(`${baseUrl.replace(/\/$/, "")}/telemetry/evaluation`, {
+      headers: { ...headers },
       signal: AbortSignal.timeout(5000)
     });
     if (!response.ok) return null;
@@ -90,10 +91,16 @@ async function recorderIdentity(baseUrl: string) {
   }
 }
 /** A recorder ID is trusted for linking only if the same healthy recording brackets the batch. */
-export async function runLiveReport(prompts: BenchmarkPrompt[], options: LiveBenchmarkOptions) {
-  const before = await recorderIdentity(options.baseUrl);
+export async function runLiveReport(
+  prompts: BenchmarkPrompt[],
+  options: LiveBenchmarkOptions & {
+    /** Operator credential, used only to read the recorder status. */
+    recorderHeaders?: Readonly<Record<string, string>>;
+  }
+) {
+  const before = await recorderIdentity(options.baseUrl, options.recorderHeaders);
   const records = await runLiveBenchmark(prompts, options);
-  const after = await recorderIdentity(options.baseUrl);
+  const after = await recorderIdentity(options.baseUrl, options.recorderHeaders);
   return liveReportSchema.parse({
     schemaVersion: "chatagent-live-benchmark-v2",
     mode: "live",

@@ -1,4 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { createEphemeralAuth } from "../auth/ephemeral";
+import { classifyRoute } from "../auth/routePolicy";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { InventoryStore } from "../models/inventory";
@@ -112,10 +114,21 @@ const outcomes = new Map<string, number>();
 const tally = (label: string, result: string | number) =>
   outcomes.set(`${label}:${result}`, (outcomes.get(`${label}:${result}`) ?? 0) + 1);
 
+// In-process servers: an in-memory identity. Each request carries the least
+// privilege its route needs, looked up in the same route table the server uses.
+const benchAuth = createEphemeralAuth();
+const authFor = (method: string, path: string) =>
+  benchAuth.headers(
+    classifyRoute(method, path.split("?")[0])?.access === "operator" ? "operator" : "client"
+  );
+
 async function request(base: string, method: string, path: string, body?: unknown) {
   const response = await fetch(base + path, {
     method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    headers: {
+      ...authFor(method, path),
+      ...(body === undefined ? {} : { "content-type": "application/json" })
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(30000)
   });
@@ -132,7 +145,10 @@ async function request(base: string, method: string, path: string, body?: unknow
 async function touchStream(url: string) {
   const controller = new AbortController();
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, {
+      headers: benchAuth.headers("client"),
+      signal: controller.signal
+    });
     if (response.ok) await response.body!.getReader().read();
     else await response.text();
     return response.status;
@@ -446,6 +462,7 @@ function buildLiveRuntime() {
     maxConcurrentTurns: settings.live.maxConcurrentTurns
   });
   const server = createChatServer(service, {
+    auth: benchAuth.auth,
     briefings: sports.http,
     dispatchTelemetry: () => dispatch.telemetry(),
     contextTelemetry: () => context.getSummaryTelemetry()
@@ -741,6 +758,7 @@ function buildQueueRuntime() {
   const worker = new DeepWorker(queue, deep, timeline, 2, deadLetters, adaptive);
   const service = new ChatService(orchestrator, worker, timeline, queue, deadLetters, adaptive);
   const server = createChatServer(service, {
+    auth: benchAuth.auth,
     contextTelemetry: () => context.getSummaryTelemetry()
   });
   const stats = () => ({
@@ -859,9 +877,17 @@ async function queueRound(runtime: QueueRuntime, base: string, round: number) {
 
 async function queueCleanup(runtime: QueueRuntime, base: string, label: string) {
   runtime.advance(settings.conversation.idleTtlMs + 1);
-  const records = (await request(base, "GET", "/workers/deep/dead-letters")).json!.records as {
-    task: { taskId: string; conversationId: string };
+  // The operator HTTP view omits conversation identity, so the in-process service
+  // supplies it; the view itself is still read to keep that route exercised.
+  const listed = (await request(base, "GET", "/workers/deep/dead-letters")).json!.records as {
+    task: { taskId: string };
   }[];
+  const records = await runtime.service.listDeadLetters();
+  check(
+    "queue.operator dead-letter view lists the same tasks",
+    listed.map((r) => r.task.taskId).join() === records.map((r) => r.task.taskId).join(),
+    () => ({ listed, records: records.map((r) => r.task.taskId) })
+  );
   for (const { task } of records) {
     const blocked = await request(base, "DELETE", `/conversations/${task.conversationId}/identity`);
     check(
@@ -1399,6 +1425,7 @@ for (let n = 0; n < 3; n++)
   );
 const openStream = new AbortController();
 const streaming = fetch(`${liveBase}/conversations/shutdown-0/events/stream`, {
+  headers: benchAuth.headers("client"),
   signal: openStream.signal
 }).then(async (response) => {
   const reader = response.body!.getReader();

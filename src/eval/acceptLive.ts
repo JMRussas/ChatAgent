@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { startServer } from "../server";
 import { runLiveReport } from "../bench/liveReport";
+import { clientAuthHeaders } from "../auth/clientToken";
 import { goldenSuiteSchema } from "./golden";
 import { evaluateLiveGoldens } from "./liveGolden";
 import { scenarioDataset } from "./scenarios";
@@ -53,12 +54,18 @@ if (process.env.MODEL_ROUTING_MODE !== "catalog")
 const runtime = await startServer(0),
   baseUrl = `http://127.0.0.1:${runtime.address.port}`;
 try {
+  // The server just loaded (or created) this installation identity; loaded inside
+  // the try so a failure still shuts the runtime down.
+  const clientHeaders = await clientAuthHeaders(baseUrl, "client");
   const deadline = Date.now() + 60000;
   let ready = false;
   let readiness: unknown;
   while (Date.now() < deadline) {
     const view = await (
-      await fetch(`${baseUrl}/models`, { signal: AbortSignal.timeout(5000) })
+      await fetch(`${baseUrl}/models`, {
+        headers: clientHeaders,
+        signal: AbortSignal.timeout(5000)
+      })
     ).json();
     readiness = view;
     if (
@@ -76,6 +83,8 @@ try {
   if (!ready) throw new Error("LIVE_ACCEPTANCE_PROVIDER_NOT_READY");
   const report = await runLiveReport(dataset.prompts, {
     baseUrl,
+    headers: clientHeaders,
+    recorderHeaders: await clientAuthHeaders(baseUrl, "operator"),
     deadlineMs: 120000,
     conversationGroups: scenarios?.conversationGroups
   });

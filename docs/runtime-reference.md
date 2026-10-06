@@ -86,6 +86,11 @@ chat models or UI integration is implied.
 
 ## HTTP API
 
+Every route except the page and pairing needs a credential (see "Local
+authentication"). The `curl` examples below omit it for brevity: add
+`-H "Authorization: Bearer <token>"`, using the client token, or the operator
+token for operator routes. Both are in the installation's `identity.json`.
+
 Malformed JSON payloads on POST endpoints return `400` with error `Invalid JSON body`.
 JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and primitive values return `400`.
 
@@ -93,9 +98,11 @@ JSON bodies for POST endpoints must be non-null objects; `null`, arrays, and pri
 
 Local operation is the only supported deployment. The listener binds `BIND_HOST`
 (default `127.0.0.1`; `::1` and `localhost` are the only other accepted values)
-and startup fails for any other address. Shared or nonlocal deployment stays
-unsupported until requests carry an authenticated identity: `userId` in a JSON
-body is self-asserted, and a shared token would not separate users.
+and startup fails for any other address. Every route except the page and
+pairing requires the one local installation principal (see "Local
+authentication" below). Shared or
+nonlocal deployment stays unsupported: that would need separate user identities
+and per-user ownership, and `userId` in a JSON body is still only a label.
 
 Every request, including page loads, timeline reads, both event streams and
 operator endpoints, is checked before routing and before its body is read:
@@ -106,12 +113,95 @@ operator endpoints, is checked before routing and before its body is read:
 - `403 ORIGIN_NOT_ALLOWED` when an `Origin` header is present and is not exactly
   `http://<Host>`. Another site, a page served from a different local port and
   an opaque (`null`) origin are all refused. No CORS headers are sent.
+- A repeated `Host` or `Origin` header is refused the same way, for every
+  credential. Node keeps only the first copy of some repeated headers, so the
+  check reads every received value.
 
-A client that sends no `Origin` (curl, the benchmark and evaluation commands, any
-other local process) is accepted. Local mode trusts every process on the machine;
-the policy only keeps other web content in the user's browser from reading or
-driving the server. A reverse proxy that rewrites `Host` or terminates TLS is
-outside this boundary and will be refused.
+A request that sends no `Origin` (curl, the benchmark and evaluation commands, any
+other local process) passes this check, but it still needs a credential. A
+reverse proxy that rewrites `Host` or terminates TLS is outside this boundary and
+will be refused.
+
+### Local authentication
+
+Every request passes the local boundary and the route policy before any route
+handler runs, and every route except the four public ones requires a principal.
+Local mode has exactly one principal: the installation. Its identity file
+is created on first start in a directory that only the current OS user can read:
+`%LOCALAPPDATA%\ChatAgent` on Windows, `$XDG_STATE_HOME/chatagent` elsewhere
+(`~/.local/state/chatagent` when `XDG_STATE_HOME` is unset), or
+`CHAT_IDENTITY_DIR`. An identity file or directory that is not private, or not
+valid, stops startup and is left unchanged. Never delete it to recover: a new
+identity orphans everything the old one owned. Restore the permissions and rotate
+the credentials instead. Any process running as the same OS user can read the
+file, and therefore act as that user; local mode does not defend against that.
+
+Credentials and roles:
+
+| Credential                               | Roles            | Used by                                                                 |
+| ---------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
+| Browser session cookie (`ca_session`)    | client, operator | The page, after pairing                                                 |
+| `Authorization: Bearer <client token>`   | client           | Benchmark and evaluation commands, protocol v1 clients                  |
+| `Authorization: Bearer <operator token>` | client, operator | Operator routes such as dead letters, retention, routing policy, reload |
+
+The route table in `src/auth/routePolicy.ts` lists every route. Public routes are
+`GET /`, `GET /pair`, `POST /pair` and `GET /auth/session`. Every other route
+answers as follows:
+
+- `401 UNAUTHENTICATED` without a valid credential, including for unknown paths,
+  so routes cannot be enumerated;
+- `403 OPERATOR_REQUIRED` for a client credential on an operator route;
+- `404 NOT_FOUND` for an unknown path once authenticated. A path that is not in
+  the table never reaches a handler.
+
+Changes made with a browser cookie (any method but GET) must carry an `Origin`
+exactly equal to `http://<Host>`, or they get `403 ORIGIN_REQUIRED`. Another
+application on the same host but a different port is same-site, so the browser
+sends it this host's cookies even with `SameSite=Strict`. Only bearer tokens may
+omit `Origin`.
+
+**Pairing a browser.** On start the server prints a one-time code to its own
+console:
+
+```text
+Pair a browser: open http://127.0.0.1:3100/pair and enter XXXXX-XXXXX (one use, valid for 10 minutes).
+```
+
+- The `/pair` form posts the code in a JSON body, never a URL, and must come from
+  this exact origin.
+- A correct code sets `ca_session`: `HttpOnly`, `SameSite=Strict`, `Path=/`,
+  30 days. This HTTP profile does not set `Secure`. Cookies are scoped by host,
+  not port, so these flags do not isolate other local applications on the same
+  host.
+- Five wrong attempts discard the code, and nothing issues a new one
+  automatically. Restart the server, or have an operator call
+  `POST /pair/reissue` with the operator token. The new code goes to the
+  console, never to the response.
+- Responses: wrong code `401 PAIRING_FAILED`; no active code
+  `409 PAIRING_NOT_ACTIVE`.
+
+The page checks `GET /auth/session` when it loads. It goes to `/pair` only on an
+authoritative answer: `401`, or `authenticated: false`. A transient failure does
+not force pairing.
+
+**Local commands.** The benchmark, golden-set and live-acceptance commands read
+the existing identity; they never create one. They send the client token, and
+the operator token only for operator routes. They refuse to send any token
+anywhere except `http://localhost`, `http://127.0.0.1` or `http://[::1]`, with no
+user information in the URL.
+
+**Protocol v1 scoping.** Legacy client routes cannot reach a conversation that
+protocol v1 allocated internally. The conversation id is checked in the path and
+in the body of every legacy client POST, before any handler runs, and such ids
+answer `404 CONVERSATION_NOT_FOUND`. Operator routes (retention, retirement,
+dead-letter replay) work on internal ids by design and remain authorized for the
+operator. The operator dead-letter view lists only the task
+id, its timestamps, size band and a known failure category. It omits prompts,
+context, conversation and message identities, and free error text.
+
+Not provided: separate users, per-user ownership (`userId`, `accountId` and
+`projectId` remain labels inside the one principal), adoption of existing
+document-task owners, and shared deployment.
 
 POST bodies are limited to `HTTP_MAX_BODY_BYTES` (default 1048576, at most
 16777216; invalid values fail startup). Bytes are counted while reading, so the
@@ -205,7 +295,8 @@ when absent) and returns the same response fields after the fast phase ends. It 
 - `409` with code `CONVERSATION_OWNER_MISMATCH` if a `userId` other than the one
   that first submitted to a `conversationId` tries to post to it. This is a
   local-prototype guard against accidentally mixing two users' turns into one
-  conversation's shared context, not authentication.
+  conversation's shared context. It is a label check inside the one authenticated
+  installation principal, not per-user authorization.
 - `413` with code `CONTEXT_TOO_LARGE` if the message plus configured instructions
   would exceed the conversation context budget (see "Conversation context budget"
   below) even before any history is added. No events are appended and no deep task
@@ -273,8 +364,8 @@ Discarding removes the only replayable copy of the task. The failure itself stay
 in the conversation timeline as the task's terminal error event while that history
 is retained.
 
-Conversation identities (operator endpoints; like the rest of this server they
-have no authentication and rely on the local deployment boundary above):
+Conversation identities (operator endpoints: they need the operator token or a
+paired browser; see "Local authentication"):
 
 ```bash
 curl http://localhost:3100/conversations/retention
@@ -363,12 +454,14 @@ AWS authentication uses the standard SDK credential chain, including environment
 credentials or configured profiles/roles. See `src/config/providerConfig.ts` and
 the provider adapters for the implemented behavior.
 
-The server has no built-in authentication. It binds a loopback address and
-refuses cross-origin and non-loopback-`Host` requests (see "Local deployment
-boundary and request limits"). Conversation ownership checks use client-supplied
-identities and are only prototype guards: any local process can read a timeline
-or cancel a turn by conversation ID. Shared deployment requires a separate
-authentication and operational-hardening design and is refused at startup.
+The server binds a loopback address, refuses cross-origin and
+non-loopback-`Host` requests, and authenticates every request as the one local
+installation principal (see "Local deployment boundary and request limits" and
+"Local authentication"). A local process needs the installation's credentials,
+which any process running as the same OS user can read. Inside that principal,
+conversation ownership by `userId` is a label check, not per-user authorization.
+Shared deployment requires separate user identities and per-user ownership, and
+is refused at startup.
 
 ## Provider configuration
 

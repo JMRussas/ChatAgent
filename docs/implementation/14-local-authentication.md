@@ -1,8 +1,11 @@
 # 14 — Local authentication core
 
-Date: 2026-10-06. Status: core and activation primitives implemented, **not
-activated**. No HTTP route, page, client or sidecar uses them yet, and the running
-server's local boundary is unchanged.
+Date: 2026-10-06. Status: **activated** for local mode: the source enforces it for
+every newly started server, and no running service was restarted. Every request
+passes the local boundary and the route policy before routing, protected routes
+require the one installation principal, the page pairs
+through `/pair`, and local commands send least-privilege bearer tokens. The
+operator contract is in the runtime reference, under "Local authentication".
 This is roadmap step 2 work toward authenticated ownership; it does not complete
 step 2 and claims no cross-user ownership.
 
@@ -15,7 +18,8 @@ the same OS user can read the identity file and act as that user.
 
 - `src/auth/localIdentity.ts` stores `{version, principalId, sessionKey,
 clientToken, operatorToken, epoch}` in a dedicated directory. The default is
-  `%LOCALAPPDATA%/ChatAgent` on Windows or `$XDG_STATE_HOME/chatagent` elsewhere;
+  `%LOCALAPPDATA%/ChatAgent` on Windows or `$XDG_STATE_HOME/chatagent` elsewhere
+  (`~/.local/state/chatagent` when `XDG_STATE_HOME` is unset);
   `CHAT_IDENTITY_DIR` overrides it. The principal id is created once and never
   changes; rotation replaces the authenticators and increments `epoch`.
 - `src/auth/authenticator.ts` defines `Authenticator.resolve(credentials)`, which
@@ -81,9 +85,9 @@ ownership is unaffected.
   (`LocalAuthenticator.useIdentity`, intended for a later operator endpoint) or
   restarted. Rotation alone does not revoke sessions in a running server.
 
-## Activation primitives (implemented, unused)
+## Activation primitives
 
-These are built and tested, but nothing in the server calls them yet.
+The server uses these on every request.
 
 - `src/auth/pairing.ts`, `PairingController`:
   - One active code at a time: ten characters from a 32-symbol alphabet without
@@ -117,14 +121,15 @@ These are built and tested, but nothing in the server calls them yet.
 
 ### Route inventory (source, commit 2cecb5b)
 
-There are 34 handlers today, plus 3 pairing routes for activation: 37 routes in
-all, of which 3 are public, 21 client and 13 operator. Each handler is a
+There were 34 handlers at commit 2cecb5b. Activation added 4 routes: the pairing
+page, pairing, operator re-issue and `GET /auth/session`. That makes 38 routes,
+of which 4 are public, 21 client and 13 operator. Each handler is a
 `method === X && <path matcher>` branch in `src/server.ts`, or the v1 regular
 expression in `src/app/protocolV1.ts`.
 
 | Access   | Routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public   | `GET /`, `GET /pair`, `POST /pair`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Public   | `GET /`, `GET /pair`, `POST /pair`, `GET /auth/session`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Client   | `POST /briefings` (start, status and cancel), `POST /document-tasks`, `POST /sports/games`, `GET /sports/team-directories`, `POST /conversation-context/detach`, `POST /conversation-context`, `POST /sports/conversations`, `POST /sports/teams`, `POST /sports/results`, `POST /sports/chat`, `POST /messages`, `POST /conversations/:c/messages/:m/cancel`, `GET /telemetry/latency`, `GET /run-controls`, `GET /run-controls/thinking`, `GET /models`, `GET /conversations/:c/events`, `GET /conversations/:c/events/stream`, `POST /v1/conversations/:c/messages`, `GET /v1/conversations/:c/events/stream`, `POST /v1/conversations/:c/messages/:m/cancel` |
 | Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `GET /conversations/retention`, `DELETE /conversations/:c/identity`                                                                                                                                                                                                                                      |
 
@@ -135,16 +140,23 @@ and `endsWith` checks:
 - the legacy event-stream route;
 - dead-letter replay.
 
-For example, `/conversations/a/b/events` currently reaches the events handler
-with conversation `a`. Once the server consults the table first, such paths
-return 404.
+Before activation, `/conversations/a/b/events` reached the events handler with
+conversation `a`. The server now consults the table first, so such paths return
+404 and no handler runs.
 
-The table covers the current inventory only: it cannot notice a handler added
-later. Activation must make the server dispatch through these definitions, or
-check them against the source mechanically, so that a new handler cannot bypass
-the policy.
+The table is the runtime gate: a request whose path is not in it never reaches a
+handler. A handler added later without a table entry is therefore unreachable,
+which fails closed. The tests cannot discover such a handler by themselves: the
+coverage probe sends a request to every table entry with the operator token and
+requires it to reach a handler, so it catches a table entry whose handler is
+missing, but not the reverse.
 
-## For the HTTP activation slice (not implemented)
+## Activation notes
+
+- Legacy client routes cannot reach a conversation that protocol v1 allocated
+  internally. The id is checked in the path and in the body of every legacy client
+  POST, before dispatch. Operator retention, retirement and dead-letter replay
+  work on internal ids by design and remain authorized.
 
 - Cookies are scoped by host, not port: `HttpOnly` and `SameSite` do not isolate
   other local applications on the same host.

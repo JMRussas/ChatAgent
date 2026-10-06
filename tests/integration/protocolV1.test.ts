@@ -14,6 +14,7 @@ import { MockDeepProvider } from "../../src/providers/mockProviders";
 import { ContextManager } from "../../src/app/contextManager";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
 import type { GenerationControl } from "../../src/domain/generation";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -41,7 +42,7 @@ async function setup(
     undefined,
     { maxConcurrentTurns }
   );
-  const server = createChatServer(service);
+  const server = createChatServer(service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   cleanups.push(async () => {

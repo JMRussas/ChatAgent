@@ -10,6 +10,8 @@ export interface LiveBenchmarkOptions {
   pollIntervalMs?: number;
   /** Equal labels share a fresh conversation within this batch only. */
   conversationGroups?: readonly string[];
+  /** Sent with every request, for example a client bearer Authorization header. */
+  headers?: Readonly<Record<string, string>>;
 }
 export interface LiveBenchmarkRecord {
   evidenceMode: "live" | "synthetic" | "mixed" | "unknown";
@@ -113,13 +115,11 @@ export async function runLiveBenchmark(
     const request = async <T>(path: string, body?: unknown): Promise<T> => {
       const response = await fetch(`${baseUrl}${path}`, {
         signal: controller.signal,
-        ...(body === undefined
-          ? {}
-          : {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            })
+        headers: {
+          ...options.headers,
+          ...(body === undefined ? {} : { "Content-Type": "application/json" })
+        },
+        ...(body === undefined ? {} : { method: "POST", body: JSON.stringify(body) })
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as {
@@ -308,7 +308,7 @@ export async function runLiveBenchmark(
         try {
           const response = await fetch(
             `${baseUrl}/conversations/${conversationId}/messages/${messageId}/cancel`,
-            { method: "POST", signal: AbortSignal.timeout(5000) }
+            { method: "POST", headers: { ...options.headers }, signal: AbortSignal.timeout(5000) }
           );
           if (response.ok) record.cancellation = "acknowledged";
         } catch {

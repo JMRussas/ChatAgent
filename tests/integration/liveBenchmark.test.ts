@@ -4,6 +4,7 @@ import { createRuntimeHandle } from "../../src/app/runtimeHandle";
 import { entry, runtime } from "../helpers/dispatchFixtures";
 import { GenerationError } from "../../src/domain/generation";
 import { runLiveBenchmark } from "../../src/bench/liveBenchmark";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 it("retains provider failure and retry evidence through the real HTTP error response", async () => {
   const r = runtime([entry("a")], {
@@ -15,7 +16,7 @@ it("retains provider failure and retry evidence through the real HTTP error resp
       }
     }
   });
-  const server = createChatServer(r.service);
+  const server = createChatServer(r.service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const handle = createRuntimeHandle(server, r.service, {
     config: { graceMs: 0, timeoutMs: 1000 },
@@ -79,6 +80,7 @@ it("links a bracketed HTTP benchmark to its completed recorder and exact-answer 
   );
   const r = runtime([entry("a")], {}, recorder.record);
   const server = createChatServer(r.service, {
+    auth: allowAllTestAuth,
     evaluationStatus: () => ({ enabled: true, ...recorder.status() })
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -178,6 +180,7 @@ it("executes follow-ups in shared fresh conversations and links their exact evid
     recorder.record
   );
   const server = createChatServer(r.service, {
+    auth: allowAllTestAuth,
     evaluationStatus: () => ({ enabled: true, ...recorder.status() })
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

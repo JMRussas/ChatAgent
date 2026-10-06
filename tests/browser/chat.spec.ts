@@ -6,8 +6,9 @@ async function send(page: Page, prompt: string) {
   await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
+// Every test starts from a browser paired through the real /pair page.
 test.beforeEach(async ({ page, app }) => {
-  await page.goto(app.url);
+  await app.pair(page);
 });
 test("direct draft streams with progress, then completes without a spinner", async ({
   page,
@@ -124,6 +125,78 @@ test.describe("event stream capacity", () => {
     expect(app.streamSlots()).toBe(1);
     app.pending.get("fast:Explain capacity")!.finish();
     await expect(page.locator(".answer-content")).toHaveText("Final: Explain capacity");
+  });
+});
+
+test.describe("pairing and session loss", () => {
+  test("pairing without script never puts the code in a URL", async ({ app, browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    const requests: string[] = [];
+    page.on("request", (r) => requests.push(`${r.method()} ${r.url()} ${r.postData() ?? ""}`));
+    const code = app.issuePairingCode();
+    await page.goto(app.url + "/pair");
+    await page.locator("#pairCode").fill(code);
+    await page.getByRole("button", { name: "Pair" }).click();
+    await page.waitForLoadState();
+    expect(requests.some((r) => r.startsWith("POST ") && r.includes("/pair"))).toBe(true);
+    // The unnamed input is never submitted: not in a URL, not in a body.
+    expect(requests.join("\n")).not.toContain(code);
+    expect(page.url()).not.toContain(code);
+    await context.close();
+  });
+
+  test("an unpaired browser is sent to the pairing page", async ({ app, browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(app.url);
+    await page.waitForURL(app.url + "/pair");
+    await expect(page.getByRole("heading", { name: "Pair this browser" })).toBeVisible();
+    await context.close();
+  });
+
+  test("a session that stops being valid sends the page to pairing and stops retrying", async ({
+    page,
+    app
+  }) => {
+    const streams: string[] = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/events/stream")) streams.push(r.url());
+    });
+    await send(page, "Explain session loss");
+    await expect(page.locator(".answer-content")).toHaveText("Draft: Explain session loss");
+    app.rotateCredentials();
+    app.disconnect();
+    await page.waitForURL(app.url + "/pair", { timeout: 15_000 });
+    const after = streams.length;
+    await page.waitForTimeout(4000);
+    expect(streams.length).toBe(after);
+    app.pending.get("fast:Explain session loss")!.finish();
+  });
+
+  test("a temporary failure of the session check does not force pairing", async ({ page, app }) => {
+    // The page checks its session on load. A 503 (or a malformed answer) is not an
+    // authoritative "not authenticated", so the page must stay and keep working.
+    // (EventSource requests cannot be intercepted here, so the load check is used.)
+    let checks = 0;
+    await page.route("**/auth/session", (route) => {
+      checks++;
+      return route.fulfill({ status: 503, body: "" });
+    });
+    await page.reload();
+    await expect.poll(() => checks).toBeGreaterThan(0);
+    await page.waitForTimeout(1000);
+    expect(page.url()).toBe(app.url + "/");
+    await page.route("**/auth/session", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "{}" })
+    );
+    await page.reload();
+    await page.waitForTimeout(1000);
+    expect(page.url()).toBe(app.url + "/");
+    await page.unroute("**/auth/session");
+    await send(page, "Explain a blip");
+    await expect(page.locator(".answer-content")).toHaveText("Draft: Explain a blip");
+    app.pending.get("fast:Explain a blip")!.finish();
   });
 });
 
@@ -262,7 +335,7 @@ test("topic creation rejects foreign and invalid row references", async ({ app }
   const post = async (path: string, body: unknown) =>
     fetch(app.url + path, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...app.bearer("client") },
       body: JSON.stringify(body)
     });
   const owner = { conversationId: "browse", userId: "owner" };

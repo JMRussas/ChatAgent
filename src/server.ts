@@ -19,7 +19,14 @@ import { rejectUnsupportedInputs } from "./providers/interfaces";
 import { resolve } from "node:path";
 import { PythonDocumentTasks, DocumentTaskError, type DocumentTasks } from "./app/documentTasks";
 import { createProtocolV1Handler } from "./app/protocolV1";
+import { renderPairingPageHtml } from "./ui/pairingPage";
 import { EventStreamRegistry, StreamCapacityError, sseFrame } from "./app/eventStreams";
+import { LocalAuthenticator, type Authenticator } from "./auth/authenticator";
+import { loadOrCreateIdentity } from "./auth/localIdentity";
+import { PairingController } from "./auth/pairing";
+import { checkExactOrigin, extractCredentials, SESSION_COOKIE } from "./auth/credentials";
+import { classifyRoute, decideAccess } from "./auth/routePolicy";
+import { SESSION_MAX_AGE_SECONDS } from "./auth/authenticator";
 import { verifyThinkingConfig } from "./config/thinkingConfig";
 import { DuplicateMessageError } from "./app/generationLifecycle";
 import { GenerationError } from "./domain/generation";
@@ -138,7 +145,20 @@ interface RuntimeModeInfo {
   deepModel?: string;
 }
 
+/** Browser pairing: an operator-visible code exchanged once for a session cookie. */
+export interface PairingOptions {
+  controller: PairingController;
+  /** Signs a session for the installation owner (LocalAuthenticator.issueSession). */
+  issueSession(): string;
+  /** Shows a newly issued code to the operator. Never written to an HTTP response. */
+  announce(code: string): void;
+}
+
 interface ServerOptions {
+  /** Required: every request is resolved to a principal or refused before routing. */
+  auth: Authenticator;
+  /** Without it, /pair answers 404 PAIRING_DISABLED. */
+  pairing?: PairingOptions;
   briefings?: BriefingHttp;
   documentTasks?: DocumentTasks;
   // A function, not a static value: discovery observations change over the
@@ -170,6 +190,22 @@ function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo 
     deepModel: config.deep.model
   };
 }
+
+const pairBodySchema = z.object({ code: z.string().max(64) }).strict();
+
+/**
+ * The failure categories normalizeGenerationError produces; any other dead-letter
+ * error text, even one shaped like a code, is reported as OTHER.
+ */
+const PUBLIC_DEAD_LETTER_CODES = new Set([
+  "CANCELLED",
+  "CONTEXT_TOO_LARGE",
+  "PROVIDER_AUTH",
+  "PROVIDER_ERROR",
+  "PROVIDER_REQUEST_INVALID",
+  "PROVIDER_TIMEOUT",
+  "PROVIDER_UNAVAILABLE"
+]);
 
 class HttpRequestError extends Error {
   constructor(
@@ -259,7 +295,9 @@ async function parseJsonBody(req: IncomingMessage, maxBytes: number): Promise<un
   }
 }
 
-export function createChatServer(service: ChatService, options: ServerOptions = {}) {
+export function createChatServer(service: ChatService, options: ServerOptions) {
+  // No default: a server built without an authenticator would answer everyone.
+  if (!options?.auth) throw new Error("createChatServer requires an authenticator (options.auth).");
   service.resolveReferences = (selections, userId, conversationId) => {
     const store = options.briefings?.directory?.results;
     if (!store) throw Error("REFERENCES_UNAVAILABLE");
@@ -272,6 +310,51 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     })
   );
   const protocolV1 = createProtocolV1Handler(service, eventStreams);
+  const conversationNotFound = (res: ServerResponse) =>
+    json(res, 404, { code: "CONVERSATION_NOT_FOUND", error: "No such conversation" });
+
+  /** /pair and /pair/reissue. Codes travel only in a request body or the console. */
+  const handlePairing = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    method: string,
+    path: string,
+    readBody: () => Promise<unknown>
+  ) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    const pairing = options.pairing;
+    if (!pairing) return json(res, 404, { code: "PAIRING_DISABLED", error: "Pairing is disabled" });
+    if (path === "/pair/reissue") {
+      // Operator only (route table). The new code goes to the console, never here.
+      pairing.announce(pairing.controller.issue());
+      return json(res, 202, { issued: true });
+    }
+    if (method === "GET") {
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.end(renderPairingPageHtml());
+      return;
+    }
+    // Bootstrap is public, so it proves its own origin: another site cannot pair a
+    // browser into this server, and a local tool has no reason to pair at all.
+    if (checkExactOrigin(req.headersDistinct) !== "same-origin")
+      return json(res, 403, { code: "ORIGIN_REQUIRED", error: "Pair from this server's page" });
+    const body = pairBodySchema.safeParse(await readBody());
+    const result = pairing.controller.attempt(body.success ? body.data.code : undefined);
+    if (result === "no-code")
+      return json(res, 409, {
+        code: "PAIRING_NOT_ACTIVE",
+        error: "No pairing code is active. Ask the operator for a new one."
+      });
+    if (result !== "paired")
+      return json(res, 401, { code: "PAIRING_FAILED", error: "That code is not valid" });
+    res.setHeader(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=${pairing.issueSession()}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX_AGE_SECONDS}`
+    );
+    return json(res, 200, { paired: true });
+  };
   // Evidence bound to a retired conversation goes with it; ownership is released last.
   service.addRetirementParticipant({
     forget: (conversationId) => {
@@ -304,9 +387,10 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
     responses.add(res);
     res.once("close", () => responses.delete(res));
     // Every route reads its body through this limit.
-    const parseBody = () => parseJsonBody(req, maxBodyBytes);
+    const readBody = () => parseJsonBody(req, maxBodyBytes);
+    let parseBody = readBody;
     try {
-      const rejection = checkLocalRequest(req.headers);
+      const rejection = checkLocalRequest(req.headersDistinct);
       if (rejection)
         return json(res, 403, {
           code: rejection,
@@ -320,7 +404,64 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", "http://localhost");
 
-      if (await protocolV1(req, res, url, parseBody)) return;
+      // Access is decided from the route table before any handler runs. A path that
+      // is not in the table never reaches a handler.
+      const rule = classifyRoute(method, url.pathname);
+      const principal = options.auth.resolve(extractCredentials(req.headersDistinct));
+      const access = decideAccess(rule, principal);
+      if (!access.allow)
+        return json(res, access.status, {
+          code: access.code,
+          error:
+            access.status === 401
+              ? "Authentication required"
+              : access.status === 403
+                ? "This credential cannot use this route"
+                : "Not found"
+        });
+      // Another application on this host at a different port is same-site, so the
+      // browser sends it this host's cookies even with SameSite=Strict. A cookie may
+      // only authorize a change when the request provably comes from this origin.
+      if (
+        principal?.via === "session" &&
+        method !== "GET" &&
+        checkExactOrigin(req.headersDistinct) !== "same-origin"
+      )
+        return json(res, 403, {
+          code: "ORIGIN_REQUIRED",
+          error: "Changes made with a browser session must come from this page"
+        });
+
+      if (method === "GET" && url.pathname === "/auth/session") {
+        res.setHeader("Cache-Control", "no-store");
+        return json(res, 200, {
+          authenticated: !!principal,
+          ...(principal ? { roles: [...principal.roles].sort(), via: principal.via } : {})
+        });
+      }
+      if (url.pathname === "/pair" || url.pathname === "/pair/reissue")
+        // Awaited so a rejected body read reaches the shared error handler below.
+        return await handlePairing(req, res, method, url.pathname, readBody);
+
+      if (url.pathname.startsWith("/v1/")) {
+        if (await protocolV1(req, res, url, parseBody)) return;
+      } else if (rule?.access === "client") {
+        // Legacy client routes take conversation ids from the path or the body; none
+        // of them may name a conversation the v1 protocol allocated internally.
+        // Operator routes (retention, retirement) work on internal ids by design.
+        const pathId = /^\/conversations\/([^/]+)\//.exec(url.pathname)?.[1];
+        if (pathId !== undefined && protocolV1.isProtocolConversation(decodeURIComponent(pathId)))
+          return conversationNotFound(res);
+        // The body is read and checked here, before any handler, so the refusal does
+        // not depend on whether or when a handler reads it.
+        if (method === "POST") {
+          const body = await readBody();
+          const id = (body as { conversationId?: unknown } | null)?.conversationId;
+          if (typeof id === "string" && protocolV1.isProtocolConversation(id))
+            return conversationNotFound(res);
+          parseBody = async () => body;
+        }
+      }
 
       if (method === "GET" && url.pathname === "/telemetry/evaluation")
         return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });
@@ -584,7 +725,20 @@ export function createChatServer(service: ChatService, options: ServerOptions = 
       }
 
       if (method === "GET" && url.pathname === "/workers/deep/dead-letters") {
-        const records = await service.listDeadLetters();
+        // Operator view as an explicit allowlist: no prompt, context snapshot or any
+        // conversation, message or dispatch identity, and only a known failure category.
+        // The task id is enough to delete or replay a record.
+        const records = (await service.listDeadLetters()).map(
+          ({ task, errorMessage, failedAtIso }) => ({
+            task: {
+              taskId: task.taskId,
+              createdAtIso: task.createdAtIso,
+              ...(task.sizeBand ? { sizeBand: task.sizeBand } : {})
+            },
+            errorCode: PUBLIC_DEAD_LETTER_CODES.has(errorMessage) ? errorMessage : "OTHER",
+            failedAtIso
+          })
+        );
         return json(res, 200, { records, capacity: service.deadLetterCapacity() ?? null });
       }
 
@@ -1192,6 +1346,18 @@ export async function startServer(
     }
   };
 
+  // The installation identity is loaded, or created once, after configuration has
+  // been validated (a misconfigured start creates no credentials), before the
+  // document sidecar starts and before the port is bound. An identity that is not
+  // private to this user stops startup, releasing what was already opened.
+  let auth: LocalAuthenticator;
+  try {
+    auth = new LocalAuthenticator(await loadOrCreateIdentity());
+  } catch (error) {
+    briefings?.close();
+    recorder?.invalidate("EVAL_STARTUP_FAILED");
+    throw error;
+  }
   const runtimeMode = resolveRuntimeModeInfo(config);
   const documentTasks = process.env.DOC_TASK_PYTHON
     ? new PythonDocumentTasks(
@@ -1202,6 +1368,13 @@ export async function startServer(
       )
     : undefined;
 
+  const pairing = new PairingController();
+  const urlHost = boundary.host.includes(":") ? `[${boundary.host}]` : boundary.host;
+  let pairUrl = "";
+  const announcePairing = (code: string) =>
+    console.log(
+      `Pair a browser: open ${pairUrl} and enter ${code} (one use, valid for 10 minutes).`
+    );
   const server = createChatServer(service, {
     briefings,
     documentTasks,
@@ -1212,7 +1385,13 @@ export async function startServer(
       recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry(),
     maxBodyBytes: boundary.maxBodyBytes,
-    ...streamAdmission
+    ...streamAdmission,
+    auth,
+    pairing: {
+      controller: pairing,
+      issueSession: () => auth.issueSession(),
+      announce: announcePairing
+    }
   });
   // Do not report success or start background work until the port is bound.
   await new Promise<void>((resolve, reject) => {
@@ -1285,6 +1464,7 @@ export async function startServer(
     }
   });
   server.once("close", stopBackground);
+  server.once("close", () => pairing.clear());
 
   // Safe to log: describeProviderConfig() never includes secret values
   // (e.g. AZURE_OPENAI_API_KEY), only provider/model names, endpoints, and
@@ -1293,5 +1473,9 @@ export async function startServer(
   console.log(
     `Chat server listening on ${boundary.host} port ${runtime.address.port} (${describeProviderConfig(config)}; deep-worker auto=${autoRunLabel})`
   );
+  // The code is shown once, on this console only; a new one needs a restart or an
+  // operator request to POST /pair/reissue.
+  pairUrl = `http://${urlHost}:${runtime.address.port}/pair`;
+  announcePairing(pairing.issue());
   return runtime;
 }

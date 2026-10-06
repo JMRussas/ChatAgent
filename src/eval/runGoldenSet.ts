@@ -1,6 +1,7 @@
 import "../config/loadEnv";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { parsePositiveIntEnv } from "../config/runtimeEnv";
+import { clientAuthHeaders } from "../auth/clientToken";
 import {
   buildGoldenReport,
   type GoldenCase,
@@ -27,10 +28,17 @@ interface TimelineEvent {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function postJson<T>(url: string, payload: unknown): Promise<T> {
+// Loaded in main(): the client token for chat routes, operator only for run-once.
+let auth: Record<"client" | "operator", Record<string, string>> = { client: {}, operator: {} };
+
+async function postJson<T>(
+  url: string,
+  payload: unknown,
+  role: "client" | "operator" = "client"
+): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...auth[role] },
     body: JSON.stringify(payload)
   });
 
@@ -47,7 +55,8 @@ async function postJson<T>(url: string, payload: unknown): Promise<T> {
 
 async function getTimeline(baseUrl: string, conversationId: string): Promise<TimelineEvent[]> {
   const response = await fetch(
-    `${baseUrl}/conversations/${encodeURIComponent(conversationId)}/events`
+    `${baseUrl}/conversations/${encodeURIComponent(conversationId)}/events`,
+    { headers: auth.client }
   );
   if (!response.ok) {
     throw new Error(`Timeline request failed (${response.status})`);
@@ -188,7 +197,7 @@ async function evaluateCase(
       }
 
       // Keep deep path moving in deterministic environments.
-      await postJson(`${baseUrl}/workers/deep/run-once`, {});
+      await postJson(`${baseUrl}/workers/deep/run-once`, {}, "operator");
       await sleep(pollIntervalMs);
     }
 
@@ -240,6 +249,10 @@ async function main() {
   const raw = await readFile(goldenSetPath, "utf8");
   const parsed = JSON.parse(raw);
   const suite = goldenSuiteSchema.parse(parsed);
+  auth = {
+    client: await clientAuthHeaders(baseUrl, "client"),
+    operator: await clientAuthHeaders(baseUrl, "operator")
+  };
 
   const results: GoldenCaseResult[] = [];
   for (let index = 0; index < suite.length; index += 1) {

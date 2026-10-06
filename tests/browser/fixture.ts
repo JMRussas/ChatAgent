@@ -7,6 +7,9 @@ import { CapabilityChat } from "../../src/app/capabilityChat";
 import { ContextManager } from "../../src/app/contextManager";
 import { test as base, expect } from "@playwright/test";
 import { createChatServer } from "../../src/server";
+import { createEphemeralAuth } from "../../src/auth/ephemeral";
+import { PairingController } from "../../src/auth/pairing";
+import type { Page } from "@playwright/test";
 import { createRuntimeHandle } from "../../src/app/runtimeHandle";
 import { ChatService } from "../../src/app/chatService";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
@@ -204,7 +207,19 @@ async function runtime(maxEventStreams?: number) {
     timeline,
     queue
   );
-  const server = createChatServer(service, { briefings: sports.http, maxEventStreams });
+  // Real authentication: an in-memory identity and the real pairing flow.
+  const ephemeral = createEphemeralAuth();
+  const pairing = new PairingController();
+  const server = createChatServer(service, {
+    briefings: sports.http,
+    maxEventStreams,
+    auth: ephemeral.auth,
+    pairing: {
+      controller: pairing,
+      issueSession: ephemeral.issueSession,
+      announce: () => undefined
+    }
+  });
   let streamRefusals = 0;
   server.on("request", (req, res) =>
     res.once("finish", () => {
@@ -230,12 +245,26 @@ async function runtime(maxEventStreams?: number) {
     pending,
     controls,
     disconnect: () => server.closeStreams(),
+    /** Pairs the browser through the real /pair page, using a code read from the controller. */
+    pair: async (page: Page) => {
+      const code = pairing.issue();
+      await page.goto(`http://127.0.0.1:${handle.address.port}/pair`);
+      await page.locator("#pairCode").fill(code);
+      await page.getByRole("button", { name: "Pair" }).click();
+      await page.waitForURL(`http://127.0.0.1:${handle.address.port}/`);
+    },
+    /** Issues a code without pairing, for tests of the pairing page itself. */
+    issuePairingCode: () => pairing.issue(),
+    /** Invalidates every session and token, as an operator rotation would. */
+    rotateCredentials: () => ephemeral.rotate(),
+    bearer: (role: "client" | "operator" = "client") => ephemeral.headers(role),
     /** Occupies one event-stream slot from outside the page until the returned release. */
     holdStream: async () => {
       const controller = new AbortController();
       const response = await fetch(
         `http://127.0.0.1:${handle.address.port}/conversations/holder/events/stream`,
         {
+          headers: ephemeral.headers("client"),
           signal: controller.signal
         }
       );

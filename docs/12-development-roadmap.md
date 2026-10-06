@@ -74,12 +74,36 @@ not an independent review. The third was reviewed continuously by
 **Next implementation:** record whether step 1 is accepted within its measured
 scope. Then finish step 2: authenticated ownership of conversations, result
 handles, tasks and operator endpoints before any shared deployment. The user
-approved a local-first design with one trusted installation principal. Its core
-(identity file with proven file privacy, authenticator and sessions) and its
-activation primitives (pairing, route policy, credential and Origin checks) are
-implemented but not yet activated on any route, so the running server's local
-boundary is unchanged; see
-[local authentication core](implementation/14-local-authentication.md).
+approved a local-first design with one trusted installation principal. It is now
+activated, meaning the source enforces it for newly started servers (no running
+service was restarted):
+
+- every request passes the local boundary and a default-deny route table before
+  routing, and protected routes require the principal;
+- browsers pair through `/pair`;
+- local commands send least-privilege tokens, and only to loopback addresses;
+- legacy client routes cannot reach protocol v1 conversations, while operator
+  retention, retirement and replay still can;
+- the operator dead-letter view is redacted.
+
+Evidence on Windows Node 24.21.0:
+
+- 1027 tests across 119 files and 34 browser tests pass, with format and lint.
+- Temporary mutations that disabled the access decision, the cookie Origin rule,
+  the repeated-header check or the v1 guard each failed their tests.
+- The sustained-memory gate passed 160 assertions with heap within tolerance
+  (run 2026-10-06T18:29Z). Its report was written to the ignored
+  `node_modules/.cache/auth-gate/`, and no tracked measurement was modified.
+
+Known side effect: before a test was isolated, one test run created a real
+installation identity in the user profile (`%LOCALAPPDATA%\ChatAgent`). It was
+left in place; whether to keep it is the user's decision.
+
+Still open for step 2: per-principal ownership (a second principal, for example a
+shared login) and adoption of existing document-task owners. Shared deployment
+stays refused. See
+[local authentication](implementation/14-local-authentication.md) and the runtime
+reference.
 Rolling-window reconciliation belongs to step 3.
 
 Declarative development coordination is now a planned workstream; see step 6.

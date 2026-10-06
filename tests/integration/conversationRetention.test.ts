@@ -17,6 +17,7 @@ import { ContextManager } from "../../src/app/contextManager";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
 import { createChatServer } from "../../src/server";
 import type { AddressInfo } from "node:net";
+import { allowAllTestAuth } from "../helpers/testAuth";
 const event = (id = "m") => ({
   type: "user" as const,
   text: "hello",
@@ -235,7 +236,7 @@ it("cleans scopes, summary memory and source identity indexes on expiry", async 
 });
 it("returns explicit HTTP expiry and capacity errors", async () => {
   const r = setup({ maxIdentities: 1, maxHistories: 1 });
-  const server = createChatServer(r.service);
+  const server = createChatServer(r.service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   cleanups.push(async () => {
     server.closeAllConnections();
@@ -371,7 +372,7 @@ it("bounds emergency terminal reservations and handles byte overflow", async () 
 });
 it("does not allocate identities for invalid streams or unknown cancellation", async () => {
   const r = setup({ maxIdentities: 1, maxHistories: 1 });
-  const server = createChatServer(r.service);
+  const server = createChatServer(r.service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   cleanups.push(async () => {
     server.closeAllConnections();
@@ -408,7 +409,7 @@ it("does not allocate identities for invalid streams or unknown cancellation", a
 });
 it("tells an open legacy stream why it ends when its history expires", async () => {
   const r = setup();
-  const server = createChatServer(r.service);
+  const server = createChatServer(r.service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   cleanups.push(async () => {
     server.closeAllConnections();

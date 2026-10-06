@@ -14,6 +14,7 @@ import {
   resources,
   runtime
 } from "../helpers/dispatchFixtures";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const specialists = () => [
   entry("chat", { roles: ["fast"], tasks: ["conversation"] }),
@@ -284,7 +285,7 @@ describe("catalog dispatch integration", () => {
   });
   it("returns 503 without timeline, queue or provider work and explicitly rejects image/tool payloads", async () => {
     const r = runtime([entry("chat", { tasks: ["conversation"] })]);
-    const server = createChatServer(r.service);
+    const server = createChatServer(r.service, { auth: allowAllTestAuth });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     const base = `http://localhost:${(server.address() as AddressInfo).port}`;
     try {

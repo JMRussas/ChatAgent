@@ -12,6 +12,7 @@ import {
   type BenchmarkPrompt
 } from "./benchmarkCore";
 import { runLiveReport } from "./liveReport";
+import { clientAuthHeaders } from "../auth/clientToken";
 
 const BenchmarkPromptSchema = z.object({
   id: z.string().min(1),
@@ -106,9 +107,13 @@ async function main() {
 
   const prompts = await readPrompts(promptsPath);
   if (mode === "live") {
+    // Least privilege: the client token for the benchmark, operator only for the
+    // recorder status read.
     const report = await runLiveReport(prompts, {
       baseUrl,
-      deadlineMs: Number(process.env.BENCH_DEADLINE_MS ?? 120000)
+      deadlineMs: Number(process.env.BENCH_DEADLINE_MS ?? 120000),
+      headers: await clientAuthHeaders(baseUrl, "client"),
+      recorderHeaders: await clientAuthHeaders(baseUrl, "operator")
     });
     const records = report.records;
     await mkdir(dirname(jsonOutPath), { recursive: true });

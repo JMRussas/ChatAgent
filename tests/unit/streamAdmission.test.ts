@@ -11,6 +11,7 @@ import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProviders";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 describe("event stream admission configuration", () => {
   it("defaults to 32 streams and a 30 second stall timeout", () => {
@@ -72,9 +73,11 @@ describe("event stream admission configuration", () => {
       timeline,
       queue
     );
-    expect(() => createChatServer(service, { maxEventStreams: 0 })).toThrow(/maxEventStreams/);
-    expect(() => createChatServer(service, { streamStallTimeoutMs: 10 })).toThrow(
-      /streamStallTimeoutMs/
+    expect(() => createChatServer(service, { auth: allowAllTestAuth, maxEventStreams: 0 })).toThrow(
+      /maxEventStreams/
     );
+    expect(() =>
+      createChatServer(service, { auth: allowAllTestAuth, streamStallTimeoutMs: 10 })
+    ).toThrow(/streamStallTimeoutMs/);
   });
 });

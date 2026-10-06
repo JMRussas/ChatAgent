@@ -40,6 +40,8 @@ export const ROUTES: readonly RouteRule[] = [
   rule("GET", "/", "public"),
   rule("GET", "/pair", "public"),
   rule("POST", "/pair", "public"),
+  // Reports only whether the caller's own credentials are valid.
+  rule("GET", "/auth/session", "public"),
 
   rule("POST", "/briefings", "client"),
   rule("POST", "/document-tasks", "client"),

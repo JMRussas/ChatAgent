@@ -7,6 +7,7 @@ import {
 } from "../../src/app/runtimeHandle";
 import { entry, message, runtime } from "../helpers/dispatchFixtures";
 import { GenerationError } from "../../src/domain/generation";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const handles: RuntimeHandle[] = [];
 afterEach(async () => {
@@ -23,7 +24,7 @@ async function start(
   r: ReturnType<typeof runtime>,
   options: { graceMs?: number; timeoutMs?: number; persist?: () => Promise<void> } = {}
 ) {
-  const server = createChatServer(r.service);
+  const server = createChatServer(r.service, { auth: allowAllTestAuth });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const stopBackground = vi.fn(),
     stopInternal = vi.fn(() => r.manager.shutdown()),

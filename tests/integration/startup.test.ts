@@ -7,16 +7,23 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { startServer } from "../../src/server";
 import { runLiveBenchmark } from "../../src/bench/liveBenchmark";
 import catalog from "../../data/model-catalog.json";
+import { clientAuthHeaders } from "../../src/auth/clientToken";
 
-beforeEach(() => {
+// Every startServer in these tests gets its own installation identity, never the
+// user profile one, and its requests carry the real tokens loaded from it.
+let identityDir = "";
+beforeEach(async () => {
+  identityDir = await mkdtemp(join(tmpdir(), "chat-identity-"));
+  vi.stubEnv("CHAT_IDENTITY_DIR", join(identityDir, "ChatAgent"));
   vi.stubEnv("MODEL_ROUTING_MODE", "fixed");
   vi.stubEnv("EVAL_RECORDING", "false");
   vi.stubEnv("MODEL_DISPATCH_CONFIG_PATH", "");
   vi.stubEnv("HEKATE_CLI_ROOT", "");
 });
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
+  await rm(identityDir, { recursive: true, force: true });
 });
 
 it("rejects a catalog window consumed by reserves before starting the server", async () => {
@@ -53,6 +60,23 @@ it("rejects a catalog window consumed by reserves before starting the server", a
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it("stops startup on an invalid installation identity, leaving it unchanged and binding nothing", async () => {
+  for (const role of ["FAST", "DEEP"]) {
+    vi.stubEnv(`CHAT_${role}_PROVIDER`, "mock");
+    vi.stubEnv(`CHAT_${role}_MODEL`, "mock-v1");
+  }
+  vi.stubEnv("TELEMETRY_STORE_PATH", join(identityDir, "telemetry.json"));
+  // A private directory holding an identity that does not match the format.
+  const { loadOrCreateIdentity } = await import("../../src/auth/localIdentity");
+  const dir = join(identityDir, "ChatAgent");
+  await loadOrCreateIdentity(dir);
+  await writeFile(join(dir, "identity.json"), '{"version":1}');
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  await expect(startServer(0)).rejects.toThrow(/identity format/);
+  expect(log).not.toHaveBeenCalled();
+  expect(await readFile(join(dir, "identity.json"), "utf8")).toBe('{"version":1}');
+}, 120_000);
 
 it("rejects an occupied port without announcing success or starting background timers", async () => {
   const occupied = createServer();
@@ -144,9 +168,10 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
     expect(handle.address.address).toBe("127.0.0.1");
     expect([process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")]).toEqual(listeners);
     const base = `http://127.0.0.1:${handle.address.port}`;
+    const client = await clientAuthHeaders(base, "client");
     const response = await fetch(`${base}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...client },
       body: JSON.stringify({
         conversationId: "automatic",
         userId: "u",
@@ -157,7 +182,9 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
     expect((await response.json()).deepTask).toBeDefined();
     await vi.waitFor(
       async () => {
-        const result = await (await fetch(`${base}/conversations/automatic/events`)).json();
+        const result = await (
+          await fetch(`${base}/conversations/automatic/events`, { headers: client })
+        ).json();
         expect(result.events.some((event: { type: string }) => event.type === "refined")).toBe(
           true
         );
@@ -171,7 +198,7 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
           text: "Compare and design code for a complex distributed system with detailed tradeoffs"
         }
       ],
-      { baseUrl: base, deadlineMs: 5000, pollIntervalMs: 25 }
+      { baseUrl: base, deadlineMs: 5000, pollIntervalMs: 25, headers: client }
     );
     expect(benchmark).toMatchObject({
       outcome: "stop",
@@ -182,7 +209,11 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
     });
     expect(benchmark.attempts.map((a) => a.phase).sort()).toEqual(["deep", "fast"]);
     expect(benchmark.responseHash).toMatch(/^[a-f0-9]{64}$/);
-    const recording = await (await fetch(`${base}/telemetry/evaluation`)).json();
+    const recording = await (
+      await fetch(`${base}/telemetry/evaluation`, {
+        headers: await clientAuthHeaders(base, "operator")
+      })
+    ).json();
     expect(recording.enabled).toBe(true);
     await handle.shutdown();
     const artifact = JSON.parse(
@@ -222,6 +253,9 @@ it("keeps mock chat working with a loaded role catalog and rejects role executio
   vi.stubEnv("SHUTDOWN_GRACE_MS", "0");
   vi.stubEnv("HTTP_MAX_BODY_BYTES", "512");
   const handle = await startServer(0);
+  const base = `http://127.0.0.1:${handle.address.port}`;
+  const operator = await clientAuthHeaders(base, "operator");
+  const client = await clientAuthHeaders(base, "client");
   try {
     // The configured limit reaches the assembled server. Only headers are sent, so
     // the rejection cannot race an upload.
@@ -233,7 +267,7 @@ it("keeps mock chat working with a loaded role catalog and rejects role executio
           agent: false,
           method: "POST",
           path: "/routing/policy/set",
-          headers: { "Content-Type": "application/json", "Content-Length": 513 }
+          headers: { "Content-Type": "application/json", "Content-Length": 513, ...operator }
         },
         (res) => {
           res.resume();
@@ -248,9 +282,9 @@ it("keeps mock chat working with a loaded role catalog and rejects role executio
     });
     expect(oversized).toBe(413);
     const post = (body: unknown) =>
-      fetch(`http://127.0.0.1:${handle.address.port}/messages`, {
+      fetch(`${base}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...client },
         body: JSON.stringify(body)
       });
     const body = { conversationId: "roles", userId: "u", text: "hello" };

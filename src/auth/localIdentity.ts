@@ -150,6 +150,26 @@ export async function loadOrCreateIdentity(dir = defaultIdentityDir()): Promise<
 }
 
 /**
+ * Loads an existing identity without ever creating one, for clients of a running
+ * server: a client pointed at the wrong directory must fail, not mint unrelated
+ * credentials. The error names the directory, never a secret.
+ */
+export async function loadIdentity(dir = defaultIdentityDir()): Promise<LocalIdentity> {
+  const path = join(dir, FILE);
+  try {
+    await verifyPrivate(dir, "directory");
+    await verifyPrivate(path, "file");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      throw new LocalIdentityError(
+        `No ChatAgent identity in ${dir}. Start the server once to create it, or set CHAT_IDENTITY_DIR to the server's identity directory.`
+      );
+    throw error;
+  }
+  return parse(path);
+}
+
+/**
  * Replaces the authenticators and increments epoch, keeping the principal id so
  * ownership is unaffected. A running server keeps its loaded identity until it is
  * given the new one (LocalAuthenticator.useIdentity) or restarted.

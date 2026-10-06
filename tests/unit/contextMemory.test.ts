@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ContextManager } from "../../src/app/contextManager";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { InMemorySourceStore, contentHash } from "../../src/app/sourceStore";
@@ -17,6 +20,7 @@ import type { MemoryItem, ConversationContext } from "../../src/domain/context";
 import type { SourceRecord } from "../../src/app/sourceStore";
 import { createChatServer } from "../../src/server";
 import type { ChatService } from "../../src/app/chatService";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const budget = {
   windowTokens: 24000,
@@ -384,7 +388,10 @@ describe("01B internal memory", () => {
     const s = await setup(6, { summarizer: fake(async () => new Promise(() => {})) });
     await prepare(s.manager);
     const service = { addRetirementParticipant: () => undefined } as unknown as ChatService;
-    const server = createChatServer(service, { shutdown: () => s.manager.shutdown() });
+    const server = createChatServer(service, {
+      auth: allowAllTestAuth,
+      shutdown: () => s.manager.shutdown()
+    });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve()))
@@ -483,7 +490,11 @@ it("source checking explicitly reports originals too large for the available mem
 it("startup rejects model mode without an explicit binding before listening", async () => {
   const { startServer } = await import("../../src/server");
   const previous = process.env.CONTEXT_SUMMARY_MODE,
-    binding = process.env.CONTEXT_SUMMARY_MODEL_BINDING;
+    binding = process.env.CONTEXT_SUMMARY_MODEL_BINDING,
+    identityDir = process.env.CHAT_IDENTITY_DIR;
+  // Never the user profile's identity: startup must not touch real credentials here.
+  const isolated = await mkdtemp(join(tmpdir(), "chat-identity-"));
+  process.env.CHAT_IDENTITY_DIR = join(isolated, "ChatAgent");
   process.env.CONTEXT_SUMMARY_MODE = "model";
   delete process.env.CONTEXT_SUMMARY_MODEL_BINDING;
   try {
@@ -493,6 +504,9 @@ it("startup rejects model mode without an explicit binding before listening", as
     else process.env.CONTEXT_SUMMARY_MODE = previous;
     if (binding === undefined) delete process.env.CONTEXT_SUMMARY_MODEL_BINDING;
     else process.env.CONTEXT_SUMMARY_MODEL_BINDING = binding;
+    if (identityDir === undefined) delete process.env.CHAT_IDENTITY_DIR;
+    else process.env.CHAT_IDENTITY_DIR = identityDir;
+    await rm(isolated, { recursive: true, force: true });
   }
 });
 

@@ -7,6 +7,7 @@ import { ChatService } from "../../src/app/chatService";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
 import { MockDeepProvider, MockFastProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
+import { allowAllTestAuth } from "../helpers/testAuth";
 
 const LIMIT = 256;
 const servers: Array<ReturnType<typeof createChatServer>> = [];
@@ -18,7 +19,7 @@ afterEach(async () => {
   }
 });
 
-type ServerOptions = NonNullable<Parameters<typeof createChatServer>[1]>;
+type ServerOptions = Omit<Parameters<typeof createChatServer>[1], "auth">;
 
 async function start(options: ServerOptions = { maxBodyBytes: LIMIT }) {
   const queue = new InMemoryTaskQueue();
@@ -28,7 +29,7 @@ async function start(options: ServerOptions = { maxBodyBytes: LIMIT }) {
     new DeepWorker(queue, new MockDeepProvider(), timeline),
     timeline
   );
-  const server = createChatServer(service, options);
+  const server = createChatServer(service, { auth: allowAllTestAuth, ...options });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   servers.push(server);
   const port = (server.address() as AddressInfo).port;
