@@ -995,6 +995,16 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
               ? "The task may have been accepted. Its outcome is unknown; inspect task state before submitting more work."
               : "The outcome is unknown. Check the task's status before acting."
         });
+      if (error instanceof DocumentTaskError && error.code === "BRIDGE_BUSY") {
+        // Refused before anything was written to the sidecar; resending is safe.
+        res.setHeader("Retry-After", "1");
+        return json(res, 503, { error: "Documentation task request failed", code: error.code });
+      }
+      if (error instanceof DocumentTaskError && error.code === "REQUEST_TOO_LARGE")
+        return json(res, 413, {
+          error: "Documentation task request is too large",
+          code: error.code
+        });
       if (error instanceof DocumentTaskError) {
         const status =
           error.code === "CAPACITY_FULL"

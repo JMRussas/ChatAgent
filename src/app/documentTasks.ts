@@ -20,6 +20,12 @@ const KILL_GRACE_MS = 5_000;
 const MAX_PENDING = 32;
 /** Ids whose request timed out; a reply for one of these is late, not a protocol error. */
 const LATE_REPLY_MEMORY = 64;
+/**
+ * The sidecar refuses an input line longer than 16000 characters (newline included)
+ * and cannot say which request it refused. Lines are sent as pure ASCII, so this byte
+ * bound equals the character count Python sees whatever its stdin encoding.
+ */
+const MAX_REQUEST_BYTES = 16_000;
 const READ_ONLY_OPS = new Set(["list", "status"]);
 const ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
@@ -30,6 +36,14 @@ interface Pending {
   resolve: (v: unknown) => void;
   reject: (e: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+}
+
+/** JSON with every non-ASCII UTF-16 unit escaped, so one character is one byte. */
+function asciiJson(value: unknown) {
+  return JSON.stringify(value).replace(
+    /[\u0080-\uffff]/g,
+    (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0")
+  );
 }
 
 /**
@@ -56,6 +70,8 @@ export class PythonDocumentTasks implements DocumentTasks {
   private sequence = 0;
   private state: "up" | "terminating" | "down" = "up";
   private exited = false;
+  /** The child's stdin buffer is full; admission reopens on its next drain while up. */
+  private blocked = false;
   private killTimer?: ReturnType<typeof setTimeout>;
   private readonly pending = new Map<number, Pending>();
   private readonly timedOut: number[] = [];
@@ -100,8 +116,13 @@ export class PythonDocumentTasks implements DocumentTasks {
   request(data: Record<string, unknown>): Promise<unknown> {
     const op = typeof data.op === "string" ? data.op : "";
     if (this.state !== "up") return Promise.reject(new DocumentTaskError("BRIDGE_UNAVAILABLE", op));
+    // Refused before serializing, numbering or timing anything; safe to retry.
+    if (this.blocked) return Promise.reject(new DocumentTaskError("BRIDGE_BUSY", op));
     if (this.pending.size >= MAX_PENDING)
       return Promise.reject(new DocumentTaskError("CAPACITY_FULL", op));
+    const line = asciiJson({ ...data, id: this.sequence + 1 }) + "\n";
+    if (line.length > MAX_REQUEST_BYTES)
+      return Promise.reject(new DocumentTaskError("REQUEST_TOO_LARGE", op));
     const id = ++this.sequence;
     return new Promise((resolve, reject) => {
       const entry: Pending = {
@@ -118,13 +139,27 @@ export class PythonDocumentTasks implements DocumentTasks {
       };
       this.pending.set(id, entry);
       try {
-        this.child.stdin.write(JSON.stringify({ ...data, id }) + "\n");
+        if (!this.child.stdin.write(line)) this.block();
         entry.written = true;
       } catch {
         this.fail("STDIN_ERROR");
       }
     });
   }
+
+  /**
+   * One drain listener per blocked episode. It is removed before the bridge leaves
+   * "up", so only a drain while up can reopen admission.
+   */
+  private block() {
+    if (this.blocked) return;
+    this.blocked = true;
+    this.child.stdin.once("drain", this.onDrain);
+  }
+
+  private readonly onDrain = () => {
+    this.blocked = false;
+  };
 
   /** Shutdown: settles what is pending, lets the child exit on end of input, then kills it. */
   close() {
@@ -221,6 +256,8 @@ export class PythonDocumentTasks implements DocumentTasks {
 
   private settleAll() {
     this.state = this.exited ? "down" : "terminating";
+    // Admission never reopens from here, so the drain listener is not kept.
+    this.child.stdin.off("drain", this.onDrain);
     this.partial = Buffer.alloc(0);
     this.partialBytes = 0;
     for (const entry of this.pending.values()) {

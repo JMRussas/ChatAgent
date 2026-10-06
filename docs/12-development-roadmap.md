@@ -1126,8 +1126,12 @@ any shared deployment.
   termination confirmed by the child's exit. There is no respawn, no re-send and
   no retry promise. Still open: an explicit operator restart (only after the old
   child has provably exited; the sidecar's `bridge.owner` lock already refuses an
-  overlapping owner), automatic recovery, stdin backpressure, and making the
-  start-and-binding sequence idempotent.
+  overlapping owner), automatic recovery, and making the start-and-binding
+  sequence idempotent. _Stdin admission implemented 2026-10-06:_ requests are sent
+  as pure ASCII within the sidecar's 16000-character line limit (`REQUEST_TOO_LARGE`,
+  413), and a full stdin buffer refuses new work with `BRIDGE_BUSY` (503,
+  `Retry-After: 1`) until that child drains; see
+  [request admission](implementation/11-conversation-tasks.md#request-admission).
   Define explicit restart behavior without automatically replaying uncertain work.
   Give orphaned document tasks an operator-visible reconciliation/abandon path that
   preserves uncertainty about external execution instead of claiming clean rollback.

@@ -106,6 +106,31 @@ it("leaves the task feature disabled by default", async () => {
   expect((await post("/document-tasks", { ...scope, op: "list" })).status).toBe(404);
   expect(await (await fetch(base)).text()).not.toContain('id="documentTaskStart"');
 });
+it("reports a busy bridge as retryable and an oversized request as 413", async () => {
+  const { bridge, post } = await setup();
+  bridge.request.mockRejectedValueOnce(new DocumentTaskError("BRIDGE_BUSY", "start"));
+  const busy = await post("/document-tasks", {
+    ...scope,
+    op: "start",
+    requestId: crypto.randomUUID(),
+    question: "q"
+  });
+  expect(busy.status).toBe(503);
+  // Nothing reached the sidecar, so resending is safe.
+  expect(busy.headers.get("retry-after")).toBe("1");
+  expect(await busy.json()).toEqual({
+    error: "Documentation task request failed",
+    code: "BRIDGE_BUSY"
+  });
+  bridge.request.mockRejectedValueOnce(new DocumentTaskError("REQUEST_TOO_LARGE", "list"));
+  const large = await post("/document-tasks", { ...scope, op: "list" });
+  expect(large.status).toBe(413);
+  expect(large.headers.get("retry-after")).toBeNull();
+  expect(await large.json()).toEqual({
+    error: "Documentation task request is too large",
+    code: "REQUEST_TOO_LARGE"
+  });
+});
 it("reports an uncertain mutation as 503 with no retry promise or Retry-After", async () => {
   const { bridge, post } = await setup();
   bridge.request.mockRejectedValueOnce(new DocumentTaskError("BRIDGE_UNCERTAIN", "start"));

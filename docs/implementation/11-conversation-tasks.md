@@ -142,8 +142,33 @@ What an unanswered request reports:
   task with no binding, so resending the same `requestId` is not proven to avoid
   a duplicate. Making this idempotent is deferred reconciliation work.
 
-These bounds apply to stdout only. A child that stops reading stdin can still
-accumulate written requests, so the whole bridge's memory is not claimed bounded.
+### Request admission
+
+Requests are written to stdin as pure ASCII JSON: every non-ASCII UTF-16 unit is
+escaped as `\uXXXX`, so a surrogate pair becomes two escapes and existing escapes
+are left as they are. One character is then one byte, whatever encoding Python
+uses to read stdin. Python 3.13 on Windows may read a pipe with the locale code page
+unless UTF-8 mode is enabled, so unescaped UTF-8 could otherwise reach the sidecar
+altered.
+
+The sidecar refuses an input line longer than 16000 characters, newline included,
+and its refusal carries no request id. Node therefore checks the line it would
+send, including the newline and the digits of the id it would assign, against
+16000 bytes. A longer request is refused with `REQUEST_TOO_LARGE` (HTTP 413)
+before an id, timer or write is spent, and the healthy child is untouched. The
+current HTTP schema cannot produce such a line, so this is a defensive bound.
+
+When a write reports a full stdin buffer, the request still counts as handed over
+and the bridge stops admitting work. New requests are refused with `BRIDGE_BUSY`
+(HTTP 503, `Retry-After: 1`) before they are serialized, numbered or timed, so
+resending them is safe. Only the next `drain` of the same child reopens
+admission, once per full buffer. Timeouts never reopen it. A failure or close
+removes the drain listener, so a late drain cannot revive a bridge that is down.
+Nothing is replayed, and a written request keeps its timeout or uncertainty
+semantics.
+
+Queued request bytes are therefore bounded by the stdin buffer's high-water mark
+plus one request of at most 16000 bytes, and at most 32 requests are pending.
 
 ## Verification
 

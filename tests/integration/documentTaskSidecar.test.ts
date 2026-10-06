@@ -42,6 +42,44 @@ describe.skipIf(!existsSync(PYTHON))("real document-task sidecar (offline)", () 
     await expect(s.list()).rejects.toMatchObject({ code: "BRIDGE_UNAVAILABLE" });
   }, 60_000);
 
+  it("delivers non-ASCII labels exactly, whatever the sidecar's stdin encoding", async () => {
+    const s = await start();
+    // 150 supplementary characters are 150 Python code points, within the sidecar's
+    // 200-character scope limit only if each surrogate pair arrives as one character.
+    const conversationId = "\u{1d11e}".repeat(150);
+    const owner = "é".repeat(200);
+    // An invalid start still claims the conversation for its user, without any model.
+    await expect(
+      s.bridge.request({ op: "start", conversationId, userId: owner, requestId: "" })
+    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    expect(await s.bridge.request({ op: "list", conversationId, userId: owner })).toEqual([]);
+    // The stored owner is the exact string: one different accent is someone else.
+    await expect(
+      s.bridge.request({ op: "list", conversationId, userId: "é".repeat(199) + "è" })
+    ).rejects.toMatchObject({ code: "OWNER_MISMATCH" });
+    await expect(
+      s.bridge.request({ op: "list", conversationId, userId: "é".repeat(201) })
+    ).rejects.toMatchObject({ code: "INVALID_SCOPE" });
+    expect(s.bridge.diagnostics()).toMatchObject({ state: "up", protocolFailures: 0 });
+  }, 60_000);
+
+  it("is answered for a line of exactly the sidecar's limit and refuses a longer one before sending it", async () => {
+    const s = await start();
+    const request = (bytes: number) => {
+      const data = { op: "list", conversationId: "c", userId: "u", pad: "é".repeat(2000) };
+      // Escaped é is six bytes; the rest of the line is ASCII. The id here is 2 or 3.
+      const json = JSON.stringify({ ...data, id: 2 });
+      return { ...data, pad: data.pad + "x".repeat(bytes - (json.length + 5 * 2000 + 1)) };
+    };
+    expect(await s.list()).toEqual([]);
+    expect(await s.bridge.request(request(16_000))).toEqual([]);
+    await expect(s.bridge.request(request(16_001))).rejects.toMatchObject({
+      code: "REQUEST_TOO_LARGE"
+    });
+    expect(await s.list()).toEqual([]);
+    expect(s.bridge.diagnostics()).toMatchObject({ state: "up", protocolFailures: 0 });
+  }, 60_000);
+
   it("refuses a second sidecar on the same root while the first is alive", async () => {
     const s = await start();
     // The first sidecar holds its exclusive owner lock once it is serving.

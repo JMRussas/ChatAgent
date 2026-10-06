@@ -5,7 +5,12 @@ vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 import { spawn } from "node:child_process";
 import { PythonDocumentTasks } from "../../src/app/documentTasks";
 
+const bridges: PythonDocumentTasks[] = [];
+const children: EventEmitter[] = [];
 afterEach(() => {
+  // Settle every request and timer here rather than leaving them to worker teardown.
+  for (const b of bridges.splice(0)) b.close();
+  for (const c of children.splice(0)) c.emit("exit", null);
   vi.useRealTimers();
   vi.mocked(spawn).mockReset();
 });
@@ -18,10 +23,17 @@ function child() {
     kill: vi.fn()
   });
   vi.mocked(spawn).mockReturnValue(c as never);
+  children.push(c);
   return c;
 }
 type Child = ReturnType<typeof child>;
-const bridge = () => new PythonDocumentTasks("python", "script.py", "tasks");
+function bridge() {
+  const b = new PythonDocumentTasks("python", "script.py", "tasks");
+  bridges.push(b);
+  return b;
+}
+/** Sends a request whose outcome the test does not inspect. */
+const fire = (p: Promise<unknown>) => void p.catch(() => {});
 /** Requests written so far, parsed. */
 const sent = (c: Child) =>
   String(c.stdin.read() ?? "")
@@ -351,5 +363,143 @@ describe("termination", () => {
     c.emit("exit", null);
     expect(vi.getTimerCount()).toBe(0);
     expect(b.diagnostics().state).toBe("down");
+  });
+});
+
+/** Makes the next stdin write report a full buffer, while still writing the line. */
+function fillOnNextWrite(c: Child) {
+  const write = c.stdin.write.bind(c.stdin);
+  vi.spyOn(c.stdin, "write").mockImplementationOnce(((chunk: string) => {
+    write(chunk);
+    return false;
+  }) as never);
+}
+
+describe("stdin backpressure admission", () => {
+  it("refuses requests once a write fills the buffer, before numbering or writing them", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const c = child(),
+      b = bridge();
+    fillOnNextWrite(c);
+    const blocking = code(b.request({ op: "start" }));
+    expect(await code(b.request({ op: "list" }))).toBe("BRIDGE_BUSY:list");
+    expect(vi.getTimerCount()).toBe(1);
+    // Timeouts, however many, never reopen admission.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await blocking).toBe("BRIDGE_UNCERTAIN:start");
+    for (let i = 0; i < 3; i++) {
+      expect(await code(b.request({ op: "status" }))).toBe("BRIDGE_BUSY:status");
+      await vi.advanceTimersByTimeAsync(30_000);
+    }
+    expect(vi.getTimerCount()).toBe(0);
+    expect(sent(c).map((r) => r.id)).toEqual([1]);
+    expect(b.diagnostics()).toMatchObject({ state: "up", pending: 0, protocolFailures: 0 });
+  });
+
+  it("reopens on drain exactly once per full buffer", async () => {
+    const c = child(),
+      b = bridge();
+    fillOnNextWrite(c);
+    fire(b.request({ op: "list" }));
+    expect(c.stdin.listenerCount("drain")).toBe(1);
+    c.stdin.emit("drain");
+    expect(c.stdin.listenerCount("drain")).toBe(0);
+    // The next request is numbered 2: refused requests consumed no sequence.
+    fillOnNextWrite(c);
+    fire(b.request({ op: "list" }));
+    expect(await code(b.request({ op: "list" }))).toBe("BRIDGE_BUSY:list");
+    expect(c.stdin.listenerCount("drain")).toBe(1);
+    expect(sent(c).map((r) => r.id)).toEqual([1, 2]);
+    c.stdin.emit("drain");
+    fire(b.request({ op: "list" }));
+    expect(sent(c).map((r) => r.id)).toEqual([3]);
+  });
+
+  it("stays unavailable when a drain arrives after a failure or close", async () => {
+    for (const end of ["fail", "close"] as const) {
+      const c = child(),
+        b = bridge();
+      fillOnNextWrite(c);
+      const pending = code(b.request({ op: "start" }));
+      if (end === "fail") await reply(c, "garbage\n");
+      else b.close();
+      expect(await pending).toBe("BRIDGE_UNCERTAIN:start");
+      // The listener is released with the bridge, and a late drain changes nothing.
+      expect(c.stdin.listenerCount("drain")).toBe(0);
+      c.stdin.emit("drain");
+      expect(await code(b.request({ op: "list" }))).toBe("BRIDGE_UNAVAILABLE:list");
+      expect(sent(c)).toHaveLength(1);
+    }
+  });
+});
+
+describe("request size", () => {
+  /** The ASCII line length the bridge sends for this request and id, newline included. */
+  const lineLength = (data: object, id: number) => {
+    const json = JSON.stringify({ ...data, id });
+    return json.length + 5 * (json.match(/[^\x00-\x7f]/g)?.length ?? 0) + 1;
+  };
+  const sized = (bytes: number, id: number) => ({
+    op: "list",
+    pad: "x".repeat(bytes - lineLength({ op: "list", pad: "" }, id))
+  });
+
+  it("sends a line of exactly 16000 bytes and refuses one byte more without writing", async () => {
+    const c = child(),
+      b = bridge();
+    const tooLarge = sized(16_001, 1);
+    expect(lineLength(tooLarge, 1)).toBe(16_001);
+    expect(await code(b.request(tooLarge))).toBe("REQUEST_TOO_LARGE:list");
+    expect(sent(c)).toEqual([]);
+    const exact = sized(16_000, 1);
+    fire(b.request(exact));
+    const [line] = String(c.stdin.read()).split("\n");
+    expect(line.length + 1).toBe(16_000);
+    expect(JSON.parse(line)).toEqual({ ...exact, id: 1 });
+    // The healthy child is untouched.
+    expect(b.diagnostics()).toMatchObject({ state: "up", protocolFailures: 0 });
+    expect(c.kill).not.toHaveBeenCalled();
+  });
+
+  it("counts the digits of the id the request would get", async () => {
+    const c = child(),
+      b = bridge();
+    for (let id = 1; id <= 9; id++) {
+      const pending = b.request({ op: "status" });
+      await reply(c, `{"id":${id},"result":null}\n`);
+      await pending;
+    }
+    sent(c);
+    // Fits with a one-digit id, but this request is numbered 10.
+    expect(await code(b.request(sized(16_000, 9)))).toBe("REQUEST_TOO_LARGE:list");
+    fire(b.request(sized(16_000, 10)));
+    expect(sent(c).map((r) => r.id)).toEqual([10]);
+  });
+
+  it("sends pure ASCII: non-ASCII escaped once, surrogate pairs kept, escapes left as they are", async () => {
+    const c = child(),
+      b = bridge();
+    const data = { op: "list", label: 'é😀 "quoted" \\ \n \u2028 \u0007 \ud800' };
+    fire(b.request(data));
+    const line = String(c.stdin.read());
+    expect(line).toMatch(/^[\x00-\x7f]+\n$/);
+    expect(line).toContain(String.raw`\u00e9\ud83d\ude00`);
+    expect(line).toContain(String.raw`\"quoted\" \\ \n \u2028 \u0007 \ud800`);
+    expect(JSON.parse(line)).toEqual({ ...data, id: 1 });
+    expect(line.length).toBe(lineLength(data, 1));
+  });
+
+  it("counts an escaped character at six bytes against the limit", async () => {
+    const c = child(),
+      b = bridge();
+    const base = { op: "list", pad: "" };
+    const room = 16_000 - lineLength(base, 1);
+    expect(await code(b.request({ op: "list", pad: "é".repeat(Math.floor(room / 6) + 1) }))).toBe(
+      "REQUEST_TOO_LARGE:list"
+    );
+    const fits = { op: "list", pad: "é".repeat(Math.floor(room / 6)) + "x".repeat(room % 6) };
+    expect(lineLength(fits, 1)).toBe(16_000);
+    fire(b.request(fits));
+    expect(sent(c)).toEqual([{ ...fits, id: 1 }]);
   });
 });
