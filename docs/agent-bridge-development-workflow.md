@@ -147,6 +147,17 @@ Hekate Codex drives Hekate Claude, and the leads coordinate shared dependencies.
 This continuity discipline does not add automatic wakeup capability: bridge
 delivery still cannot resume an ended model turn.
 
+Assign the next reviewed, authorized scope before the lead ends its turn.
+Delivery or an unread mailbox entry proves neither a wakeup nor resumed progress.
+If a peer lead has ended while such an increment is ready and its implementer is
+active, the coordinating lead may explicitly take interim review, test and local
+commit ownership within the authorized scope. Notify both leads and the
+implementer, confirm that no competing reviewer or duplicate implementation is
+running, and agree ownership of test environments and lifecycle operations.
+Keep the active implementation running; do not interrupt it or treat message
+receipt as evidence of execution. Hand review ownership back explicitly at the
+agreed checkpoint, with exact revisions, checks and outstanding decisions.
+
 ## Repository rules (ChatAgent)
 
 - Use the Node version pinned in `.node-version` (currently 24.21.0).
