@@ -323,6 +323,35 @@ issues must be resolved before any adapter is built.
      `attributes` object.
    - The edge client's route and DTO do not exist, while the API exposes
      `/api/code/edge`.
-8. **Provider ownership.** ChatAgent's `src/providers/cli/hekateClaude.ts` with
+8. **Attempt provenance audit.** Increment 3a is accepted by `codex-hekate` and
+   committed as `31274bc`, as reported by the lead. Hekate's
+   `context-store/plans/016-attempt-provenance-audit.md` defines its semantics;
+   `context-store/plans/017-attempt-provenance-validation.md` records independent
+   clean-source verification: 146 pure tests, 34 live-store tests, 39 HTTP checks
+   and an API build with zero errors. A real schema upgrade on a separate owned
+   database preserved existing state and null-reference 2b1 replay fingerprints;
+   no history was synthesized. These are read/reported Hekate results, not new
+   ChatAgent execution.
+   - `plan_node_state` remains the work-state authority. Applied attempt, decision
+     and content-revision operations derive append-only audit events in the same
+     transaction, with contiguous per-plan sequence numbers and unique node/state
+     revisions. Rejected or unchanged operations and structural edits emit no
+     events. AGE failure and sequence overflow roll back state and audit together.
+   - Optional `executorRef` is opaque correlation: start/reopen binds it, finish
+     preserves it, release/cancel records it before clearing, and reopen never
+     inherits it. It is neither authenticated identity nor a verified executor
+     ledger link. A mismatching finish is a stale attempt.
+   - The existing opt-in API adds plan/node event reads with stable plan-sequence
+     cursors and bounded pages. `historyStartsAtSeq` identifies only the first
+     recorded event, not the earliest work; `historyBackfilled` remains false.
+   - Append-only guards reject event updates, deletes and truncation even with
+     the store flag set. Sequence guarantees cover store-written transactions;
+     full database credentials can bypass guards. This is integrity protection,
+     not tamper-proofing or authentication.
+   - Claim-next, durable claim receipts, worker launching, execution-ledger
+     integration and structural history remain deferred. Tests used disposable
+     databases with verified cleanup; no production, model or gods changes were
+     involved.
+9. **Provider ownership.** ChatAgent's `src/providers/cli/hekateClaude.ts` with
    `bridges/hekate/claude_bridge.py`, Hekate's `Odin/gods/providers/` and its
    `llm-gateway` overlap. Which is canonical for each use is undecided.
