@@ -1,0 +1,200 @@
+# 13 — Hekate plan-node integration contract
+
+Date: 2026-10-06. Status: proposed contract. Documentation only.
+
+This records the ownership split between ChatAgent and Hekate for the
+user-directed plan-node workstream and defines the first pilot handoff. It does
+not describe implemented integration. This ChatAgent increment changes
+documentation only. The Hekate launcher implementation is a separate increment,
+and its checks are reported separately. Roadmap context:
+[step 6](../12-development-roadmap.md#6-declarative-role-coordination--planned-2026-10-05).
+Hekate's companion plan is `LOCAL-PLANNING-HANDOFF.md` in the Hekate repository
+(untracked there at the time of writing).
+
+## Ownership
+
+| Concern                                 | Owner                    | Notes                                                                                                                                           |
+| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local startup, status and stop          | Hekate                   | On demand, without the Sisyphus host; separate from that deployment's database/queue                                                            |
+| Plan nodes, hierarchy and dependencies  | Hekate                   | Existing PostgreSQL/AGE context-store; no ChatAgent plan store                                                                                  |
+| Execution engine                        | Hekate, after inventory  | Choose between the active gods path and the experimental LangGraph engine                                                                       |
+| Context assembly and the answer runtime | ChatAgent                | Existing bounded context, provider dispatch, budgets, cancellation and recording                                                                |
+| Worker contract (assignment/result)     | ChatAgent proposes       | Shared fields below; must be carried by Hekate plan nodes, not a parallel ledger                                                                |
+| Coding-worker adapter                   | Unresolved               | Consider reusing Hekate's existing coding executors first; never by relaxing ChatAgent's answer-only CLI runner (`src/providers/cli/runner.ts`) |
+| Model provider and CLI provider modules | Unresolved               | Awaiting codex-hekate; avoid a second canonical provider implementation                                                                         |
+| Repository integration (commit/handoff) | Single integration owner | Local commits only in the pilot; no push, merge or service restart                                                                              |
+
+## Corrections to earlier documents
+
+- `Odin/gods` is Hekate's designated engine in its source architecture. That is
+  not live verification: the initial inventory found a missing import; subsequent
+  source recovery and offline checks are reported in unresolved question 0.
+  `Odin/langgraph_engine/` is an
+  uncommitted experimental candidate. Its README says it "does not replace
+  `Odin/gods/`" and is not deployed. Hekate's `CHATAGENT-INTEGRATION-HANDOFF.md`
+  (2026-09-28) describes it as the engine to reconcile with. Treat it as a candidate,
+  not the canonical engine.
+- ChatAgent step 6 increment 2 proposed a generic LangGraph interpreter in this
+  repository. That is deferred until the cross-repository engine decision. Do not
+  build a second generic interpreter here before then.
+- The roadmap's step 6 table previously said that the mailbox was not located.
+  The agent-bridge mailbox is reachable on this machine; it is not part of this
+  checkout.
+
+## Transport facts (observed 2026-10-06)
+
+These are observations of the agent-bridge, not guarantees this project provides.
+
+- Each agent has its own bearer credential. The admin credential may send under
+  any agent name, so a sender name is not verified worker identity.
+- The live WebSocket subscription consumes a message when delivering it, and there
+  is no separate acknowledgement. Unread messages replay on connect, and history
+  is retained.
+- Delivery is not durable task acceptance. Assignment ownership, leases, attempt
+  fencing and duplicate suppression belong to the workflow layer.
+
+## First pilot handoff
+
+The pilot is manually supervised: one bounded ChatAgent roadmap task, worked
+locally, with a human acceptance decision. Fields are proposed, not implemented.
+
+### Assignment
+
+| Field                        | Meaning                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `assignmentId`, `attempt`    | Unique per issued attempt; a new attempt supersedes earlier ones                  |
+| `planNodeId`, `planRevision` | Hekate node identity and the plan revision the requirements were snapshotted from |
+| `role`                       | Role definition identity and version/hash; logical role, not a model binding      |
+| `repository`, `workspace`    | Repository identity and the workspace path, written with forward slashes          |
+| `baseRevision`               | Exact commit the work starts from                                                 |
+| `requirements`               | Mandatory requirements and acceptance criteria, snapshotted, not referenced live  |
+| `rules`                      | Repository rules to apply (for example `AGENTS.md`) and required checks           |
+| `inputs`                     | Prerequisite artifacts and earlier review findings, by reference with revision    |
+| `capabilities`               | Explicit grants: read, edit, run named checks, local commit. Nothing implied      |
+| `limits`                     | Deadline, budget and bounded fix rounds                                           |
+| `issuer`                     | Who issued the assignment; see the identity question below                        |
+
+### Result
+
+| Field                     | Meaning                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `assignmentId`, `attempt` | Must match a current, unsuperseded attempt                                 |
+| `outcome`                 | completed, failed, blocked or needs-decision; completion is not acceptance |
+| `changes`                 | Changed paths, plus patch or commit hash with its base revision            |
+| `checks`                  | Exact commands, runtime version and results; skipped checks are named      |
+| `findings`                | Review or self-reported findings, kept separate from verified facts        |
+| `context`                 | Sources and hashes of the context actually supplied to the worker          |
+| `openQuestions`           | Decisions the worker could not make                                        |
+
+## Acceptance and evidence boundaries
+
+- A pilot passes when the task moves through implement, independent review, fixes
+  if needed, required checks and a local commit, and a human records acceptance.
+  The result must cite the exact revisions, commands and supplied context.
+- Approval applies only to the reviewed content. Any later change needs renewed
+  review.
+- The pilot does not establish unattended execution, crash recovery, remote
+  execution, multi-user isolation or model quality. Remote execution still needs
+  authenticated ownership and the step 2 deployment boundary. Durable recovery
+  still needs the step 3 gates.
+- Delivery through the mailbox, or a worker reporting completion, is not evidence
+  that the work was done or accepted.
+
+## Unresolved questions
+
+Source labels: _code_ means read directly from Hekate source for this document.
+_Inventory_ means reported by claude-hekate's read-only increment 1 inventory
+(2026-10-06, Hekate branch `feat/plan-nodes-migration`) and not re-derived here.
+_Spot-checked_ means part of an inventory finding was confirmed from source. These
+issues must be resolved before any adapter is built.
+
+0. **Gods source recovery and compatibility.** The initial 2026-10-06 inventory
+   found that gods did not import on the inspected Hekate branch:
+   `Odin/gods/handlers/registration.py:18` imports `gods.handlers.athena_complete`.
+   no such module existed in `Odin/gods/handlers/` on that branch. The inventory
+   reports it only on `origin/chore/sisyphus-cleanup` (`4e44d3f`). _Spot-checked._
+   Later on 2026-10-06, `codex-hekate` reported recovery of `athena_complete` from
+   `4e44d3f` and sessions, conversation and gateway tests from `229cac3`.
+   The lead independently checked byte provenance and syntax, and reported
+   successful `gods.registration` and engine imports, 26 offline gateway tests
+   and 16 offline Athena node-tree tests. These later results are reported here,
+   not directly re-derived. Integration compatibility remains unverified; no
+   live model call or service startup is established by source recovery.
+1. **Authoritative task ledger.** The inventory reports that SQLite `tasks` and
+   `task_deps` form the active execution ledger. A comment in `Odin/gods/engine.py`
+   instead describes Postgres (asyncpg) as primary, with SQLite (aiosqlite) for
+   tests (_code_). The configuration actually in use has not been verified here,
+   and that conflict needs resolving. Per the inventory, context-store
+   PostgreSQL/AGE nodes are a one-way projection written by two title-matching
+   writers: `orchestration/backend/services/plan_sync.py` and
+   `Odin/gods/handlers/context_bridge.py`. Both files exist (_spot-checked_).
+   The two writers replace attributes wholesale and conflict with each other. A
+   SQLite `plan_nodes` table (migration 030) is inactive. The records diverge, and
+   UI edits to plan nodes never reach execution (_inventory_). The inventory
+   proposes context-store nodes as authoritative for plan structure, with `tasks`
+   remaining the execution ledger, linked by plan node ID. That is a proposal
+   awaiting a decision.
+2. **Revision checks.** `NodeRepository.UpdateNode(id, name, value, modifiedBy)`
+   in `context-store/DbLayer/NodeRepository.cs` takes no expected-revision
+   parameter (_code_, method signature only). Stale-update rejection is therefore
+   not established at that layer. Whether a service layer enforces it is unverified.
+3. **Claims and ownership.** There are two mechanisms, and neither covers
+   context-store plan nodes. `context-store/AgentCoordination/SubtreeLock.cs` is a
+   session-scoped advisory lock; its only caller is the console demo in
+   `context-store/Program.cs`. The atomic `tasks.claimed_by`/`claimed_at` update is
+   the only persisted claim. _Inventory; the `claimed_by` column is spot-checked._
+4. **Recovery.** According to the comparison table in `Odin/langgraph_engine/README.md`,
+   gods durability uses a relay-event table and cursor, and the experimental engine
+   uses LangGraph SQLite checkpoints (documentation, not code). Neither, as documented,
+   reconciles uncertain external effects such as edits, commands or commits.
+   ChatAgent's durable-checkpoint work is a Python experiment, not production
+   recovery.
+5. **Identity and authority.** ADR 0001 found no authentication on context-store
+   routes. Bridge sender names are unverified for admin-sent messages. Who may
+   issue assignments, record acceptance or advance plan state is undecided.
+6. **Local profile.** `context-store/docker-compose.yml` builds Apache AGE
+   `release_PG16_1.6.0` with pgvector `v0.8.0` (`Dockerfile.postgres`). The fixed
+   container is `code-storage-db`, published on port 5433, with a named data volume
+   and default credentials. It holds the `code_storage` and `orchestration`
+   databases and the `code_graph` graph. Existing scripts target deployment.
+   Docker was absent at the initial 2026-10-06 inventory. _Inventory; compose
+   details and the initial missing Docker were spot-checked._ Later that day,
+   `codex-hekate` reported Docker Desktop installed and a Linux amd64 engine and
+   Compose verified. That runtime report is not directly re-derived here and
+   does not establish live Hekate operation or persistent planning data.
+
+   A plan-only local launcher now exists as a separate, uncommitted Hekate
+   increment: `scripts/local/` and `context-store/docker-compose.local.yml`, plus
+   readiness, shutdown and dispatcher-switch changes in
+   `context-store/Api/Program.cs`. It requires PowerShell 7.5 or later.
+   Evidence as of 2026-10-06:
+   - **Executed:** an independent run of its Pester 3.4 suite passed 45 of 45. The
+     tests mock Docker, dotnet, processes and HTTP, except one argument-forwarding
+     test against a fake `docker` executable. A separate unmocked probe confirmed
+     that Api ownership survives a real state-file round-trip and is rejected
+     after a simulated PID reuse.
+   - **Reported by claude-hekate:** the Api builds.
+   - **Source review only:** backup, restore and readiness behaviour.
+   - **Not verified:** live start, readiness, data persisting across stop and
+     start, backup, and graph restore. These gates remain unrun in the reported
+     evidence despite the runtime now being available; mocked or source evidence
+     does not satisfy them.
+   - **Review notes still open:** restore compares graph labels with the live
+     database rather than the backup, and does not compare vertex or edge counts
+     with the backup. The state file stores an unsalted SHA-256 of the local
+     database password.
+
+7. **Plan-node writers.** Hekate's pure plan-node contracts (no database, API or
+   service changes) were reviewed by `codex-hekate` with 101 passing unit tests,
+   as reported on the bridge. Its writer inventory, reported but not re-derived
+   here, found problems that must be resolved before any adapter or
+   compare-and-set integration:
+   - On completion, `context_bridge` replaces the node's name and value and all of
+     its attributes, erasing engine identifiers.
+   - `ContextStoreClient` sends flat attributes, while the API expects an
+     `attributes` object.
+   - The edge client's route and DTO do not exist, while the API exposes
+     `/api/code/edge`.
+8. **Provider ownership.** ChatAgent's `src/providers/cli/hekateClaude.ts` with
+   `bridges/hekate/claude_bridge.py`, Hekate's `Odin/gods/providers/` and its
+   `llm-gateway` overlap. Which is canonical for each use is undecided.
