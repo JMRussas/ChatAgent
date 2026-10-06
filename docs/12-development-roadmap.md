@@ -8,20 +8,33 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
-Current reading checkpoint (2026-10-06), based on reviewed milestone `d61cf74`:
+Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fcceff2`:
 
 | Area                | Current scope                                                                                                                                                                     |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                         |
 | Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks |
-| Hekate              | Lead accepted durable claims and pins at `979d471`; browser visualization remains a proposal awaiting lead coordination                                                           |
-| Open gates          | Step 1 measured-scope acceptance, fixed/rolling quota reconciliation, shared deployment and independent quality evidence                                                          |
+| Hekate              | Lead accepted durable claims and pins at `979d471`; read-only plan browser is under final lead review                                                                             |
+| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                       |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
 `npm run docs:build` generates `dist/docs/index.html`; `npm run docs:check` checks
 the pilot contracts, and `npm run docs:graph` generates the static import graph.
 The dated validation paragraphs below retain their original slice scope.
+
+**Lead review decision (2026-10-06):** `codex-chatagent` accepts step 1 within
+the measured, scaled-down, scripted in-process scope and the reviewed single-process
+loopback boundary at `fcceff2`. This is engineering acceptance, not user acceptance
+of production operation. The
+[acceptance report](measurements/sustained-memory-acceptance-2026-10-06.json)
+passes 163 assertions and heap tolerance; its
+[provenance](measurements/sustained-memory-acceptance-2026-10-06.provenance.json)
+records 151 source files with digest
+`4e065abbaf0d509bf09a89b5557c1403d4ed96855084bea44189251dc86c6fbf`,
+matched to the accepted source. Primary validation passed 1,272 TypeScript tests
+across 131 files and 34 browser tests; independent lead review ran 92 focused tests.
+Hekate's plan-browser proposal remains under final review, not accepted here.
 
 HTTP boundary review fixes are committed in `f9c578f`: `/sports/chat` now parses
 and validates its body outside the scope-specific catch, preserving shared HTTP
@@ -39,8 +52,7 @@ in-flight submission lock and stale send errors cannot alter the new conversatio
 custom queues without removal retain cancelled retry resources until physical
 dequeue. Regression coverage exercises both races. Validation on Node 24.21.0:
 886 tests across 106 files, 29 browser tests, format and lint pass.
-Step 1 acceptance remains a
-separate decision within the measured scope described below.
+The later lead decision above accepts step 1 only within its measured scope.
 
 Conversation retention, dead-letter admission and quota-pool cardinality limits are
 implemented, including review fixes for overflow terminal publication, protocol
@@ -86,8 +98,8 @@ limit through the same error path and found no divergence; that is a code read,
 not an independent review. The third was reviewed continuously by
 `codex-chatagent` over the agent bridge while it was implemented.
 
-**Acceptance and deployment checkpoint:** record whether step 1 is accepted within
-its measured scope. Local authenticated ownership of conversations, result handles,
+**Acceptance and deployment checkpoint:** step 1 is lead-accepted within its
+measured scope. Local authenticated ownership of conversations, result handles,
 tasks and operator endpoints is implemented; shared deployment remains open. The user
 approved a local-first design with one trusted installation principal. It is now
 activated, meaning the source enforces it for newly started servers (no running
@@ -370,7 +382,7 @@ totals use the corresponding `units`, `unitsOverflow` and `unitsExact` fields.
 Validation requires a consistent overflow representation, and persisted telemetry
 preserves it. This reporting change does not clamp or change admission accounting.
 
-Step 1 execution order and remaining work:
+Step 1 delivered execution slices and retained contracts:
 
 Conversation-retention slice implemented: history now has
 construction-time manual limits from `.env.example`: 100 retained histories,
@@ -752,7 +764,7 @@ the three runtime sample points; the separate ledger increased by 0.10%. These
 remain scoped observations, not an absolute bound or proof that every retained
 owner is bounded. `--measured` requires at least three integer rounds.
 
-Review disposition: keep step 1 open until findings 2, 3, 5 and 6 each have an
+Earlier review disposition (superseded by the scoped lead acceptance above): keep step 1 open until findings 2, 3, 5 and 6 each have an
 explicit bounding or deferral decision. Operator-only retirement, reusable IDs
 and the document-task blocker are consistent with the stated process-local
 contract. Endpoint access control remains step 2 work for deployment. A standalone
@@ -866,6 +878,10 @@ and were updated. No test timeout was increased.
 
 ##### Step 1 status
 
+Lead-accepted within the measured scope at `fcceff2`; the current checkpoint
+links the report, exact source provenance and limitations. The following delivered
+contracts remain operative.
+
 1. **Complete: fix decimal accounting.** Fractional-cost regressions cover all six
    completion orders, reported usage, release/cancellation, atomic rejection,
    history expiry and true overages. Fractional quota reports use the same exact
@@ -894,11 +910,16 @@ and were updated. No test timeout was increased.
    Record workload, settings, raw results and exclusions. Disk-backed history still
    needs a bounded in-memory working set and an explicit disk-retention policy.
 
-Step 1's gates pass within the scope recorded above; accepting step 1 on that
-basis is a review decision, not a claim made here. Move to step 2, request limits
-and deployment boundaries, after that review. Do not claim whole-process memory
-bounds at default limits from the scaled-down gate, the completed-cache limits or
-the isolated ledger benchmark.
+Step 1 is lead-accepted at `fcceff2` within the scope and source-linked evidence
+recorded in the current checkpoint. The memory gate does not construct live
+providers, the CLI runner, evaluation recorder or Python sidecar. Periodic timers
+and cache TTL expiry are not measured there; connection/body/SSE stress has
+separate regression evidence. Role/evidence/review modes and model summarization are
+excluded, as are default-limit or whole-process memory claims and disk-backed
+history. Quota reconciliation, shared deployment, quality and unattended recovery
+remain open. This decision does not expand production or worker authority.
+
+Delivered requirements (contracts retained below):
 
 - Reproduce coordinator exhaustion after its configured run cap. Add configurable
   retention for settled runs and clean associated request/profile/waiter indexes.
@@ -911,7 +932,7 @@ the isolated ledger benchmark.
 - Bound dispatch metrics and inspect admission ledgers/telemetry snapshots for
   retained state. Keep model/subscription-specific quotas and accounting semantics.
 
-Acceptance: execute substantially more than the configured capacity sequentially;
+Accepted-scope criteria: execute substantially more than the configured capacity sequentially;
 verify new calls continue, active jobs survive pressure, retained state plateaus,
 indexes agree, retries obey the retention contract, and cancellation/shutdown still
 settle correctly. Include concurrent completion/eviction races. Check registry sizes
@@ -1407,9 +1428,11 @@ permissions or bypass validated progression conditions.
 This workstream concerns development coordination. Product orchestration of
 users' ongoing background objectives remains a separate scope and acceptance
 decision. Contract design and a manually supervised experiment on an existing
-roadmap task may proceed alongside reliability work. Complete the current step 2
-review and explicit step 1 acceptance checkpoint first; do not silently reorder
-steps 1–5 or treat the experiment as evidence of production readiness. Remote
+roadmap task may proceed alongside reliability work. The step 1 scoped lead
+acceptance and current single-process loopback boundary review are recorded at
+`fcceff2`; this permits contract design and the manually supervised experiment,
+not a duplicate interpreter or automatic worker authorization. Do not silently
+reorder steps 1–5 or treat the experiment as evidence of production readiness. Remote
 execution requires authenticated ownership and the applicable step 2 deployment
 boundary; durable recovery requires the applicable reliability/recovery gates.
 

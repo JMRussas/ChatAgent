@@ -1,0 +1,65 @@
+{
+  "report": "docs/measurements/sustained-memory-acceptance-2026-10-06.json",
+  "originalReport": "node_modules/.cache/auth-gate/connection-cap-2026-10-06.json",
+  "node": "v24.21.0",
+  "runAtIso": "2026-10-06T21:59:57.973Z",
+  "acceptedSourceCommit": "fcceff21d8eaef9efc17483375d584c318a9292a",
+  "sourceDigest": {
+    "algorithm": "sha256 over default-JavaScript-sort repository-relative forward-slash (path, NUL, raw content, NUL) for every file under src/ plus package.json, package-lock.json, .node-version",
+    "files": 151,
+    "value": "4e065abbaf0d509bf09a89b5557c1403d4ed96855084bea44189251dc86c6fbf"
+  },
+  "reportSha256": "0b15692c27f4839866d92b85c1bbf61a8e038d268bffb068d6df0c35d10eeafa",
+  "before": {
+    "head": "b5c8e3589d854edb0ad5e229e25f9deae19f81e9",
+    "dirty": true,
+    "dirtyPaths": [
+      " M .env.example",
+      " M docs/12-development-roadmap.md",
+      " M docs/runtime-reference.md",
+      " M src/config/httpBoundary.ts",
+      " M src/server.ts",
+      " M tests/unit/httpBoundary.test.ts",
+      "?? tests/integration/connectionLimit.test.ts"
+    ],
+    "files": 151,
+    "value": "4e065abbaf0d509bf09a89b5557c1403d4ed96855084bea44189251dc86c6fbf",
+    "at": "2026-10-06T21:59:30.830Z"
+  },
+  "after": {
+    "head": "b5c8e3589d854edb0ad5e229e25f9deae19f81e9",
+    "dirty": true,
+    "dirtyPaths": [
+      " M .env.example",
+      " M docs/12-development-roadmap.md",
+      " M docs/runtime-reference.md",
+      " M src/config/httpBoundary.ts",
+      " M src/server.ts",
+      " M tests/unit/httpBoundary.test.ts",
+      "?? tests/integration/connectionLimit.test.ts"
+    ],
+    "files": 151,
+    "value": "4e065abbaf0d509bf09a89b5557c1403d4ed96855084bea44189251dc86c6fbf",
+    "at": "2026-10-06T21:59:58.133Z"
+  },
+  "acceptance": {
+    "reviewer": "codex-chatagent",
+    "scope": "Scaled-down in-process scripted runtime retained-state gate; not whole-process or default-limit memory acceptance.",
+    "registryAssertions": "pass",
+    "assertionGroups": 163,
+    "heapWithinTolerance": true
+  },
+  "scopeNotes": [
+    "Registry assertions determine the gate; heap samples provide supporting evidence under these settings only.",
+    "Live providers, CLI, evaluation recorder and Python sidecar are not constructed in this gate.",
+    "Production periodic timers and execution-cache TTL expiry are not measured here; deterministic coverage is separate.",
+    "Connection, request-body and event-stream/backpressure stress have separate tests; this report is not their load measurement.",
+    "Role/evidence/review modes, model summaries, default-limit and whole-process memory bounds, and disk-backed history are outside this acceptance.",
+    "Fixed/rolling and account-wide cross-process quota reconciliation, shared deployment, independent quality and unattended worker recovery remain open.",
+    "Measured source was dirty at execution; before/after digest matches the accepted immutable source commit. Later startup-test and documentation edits do not affect this source digest.",
+    "Earlier measurement artifacts are preserved unchanged."
+  ],
+  "command": "npm run bench:sustained-memory -- --out node_modules/.cache/auth-gate/connection-cap-2026-10-06.json",
+  "expandedCommand": "node --expose-gc --import tsx src/bench/sustainedMemory.ts --out node_modules/.cache/auth-gate/connection-cap-2026-10-06.json",
+  "executionEnvironment": "Git Bash at D:/Git/ChatAgent; PATH prefixed with $PWD/node_modules/.cache/worker-diagnosis/new24 (Node v24.21.0)"
+}
