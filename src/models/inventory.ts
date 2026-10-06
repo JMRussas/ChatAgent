@@ -3,6 +3,7 @@ import {
   loadDiscoveryLimits,
   type DiscoveryLimits
 } from "../config/discoveryLimits";
+import { z } from "zod";
 import type { ApiKind, Connection } from "./connections";
 import type { DiscoveryConfig } from "../config/discoveryConfig";
 
@@ -36,6 +37,76 @@ export interface DiscoveryAdapter {
     signal: AbortSignal,
     limits?: DiscoveryLimits
   ): Promise<DiscoveryObservation[] | { observations: DiscoveryObservation[]; complete: boolean }>;
+}
+
+/** Offsets are accepted, but the instant must exist: format alone admits +99:99. */
+const instant = z
+  .string()
+  .datetime({ offset: true })
+  .refine((value) => Number.isFinite(Date.parse(value)), "Invalid instant");
+const text = (max: number) => z.string().min(1).max(max);
+/** Each row as it must arrive at run time, whatever the adapter's static type says. */
+const discoveryObservationSchema = z
+  .object({
+    // Composed binding keys include the connection id, model and profile.
+    bindingId: text(2048),
+    connectionId: text(256),
+    model: text(512),
+    revision: text(256).optional(),
+    observedAtIso: instant,
+    expiresAtIso: instant.optional(),
+    source: text(128),
+    installed: z.enum(["yes", "no", "unknown"]),
+    access: z.enum(["allowed", "denied", "unknown"]),
+    health: z.enum(["reachable", "unreachable", "unknown"]),
+    apiCompatibility: z.array(text(64)).max(32),
+    effectiveContextTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    effectiveOutputTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    lastErrorCode: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]{0,63}$/)
+      .optional()
+  })
+  .strict();
+const discoveryListingSchema = z.union([
+  z.array(z.unknown()),
+  z.object({ observations: z.array(z.unknown()), complete: z.boolean() }).strict()
+]);
+const MAX_CONNECTION_ID = 256;
+
+/** The only codes a refresh status can carry; adapter messages are never kept. */
+export const DISCOVERY_FAILURE_CODES = [
+  "DISCOVERY_INVALID_SHAPE",
+  "DISCOVERY_INVALID_IDENTITY",
+  "DISCOVERY_DUPLICATE_BINDING",
+  "DISCOVERY_FOREIGN_BINDING",
+  "DISCOVERY_FUTURE_OBSERVATION",
+  "DISCOVERY_REVERSED_EXPIRY",
+  "DISCOVERY_CAPACITY",
+  "DISCOVERY_INCOMPLETE",
+  "DISCOVERY_INCOMPLETE_LISTING",
+  "DISCOVERY_RESPONSE_TOO_LARGE",
+  "DISCOVERY_EMPTY_BODY",
+  "DISCOVERY_TIMEOUT",
+  "DISCOVERY_INVALID_CLOCK",
+  "DISCOVERY_FAILED"
+] as const;
+export type DiscoveryFailureCode = (typeof DISCOVERY_FAILURE_CODES)[number];
+const OWNED_CODES: ReadonlySet<string> = new Set(DISCOVERY_FAILURE_CODES);
+class DiscoveryRejection extends Error {
+  constructor(readonly code: DiscoveryFailureCode) {
+    super(code);
+  }
+}
+/** The latest completed refresh of one connection; not real-time readiness. */
+export interface DiscoveryRefreshStatus {
+  connectionId: string;
+  outcome: "succeeded" | "failed" | "partial";
+  code: DiscoveryFailureCode | null;
+  /** Null when the clock could not be read; the status is still recorded. */
+  completedAtIso: string | null;
+  /** Published on success; otherwise what is still retained for the connection. */
+  observations: number;
 }
 
 export type Readiness =
@@ -86,6 +157,8 @@ export class InventoryStore {
   private readonly observations = new Map<string, ModelObservation>();
   private readonly inFlight = new Map<string, Promise<void>>();
   private readonly abortControllers = new Set<AbortController>();
+  /** Insertion-ordered: an updated entry moves last, and the oldest is evicted first. */
+  private readonly refreshStatus = new Map<string, DiscoveryRefreshStatus>();
   private stopped = false;
 
   constructor(
@@ -101,8 +174,60 @@ export class InventoryStore {
       observations: this.observations.size,
       bytes: Buffer.byteLength(JSON.stringify([...this.observations.values()])),
       inFlight: this.inFlight.size,
+      refreshStatuses: this.refreshStatus.size,
       ...this.limits
     };
+  }
+
+  /** Latest completed attempt per connection, bounded; copies, sorted by connection. */
+  refreshStatuses() {
+    return {
+      connections: [...this.refreshStatus.values()]
+        .map((status) => ({ ...status }))
+        .sort((a, b) =>
+          a.connectionId < b.connectionId ? -1 : a.connectionId > b.connectionId ? 1 : 0
+        ),
+      retained: this.refreshStatus.size,
+      limit: this.limits.maxRefreshStatuses
+    };
+  }
+
+  /** The injected clock, or null if it throws or gives an unrepresentable instant. */
+  private readClock(): number | null {
+    try {
+      const time = this.now().getTime();
+      return Number.isFinite(time) && Math.abs(time) <= 8.64e15 ? time : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Never reads the clock itself, so it cannot fail after a publication. */
+  private record(
+    connectionId: string,
+    outcome: DiscoveryRefreshStatus["outcome"],
+    code: DiscoveryFailureCode | null,
+    observations: number,
+    completedAt: number | null
+  ) {
+    this.refreshStatus.delete(connectionId);
+    this.refreshStatus.set(connectionId, {
+      connectionId,
+      outcome,
+      code,
+      completedAtIso: completedAt === null ? null : new Date(completedAt).toISOString(),
+      observations
+    });
+    for (const key of this.refreshStatus.keys()) {
+      if (this.refreshStatus.size <= this.limits.maxRefreshStatuses) break;
+      this.refreshStatus.delete(key);
+    }
+  }
+
+  private retainedCount(connectionId: string) {
+    let n = 0;
+    for (const o of this.observations.values()) if (o.connectionId === connectionId) n++;
+    return n;
   }
 
   getObservation(bindingId: string): ModelObservation | undefined {
@@ -144,54 +269,101 @@ export class InventoryStore {
   private async doRefresh(connection: Connection): Promise<void> {
     const adapter = this.adapters[connection.apiKind];
     if (!adapter) return;
+    const connectionId = connection.connectionId;
+    // An unbounded or empty id is never sent to an adapter or kept as a status key, so
+    // such a connection has no diagnostic either.
+    if (
+      typeof connectionId !== "string" ||
+      !connectionId ||
+      connectionId.length > MAX_CONNECTION_ID
+    )
+      return;
 
     const controller = new AbortController();
     this.abortControllers.add(controller);
-    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, this.config.timeoutMs);
+    let now: number | null = null;
 
     try {
+      // The single-flight entry is held until the adapter settles, even after a
+      // timeout, so discovery of one connection never overlaps itself.
       const listing = await adapter.discover(connection, controller.signal, this.limits);
-      if (this.stopped || controller.signal.aborted) return;
-      const results = Array.isArray(listing) ? listing : listing.observations;
-      if (!Array.isArray(listing) && !listing.complete) return;
-      if (results.length > this.limits.maxModelsPerConnection) throw Error("DISCOVERY_CAPACITY");
+      if (this.stopped) return;
+      // A result that arrives after the timeout is not published.
+      if (controller.signal.aborted) throw new DiscoveryRejection("DISCOVERY_TIMEOUT");
+      // Sampled once, after the adapter returned: rows made during discovery are not
+      // compared with the request's start time.
+      now = this.readClock();
+      // Without a usable clock nothing is checked or published.
+      if (now === null) throw new DiscoveryRejection("DISCOVERY_INVALID_CLOCK");
+      const parsed = discoveryListingSchema.safeParse(listing);
+      if (!parsed.success) throw new DiscoveryRejection("DISCOVERY_INVALID_SHAPE");
+      const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data.observations;
+      if (!Array.isArray(parsed.data) && !parsed.data.complete)
+        throw new DiscoveryRejection("DISCOVERY_INCOMPLETE");
+      if (rows.length > this.limits.maxModelsPerConnection)
+        throw new DiscoveryRejection("DISCOVERY_CAPACITY");
+      // The whole batch is validated before any existing evidence changes.
       const replacement = new Map<string, ModelObservation>();
-      for (const observation of results) {
-        if (
-          observation.connectionId !== connection.connectionId ||
-          !observation.bindingId ||
-          !observation.model ||
-          (this.observations.has(observation.bindingId) &&
-            this.observations.get(observation.bindingId)!.connectionId !== connection.connectionId)
-        )
-          throw Error("DISCOVERY_INVALID_IDENTITY");
+      for (const row of rows) {
+        const valid = discoveryObservationSchema.safeParse(row);
+        if (!valid.success) throw new DiscoveryRejection("DISCOVERY_INVALID_SHAPE");
+        const observation = valid.data;
+        if (observation.connectionId !== connectionId)
+          throw new DiscoveryRejection("DISCOVERY_INVALID_IDENTITY");
+        if (replacement.has(observation.bindingId))
+          throw new DiscoveryRejection("DISCOVERY_DUPLICATE_BINDING");
+        const owner = this.observations.get(observation.bindingId);
+        if (owner && owner.connectionId !== connectionId)
+          throw new DiscoveryRejection("DISCOVERY_FOREIGN_BINDING");
         const observed = Date.parse(observation.observedAtIso);
-        if (!Number.isFinite(observed)) throw Error("DISCOVERY_INVALID_TIME");
+        if (observed > now!) throw new DiscoveryRejection("DISCOVERY_FUTURE_OBSERVATION");
         const expiry =
           observation.expiresAtIso === undefined ? Infinity : Date.parse(observation.expiresAtIso);
-        const expiresAtIso = new Date(
-          Number.isFinite(expiry) || expiry === Infinity
-            ? Math.min(observed + this.config.ttlMs, expiry)
-            : observed
-        ).toISOString();
-        replacement.set(observation.bindingId, structuredClone({ ...observation, expiresAtIso }));
+        if (expiry < observed) throw new DiscoveryRejection("DISCOVERY_REVERSED_EXPIRY");
+        // Canonical UTC, so readiness can compare instants as strings.
+        replacement.set(observation.bindingId, {
+          ...observation,
+          observedAtIso: new Date(observed).toISOString(),
+          expiresAtIso: new Date(Math.min(observed + this.config.ttlMs, expiry)).toISOString()
+        });
       }
       // No tombstones: missing observations are unchecked and cannot authorize dispatch.
       const retained = [...this.observations.values()].filter(
-        (o) => o.connectionId !== connection.connectionId
+        (o) => o.connectionId !== connectionId
       );
       const combined = [...retained, ...replacement.values()];
       if (
         combined.length > this.limits.maxObservations ||
         Buffer.byteLength(JSON.stringify(combined)) > this.limits.maxBytes
       )
-        throw Error("DISCOVERY_CAPACITY");
-      // Validate the complete replacement before changing any existing evidence.
+        throw new DiscoveryRejection("DISCOVERY_CAPACITY");
       for (const [id, observation] of this.observations)
-        if (observation.connectionId === connection.connectionId) this.observations.delete(id);
+        if (observation.connectionId === connectionId) this.observations.delete(id);
       for (const [id, observation] of replacement) this.observations.set(id, observation);
-    } catch {
+      this.record(connectionId, "succeeded", null, replacement.size, now);
+    } catch (error) {
       // Failures retain prior observations but never extend their expiration.
+      if (this.stopped) return;
+      const code: DiscoveryFailureCode =
+        error instanceof DiscoveryRejection
+          ? error.code
+          : timedOut
+            ? "DISCOVERY_TIMEOUT"
+            : error instanceof Error && OWNED_CODES.has(error.message)
+              ? (error.message as DiscoveryFailureCode)
+              : "DISCOVERY_FAILED";
+      this.record(
+        connectionId,
+        code === "DISCOVERY_INCOMPLETE" ? "partial" : "failed",
+        code,
+        this.retainedCount(connectionId),
+        now ?? this.readClock()
+      );
     } finally {
       clearTimeout(timer);
       this.abortControllers.delete(controller);

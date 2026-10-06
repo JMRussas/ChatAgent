@@ -4,7 +4,9 @@ export const discoveryLimitsSchema = z
     maxModelsPerConnection: z.number().int().min(1).max(10000).default(1000),
     maxObservations: z.number().int().min(1).max(100000).default(4096),
     maxBytes: z.number().int().min(1).max(268435456).default(8388608),
-    maxResponseBytes: z.number().int().min(1).max(67108864).default(4194304)
+    maxResponseBytes: z.number().int().min(1).max(67108864).default(4194304),
+    // Latest refresh status per connection; evicting one never touches observations.
+    maxRefreshStatuses: z.number().int().min(1).max(4096).default(256)
   })
   .strict();
 export type DiscoveryLimits = z.infer<typeof discoveryLimitsSchema>;
@@ -14,6 +16,7 @@ export function loadDiscoveryLimits(env: NodeJS.ProcessEnv = process.env): Disco
     maxModelsPerConnection: read("MODEL_DISCOVERY_MAX_MODELS"),
     maxObservations: read("MODEL_DISCOVERY_MAX_OBSERVATIONS"),
     maxBytes: read("MODEL_DISCOVERY_MAX_BYTES"),
-    maxResponseBytes: read("MODEL_DISCOVERY_MAX_RESPONSE_BYTES")
+    maxResponseBytes: read("MODEL_DISCOVERY_MAX_RESPONSE_BYTES"),
+    maxRefreshStatuses: read("MODEL_DISCOVERY_MAX_REFRESH_STATUSES")
   });
 }

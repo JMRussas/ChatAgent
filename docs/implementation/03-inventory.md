@@ -89,6 +89,54 @@ compatible implemented adapter. Do not fabricate permission evidence for cloud
 models merely from listing them. Include discovered-but-uncurated entries separately;
 they are disabled until curated. No public mutation/refresh endpoint is needed.
 
+### Batch validation and refresh status (2026-10-06)
+
+`InventoryStore` validates a complete listing at run time before it publishes
+anything; publication itself stays the existing atomic per-connection replacement.
+
+- The envelope is an array or a strict `{observations, complete}`; every row has
+  bounded strings (binding ids up to 2048 characters, to fit composed keys), the
+  installed/access/health enums, bounded compatibility lists, positive safe-integer
+  capacities and an optional `lastErrorCode` constrained to an uppercase code
+  format (not to the fixed list below, which applies to refresh statuses). A row
+  of the wrong shape rejects the whole batch.
+- Validation uses one sample of the injected clock, taken after the adapter
+  returns (failure reporting may read it again, if that sample was unusable). Rows
+  observed after it, rows naming another connection, duplicate binding ids in the batch, and
+  bindings currently owned by another connection reject the batch. Timestamps may
+  carry offsets but must denote real instants; they are stored in canonical UTC.
+  A malformed expiry now rejects the batch instead of being published as
+  observed-time expiry; an expiry before the observation is rejected, while one
+  equal to it or already past is accepted as stale. Validity remains capped by the
+  configured TTL.
+- A partial listing, a timeout, shutdown or any rejection keeps the connection's
+  previous observations and their expiry. A successful empty listing removes only
+  that connection's observations. A late result after a timeout or shutdown is
+  never published; the in-flight entry is held until the adapter settles, so one
+  connection's discovery never overlaps itself, and a timeout is recorded when an
+  adapter that ignores the abort finally settles.
+- Each completed refresh records the latest attempt per connection (nothing is
+  recorded after shutdown, for a connection with no adapter, or for an invalid
+  connection id): outcome
+  (succeeded, failed, partial), an owned failure code, completion time and the
+  observation count. Codes come from a fixed list; an adapter error whose message
+  is not exactly one of the known adapter codes is `DISCOVERY_FAILED`, so no raw
+  text, URL or credential is kept. An unusable clock publishes nothing
+  (`DISCOVERY_INVALID_CLOCK`); status recording never reads the clock after
+  publication and may carry no completion time.
+- Statuses are bounded by `MODEL_DISCOVERY_MAX_REFRESH_STATUSES` (default 256,
+  at most 4096); the least recently updated connection's status is evicted first,
+  and eviction never changes observations. A connection id that is empty or over
+  256 characters is never sent to an adapter and leaves no status.
+- `GET /models` (client route) adds
+  `discoveryRefresh: {connections, retained, limit}`. It lists latest completed
+  attempts, not real-time readiness.
+
+Validation: 1,159 tests across 125 files, 34 browser tests, format and lint passed.
+The sustained-memory gate passed 163 assertions with heap within tolerance,
+including refresh-status churn. Independent review passed 51 inventory, retained
+bounds and startup tests. No live provider calls.
+
 ## Acceptance
 
 - Unit fixtures for all three discovery adapters; no real cloud calls in tests.

@@ -177,6 +177,7 @@ interface ServerOptions {
   // process lifetime, so each request must recompute readiness from current data.
   modelCatalog?: () => Omit<ReturnType<typeof describeModelCatalog>, "routingMode"> & {
     routingMode: "catalog" | "fixed-fast-deep";
+    discoveryRefresh?: ReturnType<InventoryStore["refreshStatuses"]>;
   };
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
@@ -1289,6 +1290,8 @@ export async function startServer(
     });
     return {
       ...view,
+      // Latest completed refresh per connection: no URLs, credentials or raw errors.
+      discoveryRefresh: inventoryStore.refreshStatuses(),
       routingMode: dispatch ? ("catalog" as const) : ("fixed-fast-deep" as const),
       models: dispatch
         ? view.models.map((model) => ({

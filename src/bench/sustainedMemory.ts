@@ -1165,14 +1165,16 @@ async function retainedOwners() {
   const limits = discoveryLimitsSchema.parse({
     maxModelsPerConnection: 8,
     maxObservations: 16,
-    maxBytes: 65536
+    maxBytes: 65536,
+    maxRefreshStatuses: 4
   });
   let modelRound = 0;
   const inventory = new InventoryStore(
     {
       "ollama-chat": {
+        // A fresh connection id every round lists nothing: only its status is retained.
         discover: async (connection) =>
-          Array.from({ length: 8 }, (_, n) => ({
+          Array.from({ length: connection.connectionId.startsWith("churn-") ? 0 : 8 }, (_, n) => ({
             bindingId: `${connection.connectionId}-${modelRound}-${n}`,
             connectionId: connection.connectionId,
             model: `model-${modelRound}-${n}`,
@@ -1210,6 +1212,7 @@ async function retainedOwners() {
   try {
     for (modelRound = 0; modelRound < 20; modelRound++) {
       await inventory.refreshAll(connections);
+      await inventory.refreshConnection({ ...connections[0], connectionId: `churn-${modelRound}` });
       held = new Promise<void>((resolve) => {
         release = resolve;
       });
@@ -1236,6 +1239,11 @@ async function retainedOwners() {
       check(
         "owners.discovery churn replaces observations without tombstones",
         stats.observations === 16 && stats.bytes <= limits.maxBytes && stats.inFlight === 0,
+        () => stats
+      );
+      check(
+        "owners.discovery refresh statuses stay within their limit under connection churn",
+        stats.refreshStatuses === Math.min(modelRound + 3, limits.maxRefreshStatuses),
         () => stats
       );
       samples.push({ inventory: stats, telemetry: telemetry.retentionStats(), heap: await heap() });

@@ -169,6 +169,12 @@ it("returns an ephemeral runtime handle and completes deep work automatically wi
     expect([process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")]).toEqual(listeners);
     const base = `http://127.0.0.1:${handle.address.port}`;
     const client = await clientAuthHeaders(base, "client");
+    // The client catalog view reports bounded discovery refresh status, without URLs.
+    const models = await (await fetch(`${base}/models`, { headers: client })).json();
+    expect(models.discoveryRefresh).toMatchObject({ limit: 256 });
+    expect(Array.isArray(models.discoveryRefresh.connections)).toBe(true);
+    expect(models.discoveryRefresh.retained).toBe(models.discoveryRefresh.connections.length);
+    expect(JSON.stringify(models.discoveryRefresh)).not.toMatch(/https?:/);
     const response = await fetch(`${base}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...client },

@@ -1173,7 +1173,11 @@ any shared deployment.
   preserves uncertainty about external execution instead of claiming clean rollback.
 - Validate complete discovery batches before publishing inventory changes. Retain
   last good observations without extending freshness, and expose sanitized failure
-  reasons without credentials or raw provider responses.
+  reasons without credentials or raw provider responses. _Implemented 2026-10-06;
+  see [inventory](implementation/03-inventory.md#batch-validation-and-refresh-status-2026-10-06):_
+  full-batch runtime validation (shape, identity, duplicates, clock, expiry),
+  bounded per-connection refresh statuses with owned codes, and
+  `discoveryRefresh` in `GET /models`.
 - Define reload compatibility: preserve unaffected result handles/in-flight work;
   invalidate incompatible dependencies explicitly. Scope directory revisions to
   the relevant league/provider so an NFL read cannot invalidate NBA resolutions.
