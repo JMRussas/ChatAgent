@@ -1238,10 +1238,33 @@ coordination and is not implied by this process-local reconciliation work.
 
 ### 4. Current-state documentation and maintenance checks
 
-The generated-reference and documentation-maintenance rollout below is planned, not
-implemented. Update nearby contracts and regression tests with each change without
-waiting for it. Quota reconciliation and the other open reliability limits in steps
-1–3 remain open.
+The first increment below is implemented for its three components; extending it to
+further components remains planned. Update nearby contracts and regression tests with
+each change. Quota reconciliation and the other open reliability limits in steps 1–3
+remain open.
+
+_First increment implemented 2026-10-06:_ `GenerationLifecycle`, `CatalogDispatch` and
+`BriefingCoordinator` carry `@lifetime`, `@invariant`, `@test` and `@decision` tags
+(declared in `tsdoc.json`) for the seven symbols listed in `docs/contracts/pilot.json`.
+`npm run docs:check` (part of `verify:release`) parses them with `@microsoft/tsdoc` and
+the TypeScript compiler API and fails on a missing tag, malformed syntax, a duplicate or
+malformed invariant id, a test title that is not an actual declaration, or a decision
+link without a real heading. `npm run docs:build` writes TypeDoc HTML and JSON, a
+consolidated invariant and lifetime index, bundled escaped copies of every linked source,
+test and decision file, and a Madge import graph (JSON plus a searchable page, static
+imports only) to `dist/docs`, stamped with the source revision and whether the tree was
+dirty, then verifies that every relative link and fragment resolves inside the output.
+CI keeps that output as a downloadable artifact; nothing generated is committed. Tools
+are exact-pinned: TypeDoc 0.28.20, Madge 8.0.0, `@microsoft/tsdoc` 0.17.1. The import
+graph currently reports 18 cycles, which it lists but does not fail on.
+
+Validation on Windows Node 24.21.0: 1,243 tests across 129 files and 34 browser
+tests passed; twelve temporary checker mutations were rejected. Independent review
+reran 93 tooling and referenced behavioral tests, rebuilt the artifact, and copied it
+outside the checkout. All bundled links still resolved; Chromium opened the index,
+source anchor and TypeDoc page and filtered the 152-module graph without page errors.
+Format and lint passed. The Linux CI artifact upload has not been exercised locally;
+these checks establish documentation consistency and navigation, not behavioral proof.
 
 _Implemented 2026-10-06, a related maintenance check:_ the Ubuntu CI job sets up
 uv-managed Python, installs and checks the document-agent requirements, runs the offline

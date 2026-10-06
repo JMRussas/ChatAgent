@@ -47,6 +47,22 @@ function abortError(signal: AbortSignal) {
     ? signal.reason
     : new GenerationError("CANCELLED", false);
 }
+/**
+ * Selects catalog models for a turn and owns the admission reservations and phase
+ * records that the selected work uses.
+ *
+ * @lifetime A phase is registered by prepare() and handed to the caller with the
+ * plan; complete() marks it finished once physical work, retries and writes settle.
+ * Completed phases are kept for the configured TTL and count, independently of the
+ * admission ledger's own accounting, which keeps started usage after they expire.
+ *
+ * @invariant phase-retention-is-bounded-and-separate — Completed phase records expire
+ * by their own retention limits; expiring them never changes recorded usage.
+ * @test tests/integration/executionRetention.test.ts :: bounds completed lifecycle and dispatch records after repeated direct turns
+ * @test tests/unit/admissionRetention.test.ts :: compacts completed requests while retaining spend and quota after TTL
+ *
+ * @decision docs/implementation/08-resource-policy.md#admission-and-selection-04
+ */
 export class CatalogDispatch {
   readonly admission: ResourceAdmission;
   private phases = new Map<string, PhaseDispatch>();
@@ -149,6 +165,18 @@ export class CatalogDispatch {
    * of signal ends preparation with its own reason (CANCELLED or WORKFLOW_DEADLINE),
    * never as a model exclusion. Until the plan is returned, every reservation and
    * registered phase belongs to this call and is undone on any exception.
+   *
+   * @lifetime Reservations and phases created here belong to this call until the plan
+   * is returned; from then on the caller owns them.
+   *
+   * @invariant reservations-owned-until-handoff — Any abort or failure before the plan
+   * is handed over releases every unstarted reservation and registered phase.
+   * @test tests/integration/preparationCancellation.test.ts :: releases fast and deep reservations when aborted right after reserving
+   * @test tests/integration/preparationCancellation.test.ts :: rolls back reservations and registered phases when scheduling the capture throws
+   *
+   * @invariant abort-is-not-an-exclusion — A cancellation or deadline ends a quota wait
+   * with its own code and never falls through to another candidate.
+   * @test tests/integration/preparationCancellation.test.ts :: ends a quota wait on %s with its own code, without trying other candidates
    */
   async prepare(
     manager: ContextManager,
@@ -437,6 +465,17 @@ export class CatalogDispatch {
     if (phase.ticket) this.admission.finish(phase.ticket);
     phase.ticket = undefined;
   }
+  /**
+   * Gives back a phase's reservation if its work never started.
+   *
+   * @lifetime Applies only while the reservation is unstarted; once work starts the
+   * reservation is settled by finish(), never released.
+   *
+   * @invariant release-only-unstarted — Releasing never refunds started work: usage
+   * already consumed stays charged, even when the turn is cancelled.
+   * @test tests/integration/catalogDispatch.test.ts :: RES-05/06: cancellation releases queued work while retaining in-flight usage as unsettled
+   * @test tests/integration/preparationCancellation.test.ts :: keeps started consumption when a cancel arrives after the provider started
+   */
   release(phase?: PhaseDispatch) {
     if (phase?.ticket) this.admission.release(phase.ticket);
   }

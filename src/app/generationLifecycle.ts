@@ -143,6 +143,17 @@ export class GenerationAttempt {
         }, wait);
     }
   };
+  /**
+   * Ends the attempt with one terminal outcome and writes its terminal event.
+   *
+   * @lifetime The attempt becomes inactive here, synchronously; its writes settle
+   * when the returned promise settles, and only then may its registry entry expire.
+   *
+   * @invariant terminal-claimed-before-await — The terminal status is claimed before
+   * any await, so a cancellation and a completion cannot both win, and execution
+   * records stay until the terminal writes settle.
+   * @test tests/integration/executionRetention.test.ts :: holds execution records until terminal writes settle and completion wins a late cancel
+   */
   finish(
     reason: Exclude<Status, "queued" | "running">,
     answer?: Partial<ChatTimelineEvent>,
@@ -195,6 +206,38 @@ export class GenerationAttempt {
   }
 }
 
+/**
+ * The process-local registry of generation attempts, message claims and the
+ * consumers that keep a turn's execution state alive. Turns that have not yet
+ * created attempts (for example while waiting for admission) are tracked by the
+ * orchestrator's preparation controllers, not here.
+ *
+ * @lifetime A turn's entry is created with its first attempt and becomes eligible
+ * for expiry only once no consumer or task pin holds it and every attempt is
+ * inactive with its writes settled. Settled entries are kept for the configured
+ * completed TTL and count, then dropped; message claims of turns still present in
+ * conversation history are re-established from that history, not from this cache.
+ *
+ * @invariant terminal-is-not-settled — A terminal status alone never allows
+ * eviction: answer buffers and records stay until terminal writes settle and every
+ * consumer has released them.
+ * @test tests/unit/retainedBounds.test.ts :: clears settled answer buffers only after consumers release, preserving history
+ *
+ * @invariant task-pins-protect-physical-work — A queued or running task keeps its
+ * turn pinned until the task is released, so cache pressure cannot drop state that
+ * physical work still uses.
+ * @test tests/integration/executionRetention.test.ts :: preserves a queued then held deep task while completed turns are evicted
+ * @test tests/integration/retentionInventory.test.ts :: cancelling queued work promptly releases its queue entry, slot, task pin and history lease
+ *
+ * @invariant history-identity-outlives-execution-cache — Expiring an execution record
+ * never frees its message ID: a message already in history is still rejected as a
+ * duplicate.
+ * @test tests/integration/executionRetention.test.ts :: expires execution records without expiring conversation identity
+ * @test tests/unit/generationLifecycle.test.ts :: protects the identity of a replay whose original lifecycle record expired
+ *
+ * @decision docs/12-development-roadmap.md#retained-state-inventory
+ * @decision docs/implementation/02-generation.md#interfaces-and-owners
+ */
 export class GenerationLifecycle {
   private readonly completed = new Map<string, number>();
   private readonly consumers = new Map<string, number>();

@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "components": [
+    {
+      "file": "src/app/generationLifecycle.ts",
+      "symbols": [
+        {
+          "name": "GenerationLifecycle",
+          "decision": true
+        },
+        {
+          "name": "GenerationAttempt.finish"
+        }
+      ]
+    },
+    {
+      "file": "src/routing/catalogDispatch.ts",
+      "symbols": [
+        {
+          "name": "CatalogDispatch",
+          "decision": true
+        },
+        {
+          "name": "CatalogDispatch.prepare"
+        },
+        {
+          "name": "CatalogDispatch.release"
+        }
+      ]
+    },
+    {
+      "file": "src/sports/briefingCoordinator.ts",
+      "symbols": [
+        {
+          "name": "BriefingCoordinator",
+          "decision": true
+        },
+        {
+          "name": "BriefingCoordinator.stop"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
+  "extends": ["typedoc/tsdoc.json"],
+  "tagDefinitions": [
+    { "tagName": "@invariant", "syntaxKind": "block", "allowMultiple": true },
+    { "tagName": "@lifetime", "syntaxKind": "block" },
+    { "tagName": "@decision", "syntaxKind": "block", "allowMultiple": true },
+    { "tagName": "@test", "syntaxKind": "block", "allowMultiple": true }
+  ]
+}

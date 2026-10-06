@@ -1,0 +1,18 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "ChatAgent documented components",
+  "entryPoints": [
+    "src/app/generationLifecycle.ts",
+    "src/routing/catalogDispatch.ts",
+    "src/sports/briefingCoordinator.ts"
+  ],
+  "tsconfig": "tsconfig.json",
+  "out": "dist/docs/reference",
+  "json": "dist/docs/reference/typedoc.json",
+  "readme": "none",
+  "excludePrivate": false,
+  "excludeProtected": false,
+  "sourceLinkTemplate": "https://source.invalid/{path}#L{line}",
+  "validation": { "notExported": false, "invalidLink": true, "notDocumented": false },
+  "treatWarningsAsErrors": false
+}

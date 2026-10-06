@@ -51,7 +51,34 @@ export const briefingCoordinatorOptionsSchema = z
 const keySchema = z.string().trim().min(1).max(200);
 const terminal = (status: TaskStatus) => !["queued", "running"].includes(status);
 
-/** Process-local evidence collection only. Never invokes models or writes checkpoints. */
+/**
+ * Process-local evidence collection only. Never invokes models or writes checkpoints.
+ *
+ * @lifetime A run is created by start() with its source bindings and per-task
+ * deadlines fixed at that moment. It settles when every task is terminal, and is
+ * kept for the settled-run TTL or until capacity pressure, but never while one of
+ * its jobs is still draining. Its request, profile and waiter indexes go with it;
+ * reads and retries do not extend its retention.
+ *
+ * @invariant bindings-captured-at-start — A run keeps the source bindings, profile
+ * and configuration version it started with; a later reload cannot change those.
+ * Shared request budgets and the coordinator's concurrency and retention policy are
+ * not captured and may change.
+ * @test tests/unit/liveBriefing.test.ts :: keeps an in-flight feed attached to its original configuration
+ * @test tests/unit/liveBriefing.test.ts :: versions new runs, preserves old runs and retries, and rolls back invalid configuration
+ *
+ * @invariant retry-identity-is-bounded — Repeating a start with the same request
+ * returns the same run while it is retained; that identity expires with the run and
+ * is not extended by reads.
+ * @test tests/unit/briefingCoordinator.test.ts :: deduplicates identical starts, rejects conflicting reuse and isolates users
+ * @test tests/unit/briefingCoordinator.test.ts :: expires retry identity without extending it on reads, and cleans all indexes
+ *
+ * @invariant settled-runs-are-reclaimed — Settled runs and all their indexes are
+ * removed under sustained use, so retained state stays within the run cap.
+ * @test tests/unit/briefingCoordinator.test.ts :: reclaims settled runs and all associated indexes under sustained use
+ *
+ * @decision docs/18-nba-briefing-demo.md#implemented-coordinator-slice--2026-09-30
+ */
 export class BriefingCoordinator {
   get version() {
     return this.configVersion;
@@ -224,6 +251,19 @@ export class BriefingCoordinator {
       this.waiters.delete(run.id);
     }
   }
+  /**
+   * Ends a task logically, by cancellation or by its deadline.
+   *
+   * @lifetime A queued job is removed at once. A running job stays registered, and
+   * keeps its concurrency slot and its run's retention, until its adapter actually
+   * settles.
+   *
+   * @invariant logical-cancel-keeps-physical-slot — Cancelling or timing out a running
+   * task never frees its slot or its run before the adapter settles, even when the
+   * adapter ignores the abort. A queued task holds no slot and is removed at once.
+   * @test tests/unit/briefingCoordinator.test.ts :: bounds deadline waiting even when an adapter ignores abort, without freeing its physical slot
+   * @test tests/unit/briefingCoordinator.test.ts :: protects running and cancelled-but-draining adapters under retention pressure
+   */
   private stop(job: Job, status: "cancelled" | "deadline") {
     if (terminal(job.task.status)) return;
     const queued = job.task.status === "queued";

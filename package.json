@@ -20,6 +20,9 @@
     "test:watch": "vitest",
     "test:tdd": "vitest --watch --reporter=verbose",
     "lint": "npm run format:check && tsc -p tsconfig.json --noEmit",
+    "docs:check": "tsx src/docs/cli.ts check",
+    "docs:build": "tsx src/docs/cli.ts build",
+    "docs:graph": "tsx src/docs/cli.ts graph",
     "eval:evidence": "tsx src/eval/evidenceComparisonCli.ts",
     "eval:overhead": "tsx src/eval/recording/overheadCli.ts",
     "eval:recordings": "tsx src/eval/recording/cli.ts",
@@ -30,7 +33,7 @@
     "bench:sustained-memory": "node --expose-gc --import tsx src/bench/sustainedMemory.ts",
     "bench:run": "tsx src/bench/runBenchmark.ts",
     "bench:compare": "tsx src/bench/compareBenchmarks.ts",
-    "verify:release": "npm test && npm run lint && npm run eval:report && npm run bench:run && npm run bench:compare",
+    "verify:release": "npm test && npm run lint && npm run docs:check && npm run eval:report && npm run bench:run && npm run bench:compare",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown"
   },
@@ -47,10 +50,13 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@microsoft/tsdoc": "0.17.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.2",
+    "madge": "8.0.0",
     "prettier": "3.9.9",
     "tsx": "^4.19.2",
+    "typedoc": "0.28.20",
     "typescript": "^5.7.2",
     "vitest": "^4.1.11"
   }

@@ -12,5 +12,10 @@
   the formatting exclusions. Python formatting is outside this Prettier setup.
 - Do not track or commit `docs/deep-review-2026-10-01.md` or
   `docs/engineering-judgment-notes-2026-10-01.md`. They are local review documents.
+- Components listed in `docs/contracts/pilot.json` carry `@lifetime`, `@invariant`,
+  `@test` and `@decision` tags (declared in `tsdoc.json`). A behavioural change to one
+  of them updates its tags and the tests they cite in the same change; `npm run
+docs:check` must pass. Add a component to the manifest deliberately, not by habit,
+  and do not commit generated output from `npm run docs:build` (it goes to `dist/docs`).
 - Once `.git-blame-ignore-revs` exists, configure local history inspection with
   `git config blame.ignoreRevsFile .git-blame-ignore-revs`.

@@ -41,6 +41,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify:release
+      # Reference, invariant index and import graph for the documented components;
+      # generated here and kept as a downloadable artifact, never committed.
+      - run: npm run docs:build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: documentation
+          path: dist/docs
+          if-no-files-found: error
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
