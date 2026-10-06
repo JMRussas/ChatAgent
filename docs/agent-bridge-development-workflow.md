@@ -132,6 +132,21 @@ scope-specific acceptance statement.
   work outside that checkpoint. A local commit does not imply human acceptance
   of a separately gated milestone.
 
+Standing roadmap authorization carries development across these checkpoints.
+While implementation proceeds, prepare the next ready increment's scope,
+dependencies and acceptance criteria. After review, checks and the local commit,
+select and assign that bounded increment rather than treating the milestone as
+the end of the authorized work. An incidental preference or documentation task
+does not displace the lead's responsibility to keep development moving.
+
+Keep the active lead turn responsive to implementer results and questions;
+do not end it merely because one slice is complete. Stop or ask when scope or
+authority is genuinely unresolved, an explicit user gate applies, or the user
+requests a stop. Preserve the role split: ChatAgent Codex drives ChatAgent Claude,
+Hekate Codex drives Hekate Claude, and the leads coordinate shared dependencies.
+This continuity discipline does not add automatic wakeup capability: bridge
+delivery still cannot resume an ended model turn.
+
 ## Repository rules (ChatAgent)
 
 - Use the Node version pinned in `.node-version` (currently 24.21.0).
