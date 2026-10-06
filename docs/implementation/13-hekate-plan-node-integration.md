@@ -216,11 +216,16 @@ issues must be resolved before any adapter is built.
    UI edits to plan nodes never reach execution (_inventory_). The inventory
    proposes context-store nodes as authoritative for plan structure, with `tasks`
    remaining the execution ledger, linked by plan node ID. That is a proposal
-   awaiting a decision.
+   awaiting an execution-ledger decision. Increment 2b1 now makes PostgreSQL
+   authoritative for new managed plan roots; it neither enrolls these legacy
+   trees nor links their execution ledger.
 2. **Revision checks.** `NodeRepository.UpdateNode(id, name, value, modifiedBy)`
    in `context-store/DbLayer/NodeRepository.cs` takes no expected-revision
    parameter (_code_, method signature only). Stale-update rejection is therefore
-   not established at that layer. Whether a service layer enforces it is unverified.
+   not established at that legacy layer. Increment 2b1 implements compare-and-set
+   operations and whole-graph validation for new managed roots, with a database
+   fence preventing legacy mutation of their protected structure and content.
+   This does not retrofit revision checks onto unmanaged legacy plans.
 3. **Claims and ownership.** There are two mechanisms, and neither covers
    context-store plan nodes. `context-store/AgentCoordination/SubtreeLock.cs` is a
    session-scoped advisory lock; its only caller is the console demo in
@@ -235,6 +240,9 @@ issues must be resolved before any adapter is built.
 5. **Identity and authority.** ADR 0001 found no authentication on context-store
    routes. Bridge sender names are unverified for admin-sent messages. Who may
    issue assignments, record acceptance or advance plan state is undecided.
+   Increment 2b1's opt-in localhost API and integrity fences are not principal
+   authentication: a holder of full database credentials remains trusted and can
+   open the fence or disable triggers.
 6. **Local profile.** `context-store/docker-compose.yml` builds Apache AGE
    `release_PG16_1.6.0` with pgvector `v0.8.0` (`Dockerfile.postgres`). The fixed
    container is `code-storage-db`, published on port 5433, with a named data volume
@@ -283,14 +291,32 @@ issues must be resolved before any adapter is built.
      The state file still stores an unsalted SHA-256 password fingerprint; that
      concern remains separate from successful lifecycle and restore evidence.
 
-7. **Plan-node writers.** Hekate's pure plan-node contracts (no database, API or
-   service changes) are committed as `3fb3663`, with 101 of 101 tests passing in
-   a clean isolated dependency closure, as reported by `codex-hekate`. Store
-   integration (increment 2b), authenticated principals and API enforcement have
-   not started; pure contracts do not establish those capabilities.
-   Its writer inventory, reported but not re-derived
-   here, found problems that must be resolved before any adapter or
-   compare-and-set integration:
+7. **Managed plan store and legacy writers.** The earlier pure-contract milestone
+   `3fb3663` passed 101 of 101 tests. Increment 2b1 is now accepted by Hekate's lead
+   and committed as `9bc2cec`, as reported by `codex-hekate`. Evidence read from
+   Hekate's `context-store/plans/014-plan-contract-integration-validation.md`,
+   with design and inventory in `012-plan-node-contracts-v1.md` and
+   `013-plan-writer-inventory.md` in that same directory, establishes this scope:
+   - PostgreSQL is authoritative for **new managed roots**. Each operation holds
+     a per-project lock, loads and validates the whole graph, checks contract
+     version, applies compare-and-set updates and reconciles AGE in the same
+     PostgreSQL transaction. AGE projects identity and tagged dependencies,
+     not content; this is not an outbox. AGE failure rolls back the operation,
+     deliberately coupling plan-write availability to AGE.
+   - Database fences block protected legacy/API/raw-SQL writes to managed trees,
+     including structural moves and attribute replacement. The opt-in local
+     API is `/api/plan-contract/v1`; flag-off routes are absent and unsafe
+     configuration is rejected. Full database credentials remain trusted.
+   - **Hekate-side independent evidence:** clean dependency closure passed 132
+     pure and 25 live-store tests, with 28 HTTP process tests and 50 launcher
+     tests. Concurrent CAS, cycle rejection, key/payload conflicts, AGE rollback,
+     projection reconciliation and writer fences were exercised. These are
+     reported/read Hekate results, not new ChatAgent execution. Isolated databases
+     and owned API processes were cleaned up; no production or model call was used.
+   - Legacy enrollment, execution integration, authentication and UI remain
+     deferred; managed deletion, reparenting and container review/descope are
+     unsupported. The earlier inventory's unmanaged-writer problems below remain
+     historical findings requiring migration or retirement before integration:
    - On completion, `context_bridge` replaces the node's name and value and all of
      its attributes, erasing engine identifiers.
    - `ContextStoreClient` sends flat attributes, while the API expects an

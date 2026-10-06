@@ -140,10 +140,15 @@ The profile is stopped with image, volume and data retained; see the contract's
 local-profile entry for evidence scope and remaining limits. Pure plan-node
 contracts are committed as `3fb3663`, with 101/101 tests in a clean isolated
 dependency closure, and source recovery as `a1f8237`, with 26 gateway and 30 Odin
-offline tests, as reported by `codex-hekate`. Store integration (increment 2b),
-authenticated principals and API enforcement have not started. These checks do
-not establish live gods integration or database/API enforcement; open writer-path
-problems are listed in the contract's unresolved questions.
+offline tests, as reported by `codex-hekate`. Managed-plan store integration
+(increment 2b1) is accepted by that lead at `9bc2cec`: PostgreSQL-authoritative
+new roots, compare-and-set operations, whole-graph validation and legacy-writer
+fences, with identity-only AGE projection in the same transaction. Independent
+Hekate checks passed 132 pure, 25 live-store, 28 HTTP and 50 launcher tests.
+AGE availability is required for plan writes; no outbox is used. The API is
+opt-in and local-only. Legacy enrollment, execution integration, authentication
+and UI remain deferred, and full database credentials remain trusted. See the
+integration contract for evidence and remaining writer-path limits.
 
 Do not infer whole-process memory bounds from individual store limits. Keep
 self-graded quality separate from calibrated factual evaluation.
