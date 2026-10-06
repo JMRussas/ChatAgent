@@ -106,3 +106,30 @@ it("leaves the task feature disabled by default", async () => {
   expect((await post("/document-tasks", { ...scope, op: "list" })).status).toBe(404);
   expect(await (await fetch(base)).text()).not.toContain('id="documentTaskStart"');
 });
+it("reports an uncertain mutation as 503 with no retry promise or Retry-After", async () => {
+  const { bridge, post } = await setup();
+  bridge.request.mockRejectedValueOnce(new DocumentTaskError("BRIDGE_UNCERTAIN", "start"));
+  const start = await post("/document-tasks", {
+    ...scope,
+    op: "start",
+    requestId: crypto.randomUUID(),
+    question: "q"
+  });
+  expect(start.status).toBe(503);
+  expect(start.headers.get("retry-after")).toBeNull();
+  expect(await start.json()).toEqual({
+    code: "BRIDGE_UNCERTAIN",
+    op: "start",
+    uncertain: true,
+    error:
+      "The task may have been accepted. Its outcome is unknown; inspect task state before submitting more work."
+  });
+  bridge.request.mockRejectedValueOnce(new DocumentTaskError("BRIDGE_UNCERTAIN", "cancel"));
+  const cancel = await post("/document-tasks", { ...scope, op: "cancel", taskId: "a".repeat(32) });
+  expect(cancel.status).toBe(503);
+  expect(cancel.headers.get("retry-after")).toBeNull();
+  const body = await cancel.json();
+  expect(body).toMatchObject({ code: "BRIDGE_UNCERTAIN", op: "cancel", uncertain: true });
+  expect(body.error).toBe("The outcome is unknown. Check the task's status before acting.");
+  expect(body.error).not.toMatch(/retry|resend|again/i);
+});

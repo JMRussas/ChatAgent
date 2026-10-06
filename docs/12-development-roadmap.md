@@ -1119,6 +1119,15 @@ any shared deployment.
   model changes or a local counter clear. Keep local, metered API, cloud and CLI
   subscription policies configurable; avoid automatic usage checks on every call.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
+  _Containment implemented 2026-10-06; see
+  [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._
+  It provides strict bounded stdout framing and envelope validation, settlement
+  exactly once (start, resume and cancel uncertain; reads unavailable), and
+  termination confirmed by the child's exit. There is no respawn, no re-send and
+  no retry promise. Still open: an explicit operator restart (only after the old
+  child has provably exited; the sidecar's `bridge.owner` lock already refuses an
+  overlapping owner), automatic recovery, stdin backpressure, and making the
+  start-and-binding sequence idempotent.
   Define explicit restart behavior without automatically replaying uncertain work.
   Give orphaned document tasks an operator-visible reconciliation/abandon path that
   preserves uncertainty about external execution instead of claiming clean rollback.

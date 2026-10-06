@@ -92,10 +92,58 @@ use the same GPU. HTTP responsiveness and GPU scheduling are different concerns.
 There are no timed triggers, distributed workers or automatic uncertain-crash replay.
 
 On orderly server closure, stdin closes and the sidecar cancels its jobs. Node
-allows five seconds before terminating it. Forced termination can leave uncertain
-work, which remains non-replayable. The server close callback does not certify that
-the model server released its GPU resources or that every Python operation drained.
-Bridge exit rejects pending requests without automatically starting another worker.
+sends SIGTERM after five seconds and SIGKILL five seconds later if the child is
+still running. Forced termination can leave uncertain work, which remains
+non-replayable. The server close callback does not certify that the model server
+released its GPU resources or that every Python operation drained.
+
+### Bridge failure containment
+
+Node reads the sidecar's stdout strictly:
+
+- Lines are split on the newline byte, so multibyte characters may cross chunk
+  boundaries.
+- A line, complete or not, may not exceed 1 MiB. The limit is checked before
+  bytes are buffered, and an unfinished line is copied into one buffer capped at
+  that size.
+- Each line must be valid UTF-8 JSON of exactly `{id, result}` or
+  `{id, error: CODE}`, where `id` is a positive integer and `CODE` matches
+  `[A-Z][A-Z0-9_]{0,63}`.
+- A reply for a request that already timed out is dropped once. The bridge
+  remembers the last 64 such ids. Any other unknown or repeated id is a protocol
+  failure.
+
+The bridge fails in the following cases:
+
+- a protocol failure, including a line that is too long, malformed JSON, invalid
+  UTF-8 or an unknown id;
+- a stdin or stdout error;
+- stdout ending or closing while the bridge is up, even if the child is still
+  alive or a line is unfinished;
+- a child error;
+- an unexpected exit. A failed spawn counts as exited when it closes.
+
+On failure the bridge stops reading at once and settles every pending request
+exactly once. Then it closes stdin, sends SIGTERM, and sends SIGKILL after five
+seconds unless the child has exited. It reports itself down only once the child's
+exit is confirmed. It never spawns a replacement and never re-sends a request: the
+bridge stays down until the server restarts. Restart and automatic recovery are
+separate later work.
+
+What an unanswered request reports:
+
+- **Not handed to stdin:** `BRIDGE_UNAVAILABLE`. A write that only fills the stdin
+  buffer still counts as handed over.
+- **`list` or `status`:** `BRIDGE_UNAVAILABLE`, or `BRIDGE_TIMEOUT` on a timeout.
+- **`start`, `resume` or `cancel`:** `BRIDGE_UNCERTAIN`. HTTP answers
+  `503 {code, op, uncertain: true}` with an operation-specific message, and with
+  no `Retry-After` and no retry advice. The sidecar records a started task and its
+  request binding in separate transactions. A crash between them leaves a durable
+  task with no binding, so resending the same `requestId` is not proven to avoid
+  a duplicate. Making this idempotent is deferred reconciliation work.
+
+These bounds apply to stdout only. A child that stops reading stdin can still
+accumulate written requests, so the whole bridge's memory is not claimed bounded.
 
 ## Verification
 

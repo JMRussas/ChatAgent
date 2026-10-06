@@ -982,6 +982,19 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         res.destroy();
         return;
       }
+      if (error instanceof DocumentTaskError && error.code === "BRIDGE_UNCERTAIN")
+        // No Retry-After and no retry promise: the sidecar records a started task and
+        // its request binding in separate transactions, so even resending a start
+        // with the same requestId is not proven to avoid a duplicate.
+        return json(res, 503, {
+          code: error.code,
+          op: error.op,
+          uncertain: true,
+          error:
+            error.op === "start"
+              ? "The task may have been accepted. Its outcome is unknown; inspect task state before submitting more work."
+              : "The outcome is unknown. Check the task's status before acting."
+        });
       if (error instanceof DocumentTaskError) {
         const status =
           error.code === "CAPACITY_FULL"
