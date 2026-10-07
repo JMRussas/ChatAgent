@@ -1296,10 +1296,30 @@ connection cap; real-socket integration tests cover that boundary separately.
   regressions for reported overage/debt, settlement beyond the open-charge cap and
   an Ollama deep response settling only its own ticket. All provider responses in
   these checks are offline fixtures; no live provider calls or service restart.
-  Still open: Azure,
-  Bedrock and CLI usage (each needs its own primary-source check of what its counts
-  include), request-unit reports, a runtime window-declaration route and
-  provider-authoritative reconciliation.
+  _Slice Q1c-b (Azure) implemented and reviewed 2026-10-07; see
+  [per-call usage reporting](implementation/08-resource-policy.md#configured-quota-envelopes-2026-10-06):_
+  Azure chat completions report `prompt_tokens` and `completion_tokens` (detail
+  counts not added again; a present `total_tokens` must equal their sum), and fast
+  and deep results carry them to the same settlement path. Non-streaming calls report
+  only with an explicit accepted stop or length finish. Streamed calls request
+  `stream_options.include_usage` only when the API version is exactly `2024-10-21`,
+  as the stable spec and official SDK document for text-only requests (evidence
+  linked in the contract). Usage is accepted only from the final empty-choices chunk
+  after an accepted finish and attached at `[DONE]`; early, repeated or non-final
+  usage withdraws the report but keeps the answer. Other API versions keep their
+  previous request shape and stay estimated. Tests: the "azure per-call usage" and
+  "azure streamed usage (api-version 2024-10-21)" blocks in
+  `tests/unit/azureProviders.test.ts` and the Azure cases in
+  `tests/integration/quotaUsageSettlement.test.ts`. Claude implemented the slice
+  and review corrections; Codex reviewed source and verified the terminal-wait
+  cancellation boundary and completed-response settlement. Validation on Windows
+  Node 24.21.0: 1,559 tests across 138 files and 34 browser tests pass, together
+  with format, lint and documentation-contract checks. All provider responses
+  are offline fixtures; no live provider calls or service restart.
+  Still open: streamed Azure usage on other API versions (each needs its own
+  primary evidence), Bedrock and CLI usage (each needs its own primary-source check
+  of what its counts include), request-unit reports, a runtime window-declaration
+  route and provider-authoritative reconciliation.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._

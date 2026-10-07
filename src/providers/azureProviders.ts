@@ -1,8 +1,10 @@
 import {
   GenerationError,
   httpGenerationError,
+  providerUsage,
   type GenerationControl,
-  type GenerationResult
+  type GenerationResult,
+  type ProviderUsage
 } from "../domain/generation";
 import { AnswerCollector, parseFrame, sseData, withGenerationDeadline } from "./streaming";
 import { buildSystemAndMessages } from "./contextMessages";
@@ -13,6 +15,35 @@ import type { DeepModelProvider, FastModelProvider } from "./interfaces";
 interface AzureChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+}
+
+/**
+ * The only API version whose streamed usage chunk is verified: the stable
+ * 2024-10-21 inference spec's stream_options.include_usage sends whole-request
+ * usage in a final empty-choices chunk before [DONE], with null usage on every
+ * other chunk. Other versions, including later or custom ones, are not inferred.
+ */
+const STREAM_USAGE_API_VERSION = "2024-10-21";
+
+/**
+ * A response's own usage: prompt_tokens as input and completion_tokens as output.
+ * Cached-prompt and reasoning detail counts are not added again. A total_tokens
+ * that is present must equal their sum; otherwise there is no usage.
+ */
+function azureUsage(payload: unknown): ProviderUsage | undefined {
+  const usage = (payload as { usage?: unknown } | null)?.usage as
+    | { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown }
+    | null
+    | undefined;
+  if (!usage || typeof usage !== "object") return undefined;
+  const counted = providerUsage(usage.prompt_tokens, usage.completion_tokens);
+  if (
+    !counted ||
+    (usage.total_tokens !== undefined &&
+      usage.total_tokens !== counted.inputTokens + counted.outputTokens)
+  )
+    return undefined;
+  return counted;
 }
 
 async function callAzureChat(args: {
@@ -28,6 +59,8 @@ async function callAzureChat(args: {
 }): Promise<GenerationResult> {
   const base = args.endpoint.replace(/\/$/, "");
   const url = `${base}/openai/deployments/${args.deployment}/chat/completions?api-version=${encodeURIComponent(args.apiVersion)}`;
+  // Text-only requests without data_sources; every other request shape is unchanged.
+  const streamUsage = Boolean(args.control) && args.apiVersion === STREAM_USAGE_API_VERSION;
 
   return withGenerationDeadline("Azure OpenAI", args.timeoutMs, args.control, async (signal) => {
     const response = await fetch(url, {
@@ -39,6 +72,7 @@ async function callAzureChat(args: {
       body: JSON.stringify({
         messages: args.messages,
         stream: Boolean(args.control),
+        ...(streamUsage ? { stream_options: { include_usage: true } } : {}),
         temperature: args.temperature,
         ...(args.maxOutputTokens !== undefined ? { max_tokens: args.maxOutputTokens } : {})
       }),
@@ -49,14 +83,28 @@ async function callAzureChat(args: {
     const collector = new AnswerCollector(args.control);
     if (!args.control) {
       const payload = await response.json();
-      await collector.add(payload.choices?.[0]?.message?.content ?? "");
-      return collector.finish(payload.choices?.[0]?.finish_reason ?? "stop");
+      const choice = payload.choices?.[0];
+      await collector.add(choice?.message?.content ?? "");
+      const result = collector.finish(choice?.finish_reason ?? "stop");
+      // Usage only for an explicitly finished choice the collector accepted.
+      const usage = typeof choice?.finish_reason === "string" ? azureUsage(payload) : undefined;
+      return usage ? { ...result, usage } : result;
     }
     let finish: string | undefined;
+    // Usage counts only from one empty-choices chunk after the finish and directly
+    // before [DONE]. Early, choice-bearing, repeated or non-final usage withdraws the
+    // report but never the answer; null usage on other chunks is ignored.
+    let reported: unknown;
+    let usageWithdrawn = false;
     for await (const data of sseData(response, signal)) {
       if (data === "[DONE]") {
         if (!finish) throw new GenerationError("INVALID_STREAM", false);
-        return collector.finish(finish);
+        const result = collector.finish(finish);
+        const usage =
+          streamUsage && !usageWithdrawn && reported !== undefined
+            ? azureUsage({ usage: reported })
+            : undefined;
+        return usage ? { ...result, usage } : result;
       }
       const frame = parseFrame(data);
       if (
@@ -65,8 +113,13 @@ async function callAzureChat(args: {
         frame.choices.some((item: unknown) => !item || typeof item !== "object")
       )
         throw new GenerationError("INVALID_STREAM", false);
+      if (reported !== undefined) usageWithdrawn = true;
+      else if (frame.usage != null) {
+        if (finish && frame.choices.length === 0) reported = frame.usage;
+        else usageWithdrawn = true;
+      }
       const choice = frame.choices.find((item: any) => item.index === 0);
-      if (!choice) continue; // Usage and prompt-filter frames contain no answer.
+      if (!choice) continue; // Usage and prompt-filter chunks contain no answer.
       if (choice.delta?.content != null) {
         if (finish) throw new GenerationError("INVALID_STREAM", false);
         await collector.add(choice.delta.content);
@@ -191,7 +244,8 @@ export class AzureDeepProvider implements DeepModelProvider {
       finishReason: result.finishReason,
       confidence: 0.85,
       citations: [],
-      totalLatencyMs: Date.now() - start
+      totalLatencyMs: Date.now() - start,
+      ...(result.usage ? { usage: result.usage } : {})
     };
   }
 }

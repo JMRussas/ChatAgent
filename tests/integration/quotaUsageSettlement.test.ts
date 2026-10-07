@@ -5,6 +5,7 @@ import { DEFAULT_QUOTA_ENVELOPE_LIMITS, type QuotaEnvelope } from "../../src/rou
 import { GenerationError, type GenerationControl } from "../../src/domain/generation";
 import { entryBindingId } from "../../src/providers/providerRegistry";
 import { OllamaDeepProvider } from "../../src/providers/ollamaProviders";
+import { AzureDeepProvider, AzureFastProvider } from "../../src/providers/azureProviders";
 import { budget, entry, evidence, now, resources, runtime } from "../helpers/dispatchFixtures";
 
 // Per-call provider usage settling token-envelope tickets through CatalogDispatch.
@@ -245,6 +246,253 @@ describe("per-call usage settlement", () => {
     expect(links(dispatch)).toBe(0);
     dispatch.release(plan.fast);
   });
+
+  it("settles an Azure non-streaming response at its prompt and completion tokens", async () => {
+    const { dispatch, plan, ticket } = await setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          choices: [{ index: 0, message: { content: "answer" }, finish_reason: "stop" }],
+          usage: {
+            prompt_tokens: 30,
+            completion_tokens: 10,
+            total_tokens: 40,
+            prompt_tokens_details: { cached_tokens: 20 }
+          }
+        })
+      )
+    );
+    const provider = new AzureFastProvider("https://fixture.invalid", "k", "2024-10-21", "d", 0);
+    const result = await dispatch.execute(plan.fast, control().value, "medium", () =>
+      provider.createProvisionalReply({
+        message: { conversationId: "c", userId: "u", text: "Explain code", timestampIso: now },
+        correctedText: "Explain code",
+        routeDecision: "direct",
+        context: plan.fast.context
+      })
+    );
+    expect(result.usage).toEqual(usage(30, 10));
+    expect(remaining(dispatch)).toBe("99960");
+    expect(links(dispatch)).toBe(0);
+    expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+  });
+
+  // Streamed Azure chunks as the stable 2024-10-21 spec documents them.
+  const sse = (frame: unknown) =>
+    `data: ${typeof frame === "string" ? frame : JSON.stringify(frame)}\n\n`;
+  const azureStream = (...frames: unknown[]) => {
+    const fetchMock = vi.fn(async () => new Response(frames.map(sse).join("")));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+  const promptFilter = { choices: [], prompt_filter_results: [{ prompt_index: 0 }], usage: null };
+  const chunk = (content: string) => ({
+    choices: [{ index: 0, delta: { content }, finish_reason: null }],
+    usage: null
+  });
+  const finished = { choices: [{ index: 0, delta: {}, finish_reason: "stop" }], usage: null };
+  const totals = (prompt_tokens = 30, completion_tokens = 10) => ({
+    choices: [],
+    usage: { prompt_tokens, completion_tokens, total_tokens: prompt_tokens + completion_tokens }
+  });
+  type Plan = Awaited<ReturnType<typeof setup>>["plan"];
+  /** The real adapter, streaming under the same control the dispatch phase uses. */
+  const azureReply = (plan: Plan, c: { value: GenerationControl }, apiVersion = "2024-10-21") =>
+    new AzureFastProvider(
+      "https://fixture.invalid",
+      "k",
+      apiVersion,
+      "d",
+      0
+    ).createProvisionalReply(
+      {
+        message: { conversationId: "c", userId: "u", text: "Explain code", timestampIso: now },
+        correctedText: "Explain code",
+        routeDecision: "direct",
+        context: plan.fast.context
+      },
+      c.value
+    );
+  const streamedFast = (
+    dispatch: CatalogDispatch,
+    plan: Plan,
+    c: { value: GenerationControl },
+    apiVersion = "2024-10-21"
+  ) => dispatch.execute(plan.fast, c.value, "medium", () => azureReply(plan, c, apiVersion));
+
+  it("settles an Azure streamed response from its final usage chunk", async () => {
+    const { dispatch, plan, ticket } = await setup();
+    const fetchMock = azureStream(
+      promptFilter,
+      chunk("ans"),
+      chunk("wer"),
+      finished,
+      totals(),
+      "[DONE]"
+    );
+    const c = control();
+    const emitted: string[] = [];
+    c.value.onDelta = async (text) => {
+      emitted.push(text);
+    };
+    const result = await streamedFast(dispatch, plan, c);
+    expect(result).toEqual({ text: "answer", finishReason: "stop", usage: usage(30, 10) });
+    expect(emitted).toEqual(["ans", "wer"]);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      stream: true,
+      stream_options: { include_usage: true }
+    });
+    expect(remaining(dispatch)).toBe("99960");
+    expect(links(dispatch)).toBe(0);
+    expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+  });
+
+  it("settles a completed Azure stream when the turn is aborted after it returns", async () => {
+    const { dispatch, plan } = await setup();
+    azureStream(chunk("answer"), finished, totals(), "[DONE]");
+    const c = control();
+    const result = await dispatch.execute(plan.fast, c.value, "medium", async () => {
+      const reply = await azureReply(plan, c);
+      c.controller.abort(); // after [DONE]: the call's usage is known consumption
+      return reply;
+    });
+    expect(result).toEqual({ text: "answer", finishReason: "stop", usage: usage(30, 10) });
+    expect(dispatch.telemetry().attempts.at(-1)?.result).toBe("cancelled");
+    expect(remaining(dispatch)).toBe("99960");
+    expect(links(dispatch)).toBe(0);
+  });
+
+  it("keeps the estimate when a stream is aborted after its usage chunk while awaiting [DONE]", async () => {
+    const { dispatch, plan, ticket } = await setup();
+    const estimated = remaining(dispatch);
+    const encoder = new TextEncoder();
+    // Each chunk is enqueued only on a separate read; a read past the usage chunk
+    // shows the adapter consumed it and is now waiting for [DONE].
+    const pending = [chunk("answer"), finished, totals()].map((f) => encoder.encode(sse(f)));
+    let awaitingDone!: () => void;
+    const waiting = new Promise<void>((resolve) => (awaitingDone = resolve));
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(source) {
+          const next = pending.shift();
+          if (next) return source.enqueue(next);
+          awaitingDone();
+          return new Promise<void>(() => {}); // [DONE] never arrives
+        },
+        cancel
+      },
+      { highWaterMark: 0 }
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body))
+    );
+    const c = control();
+    const call = streamedFast(dispatch, plan, c);
+    await waiting;
+    c.controller.abort();
+    await expect(call).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(cancel).toHaveBeenCalled();
+    expect(dispatch.telemetry().attempts.at(-1)?.result).toBe("CANCELLED");
+    expect(remaining(dispatch)).toBe(estimated);
+    expect(links(dispatch)).toBe(1);
+    expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+  });
+
+  it("settles an Azure streamed deep response on its deep ticket", async () => {
+    const {
+      dispatch,
+      plan,
+      ticket: fastTicket
+    } = await setup(enveloped(), [window()], ["a"], "deep");
+    const fastReserved = charge(dispatch, fastTicket)!.quotaUnits!;
+    const deepTicket = plan.deep!.ticket!;
+    azureStream(promptFilter, chunk("deep answer"), finished, totals(25, 15), "[DONE]");
+    const c = control();
+    const provider = new AzureDeepProvider("https://fixture.invalid", "k", "2024-10-21", "d", 0);
+    const result = await dispatch.execute(plan.deep!, c.value, "medium", () =>
+      provider.resolveDeepTask(
+        {
+          taskId: "deep-task",
+          conversationId: "c",
+          normalizedPrompt: "Explain code",
+          createdAtIso: now,
+          context: plan.deep!.context
+        },
+        c.value
+      )
+    );
+    expect(result.usage).toEqual(usage(25, 15));
+    expect(remaining(dispatch)).toBe(String(100_000 - fastReserved - 40));
+    expect(charge(dispatch, fastTicket)).toMatchObject({ status: "reserved", started: false });
+    expect(dispatch.admission.reportQuotaUsage(deepTicket, 0)).toBe(false);
+    expect(links(dispatch)).toBe(0);
+    dispatch.release(plan.fast);
+  });
+
+  it("charges streamed Azure overage as debt", async () => {
+    const { dispatch, plan } = await setup();
+    azureStream(chunk("answer"), finished, totals(100_000, 7), "[DONE]");
+    await streamedFast(dispatch, plan, control());
+    expect(dispatch.admission.envelopeAvailability()).toMatchObject([
+      { remaining: "0", debt: "7" }
+    ]);
+    expect(links(dispatch)).toBe(0);
+  });
+
+  // The expected outcome is the answer without usage, or the exact error code.
+  it.each([
+    ["no usage chunk arrives", "2024-10-21", [chunk("answer"), finished, "[DONE]"], "answer"],
+    [
+      "usage arrives before the finish",
+      "2024-10-21",
+      [chunk("answer"), totals(), finished, "[DONE]"],
+      "answer"
+    ],
+    [
+      "usage is reported twice",
+      "2024-10-21",
+      [chunk("answer"), finished, totals(), totals(), "[DONE]"],
+      "answer"
+    ],
+    [
+      "the API version is not allowlisted",
+      "2024-08-01-preview",
+      [chunk("answer"), finished, totals(), "[DONE]"],
+      "answer"
+    ],
+    [
+      "the stream ends after its usage chunk without [DONE]",
+      "2024-10-21",
+      [chunk("answer"), finished, totals()],
+      "INVALID_STREAM"
+    ],
+    [
+      "the call is cancelled mid-stream",
+      "2024-10-21",
+      [chunk("a"), chunk("b"), finished, totals(), "[DONE]"],
+      "CANCELLED"
+    ]
+  ] as [string, string, unknown[], string][])(
+    "keeps an Azure streamed response estimated when %s",
+    async (label, apiVersion, frames, outcome) => {
+      const { dispatch, plan, ticket } = await setup();
+      const estimated = remaining(dispatch);
+      azureStream(...frames);
+      const c = control();
+      if (label.includes("cancelled")) c.value.onDelta = async () => c.controller.abort();
+      const call = streamedFast(dispatch, plan, c, apiVersion);
+      if (outcome === "answer")
+        expect(await call).toEqual({ text: "answer", finishReason: "stop" });
+      else await expect(call).rejects.toMatchObject({ code: outcome });
+      expect(remaining(dispatch)).toBe(estimated);
+      expect(links(dispatch)).toBe(1);
+      expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+    }
+  );
 
   it.each([
     ["a request-unit envelope", () => enveloped("requests"), [window("requests", 10)]],

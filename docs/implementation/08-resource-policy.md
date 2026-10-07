@@ -133,14 +133,15 @@ envelopes behave exactly as before.
   envelope ledger's refusal itself changes nothing.
 - **Settlement** uses one report decision for both ledgers (a report counts only if
   both amounts are valid). Work finished without a report stays debited at its
-  estimate and keeps a link until a per-call report is applied. Only Ollama
-  token-envelope calls report usage so far (below); every other binding's debits
-  accumulate, and an envelope can be exhausted by unreported work or by its
+  estimate and keeps a link until a per-call report is applied. Only Ollama calls,
+  non-streaming Azure calls and streamed Azure calls on API version `2024-10-21`
+  report usage so far (below); every other call's debits accumulate, and an envelope can be exhausted by unreported work or by its
   open-charge cap. That is deliberate: elapsed time is not proof of what was
   consumed. If envelope settlement ever fails, nothing changes in either ledger and
   the work keeps its compute until settlement succeeds.
 
-**Per-call usage reporting (Q1c-a, 2026-10-07: Ollama, token envelopes only).**
+**Per-call usage reporting (2026-10-07; token envelopes only: Q1c-a Ollama, Q1c-b
+Azure).**
 
 - **Source.** `GenerationResult` and `DeepResult` carry optional `usage`
   (`source: "provider-response"`, `inputTokens`, `outputTokens`). Both counts must be
@@ -152,6 +153,35 @@ envelopes behave exactly as before.
   2026-10-07). Counts on non-terminal frames are never read. Missing or invalid
   counts keep the answer and omit usage; nothing is derived from text. Deep results
   carry the same usage.
+- **Azure (Q1c-b).** `usage.prompt_tokens` is input and `usage.completion_tokens`
+  output. The nested cached-prompt and reasoning detail counts are breakdowns of
+  those totals and are not added again; a `total_tokens` that is present must equal
+  the sum, or there is no usage. Evidence: the stable 2024-10-21 inference spec's
+  [`stream_options`](https://github.com/Azure/azure-rest-api-specs/blob/59c8e482c0403f60118e2a8dc7c4a88e435db8b0/specification/cognitiveservices/data-plane/AzureOpenAI/inference/stable/2024-10-21/inference.json#L2854)
+  and its usage schema (around line 3069 of the same file), corroborated for
+  text-only requests without `data_sources` by the
+  [official .NET SDK](https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/openai/Azure.AI.OpenAI/src/Custom/Chat/AzureChatClient.cs#L87);
+  reviewed by the lead and an independent reviewer on 2026-10-07.
+  - **Non-streaming:** usage is reported only when the first choice has an explicit
+    string `finish_reason` that the collector accepts as stop or length. A `length`
+    finish is accepted even with an empty answer and reports its usage; an empty
+    answer with a `stop` finish is rejected (`EMPTY_RESPONSE`) and reports nothing.
+    A missing or null finish reason, a rejected finish (`content_filter`,
+    `tool_calls`), HTTP errors, timeouts and missing or invalid counts report
+    nothing. The request is unchanged.
+  - **Streaming:** only when the configured API version is exactly `2024-10-21`
+    does a streamed request add `stream_options: {include_usage: true}`; it is
+    text-only and sends no `data_sources`. Other versions, including later, preview
+    or custom ones, keep their previous request and report nothing; support is not
+    inferred from version dates. Usage is taken only from one empty-choices chunk
+    after a finish reason and directly before `[DONE]`, and is attached only once
+    `[DONE]` arrives and the collector accepts the finish. Null usage on other
+    chunks is ignored. Usage before the finish, on a choice-bearing chunk, repeated,
+    or followed by any further chunk withdraws the report but keeps the answer.
+    Missing or invalid usage keeps the estimate, and a truncated stream (no
+    `[DONE]`), rejected finish, error or cancellation cannot settle. There are no
+    added retries; finish validation and timeouts are unchanged.
+  - Deep results carry the same usage.
 - **Settlement.** `CatalogDispatch.execute` revalidates the returned usage and keeps
   it only for a stop or length result. `finish` then finishes the exact ticket as
   before and, for a token-envelope binding only, applies input plus output through
@@ -167,8 +197,9 @@ envelopes behave exactly as before.
   estimate.
 - **Not claimed.** These are the provider's per-call counts, not billed amounts or
   account-wide usage. The charge's diagnostic row keeps its estimated units; the
-  envelope projection shows the settled amount. Azure, Bedrock and CLI bindings, and
-  request-unit reporting, still report nothing.
+  envelope projection shows the settled amount. Streamed Azure calls on any API
+  version other than `2024-10-21`, Bedrock and CLI bindings, and request-unit
+  reporting still report nothing.
 - **Clock.** Envelope decisions never use a time earlier than one already used, so
   a wall clock stepping back holds time instead of failing settlement.
 - **Visibility.** `envelopeAvailability()` is a live projection (window, remaining,

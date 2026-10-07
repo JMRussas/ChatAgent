@@ -73,6 +73,12 @@ function abortError(signal: AbortSignal) {
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the estimate when %s
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles known consumption that completed after an abort
  * @test tests/integration/quotaUsageSettlement.test.ts :: never reports into %s
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles an Azure non-streaming response at its prompt and completion tokens
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles an Azure streamed response from its final usage chunk
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles an Azure streamed deep response on its deep ticket
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps an Azure streamed response estimated when %s
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles a completed Azure stream when the turn is aborted after it returns
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the estimate when a stream is aborted after its usage chunk while awaiting [DONE]
  *
  * @invariant usage-settles-its-own-ticket-once — A report applies to the exact ticket the
  * work ran on, after that ticket finished, at most once; if finishing throws, the ticket
