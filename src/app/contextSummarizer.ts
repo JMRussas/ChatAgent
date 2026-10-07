@@ -189,6 +189,7 @@ export class ModelContextSummarizer implements ContextSummarizer {
       memory: null,
       resolvedSources: [],
       unavailableSources: [],
+      omittedSourceCount: 0,
       activeTasks: [],
       omittedActiveTaskIds: [],
       messages: [{ role: "user", content: text, messageId: id }],

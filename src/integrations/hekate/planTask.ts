@@ -485,6 +485,7 @@ export function buildPlanTaskContext(
     context.memory !== null ||
     context.resolvedSources.length ||
     context.unavailableSources.length ||
+    context.omittedSourceCount !== 0 ||
     context.includedTurnIds.length ||
     context.omittedTurnIds.length ||
     context.activeTasks.length ||

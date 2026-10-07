@@ -11,6 +11,7 @@ export function sampleContext(overrides: Partial<ConversationContext> = {}): Con
     memory: null,
     resolvedSources: [],
     unavailableSources: [],
+    omittedSourceCount: 0,
     activeTasks: [],
     omittedActiveTaskIds: [],
     messages: [

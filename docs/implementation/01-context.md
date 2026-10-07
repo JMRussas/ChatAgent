@@ -37,6 +37,7 @@ interface ConversationContext {
   memory: ContextMemory | null; // validated derivative of older completed turns
   resolvedSources: readonly { source: SourceRef; text: string }[];
   unavailableSources: readonly SourceRef[];
+  omittedSourceCount: number; // host-only; distinct requested sources shown in no form
   activeTasks: readonly ActiveTaskContext[];
   omittedActiveTaskIds: readonly string[];
   messages: readonly ContextMessage[]; // completed history, then current user

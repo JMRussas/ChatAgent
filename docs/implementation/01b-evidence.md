@@ -35,8 +35,15 @@ estimates, not provider-tokenizer guarantees.
 Source-check phrases are matched as whole phrases: “how do you know”, “check that”,
 “verify that”, “what did I say”. At most four refs from newest included memory items
 are checked against the captured source snapshot. Exact excerpts replace those
-items within the memory allowance. Unavailable/oversized sources are explicit;
-resolution outcomes take priority over larger excerpts.
+items within the memory allowance. Resolution outcomes take priority over larger
+excerpts: an unavailable or oversized source is shown to the model as an explicit
+unavailable marker when that marker fits the memory allowance. When even the marker
+does not fit, nothing about that source is rendered; the context's host-only
+`omittedSourceCount` then counts it. The count covers distinct requested source
+events shown as neither an excerpt, a marker nor an exact history pair in the final
+context, so a source whose pair is included is not counted. It is never rendered
+and never changes allocation or budget. Sources beyond the four-reference cap are
+never attempted and are not counted.
 
 ## Configuration and internal calls
 

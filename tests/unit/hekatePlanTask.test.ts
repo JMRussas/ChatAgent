@@ -440,6 +440,7 @@ describe("building the task context", () => {
     expect(built.context.memory).toBeNull();
     expect(built.context.resolvedSources).toEqual([]);
     expect(built.context.unavailableSources).toEqual([]);
+    expect(built.context.omittedSourceCount).toBe(0);
     expect(built.context.includedTurnIds).toEqual([]);
     expect(built.context.activeTasks).toEqual([]);
     expect(built.suppliedSha256).toBe(sha256(built.context.messages[0].content));

@@ -55,6 +55,12 @@ export interface ConversationContext {
   memory: ContextMemory | null;
   resolvedSources: readonly { source: SourceRef; text: string }[];
   unavailableSources: readonly SourceRef[];
+  /**
+   * Host-only, never rendered: distinct requested source events shown in no form,
+   * neither as a resolved excerpt, an unavailable marker nor an included exact
+   * history pair, because even their marker did not fit the memory allowance.
+   */
+  omittedSourceCount: number;
   activeTasks: readonly ActiveTaskContext[];
   omittedActiveTaskIds: readonly string[];
   messages: readonly ContextMessage[];

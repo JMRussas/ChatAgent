@@ -335,6 +335,17 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
   const omittedPairIds = completedTurns
     .filter((p) => !includedIds.has(p.messageId))
     .map((p) => p.messageId);
+  // Host-only: counted against the final exact history, since an older pair admitted
+  // above can represent a source whose marker did not fit. Duplicates count once.
+  const shownSourceIds = new Set([
+    ...resolvedSources.map((s) => s.source.eventId),
+    ...unavailableSources.map((s) => s.eventId)
+  ]);
+  const omittedSourceIds = new Set(
+    requestedRefs
+      .filter((s) => !shownSourceIds.has(s.eventId) && !includedIds.has(s.messageId))
+      .map((s) => s.eventId)
+  );
 
   const messages: ContextMessage[] = [];
   for (const pair of includedPairs) {
@@ -365,6 +376,7 @@ export function buildContext(input: BuildContextInput): ConversationContext | Co
     memory,
     resolvedSources,
     unavailableSources,
+    omittedSourceCount: omittedSourceIds.size,
     activeTasks,
     omittedActiveTaskIds: omittedUnresolvedIds,
     messages,
