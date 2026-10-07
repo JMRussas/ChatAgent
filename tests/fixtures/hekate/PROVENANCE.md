@@ -52,3 +52,26 @@ service:
 
 A recapture has new identifiers and a new hash, so it replaces this fixture and
 its table row together; tests name the root and leaf ids directly.
+
+## E2e offline consumer bundle
+
+`e2e-consumer-v0/` was copied byte-for-byte from Hekate's reviewed bundle on
+2026-10-07 (lead handoff, bridge message 1340). Its `INDEX.sha256` has SHA-256
+`6093034b04c0762daf55eace33ba6ea226966591016a4fd56a780b50458daf0b`;
+all 26 indexed files were checked before and after copying. Git text conversion
+and Prettier are disabled for the entire directory.
+
+The producer is Hekate `d0ed671` plus the accepted E2c/E2d/E2e fixture overlay.
+Plan 034 revision 3 has SHA-256
+`17273a5194ccec681a7b9eca7089db84cf20fe3489e64f3729130059cd2ab9db`;
+the accepted plan 035 evidence including this bundle has SHA-256
+`90a270904ff1490ce60ea594189368ba6528047bf190080631ab6cbfa8574cc6`.
+Hekate's lead independently replayed all 17 cases against the pinned consumer.
+The real H1 renderer used ChatAgent `5255daacfc670a4919f61439eb12adcb6a401920`
+and Windows Node 24.21.0; prior-conversation sources are explicitly synthetic.
+
+The bundle's `fresh.json` is historical fixture evidence, never current authority.
+Policies are test stubs. The imported Python generation/replay scripts are retained
+as provenance artifacts and are not ChatAgent runtime code or test prerequisites.
+Use the bundle README, raw byte files and recorded expectations for offline
+consumer validation; do not regenerate or reserialize them in place.
