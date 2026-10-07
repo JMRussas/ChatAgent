@@ -94,6 +94,58 @@ describe("synthetic states", () => {
     ).toBe("stale");
   });
 
+  /** The accepted leaf on a later attempt, its recorded decision left at `decisionEpoch`. */
+  const laterAttempt = (decision: string, decisionEpoch: number | null, nodeEpoch = 2) =>
+    states(
+      synthetic((v) => {
+        node(v, ACCEPTED).attemptEpoch = nodeEpoch;
+        leaf(v, ACCEPTED).attemptEpoch = nodeEpoch;
+        node(v, ACCEPTED).effectiveAcceptance = "stale";
+        if (decisionEpoch === null) node(v, ACCEPTED).acceptance = null;
+        else
+          Object.assign(node(v, ACCEPTED).acceptance as Record<string, unknown>, {
+            decision,
+            attemptEpoch: decisionEpoch
+          });
+      })
+    )[ACCEPTED];
+
+  it.each(["rejected", "accepted"])(
+    "shows a %s decision for a strictly older attempt as history: review pending (plan 038)",
+    (decision) => {
+      const l = laterAttempt(decision, 1);
+      expect(l).toMatchObject({
+        state: "review_pending",
+        acceptanceHistorical: true,
+        executionAcknowledged: "unknown"
+      });
+      // The decision is kept and labelled; an older acceptance never shows accepted.
+      expect(l.acceptance).toMatchObject({ decision, attemptEpoch: 1 });
+    }
+  );
+
+  it("decides by epoch even when the attempt id is reused", () => {
+    const l = laterAttempt("rejected", 1);
+    expect(l.attemptId).toBe(l.acceptance?.attemptId);
+    expect(l.state).toBe("review_pending");
+  });
+
+  it.each([
+    ["same-epoch drift", "accepted", 2],
+    ["a zero decision epoch", "rejected", 0],
+    ["a future decision epoch", "rejected", 3],
+    ["no recorded decision", "rejected", null]
+  ] as const)("keeps %s stale, failing closed", (_label, decision, epoch) => {
+    const l = laterAttempt(decision, epoch);
+    expect(l.state).toBe("stale");
+    expect(l).not.toHaveProperty("acceptanceHistorical");
+  });
+
+  it("leaves the captured fixture's output without the historical field", () => {
+    for (const l of Object.values(states(raw)))
+      expect(l).not.toHaveProperty("acceptanceHistorical");
+  });
+
   it("never shows work with changed inputs as current", () => {
     const changed = states(
       synthetic((v) => {
@@ -395,6 +447,23 @@ describe("reading over HTTP", () => {
       `GET /api/plan-contract/v1/plans/${ROOT}`,
       `GET /api/plan-contract/v1/plans/${ROOT}`
     ]);
+  });
+
+  it("labels an older attempt's decision as historical in the human output", async () => {
+    const body = synthetic((v) => {
+      node(v, ACCEPTED).attemptEpoch = 2;
+      leaf(v, ACCEPTED).attemptEpoch = 2;
+      node(v, ACCEPTED).effectiveAcceptance = "stale";
+      (node(v, ACCEPTED).acceptance as Record<string, unknown>).decision = "rejected";
+    });
+    const base = await serve((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(body);
+    });
+    const human = await devcoord(["status", "--root", ROOT], base);
+    expect(human.stdout).toMatch(
+      new RegExp(`review_pending +${ACCEPTED} .*prior decision rejected@1 \\(historical\\)`)
+    );
   });
 
   it("exits 2 on usage errors and 1 with a code only on refusals", async () => {

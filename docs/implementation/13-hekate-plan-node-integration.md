@@ -159,6 +159,14 @@ expected states with acknowledgement unknown.
 - **No acknowledgement inferred.** A claim or an in-progress state is allocation, not
   proof that a worker started; `executionAcknowledged` is always `unknown`. Bridge
   delivery is never an acknowledgement either.
+- **Older-attempt decisions (Hekate plan 038, CA-ISSUE-010).** A Done leaf whose
+  effective acceptance is `stale` because its recorded decision belongs to a strictly
+  older positive attempt epoch is `review_pending`, with `acceptanceHistorical: true`
+  (shown as "prior decision … (historical)"): that decision is history, never this
+  attempt's outcome, and an older acceptance never shows as accepted. The epoch is
+  the proof, even when an attempt id is reused. Same-epoch drift, a missing decision
+  and an epoch below 1 or not older stay `stale`; the field is absent otherwise, so
+  existing output is unchanged.
 - **No stale work shown as current.** Attempt pins are `current` only when they exist,
   the content revision is unchanged and nothing upstream changed; an attempt
   without pins is `unknown`. An acceptance whose inputs changed is shown as stale.

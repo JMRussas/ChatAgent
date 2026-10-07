@@ -237,6 +237,11 @@ export interface LeafStatus {
   executorRef: string | null;
   artifactRef: string | null;
   acceptance: PlanView["nodes"][number]["acceptance"];
+  /**
+   * Present (and true) only when `acceptance` is a strictly older attempt's
+   * decision (Hekate plan 038): history, not this attempt's outcome.
+   */
+  acceptanceHistorical?: true;
   blockers: PlanView["readiness"]["leaves"][number]["blockers"];
 }
 
@@ -358,6 +363,7 @@ export function coordinationStatus(
       executorRef: node.executorRef,
       artifactRef: node.artifactRef,
       acceptance: node.acceptance,
+      ...(olderAttemptDecision(node) ? { acceptanceHistorical: true as const } : {}),
       blockers: leaf.blockers
     };
   });
@@ -374,6 +380,26 @@ function pinsOf(node: PlanView["nodes"][number], upstreamChanged: boolean) {
     : ("stale" as const);
 }
 
+/**
+ * Hekate plan 038: a valid decision recorded for a strictly older positive attempt
+ * epoch is history, so the current Done attempt awaits review. Epochs only grow and
+ * the producer refuses a decision for a future epoch, so an older epoch is another
+ * attempt even when its attempt id is reused. Same-epoch drift, a missing decision and
+ * an epoch below 1 or not older stay stale (fail closed).
+ */
+function olderAttemptDecision(node: PlanView["nodes"][number]): boolean {
+  const a = node.acceptance;
+  return (
+    node.work === "done" &&
+    node.effectiveAcceptance === "stale" &&
+    a !== null &&
+    (a.decision === "accepted" || a.decision === "rejected") &&
+    Number.isSafeInteger(a.attemptEpoch) &&
+    a.attemptEpoch >= 1 &&
+    a.attemptEpoch < node.attemptEpoch
+  );
+}
+
 function stateOf(
   node: PlanView["nodes"][number],
   ready: boolean,
@@ -387,6 +413,8 @@ function stateOf(
     case "in_progress":
       return "in_progress";
     case "done":
+      // Never accepted: an older attempt's decision, even an acceptance, is history.
+      if (olderAttemptDecision(node)) return "review_pending";
       // An acceptance whose inputs have since changed is not shown as current.
       if (node.effectiveAcceptance === "accepted" && upstreamChanged) return "stale";
       return node.effectiveAcceptance === "none" ? "review_pending" : node.effectiveAcceptance;

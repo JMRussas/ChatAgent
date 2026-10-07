@@ -1817,6 +1817,16 @@ Root independently passed 243 focused tests, including 47 host-slot tests, after
 reviewing the final corrections. Claude's final full run passed 2,104 tests across
 150 files, with format, lint and documentation checks passing.
 
+_Coordination status parity with Hekate plan 038 implemented and root-accepted
+2026-10-07 (CA-ISSUE-010):_ C1a now reports a Done leaf whose stale acceptance
+belongs to a strictly older positive attempt epoch as `review_pending`, labelled
+`acceptanceHistorical`, instead of `stale`. Same-epoch drift and missing, zero or
+non-older decision epochs stay `stale`; no acceptance or execution acknowledgment is
+inferred, and existing output is unchanged.
+Root independently passed all 38 status-consumer tests; Claude's final full run
+passed 2,113 tests across 150 files, with format, lint and documentation checks
+passing.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for

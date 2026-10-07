@@ -34,6 +34,9 @@ function render(status: CoordinationStatus): string {
         l.gatesHold ? "" : "gates not holding",
         l.executorRef ? `executor ${l.executorRef}` : "",
         l.artifactRef ? `artifact ${l.artifactRef}` : "",
+        l.acceptanceHistorical && l.acceptance
+          ? `prior decision ${l.acceptance.decision}@${l.acceptance.attemptEpoch} (historical)`
+          : "",
         l.blockers.length ? `blockers ${l.blockers.length}` : ""
       ]
         .filter(Boolean)

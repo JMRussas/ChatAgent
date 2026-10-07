@@ -47,7 +47,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned       |
 | CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned       |
 | CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -191,6 +191,17 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 - **Closure criteria:** a fixture with an older-epoch decision projects as review
   pending and same-epoch drift stays `stale`; execution acknowledgment stays
   `unknown`; independently verified.
+- **Implemented, independently verified and closed 2026-10-07:** `devCoordination.ts` SHA-256
+  `106cc8b5420f817e03103da0dfd35889c8f80ed256857c9514c7054812175713` (uncommitted, base `6d23488`): `review_pending` with
+  `acceptanceHistorical: true` for a strictly older positive decision epoch, the human
+  CLI labelling it historical. Tests in `tests/unit/devCoordination.test.ts` cover both
+  decisions, a reused attempt id, same-epoch drift, zero, future and missing
+  decisions (all `stale`) and the unchanged captured fixture.
+  Root reviewed the exact change and independently passed all 38 status-consumer
+  tests on Node 24.21.0, including the human CLI subprocess. Claude's final full run
+  passed 2,113 tests across 150 files (`node_modules/.cache/ca-issue-010-full.log`),
+  with format, lint and documentation checks passing. The commit containing this
+  closure record records integration of the verified source hash.
 
 ## External dependencies
 
