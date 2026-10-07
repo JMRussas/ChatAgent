@@ -1598,7 +1598,14 @@ export async function startServer(
                   remaining: resource.quota.remaining,
                   poolDigest: digest(resource.quota.poolId)
                 }
-              : null,
+              : resource.quotaEnvelope
+                ? {
+                    // Declared-window accounting: no static remaining exists to show.
+                    mode: "envelope",
+                    unit: resource.quotaEnvelope.unit,
+                    poolDigest: digest(resource.quotaEnvelope.poolId)
+                  }
+                : null,
             concurrency: resource.compute?.concurrency ?? null
           }
         ])

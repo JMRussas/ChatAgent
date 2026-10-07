@@ -476,6 +476,16 @@ export function fromConfiguredQuota(
   quota: NonNullable<BindingResources["quota"]>,
   receivedAt: string
 ): QuotaObservationInput {
+  // Only the static configured quota maps to an observation; an envelope has no
+  // static remaining and is never described as one.
+  if (
+    typeof quota !== "object" ||
+    quota === null ||
+    typeof quota.remaining !== "number" ||
+    "mode" in quota ||
+    !quota.evidence
+  )
+    throw new TypeError("STATIC_QUOTA_REQUIRED");
   return {
     version: "quota-observation-v1",
     identity: {

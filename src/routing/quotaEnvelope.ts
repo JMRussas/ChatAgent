@@ -277,8 +277,24 @@ export class QuotaEnvelopeLedger {
     return this.openFor(poolId).reduce((n, c) => n + c.units, w.finalUsed);
   }
 
+  /** Every check reserve() makes, with no change at all: a dry run. */
+  check(requests: readonly { poolId: string; units: number }[], now: number): void {
+    this.stage(requests, now);
+  }
+
   /** Reserves all requests or none. Returns charge ids in request order. */
   reserve(requests: readonly { poolId: string; units: number }[], now: number): string[] {
+    const staged = this.stage(requests, now);
+    // Every check passed: commit together. Counter ids cannot fail or collide.
+    const ids = staged.map(() => `${this.idPrefix}:${++this.nextId}`);
+    staged.forEach((s, i) =>
+      this.charges.set(ids[i], { id: ids[i], poolId: s.poolId, units: s.units, state: "reserved" })
+    );
+    this.latest = now;
+    return ids;
+  }
+
+  private stage(requests: readonly { poolId: string; units: number }[], now: number) {
     this.clock(now);
     if (!Array.isArray(requests) || !requests.length) throw new QuotaEnvelopeError("INVALID_UNITS");
     const staged = requests.map((r) => {
@@ -294,13 +310,16 @@ export class QuotaEnvelopeLedger {
       if (adding.reduce((n, s) => n + s.units, this.debit(poolId, w)) > w.allowance)
         throw new QuotaEnvelopeError("QUOTA_EXHAUSTED");
     }
-    // Every check passed: commit together. Counter ids cannot fail or collide.
-    const ids = staged.map(() => `${this.idPrefix}:${++this.nextId}`);
-    staged.forEach((s, i) =>
-      this.charges.set(ids[i], { id: ids[i], poolId: s.poolId, units: s.units, state: "reserved" })
-    );
-    this.latest = now;
-    return ids;
+    return staged;
+  }
+
+  /** Declared pools, for configuration checks. */
+  poolIds(): string[] {
+    return [...this.pools.keys()];
+  }
+  /** A declared pool's unit, or undefined. */
+  poolUnit(poolId: string): QuotaEnvelope["unit"] | undefined {
+    return this.pools.get(poolId)?.unit;
   }
 
   /** Returns an unstarted reservation exactly; nothing was consumed. */

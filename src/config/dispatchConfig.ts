@@ -5,6 +5,7 @@ import {
   executionScopeSchema,
   resourceFactsSchema
 } from "../models/connections";
+import { quotaEnvelopeSchema } from "../routing/quotaEnvelope";
 
 const evidence = z
   .object({
@@ -42,9 +43,20 @@ export const bindingResourcesSchema = z
     compute: z
       .object({ poolId: z.string().min(1), concurrency: z.number().int().positive() })
       .strict()
+      .optional(),
+    // Opt-in: accounted against a declared fixed-window envelope (policy.quotaEnvelopes)
+    // by conservative local accounting. It has no static remaining and is never an
+    // observation. A binding uses either this or the static quota, not both.
+    quotaEnvelope: z
+      .object({ poolId: z.string().min(1), unit: z.enum(["requests", "tokens"]) })
+      .strict()
       .optional()
   })
-  .strict();
+  .strict()
+  .refine(
+    (r) => !(r.quota && r.quotaEnvelope),
+    "A binding uses a static quota or an envelope, not both"
+  );
 export type BindingResources = z.infer<typeof bindingResourcesSchema>;
 export const dispatchPolicySchema = z
   .object({
@@ -61,7 +73,10 @@ export const dispatchPolicySchema = z
       .strict()
       .default({}),
     // Keys are catalog entry IDs; resources are per binding, not URL heuristics.
-    bindings: z.record(bindingResourcesSchema).default({})
+    bindings: z.record(bindingResourcesSchema).default({}),
+    // Operator-declared fixed windows for envelope-mode bindings: the current window
+    // of each pool and, at most, its declared successor.
+    quotaEnvelopes: z.array(quotaEnvelopeSchema).default([])
   })
   .strict();
 export type DispatchPolicy = z.infer<typeof dispatchPolicySchema>;

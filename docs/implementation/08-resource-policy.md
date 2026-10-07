@@ -108,7 +108,45 @@ tests, format and lint passed. No live provider calls or admission changes.
 operator-declared fixed-window envelopes. It is **not** provider reconciliation:
 its only authority is an explicit configured envelope, it never reads quota
 observations, and observation-v1 coverage or timestamps never refund or release
-anything. It is pure and unwired; `ResourceAdmission` does not use it yet.
+anything. Admission uses it only for bindings that opt in (below).
+
+**Admission (opt-in, 2026-10-06).** A binding opts in with
+`resources.quotaEnvelope: {poolId, unit}`, a separate field that cannot be combined
+with the static `quota`; the policy lists the declared windows in `quotaEnvelopes`
+(the current window of each pool and at most its successor). Configurations without
+envelopes behave exactly as before.
+
+- **Startup** refuses a binding whose pool has no declared envelope or a different
+  unit, a pool used both statically and as an envelope, more static and envelope
+  pools together than `ADMISSION_MAX_QUOTA_POOLS`, and any envelope the ledger
+  refuses (for example a successor that already started).
+- **Reservation** checks money, static quota and the envelope against one
+  clock reading, then commits the envelope and the outer reservation together: a
+  refusal by either changes neither. `check` allocates no identity. Runtime requests
+  are rechecked against the declared pools: a request naming both quota kinds, an
+  undeclared envelope pool, a different unit or a static request on an envelope pool
+  is refused. A token budget whose input and output sum is not a safe integer is
+  refused.
+- **Starting** gates work on compute availability and rechecks the envelope's
+  window and debit before compute is taken or the work marked started. Admission
+  releases both unstarted reservations on envelope refusal; the standalone
+  envelope ledger's refusal itself changes nothing.
+- **Settlement** uses one report decision for both ledgers (a report counts only if
+  both amounts are valid). Work finished without a report stays debited at its
+  estimate and keeps a link until a per-call report is applied; nothing reports
+  usage today, so those debits accumulate, and an envelope can be exhausted by
+  unreported work. That is deliberate: elapsed time is not proof of what was
+  consumed. If envelope settlement ever fails, nothing changes in either ledger and
+  the work keeps its compute until settlement succeeds.
+- **Clock.** Envelope decisions never use a time earlier than one already used, so
+  a wall clock stepping back holds time instead of failing settlement.
+- **Visibility.** `envelopeAvailability()` is a live projection (window, remaining,
+  debt) without credentials. It is kept out of persisted telemetry, since a restart
+  loses the ledger it describes; the persisted accounting is unchanged.
+- **Not claimed.** This is in-process: a restart loses it, and it is no
+  account-wide cap across processes. Windows change only through configuration and
+  a restart; no runtime declaration route exists yet. Provider authority remains
+  unsupported.
 
 - **Declarations.** An envelope names its pool, window id, an explicit successor
   `sequence`, fixed bounds, allowance, unit, scope (`account` or one configured

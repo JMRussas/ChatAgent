@@ -1250,12 +1250,12 @@ connection cap; real-socket integration tests cover that boundary separately.
   an operator recovery path. Do not infer a quota reset from elapsed cache TTL,
   model changes or a local counter clear. Keep local, metered API, cloud and CLI
   subscription policies configurable; avoid automatic usage checks on every call.
-  _Configured envelope ledger implemented 2026-10-06 (unwired); see
+  _Configured envelope ledger implemented 2026-10-06 (initially unwired); see
   [configured quota envelopes](implementation/08-resource-policy.md#configured-quota-envelopes-2026-10-06):_
   conservative local accounting against operator-declared fixed windows, not
   provider reconciliation. Open charges count against the active window, unknown
-  usage stays debited, debt is kept, and refusals change nothing. Admission does
-  not use it yet; provider-authoritative reconciliation still needs per-charge
+  usage stays debited, debt is kept, and refusals change nothing. The admission integration below now uses it; provider-authoritative
+  reconciliation still needs per-charge
   coverage proof that no current adapter supplies.
   Lead review accepts this configured, process-local prerequisite only. Final
   validation passed 1,420 TypeScript tests in two full runs and 34 browser tests;
@@ -1267,8 +1267,23 @@ connection cap; real-socket integration tests cover that boundary separately.
   rotation test; its full diagnostic output was not retained. That file passed
   three isolated reruns, and both later full runs passed without source changes.
   The cause remains unknown. Format, lint and documentation checks passed.
-  Next is a reviewed opt-in admission-integration design covering atomic monetary
-  and quota reservation, cancellation, retries and bounded late-report identity.
+  _Opt-in admission integration implemented 2026-10-06:_ bindings with
+  `quotaEnvelope` reserve money and declared quota together, gate starting on
+  compute availability and a fresh envelope check, and settle with one report
+  decision; unreported
+  work stays debited until a per-call report, so envelopes can be exhausted by
+  unreported usage. Envelope-free configurations are unchanged. Still open: a
+  runtime window-declaration route, per-call usage reporting from providers, and
+  provider-authoritative reconciliation.
+  Lead review accepts the process-local integration. The implementer passed all
+  1,441 TypeScript tests across 135 files and 34 browser tests on the final source;
+  independent validation passed 140 tests across nine quota, admission, retention,
+  selection, configuration and cancellation files. Twelve earlier independent
+  boundary assertions preceded the final identity-allocation and inventory fixes.
+  Final format, lint and documentation checks passed. Unreported charges retain
+  bounded settlement links independently of diagnostic history; exhausting that
+  bound refuses new work. Restart still loses the ledger, and elapsed time never
+  retires uncertain usage.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._
