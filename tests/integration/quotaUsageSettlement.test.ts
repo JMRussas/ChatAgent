@@ -50,7 +50,8 @@ async function setup(
   binding: BindingResources = enveloped(),
   quotaEnvelopes: QuotaEnvelope[] = [window()],
   ids = ["a"],
-  routeDecision: "direct" | "deep" = "direct"
+  routeDecision: "direct" | "deep" = "direct",
+  clock: () => Date = () => new Date(now)
 ) {
   const r = runtime(ids.map((id) => entry(id)));
   const policy = dispatchPolicySchema.parse({
@@ -64,7 +65,7 @@ async function setup(
     policy,
     budget,
     () => r.observations,
-    () => new Date(now)
+    clock
   );
   const plan = await dispatch.prepare(r.manager, { ...input, routeDecision });
   return { dispatch, plan, ticket: plan.fast.ticket! };
@@ -170,7 +171,7 @@ describe("per-call usage settlement", () => {
     const { dispatch, plan, ticket } = await setup();
     await dispatch.execute(plan.fast, control().value, "medium", async () => completed());
     const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
-    dispatch.finish(plan.fast, usage(1, 1));
+    dispatch.finish(plan.fast, { usage: usage(1, 1) });
     expect(report).not.toHaveBeenCalled();
     expect(dispatch.admission.reportQuotaUsage(ticket, 0)).toBe(false);
     expect(remaining(dispatch)).toBe("99958");
@@ -691,7 +692,14 @@ describe("per-call usage settlement", () => {
   );
 
   it.each([
-    ["a request-unit envelope", () => enveloped("requests"), [window("requests", 10)]],
+    [
+      "a static request quota",
+      () =>
+        resources({
+          quota: { poolId: "static", unit: "requests", remaining: 10, evidence }
+        }),
+      []
+    ],
     [
       "a static token quota",
       () =>
@@ -709,13 +717,195 @@ describe("per-call usage settlement", () => {
       await dispatch.execute(plan.fast, control().value, "medium", async () => completed());
       expect(report).not.toHaveBeenCalled();
       expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
-      if (envelopes.length) {
-        // The request is still debited at its estimate of one, and still linked.
-        expect(remaining(dispatch)).toBe("9");
-        expect(links(dispatch)).toBe(1);
-      }
     }
   );
+
+  // A request envelope counts local adapter invocations: admission reserves exactly one
+  // unit per dispatch ticket. A returned stop or length result finalizes that one unit,
+  // whatever its token usage (the CLI reports none). It says nothing about external API
+  // calls or provider allowances; anything else keeps the estimate of one, still linked.
+  const requestSetup = (ids = ["a"]) => setup(enveloped("requests"), [window("requests", 10)], ids);
+
+  it.each([
+    ["valid usage", (finishReason: "stop" | "length") => completed(finishReason)],
+    // The CLI bridge's completion frame carries no usage.
+    ["no usage", (finishReason: "stop" | "length") => ({ text: "ok", finishReason })],
+    [
+      "invalid usage",
+      (finishReason: "stop" | "length") => ({
+        ...completed(finishReason),
+        usage: { ...usage(), outputTokens: -1 }
+      })
+    ]
+  ] as [string, (finishReason: "stop" | "length") => unknown][])(
+    "settles a completed request-envelope invocation at one with %s and retires its link",
+    async (_label, result) => {
+      for (const abortAfter of [false, true])
+        for (const finishReason of ["stop", "length"] as const) {
+          const { dispatch, plan, ticket } = await requestSetup();
+          expect(remaining(dispatch)).toBe("9"); // reserved at its estimate of one
+          const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
+          const c = control();
+          await dispatch.execute(plan.fast, c.value, "medium", async () => {
+            if (abortAfter) c.controller.abort(); // a completed call is known consumption
+            return result(finishReason);
+          });
+          expect(report).toHaveBeenCalledExactlyOnceWith(ticket, 1);
+          expect(remaining(dispatch)).toBe("9");
+          expect(links(dispatch)).toBe(0);
+          // Money stays unreported, and the ticket settles only once.
+          expect(charge(dispatch, ticket)).toMatchObject({
+            status: "unsettled",
+            reportedUsd: null
+          });
+          dispatch.finish(plan.fast, {});
+          expect(report).toHaveBeenCalledTimes(1);
+          expect(dispatch.admission.reportQuotaUsage(ticket, 1)).toBe(false);
+          expect(remaining(dispatch)).toBe("9");
+        }
+    }
+  );
+
+  it.each([
+    ["the result was cancelled", async () => ({ ...completed(), finishReason: "cancelled" })],
+    ["the result has no finish reason", async () => ({ text: "ok", usage: usage() })],
+    [
+      "validation rejects a completed result",
+      async () => {
+        throw new GenerationError("STRUCTURED_OUTPUT_INVALID", false);
+      }
+    ],
+    [
+      "the provider fails",
+      async () => {
+        throw new GenerationError("PROVIDER_UNAVAILABLE", true);
+      }
+    ],
+    [
+      "the call is cancelled",
+      async () => {
+        throw new GenerationError("CANCELLED", false);
+      }
+    ]
+  ] as [string, () => Promise<unknown>][])(
+    "keeps a request envelope estimated when %s",
+    async (_label, work) => {
+      const { dispatch, plan, ticket } = await requestSetup();
+      const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
+      await dispatch.execute(plan.fast, control().value, "medium", work).catch(() => undefined);
+      expect(report).not.toHaveBeenCalled();
+      expect(remaining(dispatch)).toBe("9");
+      expect(links(dispatch)).toBe(1);
+      expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+    }
+  );
+
+  it("never settles a request on cleanup without completion evidence", async () => {
+    const { dispatch, plan, ticket } = await requestSetup();
+    await dispatch.begin(plan.fast, new AbortController().signal);
+    const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
+    dispatch.finish(plan.fast); // direct cleanup: no returned result was observed
+    expect(plan.fast.ticket).toBeUndefined();
+    expect(report).not.toHaveBeenCalled();
+    expect(remaining(dispatch)).toBe("9");
+    expect(links(dispatch)).toBe(1);
+    expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", started: true });
+  });
+
+  it("counts a failed attempt and its fallback as one request each", async () => {
+    const { dispatch, plan, ticket: first } = await requestSetup(["a", "b"]);
+    await expect(
+      dispatch.execute(plan.fast, control().value, "medium", async () => {
+        throw new GenerationError("PROVIDER_UNAVAILABLE", true);
+      })
+    ).rejects.toThrow("PROVIDER_UNAVAILABLE");
+    // fallback() reserves the replacement ticket itself, before the retried call runs.
+    expect(dispatch.fallback(plan.fast, "PROVIDER_UNAVAILABLE")).toBe(true);
+    const second = plan.fast.ticket;
+    expect(second).toEqual(expect.any(String));
+    expect(second).not.toBe(first);
+    expect(charge(dispatch, second!)).toMatchObject({ status: "reserved", started: false });
+    const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
+    await dispatch.execute(plan.fast, control().value, "medium", async () => ({
+      text: "ok",
+      finishReason: "stop"
+    }));
+    // The failed attempt keeps its unsettled request; the fallback settled at one.
+    expect(report).toHaveBeenCalledExactlyOnceWith(second, 1);
+    expect(remaining(dispatch)).toBe("8");
+    expect(links(dispatch)).toBe(1);
+    expect(dispatch.admission.reportQuotaUsage(second!, 1)).toBe(false);
+    expect(dispatch.admission.reportQuotaUsage(first, 1)).toBe(true);
+  });
+
+  it("keeps a request ticket for a retry when settlement throws", async () => {
+    const { dispatch, plan, ticket } = await requestSetup();
+    const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
+    vi.spyOn(dispatch.admission, "finish").mockImplementationOnce(() => {
+      throw new Error("settlement failed");
+    });
+    await expect(
+      dispatch.execute(plan.fast, control().value, "medium", async () => completed())
+    ).rejects.toThrow("settlement failed");
+    expect(plan.fast.ticket).toBe(ticket);
+    expect(report).not.toHaveBeenCalled();
+    expect(remaining(dispatch)).toBe("9");
+    expect(links(dispatch)).toBe(0); // not finished, so not yet linked
+    dispatch.finish(plan.fast, {});
+    expect(plan.fast.ticket).toBeUndefined();
+    expect(report).toHaveBeenCalledExactlyOnceWith(ticket, 1);
+    expect(remaining(dispatch)).toBe("9");
+    expect(links(dispatch)).toBe(0);
+  });
+
+  it("retires request links beyond the open-charge cap without losing their invocations", async () => {
+    const { dispatch, plan } = await setup(enveloped("requests"), [window("requests", 1000)]);
+    const calls = DEFAULT_QUOTA_ENVELOPE_LIMITS.maxOpenCharges + 1;
+    for (let i = 0; i < calls; i++)
+      await dispatch.execute(plan.fast, control().value, "medium", async () => ({
+        text: "ok",
+        finishReason: "stop"
+      }));
+    expect(links(dispatch)).toBe(0);
+    expect(remaining(dispatch)).toBe(String(1000 - calls));
+  });
+
+  it("counts finalized requests in their window and carries only unresolved ones past a rollover", async () => {
+    const clock = { now: new Date(now) };
+    const successor: QuotaEnvelope = {
+      ...window("requests", 10),
+      windowId: "w1",
+      sequence: 2,
+      startsAt: "2026-09-30T00:00:00.000Z",
+      resetsAt: "2026-10-01T00:00:00.000Z"
+    };
+    const { dispatch, plan } = await setup(
+      enveloped("requests"),
+      [window("requests", 10), successor],
+      ["a"],
+      "direct",
+      () => clock.now
+    );
+    for (const work of [
+      async () => ({ text: "ok", finishReason: "stop" }),
+      async () => ({ text: "ok", finishReason: "length" }),
+      async () => {
+        throw new GenerationError("PROVIDER_UNAVAILABLE", true);
+      }
+    ])
+      await dispatch.execute(plan.fast, control().value, "medium", work).catch(() => undefined);
+    expect(dispatch.admission.envelopeAvailability()[0]).toMatchObject({
+      windowId: "w0",
+      remaining: "7"
+    });
+    expect(links(dispatch)).toBe(1);
+    clock.now = new Date("2026-09-30T01:00:00.000Z");
+    // Only the failed attempt's unresolved request carries into the new window.
+    expect(dispatch.admission.envelopeAvailability()[0]).toMatchObject({
+      windowId: "w1",
+      remaining: "9"
+    });
+  });
 
   it("keeps the ticket and reports nothing when settlement throws", async () => {
     const { dispatch, plan, ticket } = await setup();
@@ -731,8 +921,8 @@ describe("per-call usage settlement", () => {
     expect(report).not.toHaveBeenCalled();
     expect(remaining(dispatch)).toBe(estimated);
     expect(links(dispatch)).toBe(0);
-    // A retried finish settles the same ticket exactly once.
-    dispatch.finish(plan.fast, usage(40, 2));
+    // A retried finish, given the call's completion, settles the same ticket once.
+    dispatch.finish(plan.fast, { usage: usage(40, 2) });
     expect(plan.fast.ticket).toBeUndefined();
     expect(report).toHaveBeenCalledTimes(1);
     expect(remaining(dispatch)).toBe("99958");
@@ -747,14 +937,19 @@ describe("per-call usage settlement", () => {
         throw new GenerationError("PROVIDER_UNAVAILABLE", true);
       })
     ).rejects.toThrow("PROVIDER_UNAVAILABLE");
+    // fallback() reserves the replacement ticket itself, before the retried call runs.
     expect(dispatch.fallback(plan.fast, "PROVIDER_UNAVAILABLE")).toBe(true);
-    const second = plan.fast.ticket!;
+    const second = plan.fast.ticket;
+    expect(second).toEqual(expect.any(String));
     expect(second).not.toBe(first);
+    expect(charge(dispatch, second!)).toMatchObject({ status: "reserved", started: false });
+    const report = vi.spyOn(dispatch.admission, "reportQuotaUsage");
     await dispatch.execute(plan.fast, control().value, "medium", async () => completed());
     // The failed attempt stays estimated and linked; the fallback settled at 42.
+    expect(report).toHaveBeenCalledExactlyOnceWith(second, 42);
     expect(remaining(dispatch)).toBe(String(Number(estimated) - 42));
     expect(links(dispatch)).toBe(1);
-    expect(dispatch.admission.reportQuotaUsage(second, 0)).toBe(false);
+    expect(dispatch.admission.reportQuotaUsage(second!, 0)).toBe(false);
     expect(dispatch.admission.reportQuotaUsage(first, 0)).toBe(true);
   });
 });

@@ -43,6 +43,13 @@ export interface DispatchMetric {
   result: string;
   elapsedMs: number;
 }
+/**
+ * Evidence that a dispatched call returned an accepted stop or length result, with its
+ * own valid provider-response usage when it reported one.
+ */
+export interface CallCompletion {
+  usage?: ProviderUsage;
+}
 /** The error a preparation abort ends with: the signal's own generation error, if any. */
 function abortError(signal: AbortSignal) {
   return signal.reason instanceof GenerationError
@@ -63,16 +70,23 @@ function abortError(signal: AbortSignal) {
  * @test tests/integration/executionRetention.test.ts :: bounds completed lifecycle and dispatch records after repeated direct turns
  * @test tests/unit/admissionRetention.test.ts :: compacts completed requests while retaining spend and quota after TTL
  *
- * @invariant only-completed-provider-usage-settles — A started ticket on a token-envelope
- * binding is settled at the provider's own reported input plus output tokens only when
- * its work returned a stop or length result carrying valid usage, even if the turn was
- * aborted after that call completed. Every other outcome (thrown, rejected, cancelled,
- * missing or invalid usage, other quota kinds) keeps the reservation's estimate, and
+ * @invariant only-completed-calls-settle — A started envelope ticket is settled only when
+ * its work returned a stop or length result, even if the turn was aborted after that call
+ * completed: a request envelope at exactly one local adapter invocation (not an external
+ * API call), a token envelope at the provider's own valid reported input plus output
+ * tokens. A thrown, rejected or cancelled result, a result without such a finish, cleanup
+ * without completion evidence, and a token envelope without valid usage keep the
+ * reservation's estimate. Static quotas and envelope-free bindings are unchanged, and
  * money is never reported.
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles a completed token-envelope call at its reported usage and retires its link
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the estimate when %s
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles known consumption that completed after an abort
  * @test tests/integration/quotaUsageSettlement.test.ts :: never reports into %s
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles a completed request-envelope invocation at one with %s and retires its link
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps a request envelope estimated when %s
+ * @test tests/integration/quotaUsageSettlement.test.ts :: never settles a request on cleanup without completion evidence
+ * @test tests/integration/quotaUsageSettlement.test.ts :: retires request links beyond the open-charge cap without losing their invocations
+ * @test tests/integration/quotaUsageSettlement.test.ts :: counts finalized requests in their window and carries only unresolved ones past a rollover
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles an Azure non-streaming response at its prompt and completion tokens
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles an Azure streamed response from its final usage chunk
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles an Azure streamed deep response on its deep ticket
@@ -89,6 +103,8 @@ function abortError(signal: AbortSignal) {
  * @test tests/integration/quotaUsageSettlement.test.ts :: applies a report once; a repeated finish changes nothing
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the ticket and reports nothing when settlement throws
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles only the ticket that ran after a fallback
+ * @test tests/integration/quotaUsageSettlement.test.ts :: counts a failed attempt and its fallback as one request each
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps a request ticket for a retry when settlement throws
  *
  * @decision docs/implementation/08-resource-policy.md#admission-and-selection-04
  */
@@ -366,24 +382,27 @@ export class CatalogDispatch {
   ): Promise<T> {
     const start = Date.now();
     let outcome = "error";
-    let usage: ProviderUsage | undefined;
+    let completion: CallCompletion | undefined;
     try {
       await this.begin(phase, control.signal);
       control.signal.throwIfAborted();
       const result = await work();
       const finishReason = (result as { finishReason?: string }).finishReason;
       outcome = control.signal.aborted ? "cancelled" : (finishReason ?? "stop");
-      // A completed call's own usage is known consumption, even if the turn was
-      // aborted after it returned. Anything work() threw or rejected stays estimated.
-      if (finishReason === "stop" || finishReason === "length")
-        usage = validProviderUsage((result as { usage?: unknown }).usage);
+      // A returned stop or length result is a completed invocation, and its own usage
+      // known consumption, even if the turn was aborted after it returned. Anything
+      // work() threw or rejected, or a result without one of those finishes, is not.
+      if (finishReason === "stop" || finishReason === "length") {
+        const usage = validProviderUsage((result as { usage?: unknown }).usage);
+        completion = usage ? { usage } : {};
+      }
       return result;
     } catch (error) {
       outcome = normalizeGenerationError(error).code;
       throw error;
     } finally {
       this.record(phase, control.attemptId, size, outcome, Date.now() - start);
-      this.finish(phase, usage);
+      this.finish(phase, completion);
     }
   }
   wrapSummary(
@@ -495,19 +514,28 @@ export class CatalogDispatch {
     }
   }
   /**
-   * Finishes the phase's ticket. Valid usage from its completed call then settles that
-   * exact ticket's token envelope through the delayed per-call report; money, static
-   * quotas and request envelopes are left unreported.
+   * Finishes the phase's ticket. With evidence that its call returned an accepted stop
+   * or length result, the delayed per-call report then settles that exact ticket's
+   * envelope: a request envelope at one local invocation, a token envelope at the valid
+   * reported total if there is one. Money and static quotas are left unreported.
    */
-  finish(phase: PhaseDispatch, usage?: ProviderUsage) {
+  finish(phase: PhaseDispatch, completion?: CallCompletion) {
     const ticket = phase.ticket;
     if (!ticket) return;
     // If this throws, the ticket is kept for a retry and nothing is reported.
     this.admission.finish(ticket);
     phase.ticket = undefined;
-    const reported = validProviderUsage(usage);
-    if (reported && phase.candidate.resources?.quotaEnvelope?.unit === "tokens")
-      this.admission.reportQuotaUsage(ticket, reported.inputTokens + reported.outputTokens);
+    // Cleanup without completion evidence never assumes the call succeeded.
+    if (!completion) return;
+    const unit = phase.candidate.resources?.quotaEnvelope?.unit;
+    // A request unit is one local adapter invocation (the one unit admission reserved
+    // for this ticket), not an external API call or provider allowance.
+    if (unit === "requests") this.admission.reportQuotaUsage(ticket, 1);
+    else if (unit === "tokens") {
+      const reported = validProviderUsage(completion.usage);
+      if (reported)
+        this.admission.reportQuotaUsage(ticket, reported.inputTokens + reported.outputTokens);
+    }
   }
   /**
    * Gives back a phase's reservation if its work never started.

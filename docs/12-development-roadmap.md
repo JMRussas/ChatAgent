@@ -1343,10 +1343,34 @@ connection cap; real-socket integration tests cover that boundary separately.
   files and 34 browser tests pass, together with format, lint and
   documentation-contract checks. Provider responses in the suite are offline
   fixtures; the separate transport probe uses only loopback. No service restart.
+  _Q1c-d (CLI token usage) blocked 2026-10-07:_ the current Hekate consumer protocol
+  emits only `{type, text, finishReason}` and ends the CLI on a length stop before
+  any result event, so no per-invocation token counts reach ChatAgent, and no
+  evidence yet establishes what such counts would cover when one invocation makes
+  several model calls. CLI token envelopes stay estimated until the protocol
+  supplies counts with that semantic evidence; session totals, account utilization
+  and inferred cost are not substitutes. Local request counting (Q1c-e) does not
+  depend on it.
+  _Slice Q1c-e (request units) implemented and reviewed 2026-10-07:_ a request
+  envelope counts local adapter invocations, the one unit admission already
+  reserves per dispatch ticket, not external API calls or a provider allowance.
+  `CatalogDispatch.execute` passes explicit completion evidence to `finish` for a
+  returned stop or length result, which finalizes the ticket at exactly one
+  whatever its token usage, CLI calls included, retiring the link without changing
+  the debit. Direct cleanup without completion evidence, errors, cancelled or
+  finish-less results and validation rejections keep their unit and link; a result
+  completed after an abort still counts; a failed attempt and its fallback count
+  as two. Token envelopes still require valid usage, and money and static quotas are
+  unchanged. Tests: the request cases in
+  `tests/integration/quotaUsageSettlement.test.ts`, including the open-charge cap
+  and a window rollover; the fallback tests now prove the replacement ticket is a
+  new, reserved ID before the retried call. Claude implemented the slice and
+  review corrections; Codex accepted the source and verified 1,627 tests across
+  139 files and 34 browser tests on Windows Node 24.21.0, plus format, lint and
+  documentation-contract checks. No live provider calls or service restart.
   Still open: streamed Azure usage on other API versions (each needs its own
-  primary evidence), CLI usage (needs a primary-source check of what its counts
-  include), request-unit reports, a runtime window-declaration route and
-  provider-authoritative reconciliation.
+  primary evidence), CLI token usage (blocked as above), a runtime
+  window-declaration route and provider-authoritative reconciliation.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._

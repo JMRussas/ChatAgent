@@ -141,8 +141,8 @@ envelopes behave exactly as before.
   consumed. If envelope settlement ever fails, nothing changes in either ledger and
   the work keeps its compute until settlement succeeds.
 
-**Per-call usage reporting (2026-10-07; token envelopes only: Q1c-a Ollama, Q1c-b
-Azure, Q1c-c Bedrock).**
+**Per-call usage reporting (2026-10-07; envelopes only: Q1c-a Ollama, Q1c-b Azure,
+Q1c-c Bedrock tokens; Q1c-e request units).**
 
 - **Source.** `GenerationResult` and `DeepResult` carry optional `usage`
   (`source: "provider-response"`, `inputTokens`, `outputTokens`). Both counts must be
@@ -219,15 +219,37 @@ Azure, Q1c-c Bedrock).**
     that the transport abort settles both (see the roadmap). There are no added
     retries (the client keeps `maxAttempts: 1`).
   - Deep results carry the same usage.
-- **Settlement.** `CatalogDispatch.execute` revalidates the returned usage and keeps
-  it only for a stop or length result. `finish` then finishes the exact ticket as
-  before and, for a token-envelope binding only, applies input plus output through
-  the existing delayed `reportQuotaUsage`, which retires the link. Money is never
-  reported (no invented zero charge), and static quotas, request envelopes and
-  envelope-free bindings are unchanged. If finishing throws, the ticket is kept and
+- **Settlement.** `CatalogDispatch.execute` records completion evidence only for a
+  returned stop or length result, with the result's usage revalidated. `finish` then
+  finishes the exact ticket as before and, given that evidence, applies the report
+  through the existing delayed `reportQuotaUsage`, which retires the link: the valid
+  input plus output for a token envelope (none without valid usage), one local
+  invocation for a request envelope (below). Money is never reported (no invented zero charge), and static
+  quotas and envelope-free bindings are unchanged. If finishing throws, the ticket is kept and
   nothing is reported. Reported usage above the estimate is charged in full,
   including debt above the allowance; it blocks further admission. Finalizing
   reports frees open-charge slots without forgetting their consumed tokens.
+- **Request units (Q1c-e).** A `requests` envelope counts **local adapter
+  invocations**: admission reserves exactly one unit per dispatch ticket, and every
+  started attempt, including a failed attempt and its fallback, holds its own ticket.
+  It is an operator-declared local count, not a count of external API calls, provider
+  requests or a Claude subscription allowance; an adapter's hidden internal retries
+  or calls are neither counted nor implied. `CatalogDispatch.execute` records
+  completion evidence only when the work returned a stop or length result, and
+  `finish` then finalizes the ticket at exactly one, whatever the result's token
+  usage (missing or invalid usage still settles the local invocation), including
+  CLI calls. Cleanup without that evidence, a thrown, rejected or cancelled result
+  and a result without such a finish keep the unit at its estimate and linked.
+  Nothing is refunded: finalizing never lowers the debit, it retires the link, frees
+  an open-charge slot and stops the unit carrying into a later window.
+- **CLI tokens (Q1c-d, not implemented).** The Hekate CLI bridge's completion frame
+  is `{type, text, finishReason}` (`bridges/hekate/claude_bridge.py`), and on a
+  length stop it ends the CLI before any result event, so the current consumer
+  protocol supplies no per-invocation token counts, and no evidence yet establishes
+  what such counts would cover when one invocation makes several model calls. CLI
+  token envelopes therefore stay estimated. Session totals, account utilization
+  snapshots and inferred cost are not substitutes. Local request counting above
+  does not depend on this.
 - **Cancellation.** A call that completed and returned usage is known consumption
   and settles its own ticket even if the turn was aborted afterwards. A thrown,
   rejected (including validation inside the work) or cancelled result keeps its
@@ -235,8 +257,9 @@ Azure, Q1c-c Bedrock).**
 - **Not claimed.** These are the provider's per-call counts, not billed amounts or
   account-wide usage. The charge's diagnostic row keeps its estimated units; the
   envelope projection shows the settled amount. Streamed Azure calls on any API
-  version other than `2024-10-21`, Bedrock metadata that misses its 250 ms tail,
-  CLI bindings and request-unit reporting still report nothing.
+  version other than `2024-10-21`, Bedrock metadata that misses its 250 ms tail and
+  CLI bindings still report no tokens. Request units are local invocation counts,
+  not provider-side request or allowance accounting.
 - **Clock.** Envelope decisions never use a time earlier than one already used, so
   a wall clock stepping back holds time instead of failing settlement.
 - **Visibility.** `envelopeAvailability()` is a live projection (window, remaining,
