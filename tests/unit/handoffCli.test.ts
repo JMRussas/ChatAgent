@@ -328,3 +328,41 @@ describe("recorded retrieval matching (review 1476)", () => {
     expect(view).not.toContain('"label":"as-of"');
   });
 });
+
+describe("--emit-request (CA-ISSUE-003 slot)", () => {
+  it.each(["fast", "deep"])("writes the %s worker request offline beside the view", (role) => {
+    const out = join(temp(), "out");
+    const r = run([...goldenArgs(out), "--emit-request", role]);
+    expect(r.code).toBe(0);
+    expect(readdirSync(out).sort()).toEqual([
+      "h1-text.txt",
+      "request.json",
+      "summary.json",
+      "view-part.txt"
+    ]);
+    const request = JSON.parse(readFileSync(join(out, "request.json"), "utf8"));
+    expect(request).toMatchObject({ slot: "handoff-view-slot.v0", role });
+    expect(request.messages).toEqual([
+      { role: "user", content: readFileSync(join(GOLDEN, "expected/h1-text.txt"), "utf8") }
+    ]);
+    expect(request.system.split("[HANDOFF_VIEW:")).toHaveLength(2);
+    expect(request.system.endsWith("[/HANDOFF_VIEW]")).toBe(true);
+    const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"));
+    expect(summary.request).toMatchObject({
+      role,
+      slot: "handoff-view-slot.v0",
+      sha256: sha256Hex(readFileSync(join(out, "request.json")))
+    });
+  });
+
+  it("leaves the outputs unchanged without the flag", () => {
+    const out = join(temp(), "out");
+    expect(run(goldenArgs(out)).code).toBe(0);
+    expect(readdirSync(out)).not.toContain("request.json");
+    expect(JSON.parse(readFileSync(join(out, "summary.json"), "utf8")).request).toBeUndefined();
+  });
+
+  it("refuses an unknown role as a usage error", () => {
+    expect(run([...goldenArgs("x"), "--emit-request", "both"]).code).toBe(2);
+  });
+});

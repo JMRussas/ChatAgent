@@ -1,5 +1,10 @@
 import { ContextBudgetError } from "../../../app/contextBuilder";
-import { buildPlanTaskContext, PlanTaskError, type PlanTaskContextInput } from "../planTask";
+import {
+  buildPlanTaskContext,
+  PlanTaskError,
+  type PlanTaskContext,
+  type PlanTaskContextInput
+} from "../planTask";
 import {
   CODEC,
   verifyHandoffDelivery,
@@ -388,6 +393,15 @@ function note(rd: RevalidatedDelivery): Item[] {
 
 // --- H1 ------------------------------------------------------------------------------
 
+/** Freezes a plain copied value and everything it holds. */
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value)) deepFreeze(v);
+  }
+  return value;
+}
+
 export type H1Outcome =
   | {
       ok: true;
@@ -396,6 +410,8 @@ export type H1Outcome =
       systemInstruction: string;
       roleInstructions: { fast: string; deep: string };
       messages: readonly { role: string; content: string }[];
+      /** ChatAgent's whole H1 result, frozen, when the builder is ChatAgent's H1. */
+      planTask?: PlanTaskContext;
     }
   | { ok: false; code: string };
 /** The H1 options with the reduced window -> H1's result or its typed refusal. */
@@ -417,7 +433,8 @@ export const chatAgentH1: H1Builder = (options) => {
     suppliedSha256: result.suppliedSha256,
     systemInstruction: result.context.systemInstruction,
     roleInstructions: { ...result.context.roleInstructions },
-    messages: result.context.messages.map((m) => ({ role: m.role, content: m.content }))
+    messages: result.context.messages.map((m) => ({ role: m.role, content: m.content })),
+    planTask: result
   };
 };
 
@@ -462,7 +479,12 @@ export interface Composition {
   reservationTokens: string;
   /** The H1 result bound to the committed task. */
   h1: Extract<H1Outcome, { ok: true }>;
+  candidateDigest: string;
+  /** The original H1 option budget the view records, exact. */
+  budget: Readonly<Record<BudgetKey, bigint>>;
 }
+export type BudgetKey =
+  "windowTokens" | "maxHistoryTurns" | "safetyTokens" | "fastOutputTokens" | "deepOutputTokens";
 
 /**
  * The reference order: verify (refuse whole) -> revalidate against the snapshot ->
@@ -619,7 +641,7 @@ export function composeHandoff(input: ComposeInput): Composition {
         return refuse("h1_unavailable");
       }
       result = readH1(result);
-      if (result.ok) return bind(rd, mt, result, measured);
+      if (result.ok) return bind(rd, mt, result, measured, budget);
       if (result.code !== "CONTEXT_TOO_LARGE") refuse("h1_refused");
     }
     const drop = dropIndex(optional);
@@ -646,8 +668,16 @@ function readH1(result: unknown): H1Outcome {
   const blank = Object.freeze({ role: "", content: "" });
   try {
     if (typeof result !== "object" || result === null) return refuse("h1_unavailable");
-    const { ok, code, text, suppliedSha256, systemInstruction, roleInstructions, messages } =
-      result as Record<string, unknown>;
+    const {
+      ok,
+      code,
+      text,
+      suppliedSha256,
+      systemInstruction,
+      roleInstructions,
+      messages,
+      planTask
+    } = result as Record<string, unknown>;
     if (typeof ok !== "boolean") return refuse("h1_unavailable");
     if (!ok)
       return Object.freeze({ ok: false as const, code: typeof code === "string" ? code : "" });
@@ -670,7 +700,10 @@ function readH1(result: unknown): H1Outcome {
       suppliedSha256: suppliedSha256 as string,
       systemInstruction: systemInstruction as string,
       roleInstructions: Object.freeze({ fast: fast as string, deep: deep as string }),
-      messages: Object.freeze(copied)
+      messages: Object.freeze(copied),
+      ...(planTask === undefined
+        ? {}
+        : { planTask: deepFreeze(structuredClone(planTask)) as PlanTaskContext })
     });
   } catch (error) {
     if (error instanceof CompositionRefusal) throw error;
@@ -684,7 +717,8 @@ function bind(
   rd: RevalidatedDelivery,
   mt: JsonNode,
   result: Extract<H1Outcome, { ok: true }>,
-  measured: ReturnType<typeof viewCost>
+  measured: ReturnType<typeof viewCost>,
+  budget: Record<string, bigint>
 ): Composition {
   const task = rd.task.text;
   const [only] = result.messages ?? [];
@@ -710,6 +744,8 @@ function bind(
     viewDigest: measured.digest,
     viewCost: measured.cost,
     reservationTokens: measured.reservationTokens,
-    h1: result
+    h1: result,
+    candidateDigest: rd.candidateDigest,
+    budget: Object.freeze({ ...budget }) as Readonly<Record<BudgetKey, bigint>>
   });
 }

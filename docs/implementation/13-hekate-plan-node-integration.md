@@ -320,8 +320,8 @@ Status: implemented and root-accepted 2026-10-07. Root reviewed the descriptor
 bounds, exact request matching and publishing corrections and independently passed
 34 CLI/publishing tests. Claude's final full run passed 2,053 tests across 149 files,
 with lint and documentation checks passing. A usable offline tool over the
-accepted consumer, not an activation path: it starts no conversation and has no
-host slot (CA-ISSUE-003).
+accepted consumer. It starts no conversation; the optional `--emit-request` path
+uses the accepted host slot below to produce an offline request artifact.
 
 ```sh
 npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <file>   --request <file> --out <new-dir> [--retrieval <recorded.json>]
@@ -361,6 +361,55 @@ npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <fil
 Tests: `tests/unit/handoffCli.test.ts`, including one subprocess run of the script,
 and `tests/unit/handoffCliPublish.test.ts`, which injects a partial write, a failed
 close and a foreign file through a pass-through `node:fs` mock.
+
+### Host slot for the consumer view (CA-ISSUE-003)
+
+Status: implemented and root-accepted 2026-10-07. Root independently passed 243
+focused tests after reviewing the typed, provenance and budget boundaries; Claude's
+final full run passed 2,104 tests across 150 files. Offline only: nothing calls
+a provider, creates a conversation or launches a worker.
+`src/integrations/hekate/handoffConsumer/workerContext.ts` attaches a composed view to
+the fresh worker context ChatAgent's H1 built for the committed task.
+
+- **Placement.** The context gains one optional, host-only field, `handoffView`, set
+  only by the explicit factory `attachHandoffView`. The shared adapter seam
+  (`buildSystemAndMessages`, used by Azure, Bedrock and Ollama) renders it last in
+  the system text, after the instructions and any memory block, as a
+  `[HANDOFF_VIEW: …]` block of escaped untrusted data, with the same escaping as the
+  conversation-memory block. It is attributed data, never an instruction: the
+  instruction fields are unchanged, H1 stays exactly one user message, and a
+  context without the field renders byte-identically to before.
+- **Binding.** The view part's framing, digest, cost, candidate, reservation, budget
+  and H1 digest must match the composition (`view_mismatch`); the context must be
+  that composition's own H1 result, with exactly the package message, the committed
+  instruction digests, and every optional part present and empty: no history,
+  memory, sources, omissions or view (`task_mismatch`). Types and integer ranges
+  (view cost, estimate, and budget values within H1's own option limits) are
+  checked before any value is hashed or converted, so malformed input gets a typed
+  refusal, never a native error.
+- **Exact budget.** The context's estimate is recomputed from its fields, never
+  trusted (an altered estimate is `task_mismatch`). The rendered block, with its
+  separator, is added and checked against the composition's original budget, not a
+  caller's window: escaping and framing make the block larger than the reserved
+  view cost, so a composition can fit while its attached request does not
+  (`CONTEXT_TOO_LARGE`). The returned copy carries the new estimate and a budget usage
+  restated for the original window.
+- **Escaping round trip.** Reversibility is scoped to the canonical view text it is
+  used on: there every backslash starts a JSON escape (a literal backslash in data is
+  written as two), and Python never writes `\u005b`, `\u003c` or `\u003e` as an
+  escape, so such a sequence after an unpaired backslash can only come from this
+  escaping, while the same letters as data stay behind a doubled backslash. Over that
+  representation the block body decodes back to the exact view part, including a
+  literal backslash beside `<` or a forged block header, and delimiter look-alikes
+  in notes and imports stay inside one block.
+- **CLI.** `--emit-request fast|deep` writes `request.json` (the slot version, the
+  role, and the system text and messages the adapters would send) beside the view,
+  before the summary, from the composition's own H1 result; the summary records its
+  hash. No provider is called. The Hekate CLI provider bridge does not carry the
+  view yet (a protocol change, out of this slice).
+
+Tests: `tests/unit/handoffWorkerContext.test.ts` and the `--emit-request` cases in
+`tests/unit/handoffCli.test.ts`.
 
 ## Acceptance and evidence boundaries
 

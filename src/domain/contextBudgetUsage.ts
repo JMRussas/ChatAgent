@@ -15,6 +15,7 @@ export const contextBudgetUsageSchema = z
     history: count,
     activeTasks: count,
     memory: count,
+    handoffView: count.optional(),
     roleInputLimit: count.optional()
   })
   .strict();

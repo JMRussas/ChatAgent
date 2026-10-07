@@ -29,7 +29,8 @@ export function buildSystemAndMessages(
       context.activeTasks,
       context.memory,
       context.resolvedSources,
-      context.unavailableSources
+      context.unavailableSources,
+      context.handoffView
     ),
     messages: context.messages.map((m) => ({ role: m.role, content: m.content }))
   };

@@ -25,6 +25,7 @@ import {
   type HandoffDelivery
 } from "./delivery";
 import { ExactJsonError, readExactJson, sha256Hex, type JsonNode } from "./exactJson";
+import { AttachRefusal, HANDOFF_VIEW_SLOT, handoffWorkerRequest } from "./workerContext";
 
 /**
  * The offline operator tool over the accepted handoff consumer:
@@ -52,7 +53,8 @@ export type CliErrorCode =
   | "retrieval_invalid"
   | "codec_unsupported"
   | "output_exists"
-  | "output_unwritable";
+  | "output_unwritable"
+  | "request_unavailable";
 
 export class CliError extends Error {
   constructor(readonly code: CliErrorCode) {
@@ -70,7 +72,7 @@ export interface CliIo {
 }
 
 export const USAGE =
-  "usage: handoff compose --delivery <dir> --fresh <file> --policy <file> --request <file> --out <new-dir> [--retrieval <file>]";
+  "usage: handoff compose --delivery <dir> --fresh <file> --policy <file> --request <file> --out <new-dir> [--retrieval <file>] [--emit-request fast|deep]";
 const JSON_INPUT_MAX = 1 << 20;
 const WRAPPER_MAX = 4096;
 const H1_INPUT_MAX =
@@ -296,6 +298,7 @@ interface Args {
   request: string;
   out: string;
   retrieval?: string;
+  emitRequest?: "fast" | "deep";
 }
 function parseArgs(argv: string[]): Args | undefined {
   const [command, ...rest] = argv;
@@ -303,7 +306,17 @@ function parseArgs(argv: string[]): Args | undefined {
   const flags = new Map<string, string>();
   for (let i = 0; i < rest.length; i += 2) {
     const flag = rest[i];
-    if (!["--delivery", "--fresh", "--policy", "--request", "--out", "--retrieval"].includes(flag))
+    if (
+      ![
+        "--delivery",
+        "--fresh",
+        "--policy",
+        "--request",
+        "--out",
+        "--retrieval",
+        "--emit-request"
+      ].includes(flag)
+    )
       return undefined;
     if (flags.has(flag) || !rest[i + 1] || rest[i + 1].startsWith("--")) return undefined;
     flags.set(flag, rest[i + 1]);
@@ -317,13 +330,16 @@ function parseArgs(argv: string[]): Args | undefined {
     !get("--out")
   )
     return undefined;
+  const role = get("--emit-request");
+  if (role !== undefined && role !== "fast" && role !== "deep") return undefined;
   return {
     delivery: get("--delivery")!,
     fresh: get("--fresh")!,
     policy: get("--policy")!,
     request: get("--request")!,
     out: get("--out")!,
-    retrieval: get("--retrieval")
+    retrieval: get("--retrieval"),
+    emitRequest: get("--emit-request") as "fast" | "deep" | undefined
   };
 }
 
@@ -371,7 +387,12 @@ function publish(out: string, files: [string, string][]) {
   }
 }
 
-function summary(c: Composition, delivery: HandoffDelivery, hashes: Record<string, string | null>) {
+function summary(
+  c: Composition,
+  delivery: HandoffDelivery,
+  hashes: Record<string, string | null>,
+  request?: { role: string; sha256: string }
+) {
   return (
     JSON.stringify(
       {
@@ -386,7 +407,16 @@ function summary(c: Composition, delivery: HandoffDelivery, hashes: Record<strin
         estimator: ESTIMATOR_ID,
         h1: "ChatAgent buildPlanTaskContext at this checkout; not the pinned 5255daa invocation",
         runtime: { node: process.version },
-        fresh: "historical as-of input, not live authority"
+        fresh: "historical as-of input, not live authority",
+        ...(request
+          ? {
+              request: {
+                ...request,
+                slot: HANDOFF_VIEW_SLOT,
+                note: "offline artifact for a supervised worker; no provider was called"
+              }
+            }
+          : {})
       },
       null,
       2
@@ -423,18 +453,48 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
         : undefined,
       h1: chatAgentH1
     });
+    // The worker request, built offline through the shared adapter seam: only from
+    // ChatAgent's own H1 result, never rebuilt from other options.
+    let requestFile: [string, string] | undefined;
+    if (args.emitRequest) {
+      const planTask = composition.h1.planTask;
+      if (!planTask) fail("request_unavailable");
+      const built = handoffWorkerRequest(planTask!, composition, args.emitRequest);
+      requestFile = [
+        "request.json",
+        JSON.stringify(
+          {
+            slot: HANDOFF_VIEW_SLOT,
+            role: args.emitRequest,
+            system: built.system,
+            messages: built.messages
+          },
+          null,
+          2
+        ) + "\n"
+      ];
+    }
     publish(args.out, [
       ["view-part.txt", composition.part],
       ["h1-text.txt", composition.h1.text],
+      ...(requestFile ? [requestFile] : []),
       [
         "summary.json",
-        summary(composition, delivery, {
-          ...hashes,
-          fresh: sha256Hex(freshBytes),
-          policy: sha256Hex(policyBytes),
-          request: sha256Hex(requestBytes),
-          retrieval: retrievalBytes ? sha256Hex(retrievalBytes) : null
-        })
+        summary(
+          composition,
+          delivery,
+          {
+            ...hashes,
+            fresh: sha256Hex(freshBytes),
+            policy: sha256Hex(policyBytes),
+            request: sha256Hex(requestBytes),
+            retrieval: retrievalBytes ? sha256Hex(retrievalBytes) : null
+          },
+          requestFile && {
+            role: args.emitRequest!,
+            sha256: sha256Hex(Buffer.from(requestFile[1], "utf8"))
+          }
+        )
       ]
     ]);
     io.stdout(`handoff: composed viewDigest ${composition.viewDigest}\n`);
@@ -443,7 +503,8 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
     const code =
       error instanceof CliError ||
       error instanceof DeliveryRefusal ||
-      error instanceof CompositionRefusal
+      error instanceof CompositionRefusal ||
+      error instanceof AttachRefusal
         ? error.code
         : "unexpected_error";
     io.stderr(`handoff: ${code}\n`);

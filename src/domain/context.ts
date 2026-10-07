@@ -45,6 +45,21 @@ export interface ContextMemory {
   method: "extractive-v1" | "model-v1";
 }
 
+/**
+ * An attributed handoff view from a predecessor session (Hekate plan 034), attached
+ * only by `attachHandoffView`. Rendered as delimited untrusted data, never as an
+ * instruction or a message.
+ */
+export interface HandoffViewContext {
+  /** The exact emitted view part: header, canonical view, digest line. */
+  readonly part: string;
+  readonly viewDigest: string;
+  readonly candidateDigest: string;
+  readonly viewCost: number;
+  /** Estimated tokens of the rendered block, including its separator. */
+  readonly renderedTokens: number;
+}
+
 export interface ConversationContext {
   budgetUsage?: import("./contextBudgetUsage").ContextBudgetUsage;
   version: 2;
@@ -68,6 +83,8 @@ export interface ConversationContext {
   omittedTurnIds: readonly string[];
   estimatedInputTokens: number;
   budgetMethod: "utf8-conservative-v1";
+  /** Present only on a worker context built by `attachHandoffView`. */
+  readonly handoffView?: HandoffViewContext;
 }
 
 /** Deep-clones a context snapshot so mutating one caller's copy never affects another's. */

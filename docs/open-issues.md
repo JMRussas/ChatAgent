@@ -43,10 +43,11 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | ---------------------------------- |
 | CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent |
 | CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | open   | codex-chatagent / codex-chatagent  |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
 | CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned       |
 | CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned       |
 | CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | open   | codex-chatagent / unassigned       |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -123,6 +124,17 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 - **Closure criteria:** a decided, documented slot with a test that a composed view
   reaches a fresh conversation's context exactly once, as attributed data, never as
   instructions; independently verified.
+- **Implemented, independently verified and closed 2026-10-07:** the lead chose the existing
+  untrusted-data rendering seam (bridge message 1483). `workerContext.ts` SHA-256
+  `3337daa386002bb7dc200bd2da3b34948f4ed8ec53fbecc51b30b92e14b9a3b0` (uncommitted, base `9d08c65`) attaches the view as a
+  `handoffView` block rendered last by `buildSystemAndMessages`, with the CLI's
+  `--emit-request`. See doc 13, "Host slot for the consumer view".
+  Root reviewed the final source and independently passed 243 focused tests,
+  including 47 host-slot tests and the CLI request path. Claude's final full run
+  passed 2,104 tests across 150 files (`node_modules/.cache/ca-issue-003-full.log`),
+  with format, lint and documentation checks passing. Closure covers the explicit
+  offline context factory and request artifact; automatic conversation creation,
+  provider invocation and worker launch remain outside this issue's scope.
 
 ### CA-ISSUE-004 — No automatic recovery of an idle lead or worker
 
@@ -160,6 +172,25 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   a storage-location and recovery-semantics decision first.
 - **Closure criteria:** declarations survive a restart under the decided semantics,
   with recovery tests; independently verified.
+
+### CA-ISSUE-010 — Coordination status shows an older-attempt decision as stale
+
+- **Gap (status interoperability, not an execution failure):** Hekate plan 038
+  (`context-store/plans/038-older-attempt-decision-review-candidacy.md`, SHA-256
+  `f862c9522cf9019c1aca1f20cc57f296b5091a943fc66dca2a50b100b0d773e1`) makes a
+  valid decision recorded for a strictly older attempt epoch historical, so the
+  current Done attempt is a review candidate. ChatAgent's C1a projection
+  (`src/integrations/hekate/devCoordination.ts`, `stateOf`, base `9d08c65`) still
+  reports a Done leaf from the node's effective acceptance alone, so such a leaf
+  shows `stale` where Hekate now treats it as awaiting review.
+- **Next action:** a small C1a change after CA-ISSUE-003: distinguish a decision for
+  a strictly older attempt epoch (review pending) from same-epoch drift (still
+  `stale`), never inferring an execution acknowledgment.
+- **Why deferred:** status display only; it changes no execution, and the
+  supervised pilot can read the Hekate state directly meanwhile.
+- **Closure criteria:** a fixture with an older-epoch decision projects as review
+  pending and same-epoch drift stays `stale`; execution acknowledgment stays
+  `unknown`; independently verified.
 
 ## External dependencies
 
