@@ -19,6 +19,62 @@ class BridgeError(Exception):
     pass
 
 
+# modelUsage semantics were verified against this exact CLI release's own schema and
+# accumulator: cumulative per process, every model call including auxiliary ones,
+# input_tokens excluding cache reads and writes. Completeness is not provable (side
+# queries keep invisible SDK retries; some main-loop retries are silent), so the
+# count is only a lower bound. Any other release reports nothing.
+USAGE_VERIFIED_VERSION = "2.1.285"
+MAX_SAFE_INTEGER = 2**53 - 1
+SESSION_REUSE_FLAGS = ("--resume", "--continue", "--session-id", "--fork-session")
+
+
+def reuses_session(arg):
+    if any(arg == flag or arg.startswith(flag + "=") for flag in SESSION_REUSE_FLAGS):
+        return True
+    # Short -r/-c, attached (-rID) or combined (-pc). A value that merely looks like
+    # one only withdraws usage, which is the conservative direction.
+    return arg.startswith("-") and not arg.startswith("--") and any(c in arg[1:] for c in "rc")
+
+
+def fresh_invocation(command):
+    """modelUsage covers one invocation only in a fresh, unpersisted process."""
+    return "--no-session-persistence" in command and not any(reuses_session(arg) for arg in command)
+
+
+def token_count(value):
+    return type(value) is int and 0 <= value <= MAX_SAFE_INTEGER
+
+
+def observed_usage(raw):
+    """A lower bound on one invocation's tokens from its accepted result, or None.
+
+    Sums modelUsage over every model: input is inputTokens plus cache reads and
+    writes, output is outputTokens. Retries the CLI does not show can only add to
+    it, so it is never complete usage. result.usage covers the main loop only and
+    is used solely as a consistency floor. Cost, model names and session ids never
+    leave.
+    """
+    models, main = raw.get("modelUsage"), raw.get("usage")
+    if not isinstance(models, dict) or not models or not isinstance(main, dict):
+        return None
+    totals = [0, 0, 0, 0]
+    for entry in models.values():
+        if not isinstance(entry, dict):
+            return None
+        counts = [entry.get(k) for k in ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")]
+        if not all(token_count(c) for c in counts):
+            return None
+        totals = [t + c for t, c in zip(totals, counts)]
+    loop = [main.get(k) for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")]
+    if not all(token_count(c) for c in loop) or any(m > t for m, t in zip(loop, totals)):
+        return None
+    input_tokens, output_tokens = totals[0] + totals[2] + totals[3], totals[1]
+    if not token_count(input_tokens) or not token_count(input_tokens + output_tokens):
+        return None
+    return {"source": "cli-model-usage-lower-bound", "inputTokens": input_tokens, "outputTokens": output_tokens}
+
+
 def load_provider(root):
     location = Path(root).resolve() / "orchestration"
     if not (location / "backend/services/cli_provider.py").is_file():
@@ -105,14 +161,28 @@ class AnswerTranscript:
     Reasoning blocks and synthetic API diagnostics never enter the answer.
     Unsupported rewrites fail closed rather than combining invalidated text.
     """
-    def __init__(self, shared):
+    def __init__(self, shared, usage_allowed=False):
         self.shared = shared
         self.parts = []
         self.seen = {}
         self.limited = False
+        # Usage needs a fresh invocation and exactly one init from the verified release.
+        self.usage_allowed = usage_allowed
+        self.versions = []
+        self.finished = False
+        self.activity_after_result = False
+
+    def usage_verified(self):
+        """Holds over the whole output: rechecked when the final frame is emitted."""
+        return self.usage_allowed and self.versions == [USAGE_VERIFIED_VERSION] and not self.activity_after_result
 
     def accept(self, raw):
         frame = normalize(self.shared, raw)
+        if raw.get("type") == "system" and raw.get("subtype") == "init":
+            self.versions.append(raw.get("claude_code_version"))
+        if self.finished and raw.get("type") in ("system", "assistant", "user", "stream_event", "result"):
+            # Model or session activity after the accepted result is outside its totals.
+            self.activity_after_result = True
         if raw.get("type") == "stream_event":
             event = raw.get("event", {})
             if event.get("type") == "message_delta" and event.get("delta", {}).get("stop_reason") in ("max_tokens", "model_context_window_exceeded"):
@@ -152,6 +222,10 @@ class AnswerTranscript:
                 frame["text"] = text
             if self.limited or raw.get("stop_reason") in ("max_tokens", "model_context_window_exceeded"):
                 frame["finishReason"] = "length"
+            usage = observed_usage(raw) if self.usage_verified() else None
+            if usage:
+                frame["observedUsage"] = usage
+            self.finished = True
         return frame
 
 
@@ -167,7 +241,7 @@ def generate(shared, executable, model, max_bytes):
     child = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, env=env, shell=False)
     errors, frames = [], []
-    transcript = AnswerTranscript(shared)
+    transcript = AnswerTranscript(shared, usage_allowed=fresh_invocation(command))
     size = 0
     lock = threading.Lock()
 
@@ -227,6 +301,8 @@ def generate(shared, executable, model, max_bytes):
         raise BridgeError("CLI_NONZERO_EXIT")
     if len(frames) != 1:
         raise BridgeError("CLI_EMPTY_OUTPUT" if not frames else "CLI_MALFORMED_OUTPUT")
+    if not transcript.usage_verified():
+        frames[0].pop("observedUsage", None)
     print(json.dumps(frames[0]), flush=True)
 
 

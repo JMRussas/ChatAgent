@@ -10,12 +10,12 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fcceff2`:
 
-| Area                | Current scope                                                                                                                                                                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                            |
-| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                    |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a model and E2b-a disposable journal experiment accepted (`d0ed671`, plan 029); no production journal, real workers or wake |
-| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                          |
+| Area                | Current scope                                                                                                                                                                                                                                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                                                                                                                                                  |
+| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                                                                                                                                          |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a, E2b-a and the E2c disposable fixture accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029/031); E2d fixture-only package and review rollover underway, not accepted (plan 032); no production journal, real workers or wake |
+| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1343,14 +1343,26 @@ connection cap; real-socket integration tests cover that boundary separately.
   files and 34 browser tests pass, together with format, lint and
   documentation-contract checks. Provider responses in the suite are offline
   fixtures; the separate transport probe uses only loopback. No service restart.
-  _Q1c-d (CLI token usage) blocked 2026-10-07:_ the current Hekate consumer protocol
-  emits only `{type, text, finishReason}` and ends the CLI on a length stop before
-  any result event, so no per-invocation token counts reach ChatAgent, and no
-  evidence yet establishes what such counts would cover when one invocation makes
-  several model calls. CLI token envelopes stay estimated until the protocol
-  supplies counts with that semantic evidence; session totals, account utilization
-  and inferred cost are not substitutes. Local request counting (Q1c-e) does not
-  depend on it.
+  _Q1c-d (CLI token usage) lower-bound reporting implemented and reviewed
+  2026-10-07:_ a read-only audit of the installed Claude Code 2.1.285 found
+  `result.modelUsage` cumulative per fresh process across every model call,
+  auxiliary ones included, while the main-loop `result.usage` undercounts. It also
+  found that completeness cannot be proven: auxiliary queries keep invisible SDK
+  retries and some main-loop retries after an HTTP error response continue
+  silently. A candidate that finalized CLI charges at that count was withdrawn
+  before acceptance. Instead the Hekate bridge reports the summed `modelUsage` as an
+  observed lower bound (fresh unpersisted process, one init reporting 2.1.285, one
+  accepted result, nothing after it), a distinct `ObservedUsageLowerBound` that can
+  never pass as `ProviderUsage`. Dispatch applies it to a token-envelope ticket
+  through `ResourceAdmission.reportQuotaLowerBound`; the ledger raises the open
+  charge to max(estimate, highest minimum), idempotently, in every window it
+  reaches, keeps its link and open-charge slot, ignores request envelopes, and
+  refuses a later complete report below the minimum. A lower bound above the
+  allowance leaves debt that refuses the next admission. Length stops that end the
+  CLI before its result still keep the estimate. Offline bridge, ledger, parser and
+  real-subprocess-to-dispatch fixtures only; no live CLI call, so no live
+  correctness is claimed. Outstanding: re-verify on every CLI upgrade. Local
+  request counting (Q1c-e) does not depend on it.
   _Slice Q1c-e (request units) implemented and reviewed 2026-10-07:_ a request
   envelope counts local adapter invocations, the one unit admission already
   reserves per dispatch ticket, not external API calls or a provider allowance.
@@ -1368,9 +1380,28 @@ connection cap; real-socket integration tests cover that boundary separately.
   review corrections; Codex accepted the source and verified 1,627 tests across
   139 files and 34 browser tests on Windows Node 24.21.0, plus format, lint and
   documentation-contract checks. No live provider calls or service restart.
+  _Runtime quota-window declarations implemented and reviewed 2026-10-07; see
+  [runtime declarations](implementation/08-resource-policy.md#configured-quota-envelopes-2026-10-06):_
+  the operator-only `POST /routing/quota-envelopes/declare` passes one strict envelope
+  declaration to `ResourceAdmission.declareQuotaEnvelope`, which accepts only pools
+  configuration already declared and applies the ledger's existing rules unchanged
+  (identical no-op, newer-evidence refresh, increasing non-overlapping successors
+  that do not start before now, retained-window cap). One admission time is
+  committed only on success, and refusals change nothing. Bounded codes: invalid
+  400, unknown pool 404, conflict and capacity 409, clock 503, and 404
+  `QUOTA_ENVELOPES_DISABLED` without catalog dispatch. The route is in the route
+  table and the authentication inventory (44 routes, 19 operator). Tests:
+  `tests/unit/quotaEnvelopeDeclaration.test.ts` and
+  `tests/integration/quotaDeclarationHttp.test.ts`. Combined acceptance for runtime
+  declarations and CLI lower bounds: Codex verified 1,681 TypeScript tests across
+  142 files and 34 browser tests on Windows Node 24.21.0, 32 Python bridge tests
+  using uv-managed Python 3.13.13, format, lint and documentation contracts
+  (7 symbols, 15 invariants). No live provider calls or service restart. Not in scope:
+  persistence (a restart returns to configured windows), an inventory route, new
+  pools or bindings at runtime, automatic refresh and provider reconciliation.
   Still open: streamed Azure usage on other API versions (each needs its own
-  primary evidence), CLI token usage (blocked as above), a runtime
-  window-declaration route and provider-authoritative reconciliation.
+  primary evidence), complete CLI token accounting (unproven as above), persisting runtime
+  declarations and provider-authoritative reconciliation.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._

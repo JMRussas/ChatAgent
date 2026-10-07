@@ -11,9 +11,11 @@ import type { ModelObservation } from "../models/inventory";
 import {
   GenerationError,
   normalizeGenerationError,
+  validObservedUsageLowerBound,
   validProviderUsage,
   type GenerationMetadata,
   type GenerationControl,
+  type ObservedUsageLowerBound,
   type ProviderUsage
 } from "../domain/generation";
 import { classifyTaskRequirements, type ModelTask } from "./taskClassifier";
@@ -49,6 +51,8 @@ export interface DispatchMetric {
  */
 export interface CallCompletion {
   usage?: ProviderUsage;
+  /** Known minimum consumption when complete usage is unavailable; never settles. */
+  usageLowerBound?: ObservedUsageLowerBound;
 }
 /** The error a preparation abort ends with: the signal's own generation error, if any. */
 function abortError(signal: AbortSignal) {
@@ -76,8 +80,8 @@ function abortError(signal: AbortSignal) {
  * API call), a token envelope at the provider's own valid reported input plus output
  * tokens. A thrown, rejected or cancelled result, a result without such a finish, cleanup
  * without completion evidence, and a token envelope without valid usage keep the
- * reservation's estimate. Static quotas and envelope-free bindings are unchanged, and
- * money is never reported.
+ * reservation's estimate (raised, never lowered, by an observed lower bound). Static
+ * quotas and envelope-free bindings are unchanged, and money is never reported.
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles a completed token-envelope call at its reported usage and retires its link
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the estimate when %s
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles known consumption that completed after an abort
@@ -105,6 +109,26 @@ function abortError(signal: AbortSignal) {
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles only the ticket that ran after a fallback
  * @test tests/integration/quotaUsageSettlement.test.ts :: counts a failed attempt and its fallback as one request each
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps a request ticket for a retry when settlement throws
+ *
+ * @invariant lower-bounds-never-settle — An observed lower bound on a completed call (as
+ * from a CLI whose retries cannot all be shown) raises its unsettled token charge to
+ * max(estimate, highest minimum) in every window it reaches, idempotently, and keeps the
+ * ticket's link and open-charge slot; it never lowers, finalizes or retires a charge,
+ * never applies to a request envelope, and complete usage below a known minimum is
+ * refused, leaving the charge open.
+ * @test tests/integration/cliQuotaUsage.test.ts :: raises a fast CLI charge above its estimate and keeps it open and linked
+ * @test tests/integration/cliQuotaUsage.test.ts :: refuses the next admission once a lower bound exceeds the allowance
+ * @test tests/integration/cliQuotaUsage.test.ts :: leaves a charge at its estimate when the observed minimum is lower
+ * @test tests/integration/cliQuotaUsage.test.ts :: raises a deep CLI charge on its own ticket
+ * @test tests/integration/cliQuotaUsage.test.ts :: settles a request envelope at one invocation whatever the observed tokens
+ * @test tests/integration/cliQuotaUsage.test.ts :: keeps the estimate and the answer when %s
+ * @test tests/integration/cliQuotaUsage.test.ts :: refuses complete usage below its own minimum and keeps the charge at that minimum
+ * @test tests/integration/cliQuotaUsage.test.ts :: finalizes consistent complete usage at or above the minimum
+ * @test tests/unit/quotaEnvelope.test.ts :: raises an open charge to its highest minimum, never additively, and keeps it open
+ * @test tests/unit/quotaEnvelope.test.ts :: changes nothing for unknown, reserved, started, final or request-pool charges
+ * @test tests/unit/quotaEnvelope.test.ts :: refuses a complete report below the known minimum, and accepts one at or above it
+ * @test tests/unit/quotaEnvelope.test.ts :: lets a complete report at or above the minimum lower the original estimate and close the charge
+ * @test tests/unit/quotaEnvelope.test.ts :: carries the raised debit into every later window while unresolved
  *
  * @decision docs/implementation/08-resource-policy.md#admission-and-selection-04
  */
@@ -394,7 +418,13 @@ export class CatalogDispatch {
       // work() threw or rejected, or a result without one of those finishes, is not.
       if (finishReason === "stop" || finishReason === "length") {
         const usage = validProviderUsage((result as { usage?: unknown }).usage);
-        completion = usage ? { usage } : {};
+        const usageLowerBound = validObservedUsageLowerBound(
+          (result as { usageLowerBound?: unknown }).usageLowerBound
+        );
+        completion = {
+          ...(usage ? { usage } : {}),
+          ...(usageLowerBound ? { usageLowerBound } : {})
+        };
       }
       return result;
     } catch (error) {
@@ -533,6 +563,11 @@ export class CatalogDispatch {
     if (unit === "requests") this.admission.reportQuotaUsage(ticket, 1);
     else if (unit === "tokens") {
       const reported = validProviderUsage(completion.usage);
+      const minimum = validObservedUsageLowerBound(completion.usageLowerBound);
+      // A known minimum is recorded first, so complete usage below it is refused and the
+      // charge stays open; a lower bound alone only raises the charge and keeps its link.
+      if (minimum)
+        this.admission.reportQuotaLowerBound(ticket, minimum.inputTokens + minimum.outputTokens);
       if (reported)
         this.admission.reportQuotaUsage(ticket, reported.inputTokens + reported.outputTokens);
     }

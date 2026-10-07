@@ -129,6 +129,113 @@ describe("Hekate Claude bridge", () => {
       parseBridgeEvent('{"type":"complete","text":"answer","finishReason":"length"}').finishReason
     ).toBe("length");
   });
+  it("maps only the bridge's observed lower bound and never drops the answer for it", () => {
+    const frame = (fields: object) =>
+      parseBridgeEvent(
+        JSON.stringify({ type: "complete", text: "a", finishReason: "stop", ...fields })
+      );
+    const valid = { source: "cli-model-usage-lower-bound", inputTokens: 355, outputTokens: 27 };
+    expect(frame({ observedUsage: valid })).toEqual({
+      type: "complete",
+      text: "a",
+      finishReason: "stop",
+      usageLowerBound: { source: "observed-lower-bound", inputTokens: 355, outputTokens: 27 }
+    });
+    const bare = { type: "complete", text: "a", finishReason: "stop" };
+    for (const observedUsage of [
+      { ...valid, source: "provider-response" },
+      { ...valid, source: "cli-result-model-usage" },
+      { ...valid, source: undefined },
+      { ...valid, inputTokens: -1 },
+      { ...valid, outputTokens: 1.5 },
+      { ...valid, inputTokens: "355" },
+      { ...valid, inputTokens: Number.MAX_SAFE_INTEGER },
+      { ...valid, outputTokens: undefined },
+      null,
+      "382",
+      []
+    ])
+      expect(frame({ observedUsage })).toEqual(bare);
+    // A CLI frame can never claim complete usage, whatever its source.
+    for (const usage of [valid, { ...valid, source: "provider-response" }])
+      expect(frame({ usage })).toEqual(bare);
+  });
+  it("revalidates an adapter's lower bound and carries it to fast and deep results", async () => {
+    const e = entry("a", {
+      provider: "cli",
+      cli: {
+        adapterId: "hekate-claude",
+        accountProfile: "default",
+        authentication: "unknown",
+        nonInteractive: "supported",
+        streaming: "unsupported",
+        outputFormat: "jsonl",
+        executionMode: "answer-only",
+        automationSupport: "supported"
+      }
+    });
+    const reports: unknown[] = [];
+    const binding = cliBinding(
+      {
+        bindingId: entryBindingId(e),
+        entry: e,
+        connection: {
+          connectionId: "c",
+          apiKind: "cli",
+          resourceFacts: { executionScope: "unknown", billingComponents: ["unknown"] },
+          quota: {},
+          compute: { ownedOrRented: "unknown" }
+        }
+      },
+      {
+        id: "hekate-claude",
+        inspect: async () => {
+          throw new Error("unused");
+        },
+        async *generate() {
+          // Adapters are trusted by registration, not by the usage they claim.
+          yield {
+            type: "complete",
+            text: "ok",
+            finishReason: "stop",
+            usageLowerBound: reports.shift() as never,
+            ...({
+              usage: { source: "provider-response", inputTokens: 1, outputTokens: 1 }
+            } as object)
+          };
+        }
+      },
+      "cwd",
+      { fast: 32, deep: 64 }
+    );
+    const minimum = { source: "observed-lower-bound" as const, inputTokens: 3, outputTokens: 4 };
+    const context = {} as ConversationContext;
+    const fast = () =>
+      binding.fast!.createProvisionalReply({
+        message: { userId: "u", conversationId: "c", text: "hi", timestampIso: "now" },
+        correctedText: "hi",
+        routeDecision: "direct",
+        context
+      });
+    const deep = () =>
+      binding.deep!.resolveDeepTask({
+        taskId: "t",
+        conversationId: "c",
+        normalizedPrompt: "hi",
+        createdAtIso: "now",
+        context
+      });
+    reports.push(
+      minimum,
+      minimum,
+      { ...minimum, inputTokens: -1 },
+      { ...minimum, source: "provider-response" }
+    );
+    const results = [await fast(), await deep(), await fast(), await deep()];
+    expect(results.map((r) => r.usageLowerBound)).toEqual([minimum, minimum, undefined, undefined]);
+    // Complete usage never crosses a CLI binding, even when an adapter claims it.
+    for (const r of results) expect(r).not.toHaveProperty("usage");
+  });
   it("passes the selected role and its reserved output budget", async () => {
     const requests: CliGenerationRequest[] = [];
     const e = entry("a", {

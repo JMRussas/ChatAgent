@@ -12,6 +12,7 @@ import { platform, arch } from "node:os";
 import { createRuntimeHandle, loadShutdownConfig, type RuntimeHandle } from "./app/runtimeHandle";
 import { loadDispatchConfig } from "./config/dispatchConfig";
 import { CatalogDispatch } from "./routing/catalogDispatch";
+import { AdmissionError } from "./routing/resourceAdmission";
 import { ModelSelectionError } from "./routing/modelSelector";
 import { buildProviderRegistry, entryBindingId } from "./providers/providerRegistry";
 import { connectHekateClaude } from "./providers/cli/hekateClaude";
@@ -184,6 +185,12 @@ interface ServerOptions {
   runtimeMode?: RuntimeModeInfo;
   shutdown?: () => Promise<void>;
   dispatchTelemetry?: () => ReturnType<CatalogDispatch["telemetry"]>;
+  /**
+   * Declares a window for an existing envelope pool (ResourceAdmission's
+   * declareQuotaEnvelope). Absent without catalog dispatch: the route answers 404
+   * QUOTA_ENVELOPES_DISABLED.
+   */
+  declareQuotaEnvelope?: (raw: unknown) => { outcome: "declared" | "refreshed" | "unchanged" };
   evaluationStatus?: () => unknown;
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
   /** Limit on a request body in bytes, enforced while reading. */
@@ -382,6 +389,15 @@ const QueueDepthBodySchema = z.object({
 const RoutingPolicyBodySchema = z.object({
   maxFastP95Ms: z.number().finite().positive().optional()
 });
+
+/** Quota-window declaration refusals: a fixed status and message, never the payload. */
+const QUOTA_DECLARATION_REFUSALS: Record<string, [number, string]> = {
+  QUOTA_DECLARATION_INVALID: [400, "The declaration is not a valid quota envelope window"],
+  QUOTA_DECLARATION_POOL_UNKNOWN: [404, "No configured envelope pool has this identifier"],
+  QUOTA_DECLARATION_CONFLICT: [409, "The declaration conflicts with the pool's declared windows"],
+  QUOTA_DECLARATION_CAPACITY: [409, "The pool cannot retain another window yet"],
+  QUOTA_DECLARATION_CLOCK_UNAVAILABLE: [503, "The admission clock is unavailable"]
+};
 
 function resolveDeepWorkerAutoRunConfig(env: NodeJS.ProcessEnv) {
   return {
@@ -1141,6 +1157,26 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         return json(res, 200, { policy });
       }
 
+      if (method === "POST" && url.pathname === "/routing/quota-envelopes/declare") {
+        if (!options.declareQuotaEnvelope)
+          return json(res, 404, {
+            code: "QUOTA_ENVELOPES_DISABLED",
+            error: "Catalog dispatch is not configured"
+          });
+        const body = requireObjectBody(await parseBody());
+        // Synchronous from here: validation, declaration and clock commit in one turn.
+        try {
+          return json(res, 200, options.declareQuotaEnvelope(body));
+        } catch (error) {
+          const refusal =
+            error instanceof AdmissionError && Object.hasOwn(QUOTA_DECLARATION_REFUSALS, error.code)
+              ? QUOTA_DECLARATION_REFUSALS[error.code]
+              : undefined;
+          if (!refusal) throw error;
+          return json(res, refusal[0], { code: (error as AdmissionError).code, error: refusal[1] });
+        }
+      }
+
       if (method === "GET" && url.pathname === "/conversations/retention")
         return json(res, 200, service.conversationRetention());
 
@@ -1767,6 +1803,9 @@ export async function startServer(
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
+    ...(dispatch
+      ? { declareQuotaEnvelope: (raw: unknown) => dispatch.admission.declareQuotaEnvelope(raw) }
+      : {}),
     evaluationStatus: () =>
       recorder ? { enabled: true, ...recorder.status() } : { enabled: false },
     contextTelemetry: () => contextManager.getSummaryTelemetry(),

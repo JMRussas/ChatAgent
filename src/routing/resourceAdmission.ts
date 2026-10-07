@@ -8,7 +8,7 @@ import {
 } from "../config/quotaPoolLimits";
 import { randomUUID } from "node:crypto";
 import type { BindingResources, DispatchPolicy } from "../config/dispatchConfig";
-import { QuotaEnvelopeError, QuotaEnvelopeLedger } from "./quotaEnvelope";
+import { QuotaEnvelopeError, QuotaEnvelopeLedger, quotaEnvelopeSchema } from "./quotaEnvelope";
 
 export class AdmissionError extends Error {
   constructor(readonly code: string) {
@@ -258,6 +258,57 @@ export class ResourceAdmission {
       .poolIds()
       .sort()
       .map((poolId) => ({ poolId, ...this.envelopes.available(poolId, t) }));
+  }
+  /**
+   * Declares a window for an envelope pool that configuration already declared, with
+   * the ledger's own rules unchanged: an identical declaration is a no-op, the same
+   * window may only refresh to newer evidence, and a successor must have a higher
+   * sequence, no overlap and no start before now. Unknown pools, including static
+   * quota pools, are refused, so no pool is added at runtime and the pool cap holds.
+   * Synchronous: one admission time is sampled and committed only if the ledger
+   * accepted the declaration, so every refusal leaves both ledger and clock unchanged.
+   *
+   * Refusal codes: QUOTA_DECLARATION_INVALID, QUOTA_DECLARATION_POOL_UNKNOWN,
+   * QUOTA_DECLARATION_CONFLICT, QUOTA_DECLARATION_CAPACITY and
+   * QUOTA_DECLARATION_CLOCK_UNAVAILABLE. None carries the payload or its scope.
+   */
+  declareQuotaEnvelope(raw: unknown): { outcome: "declared" | "refreshed" | "unchanged" } {
+    const parsed = quotaEnvelopeSchema.safeParse(raw);
+    if (!parsed.success) throw new AdmissionError("QUOTA_DECLARATION_INVALID");
+    const envelope = parsed.data;
+    if (!this.envelopes.poolUnit(envelope.poolId))
+      throw new AdmissionError("QUOTA_DECLARATION_POOL_UNKNOWN");
+    let t: number;
+    try {
+      t = this.admissionTime();
+    } catch {
+      throw new AdmissionError("QUOTA_DECLARATION_CLOCK_UNAVAILABLE");
+    }
+    const window = () =>
+      this.envelopes
+        .snapshot()
+        .find((p) => p.poolId === envelope.poolId)
+        ?.windows.find((w) => w.windowId === envelope.windowId);
+    const before = window();
+    try {
+      this.envelopes.declare(envelope, t);
+    } catch (error) {
+      if (!(error instanceof QuotaEnvelopeError)) throw error;
+      throw new AdmissionError(
+        error.code === "INVALID_ENVELOPE"
+          ? "QUOTA_DECLARATION_INVALID"
+          : error.code === "QUOTA_LEDGER_CAPACITY" || error.code === "QUOTA_POOL_CAPACITY"
+            ? "QUOTA_DECLARATION_CAPACITY"
+            : error.code === "INVALID_NOW" || error.code === "CLOCK_REGRESSION"
+              ? "QUOTA_DECLARATION_CLOCK_UNAVAILABLE"
+              : "QUOTA_DECLARATION_CONFLICT"
+      );
+    }
+    this.commitTime(t);
+    if (!before) return { outcome: "declared" };
+    return JSON.stringify(window()?.evidence) === JSON.stringify(before.evidence)
+      ? { outcome: "unchanged" }
+      : { outcome: "refreshed" };
   }
   /** Process-lifetime consumption, independent of recent-history expiry. No refunds. */
   accounting() {
@@ -531,6 +582,19 @@ export class ResourceAdmission {
       this.commitTime(t);
       this.unsettledEnvelopes.delete(id);
     }
+    return applied;
+  }
+  /**
+   * Raises the known minimum of an envelope charge that finished without a complete
+   * report. A lower bound never settles: the exact link is kept for a later complete
+   * report, and the charge stays open at max(estimate, minimum).
+   */
+  reportQuotaLowerBound(id: string, quotaUnits: number): boolean {
+    const envelopeId = this.unsettledEnvelopes.get(id);
+    if (!envelopeId || !Number.isFinite(quotaUnits) || quotaUnits < 0) return false;
+    const t = this.admissionTime();
+    const applied = this.envelopes.observe(envelopeId, quotaUnits, t);
+    if (applied) this.commitTime(t);
     return applied;
   }
   private settle(c: Charge, reported?: { usd: number; quotaUnits: number }) {

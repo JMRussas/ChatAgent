@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type { CliAdapter, CliReadiness } from "./adapter";
 import { CliAdapterRegistry } from "./adapter";
 import { CliRunner, cliLimits } from "./runner";
-import { GenerationError } from "../../domain/generation";
+import { GenerationError, observedUsageLowerBound } from "../../domain/generation";
 import type { ModelCatalog } from "../../config/modelCatalog";
 import { connectionIdForEntry } from "../../config/modelCatalog";
 import { entryBindingId, type ProviderRegistry } from "../providerRegistry";
@@ -111,10 +111,19 @@ export function parseBridgeEvent(line: string) {
     !["stop", "length"].includes(value.finishReason)
   )
     throw new GenerationError("CLI_MALFORMED_OUTPUT", false);
+  // The bridge observes modelUsage only for its verified CLI release, as a lower bound:
+  // CLI retries it cannot show may add more. Counts are revalidated here; anything
+  // else, including any claimed complete usage, is dropped and the answer kept.
+  const observed = value.observedUsage;
+  const usageLowerBound =
+    observed?.source === "cli-model-usage-lower-bound"
+      ? observedUsageLowerBound(observed.inputTokens, observed.outputTokens)
+      : undefined;
   return {
     type: "complete" as const,
     text: value.text,
-    finishReason: value.finishReason as "stop" | "length"
+    finishReason: value.finishReason as "stop" | "length",
+    ...(usageLowerBound ? { usageLowerBound } : {})
   };
 }
 interface InspectionStatus {

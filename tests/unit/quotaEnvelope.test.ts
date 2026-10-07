@@ -373,6 +373,106 @@ describe("window resets", () => {
   });
 });
 
+describe("observed lower bounds", () => {
+  const tokens = (n: number, over: Partial<QuotaEnvelope> = {}) =>
+    envelope(n, { unit: "tokens", ...over });
+  /** An unsettled token charge with an estimate of `units`. */
+  const unsettled = (l: QuotaEnvelopeLedger, units = 4) => {
+    const [id] = l.reserve([{ poolId: "pool", units }], T0);
+    l.begin(id, T0);
+    l.finish(id, T0);
+    return id;
+  };
+
+  it("raises an open charge to its highest minimum, never additively, and keeps it open", () => {
+    const l = ledger();
+    l.declare(tokens(0), T0);
+    const id = unsettled(l);
+    // Below the estimate it changes nothing visible: the debit is max(estimate, minimum).
+    expect(l.observe(id, 3, T0)).toBe(true);
+    expect(remaining(l, T0)).toMatchObject({ remaining: "6" });
+    expect(l.observe(id, 7, T0)).toBe(true);
+    expect(remaining(l, T0)).toMatchObject({ remaining: "3" });
+    const raised = state(l, T0);
+    // Repeated and lower observations are idempotent.
+    for (const value of [7, 5, 0]) expect(l.observe(id, value, T0)).toBe(true);
+    expect(state(l, T0)).toBe(raised);
+    expect(l.snapshot()[0].open).toMatchObject({ unsettled: 1, units: "7" });
+    expect(l.snapshot()[0].windows[0].finalUsed).toBe("0");
+  });
+
+  it("changes nothing for unknown, reserved, started, final or request-pool charges", () => {
+    const l = ledger();
+    l.declare(tokens(0), T0);
+    const [reserved, running] = l.reserve(
+      [
+        { poolId: "pool", units: 1 },
+        { poolId: "pool", units: 1 }
+      ],
+      T0
+    );
+    l.begin(running, T0);
+    const final = unsettled(l, 1);
+    l.report(final, 1, T0);
+    const requests = ledger();
+    requests.declare(envelope(0), T0);
+    const request = unsettled(requests, 1);
+    const before = [state(l, T0), state(requests, T0)];
+    for (const id of [reserved, running, final, "never-issued"])
+      expect(l.observe(id, 9, T0)).toBe(false);
+    expect(requests.observe(request, 9, T0)).toBe(false);
+    expect([state(l, T0), state(requests, T0)]).toEqual(before);
+  });
+
+  it("refuses a complete report below the known minimum, and accepts one at or above it", () => {
+    const l = ledger();
+    l.declare(tokens(0), T0);
+    const id = unsettled(l);
+    l.observe(id, 6, T0);
+    const before = state(l, T0);
+    expect(l.report(id, 5, T0)).toBe(false);
+    expect(state(l, T0)).toBe(before);
+    expect(l.report(id, 6, T0)).toBe(true);
+    expect(l.snapshot()[0].windows[0].finalUsed).toBe("6");
+    expect(l.snapshot()[0].open).toMatchObject({ unsettled: 0 });
+  });
+
+  it("lets a complete report at or above the minimum lower the original estimate and close the charge", () => {
+    const l = ledger();
+    l.declare(tokens(0), T0);
+    const id = unsettled(l, 8);
+    l.observe(id, 3, T0);
+    expect(remaining(l, T0)).toMatchObject({ remaining: "2" });
+    expect(l.report(id, 5, T0)).toBe(true);
+    expect(remaining(l, T0)).toMatchObject({ remaining: "5" });
+    expect(l.snapshot()[0].open).toMatchObject({ unsettled: 0, units: "0" });
+  });
+
+  it("carries the raised debit into every later window while unresolved", () => {
+    const l = ledger();
+    l.declare(tokens(0), T0);
+    l.declare(tokens(1), T0);
+    const id = unsettled(l, 2);
+    l.observe(id, 5, T0);
+    expect(remaining(l, T0)).toMatchObject({ windowId: "w0", remaining: "5" });
+    expect(remaining(l, T0 + HOUR)).toMatchObject({ windowId: "w1", remaining: "5" });
+    expect(l.report(id, 5, T0 + HOUR)).toBe(true);
+    expect(l.snapshot()[0].windows.map((w) => w.finalUsed)).toEqual(["5", "5"]);
+  });
+
+  it("refuses invalid counts and a clock moving backwards without any change", () => {
+    const l = ledger();
+    l.declare(tokens(0), T0);
+    const id = unsettled(l);
+    l.observe(id, 5, T0 + 10);
+    const before = state(l, T0 + 10);
+    for (const bad of [-1, Number.NaN, "2" as unknown as number])
+      expect(code(() => l.observe(id, bad, T0 + 10))).toBe("INVALID_REPORT");
+    expect(code(() => l.observe(id, 9, T0))).toBe("CLOCK_REGRESSION");
+    expect(state(l, T0 + 10)).toBe(before);
+  });
+});
+
 it("returns snapshots the caller cannot use to change the ledger", () => {
   const l = ledger();
   l.declare(envelope(0), T0);

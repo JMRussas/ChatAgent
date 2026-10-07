@@ -1,6 +1,7 @@
 import type { ConversationContext } from "../../domain/context";
 import {
   GenerationError,
+  validObservedUsageLowerBound,
   type GenerationControl,
   type GenerationResult
 } from "../../domain/generation";
@@ -45,7 +46,16 @@ export function cliBinding(
     })) {
       if (event.type === "delta") await control?.onDelta(event.text);
       else if (event.type === "queued") await control?.onQueued?.(event.reason);
-      else result = { text: event.text, finishReason: event.finishReason };
+      else {
+        // Adapters are a trust boundary: a lower bound is revalidated, never taken by
+        // type, and a CLI result never carries complete usage.
+        const usageLowerBound = validObservedUsageLowerBound(event.usageLowerBound);
+        result = {
+          text: event.text,
+          finishReason: event.finishReason,
+          ...(usageLowerBound ? { usageLowerBound } : {})
+        };
+      }
     }
     if (!result) throw new GenerationError("CLI_EMPTY_OUTPUT", false);
     return result;
@@ -71,7 +81,8 @@ export function cliBinding(
               finishReason: result.finishReason,
               confidence: 0,
               citations: [],
-              totalLatencyMs: Date.now() - start
+              totalLatencyMs: Date.now() - start,
+              ...(result.usageLowerBound ? { usageLowerBound: result.usageLowerBound } : {})
             };
           }
         }

@@ -103,7 +103,12 @@ interface Charge {
   state: "reserved" | "started" | "unsettled";
   /** Window sequence active when the charge started. */
   startedIn?: number;
+  /** Highest observed lower bound of an unsettled charge; a known minimum. */
+  minimum?: bigint;
 }
+/** An open charge counts its estimate, or its known minimum when that is higher. */
+const openUnits = (c: Charge) =>
+  c.minimum !== undefined && c.minimum > c.units ? c.minimum : c.units;
 interface Pool {
   unit: QuotaEnvelope["unit"];
   /** Canonical scope; never exposed. */
@@ -274,7 +279,7 @@ export class QuotaEnvelopeLedger {
   }
   /** Everything counted against the active window: finalized usage plus every open charge. */
   private debit(poolId: string, w: Window) {
-    return this.openFor(poolId).reduce((n, c) => n + c.units, w.finalUsed);
+    return this.openFor(poolId).reduce((n, c) => n + openUnits(c), w.finalUsed);
   }
 
   /** Every check reserve() makes, with no change at all: a dry run. */
@@ -365,14 +370,33 @@ export class QuotaEnvelopeLedger {
 
   /**
    * Applies a delayed per-call report to an open, unsettled charge exactly once.
-   * Reports for unknown, final or not-yet-finished charges change nothing.
+   * Reports for unknown, final or not-yet-finished charges change nothing, and a
+   * report below the charge's known minimum is refused: it contradicts evidence.
    */
   report(id: string, value: number, now: number): boolean {
     this.clock(now);
     const amount = units(value, "INVALID_REPORT");
     const c = this.charges.get(id);
     if (!c || c.state !== "unsettled") return false;
+    if (c.minimum !== undefined && amount < c.minimum) return false;
     this.finalize(c, amount, now);
+    return true;
+  }
+
+  /**
+   * Records an observed lower bound on an open, unsettled charge. The charge stays
+   * open and counts max(estimate, highest observed minimum) in every window it
+   * reaches; repeated or lower observations are idempotent, never additive. Unknown,
+   * final, reserved or started charges, and charges in request pools (whose unit is
+   * a local invocation, not a token), change nothing.
+   */
+  observe(id: string, value: number, now: number): boolean {
+    this.clock(now);
+    const amount = units(value, "INVALID_REPORT");
+    const c = this.charges.get(id);
+    if (!c || c.state !== "unsettled" || this.pools.get(c.poolId)?.unit !== "tokens") return false;
+    if (c.minimum === undefined || amount > c.minimum) c.minimum = amount;
+    this.latest = now;
     return true;
   }
 
@@ -434,7 +458,7 @@ export class QuotaEnvelopeLedger {
             reserved: open.filter((c) => c.state === "reserved").length,
             started: open.filter((c) => c.state === "started").length,
             unsettled: open.filter((c) => c.state === "unsettled").length,
-            units: decimal(open.reduce((n, c) => n + c.units, 0n))
+            units: decimal(open.reduce((n, c) => n + openUnits(c), 0n))
           }
         };
       });

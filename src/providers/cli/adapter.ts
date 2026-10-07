@@ -1,5 +1,5 @@
 import type { ConversationContext } from "../../domain/context";
-import type { FinishReason } from "../../domain/generation";
+import type { FinishReason, ObservedUsageLowerBound } from "../../domain/generation";
 
 export interface CliReadiness {
   version: string | null;
@@ -36,7 +36,13 @@ export interface CliGenerationRequest {
 }
 export type CliGenerationEvent =
   | { type: "delta"; text: string }
-  | { type: "complete"; text: string; finishReason: FinishReason }
+  | {
+      type: "complete";
+      text: string;
+      finishReason: FinishReason;
+      /** Tokens the invocation is known to have reached; a CLI never reports complete usage. */
+      usageLowerBound?: ObservedUsageLowerBound;
+    }
   | { type: "queued"; reason: "concurrency" | "quota"; resetAt?: string };
 export interface CliAdapter {
   readonly id: string;

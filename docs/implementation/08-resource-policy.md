@@ -242,14 +242,33 @@ Q1c-c Bedrock tokens; Q1c-e request units).**
   and a result without such a finish keep the unit at its estimate and linked.
   Nothing is refunded: finalizing never lowers the debit, it retires the link, frees
   an open-charge slot and stops the unit carrying into a later window.
-- **CLI tokens (Q1c-d, not implemented).** The Hekate CLI bridge's completion frame
-  is `{type, text, finishReason}` (`bridges/hekate/claude_bridge.py`), and on a
-  length stop it ends the CLI before any result event, so the current consumer
-  protocol supplies no per-invocation token counts, and no evidence yet establishes
-  what such counts would cover when one invocation makes several model calls. CLI
-  token envelopes therefore stay estimated. Session totals, account utilization
-  snapshots and inferred cost are not substitutes. Local request counting above
-  does not depend on this.
+- **CLI tokens (Q1c-d, lower bound).** A local audit of Claude Code 2.1.285 found
+  its `result.modelUsage` cumulative per fresh process across every model call
+  (auxiliary calls included, `input_tokens` excluding cache reads and writes) and
+  the main-loop `result.usage` an undercount, but complete coverage cannot be
+  proven: auxiliary queries keep SDK retries the stream never shows, and some
+  main-loop retries after an HTTP error response continue silently. The Hekate
+  bridge (`bridges/hekate/claude_bridge.py`) therefore reports every model's
+  `inputTokens` plus `cacheReadInputTokens` plus `cacheCreationInputTokens` as input
+  and `outputTokens` as output only as an observed lower bound, and only for a
+  fresh, unpersisted `-p` process with no session-reuse flag, exactly one init from
+  2.1.285, one accepted success result, a valid non-empty `modelUsage`, main-loop
+  counts no larger than those totals and no session or model activity after the
+  result; otherwise the answer comes without one. It is an `ObservedUsageLowerBound`,
+  revalidated at each TypeScript boundary and never accepted as `ProviderUsage`.
+  For a token envelope, `CatalogDispatch` passes it to
+  `ResourceAdmission.reportQuotaLowerBound`, and the ledger's `observe` raises the
+  unsettled charge to max(estimate, highest observed minimum): repeated or lower
+  observations change nothing, the raised debit counts in every window the open
+  charge reaches, and the ticket's link and open-charge slot are kept. A lower bound
+  never lowers, finalizes or retires a charge and never applies to a request
+  envelope. A complete report below the known minimum is refused and leaves the
+  charge open; one at or above it settles normally, even below the original
+  estimate. When a result carries both, the minimum is recorded first. A length stop
+  that ends the CLI before its result reports nothing and keeps the estimate. Cost
+  fields, model names and session ids are not forwarded, and any other CLI release
+  reports nothing until re-verified. Local request counting above does not depend
+  on this.
 - **Cancellation.** A call that completed and returned usage is known consumption
   and settles its own ticket even if the turn was aborted afterwards. A thrown,
   rejected (including validation inside the work) or cancelled result keeps its
@@ -258,17 +277,43 @@ Q1c-c Bedrock tokens; Q1c-e request units).**
   account-wide usage. The charge's diagnostic row keeps its estimated units; the
   envelope projection shows the settled amount. Streamed Azure calls on any API
   version other than `2024-10-21`, Bedrock metadata that misses its 250 ms tail and
-  CLI bindings still report no tokens. Request units are local invocation counts,
-  not provider-side request or allowance accounting.
+  CLI bindings report no complete tokens (at most the observed lower bound above).
+  Request units are local invocation counts, not provider-side request or allowance
+  accounting.
 - **Clock.** Envelope decisions never use a time earlier than one already used, so
   a wall clock stepping back holds time instead of failing settlement.
 - **Visibility.** `envelopeAvailability()` is a live projection (window, remaining,
   debt) without credentials. It is kept out of persisted telemetry, since a restart
   loses the ledger it describes; the persisted accounting is unchanged.
+- **Runtime declarations (2026-10-07).** The operator-only
+  `POST /routing/quota-envelopes/declare` declares a window for an envelope pool that
+  configuration already declared, through `ResourceAdmission.declareQuotaEnvelope`.
+  The body is one strict envelope declaration (the same schema as configuration, so
+  an observation-shaped payload is invalid), and the ledger's rules below apply
+  unchanged: an identical declaration is a no-op, the same window may only refresh
+  to newer evidence with the same allowance, and a successor needs a higher sequence,
+  no overlap, no start before now, and the pool's unit and scope. Unknown pools,
+  static quota pools among them, are refused, so no pool or binding is added at
+  runtime and the pool cap cannot be bypassed. One admission time is sampled and
+  committed only on success; every refusal leaves the ledger and the clock
+  unchanged. The call is synchronous after the body is read, so declarations are
+  applied one at a time.
+  - **Answers.** `200 {outcome}` with `declared`, `refreshed` or `unchanged`.
+    Refusals carry a code and a fixed message, never the payload or its scope:
+    `400 QUOTA_DECLARATION_INVALID`, `404 QUOTA_DECLARATION_POOL_UNKNOWN`,
+    `409 QUOTA_DECLARATION_CONFLICT`, `409 QUOTA_DECLARATION_CAPACITY` (the oldest
+    retained window is still active, unended or referenced by an open charge) and
+    `503 QUOTA_DECLARATION_CLOCK_UNAVAILABLE`. Without catalog dispatch the route
+    answers `404 QUOTA_ENVELOPES_DISABLED`. The usual local authentication, body
+    limit, object-body check and exact-origin rule for browser sessions apply.
+  - **Not claimed.** Declarations are not persisted: a restart returns to the
+    configured windows. There is no inventory route, no automatic refresh and no
+    provider reconciliation; a declaration is still the operator's statement, not a
+    provider observation.
 - **Not claimed.** This is in-process: a restart loses it, and it is no
-  account-wide cap across processes. Windows change only through configuration and
-  a restart; no runtime declaration route exists yet. Provider authority remains
-  unsupported.
+  account-wide cap across processes. Pools and bindings change only through
+  configuration and a restart; runtime declarations (above) add windows to existing
+  pools only and are lost on restart. Provider authority remains unsupported.
 
 - **Declarations.** An envelope names its pool, window id, an explicit successor
   `sequence`, fixed bounds, allowance, unit, scope (`account` or one configured

@@ -32,7 +32,7 @@ const rule = (
 
 /**
  * Every route the server answers, as of commit 2cecb5b plus the pairing routes of the
- * activation slice. The server's handlers are inventoried in
+ * activation slice and later additions. The server's handlers are inventoried in
  * docs/implementation/14-local-authentication.md; this list does not detect a handler
  * added later, so wiring must share these definitions or check for drift.
  */
@@ -81,6 +81,8 @@ export const ROUTES: readonly RouteRule[] = [
   rule("GET", "/telemetry/context", "operator"),
   rule("POST", "/routing/policy/tune", "operator"),
   rule("POST", "/routing/policy/set", "operator"),
+  // Runtime windows for envelope pools that configuration already declared.
+  rule("POST", "/routing/quota-envelopes/declare", "operator"),
   rule("GET", "/conversations/retention", "operator"),
   rule("DELETE", "/conversations/:conversationId/identity", "operator")
 ];

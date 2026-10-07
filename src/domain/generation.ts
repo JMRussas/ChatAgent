@@ -13,6 +13,18 @@ export interface GenerationResult {
   finishReason: FinishReason;
   /** Present only when the completed response reported valid counts. */
   usage?: ProviderUsage;
+  /** Consumption the call is known to have reached; never shown to be complete. */
+  usageLowerBound?: ObservedUsageLowerBound;
+}
+/**
+ * Tokens one call is known to have consumed at least, when its full consumption
+ * cannot be shown (for example retries a CLI never reports). It may raise an open
+ * charge but never settles or lowers one, so it is never a ProviderUsage.
+ */
+export interface ObservedUsageLowerBound {
+  source: "observed-lower-bound";
+  inputTokens: number;
+  outputTokens: number;
 }
 const tokenCount = (value: unknown): value is number =>
   Number.isSafeInteger(value) && (value as number) >= 0;
@@ -38,6 +50,22 @@ export function validProviderUsage(value: unknown): ProviderUsage | undefined {
   const usage = value as Record<string, unknown>;
   return usage.source === "provider-response"
     ? providerUsage(usage.inputTokens, usage.outputTokens)
+    : undefined;
+}
+/** Normalizes observed minimum counts under the same rules as providerUsage. */
+export function observedUsageLowerBound(
+  inputTokens: unknown,
+  outputTokens: unknown
+): ObservedUsageLowerBound | undefined {
+  const counted = providerUsage(inputTokens, outputTokens);
+  return counted && { ...counted, source: "observed-lower-bound" };
+}
+/** Revalidates a lower bound crossing a boundary; complete usage is not one. */
+export function validObservedUsageLowerBound(value: unknown): ObservedUsageLowerBound | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const usage = value as Record<string, unknown>;
+  return usage.source === "observed-lower-bound"
+    ? observedUsageLowerBound(usage.inputTokens, usage.outputTokens)
     : undefined;
 }
 export interface GenerationMetadata {
