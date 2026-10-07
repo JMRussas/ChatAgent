@@ -1,4 +1,4 @@
-import type { FinishReason, GenerationMetadata } from "./generation";
+import type { FinishReason, GenerationMetadata, ProviderUsage } from "./generation";
 import type { ConversationContext } from "./context";
 
 export type RouteDecision = "direct" | "deep" | "clarify";
@@ -55,6 +55,8 @@ export interface DeepResult {
   confidence: number;
   citations: string[];
   totalLatencyMs: number;
+  /** Present only when the completed response reported valid counts. */
+  usage?: ProviderUsage;
 }
 
 export interface ChatTimelineEvent {

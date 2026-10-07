@@ -11,8 +11,10 @@ import type { ModelObservation } from "../models/inventory";
 import {
   GenerationError,
   normalizeGenerationError,
+  validProviderUsage,
   type GenerationMetadata,
-  type GenerationControl
+  type GenerationControl,
+  type ProviderUsage
 } from "../domain/generation";
 import { classifyTaskRequirements, type ModelTask } from "./taskClassifier";
 import { rankModels, ModelSelectionError, type Candidate } from "./modelSelector";
@@ -60,6 +62,24 @@ function abortError(signal: AbortSignal) {
  * by their own retention limits; expiring them never changes recorded usage.
  * @test tests/integration/executionRetention.test.ts :: bounds completed lifecycle and dispatch records after repeated direct turns
  * @test tests/unit/admissionRetention.test.ts :: compacts completed requests while retaining spend and quota after TTL
+ *
+ * @invariant only-completed-provider-usage-settles — A started ticket on a token-envelope
+ * binding is settled at the provider's own reported input plus output tokens only when
+ * its work returned a stop or length result carrying valid usage, even if the turn was
+ * aborted after that call completed. Every other outcome (thrown, rejected, cancelled,
+ * missing or invalid usage, other quota kinds) keeps the reservation's estimate, and
+ * money is never reported.
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles a completed token-envelope call at its reported usage and retires its link
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the estimate when %s
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles known consumption that completed after an abort
+ * @test tests/integration/quotaUsageSettlement.test.ts :: never reports into %s
+ *
+ * @invariant usage-settles-its-own-ticket-once — A report applies to the exact ticket the
+ * work ran on, after that ticket finished, at most once; if finishing throws, the ticket
+ * is kept and nothing is reported.
+ * @test tests/integration/quotaUsageSettlement.test.ts :: applies a report once; a repeated finish changes nothing
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the ticket and reports nothing when settlement throws
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles only the ticket that ran after a fallback
  *
  * @decision docs/implementation/08-resource-policy.md#admission-and-selection-04
  */
@@ -337,20 +357,24 @@ export class CatalogDispatch {
   ): Promise<T> {
     const start = Date.now();
     let outcome = "error";
+    let usage: ProviderUsage | undefined;
     try {
       await this.begin(phase, control.signal);
       control.signal.throwIfAborted();
       const result = await work();
-      outcome = control.signal.aborted
-        ? "cancelled"
-        : ((result as { finishReason?: string }).finishReason ?? "stop");
+      const finishReason = (result as { finishReason?: string }).finishReason;
+      outcome = control.signal.aborted ? "cancelled" : (finishReason ?? "stop");
+      // A completed call's own usage is known consumption, even if the turn was
+      // aborted after it returned. Anything work() threw or rejected stays estimated.
+      if (finishReason === "stop" || finishReason === "length")
+        usage = validProviderUsage((result as { usage?: unknown }).usage);
       return result;
     } catch (error) {
       outcome = normalizeGenerationError(error).code;
       throw error;
     } finally {
       this.record(phase, control.attemptId, size, outcome, Date.now() - start);
-      this.finish(phase);
+      this.finish(phase, usage);
     }
   }
   wrapSummary(
@@ -461,9 +485,20 @@ export class CatalogDispatch {
       );
     }
   }
-  finish(phase: PhaseDispatch) {
-    if (phase.ticket) this.admission.finish(phase.ticket);
+  /**
+   * Finishes the phase's ticket. Valid usage from its completed call then settles that
+   * exact ticket's token envelope through the delayed per-call report; money, static
+   * quotas and request envelopes are left unreported.
+   */
+  finish(phase: PhaseDispatch, usage?: ProviderUsage) {
+    const ticket = phase.ticket;
+    if (!ticket) return;
+    // If this throws, the ticket is kept for a retry and nothing is reported.
+    this.admission.finish(ticket);
     phase.ticket = undefined;
+    const reported = validProviderUsage(usage);
+    if (reported && phase.candidate.resources?.quotaEnvelope?.unit === "tokens")
+      this.admission.reportQuotaUsage(ticket, reported.inputTokens + reported.outputTokens);
   }
   /**
    * Gives back a phase's reservation if its work never started.

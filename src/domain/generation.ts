@@ -1,7 +1,44 @@
 export type FinishReason = "stop" | "length" | "cancelled";
+/**
+ * Token counts the provider reported for one completed call in that call's own
+ * response. Never an estimate, a text-derived count or a provider aggregate.
+ */
+export interface ProviderUsage {
+  source: "provider-response";
+  inputTokens: number;
+  outputTokens: number;
+}
 export interface GenerationResult {
   text: string;
   finishReason: FinishReason;
+  /** Present only when the completed response reported valid counts. */
+  usage?: ProviderUsage;
+}
+const tokenCount = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && (value as number) >= 0;
+/**
+ * Normalizes raw provider counts. Returns undefined unless both are non-negative
+ * safe integers whose sum is also a safe integer.
+ */
+export function providerUsage(
+  inputTokens: unknown,
+  outputTokens: unknown
+): ProviderUsage | undefined {
+  if (
+    !tokenCount(inputTokens) ||
+    !tokenCount(outputTokens) ||
+    !Number.isSafeInteger(inputTokens + outputTokens)
+  )
+    return undefined;
+  return { source: "provider-response", inputTokens, outputTokens };
+}
+/** Revalidates usage crossing a boundary: its declared type alone is not trusted. */
+export function validProviderUsage(value: unknown): ProviderUsage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const usage = value as Record<string, unknown>;
+  return usage.source === "provider-response"
+    ? providerUsage(usage.inputTokens, usage.outputTokens)
+    : undefined;
 }
 export interface GenerationMetadata {
   provider: string;

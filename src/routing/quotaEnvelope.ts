@@ -6,8 +6,8 @@ import { decimalUnits } from "./decimalAccounting";
  * Conservative local accounting against operator-declared fixed-window quota
  * envelopes. This is NOT authoritative provider reconciliation: the only authority
  * is an explicit configured envelope, nothing here reads provider aggregate
- * observations, and nothing is refunded on the strength of one. Unwired: admission
- * does not use it yet.
+ * observations, and nothing is refunded on the strength of one. Admission uses it
+ * for bindings that opt in with resources.quotaEnvelope.
  *
  * Every open charge (reserved, started, or finished without reported usage) counts
  * once against the window active at the time of the check. A reservation therefore

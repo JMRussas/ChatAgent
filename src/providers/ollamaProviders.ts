@@ -1,6 +1,7 @@
 import {
   GenerationError,
   httpGenerationError,
+  providerUsage,
   type GenerationControl,
   type GenerationResult
 } from "../domain/generation";
@@ -10,6 +11,18 @@ import { AnswerCollector, parseFrame, streamLines, withGenerationDeadline } from
 // Non-streaming response: {message: {role, content, thinking?}, done, done_reason}.
 // (Previously used /api/generate's {prompt} request / {response, thinking, done_reason}
 // response shape; migrated per spec 01 so role-based system/history messages can be sent.)
+// Usage statistics (docs.ollama.com/api/chat and docs/api.md, checked 2026-10-07):
+// the final done frame and the non-streaming response carry prompt_eval_count
+// (prompt tokens) and eval_count (generated tokens). Do not add cached prompt
+// tokens again; nothing here implies a billed amount.
+
+/** Adds the terminal frame's own counts to an accepted completion, if valid. */
+function withUsage(result: GenerationResult, frame: unknown): GenerationResult {
+  const final = frame as { done?: unknown; prompt_eval_count?: unknown; eval_count?: unknown };
+  if (!final || final.done !== true) return result;
+  const usage = providerUsage(final.prompt_eval_count, final.eval_count);
+  return usage ? { ...result, usage } : result;
+}
 import { buildSystemAndMessages } from "./contextMessages";
 import type { ConversationContext } from "../domain/context";
 import type { DeepResult, DeepTask, UserMessage } from "../domain/types";
@@ -54,7 +67,7 @@ async function callOllamaChat(
     if (!control) {
       const payload = await response.json();
       await collector.add(payload.message?.content ?? "");
-      return collector.finish(payload.done_reason ?? "stop");
+      return withUsage(collector.finish(payload.done_reason ?? "stop"), payload);
     }
     for await (const line of streamLines(response, signal)) {
       if (!line.trim()) continue;
@@ -67,7 +80,8 @@ async function callOllamaChat(
       )
         throw new GenerationError("INVALID_STREAM", false);
       await collector.add(frame.message.content ?? ""); // Never expose message.thinking.
-      if (frame.done) return collector.finish(frame.done_reason);
+      // Counts on non-terminal frames are never read.
+      if (frame.done) return withUsage(collector.finish(frame.done_reason), frame);
     }
     throw new GenerationError("INVALID_STREAM", false);
   });
@@ -225,7 +239,8 @@ export class OllamaDeepProvider implements DeepModelProvider {
       finishReason: result.finishReason,
       confidence: 0.8,
       citations: [],
-      totalLatencyMs: Date.now() - start
+      totalLatencyMs: Date.now() - start,
+      ...(result.usage ? { usage: result.usage } : {})
     };
   }
 }

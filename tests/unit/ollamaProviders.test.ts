@@ -239,3 +239,192 @@ describe("ollama providers", () => {
     vi.useRealTimers();
   });
 });
+
+describe("ollama per-call usage", () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+  const input = {
+    message: { conversationId: "c", userId: "u", text: "hi", timestampIso: "2026-10-07T00:00:00Z" },
+    correctedText: "hi",
+    routeDecision: "direct" as const
+  };
+  const deepTask = {
+    taskId: "t",
+    conversationId: "c",
+    normalizedPrompt: "analyze",
+    createdAtIso: "2026-10-07T00:00:00Z"
+  };
+  const reply = (body: unknown) => {
+    global.fetch = vi.fn(async () => Response.json(body)) as unknown as typeof fetch;
+  };
+  const stream = (frames: unknown[]) => {
+    global.fetch = vi.fn(
+      async () => new Response(frames.map((f) => JSON.stringify(f)).join("\n") + "\n")
+    ) as unknown as typeof fetch;
+  };
+  const control = () => {
+    const controller = new AbortController();
+    return {
+      controller,
+      value: { signal: controller.signal, attemptId: "a", onDelta: async () => {} }
+    };
+  };
+  const fast = () => new OllamaFastProvider("http://localhost:11434", "m", 0);
+  const deep = () => new OllamaDeepProvider("http://localhost:11434", "m", 0);
+  const usage = (inputTokens: number, outputTokens: number) => ({
+    source: "provider-response",
+    inputTokens,
+    outputTokens
+  });
+
+  it("reports the completed non-streaming response's own counts", async () => {
+    reply({
+      message: { content: "answer" },
+      done: true,
+      done_reason: "stop",
+      prompt_eval_count: 12,
+      eval_count: 5
+    });
+    expect(await fast().createProvisionalReply(input)).toEqual({
+      text: "answer",
+      finishReason: "stop",
+      usage: usage(12, 5)
+    });
+    reply({
+      message: { content: "" },
+      done: true,
+      done_reason: "length",
+      prompt_eval_count: 3,
+      eval_count: 64
+    });
+    expect(await fast().createProvisionalReply(input)).toEqual({
+      text: "",
+      finishReason: "length",
+      usage: usage(3, 64)
+    });
+  });
+
+  it("omits usage from a non-streaming response not marked done", async () => {
+    for (const done of [undefined, false, "true", 1]) {
+      reply({ message: { content: "answer" }, done, prompt_eval_count: 12, eval_count: 5 });
+      const result = await fast().createProvisionalReply(input);
+      expect(result).toEqual({ text: "answer", finishReason: "stop" });
+      expect(result).not.toHaveProperty("usage");
+    }
+  });
+
+  it.each([
+    ["a missing prompt count", { eval_count: 5 }],
+    ["a missing generated count", { prompt_eval_count: 5 }],
+    ["a negative count", { prompt_eval_count: -1, eval_count: 5 }],
+    ["a fractional count", { prompt_eval_count: 1.5, eval_count: 5 }],
+    ["a string count", { prompt_eval_count: "12", eval_count: 5 }],
+    ["a null count", { prompt_eval_count: null, eval_count: 5 }],
+    ["an unsafe count", { prompt_eval_count: Number.MAX_SAFE_INTEGER + 1, eval_count: 0 }],
+    ["an overflowing sum", { prompt_eval_count: Number.MAX_SAFE_INTEGER, eval_count: 1 }]
+  ] as [string, Record<string, unknown>][])(
+    "keeps the answer but omits usage with %s",
+    async (_label, counts) => {
+      reply({ message: { content: "answer" }, done: true, done_reason: "stop", ...counts });
+      const result = await fast().createProvisionalReply(input);
+      expect(result).toEqual({ text: "answer", finishReason: "stop" });
+      expect(result).not.toHaveProperty("usage");
+      stream([{ message: { content: "answer" }, done: true, done_reason: "stop", ...counts }]);
+      const streamed = await fast().createProvisionalReply(input, control().value);
+      expect(streamed).toEqual({ text: "answer", finishReason: "stop" });
+      expect(streamed).not.toHaveProperty("usage");
+    }
+  );
+
+  it("reports only the terminal stream frame's counts", async () => {
+    stream([
+      { message: { content: "a" }, done: false, prompt_eval_count: 900, eval_count: 900 },
+      {
+        message: { content: "b" },
+        done: true,
+        done_reason: "stop",
+        prompt_eval_count: 7,
+        eval_count: 2
+      }
+    ]);
+    expect(await fast().createProvisionalReply(input, control().value)).toEqual({
+      text: "ab",
+      finishReason: "stop",
+      usage: usage(7, 2)
+    });
+    stream([
+      { message: { content: "a" }, done: false, prompt_eval_count: 900, eval_count: 900 },
+      { message: { content: "b" }, done: true, done_reason: "length" }
+    ]);
+    const result = await fast().createProvisionalReply(input, control().value);
+    expect(result).toEqual({ text: "ab", finishReason: "length" });
+    expect(result).not.toHaveProperty("usage");
+  });
+
+  it("reports nothing for an unaccepted completion, an unterminated stream or a cancellation", async () => {
+    stream([
+      {
+        message: { content: "a" },
+        done: true,
+        done_reason: "load",
+        prompt_eval_count: 7,
+        eval_count: 2
+      }
+    ]);
+    await expect(fast().createProvisionalReply(input, control().value)).rejects.toThrow(
+      "UNSUPPORTED_FINISH"
+    );
+    stream([{ message: { content: "a" }, done: false, prompt_eval_count: 7, eval_count: 2 }]);
+    await expect(fast().createProvisionalReply(input, control().value)).rejects.toThrow(
+      "INVALID_STREAM"
+    );
+    stream([
+      { message: { content: "a" }, done: false },
+      {
+        message: { content: "b" },
+        done: true,
+        done_reason: "stop",
+        prompt_eval_count: 7,
+        eval_count: 2
+      }
+    ]);
+    const c = control();
+    const cancelling = {
+      ...c.value,
+      onDelta: async () => {
+        c.controller.abort();
+      }
+    };
+    await expect(fast().createProvisionalReply(input, cancelling)).rejects.toThrow("CANCELLED");
+  });
+
+  it("propagates deep usage from streaming and non-streaming completions", async () => {
+    reply({
+      message: { content: "deep" },
+      done: true,
+      done_reason: "stop",
+      prompt_eval_count: 30,
+      eval_count: 10
+    });
+    expect((await deep().resolveDeepTask(deepTask)).usage).toEqual(usage(30, 10));
+    stream([
+      {
+        message: { content: "deep" },
+        done: true,
+        done_reason: "length",
+        prompt_eval_count: 4,
+        eval_count: 9
+      }
+    ]);
+    const streamed = await deep().resolveDeepTask(deepTask, control().value);
+    expect(streamed).toMatchObject({
+      finalReply: "deep",
+      finishReason: "length",
+      usage: usage(4, 9)
+    });
+    reply({ message: { content: "deep" }, done: true, done_reason: "stop" });
+    expect(await deep().resolveDeepTask(deepTask)).not.toHaveProperty("usage");
+  });
+});

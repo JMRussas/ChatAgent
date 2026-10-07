@@ -1284,6 +1284,22 @@ connection cap; real-socket integration tests cover that boundary separately.
   bounded settlement links independently of diagnostic history; exhausting that
   bound refuses new work. Restart still loses the ledger, and elapsed time never
   retires uncertain usage.
+  _Per-call usage reporting slice Q1c-a implemented and reviewed 2026-10-07; see
+  [per-call usage reporting](implementation/08-resource-policy.md#configured-quota-envelopes-2026-10-06):_
+  Ollama results carry the provider's own terminal-frame token counts, and catalog
+  dispatch settles the exact token-envelope ticket through `reportQuotaUsage`,
+  retiring its settlement link. Money, static quotas and request envelopes are
+  unchanged; thrown, rejected, cancelled or count-less results stay estimated.
+  Validation on Windows Node 24.21.0: 1,513 tests across 138 files and 34 browser
+  tests pass, together with format, lint and documentation-contract checks. Claude
+  implemented the slice; Codex source review and lead verification included added
+  regressions for reported overage/debt, settlement beyond the open-charge cap and
+  an Ollama deep response settling only its own ticket. All provider responses in
+  these checks are offline fixtures; no live provider calls or service restart.
+  Still open: Azure,
+  Bedrock and CLI usage (each needs its own primary-source check of what its counts
+  include), request-unit reports, a runtime window-declaration route and
+  provider-authoritative reconciliation.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._

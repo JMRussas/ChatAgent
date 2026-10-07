@@ -133,11 +133,42 @@ envelopes behave exactly as before.
   envelope ledger's refusal itself changes nothing.
 - **Settlement** uses one report decision for both ledgers (a report counts only if
   both amounts are valid). Work finished without a report stays debited at its
-  estimate and keeps a link until a per-call report is applied; nothing reports
-  usage today, so those debits accumulate, and an envelope can be exhausted by
-  unreported work. That is deliberate: elapsed time is not proof of what was
+  estimate and keeps a link until a per-call report is applied. Only Ollama
+  token-envelope calls report usage so far (below); every other binding's debits
+  accumulate, and an envelope can be exhausted by unreported work or by its
+  open-charge cap. That is deliberate: elapsed time is not proof of what was
   consumed. If envelope settlement ever fails, nothing changes in either ledger and
   the work keeps its compute until settlement succeeds.
+
+**Per-call usage reporting (Q1c-a, 2026-10-07: Ollama, token envelopes only).**
+
+- **Source.** `GenerationResult` and `DeepResult` carry optional `usage`
+  (`source: "provider-response"`, `inputTokens`, `outputTokens`). Both counts must be
+  non-negative safe integers with a safe sum, or there is no usage. The Ollama
+  adapter sets it only from the `done: true` final frame or non-streaming response,
+  after the completion is accepted as stop or length: `prompt_eval_count` is input
+  and `eval_count` output ([chat API](https://docs.ollama.com/api/chat) and
+  [api.md](https://github.com/ollama/ollama/blob/main/docs/api.md), checked
+  2026-10-07). Counts on non-terminal frames are never read. Missing or invalid
+  counts keep the answer and omit usage; nothing is derived from text. Deep results
+  carry the same usage.
+- **Settlement.** `CatalogDispatch.execute` revalidates the returned usage and keeps
+  it only for a stop or length result. `finish` then finishes the exact ticket as
+  before and, for a token-envelope binding only, applies input plus output through
+  the existing delayed `reportQuotaUsage`, which retires the link. Money is never
+  reported (no invented zero charge), and static quotas, request envelopes and
+  envelope-free bindings are unchanged. If finishing throws, the ticket is kept and
+  nothing is reported. Reported usage above the estimate is charged in full,
+  including debt above the allowance; it blocks further admission. Finalizing
+  reports frees open-charge slots without forgetting their consumed tokens.
+- **Cancellation.** A call that completed and returned usage is known consumption
+  and settles its own ticket even if the turn was aborted afterwards. A thrown,
+  rejected (including validation inside the work) or cancelled result keeps its
+  estimate.
+- **Not claimed.** These are the provider's per-call counts, not billed amounts or
+  account-wide usage. The charge's diagnostic row keeps its estimated units; the
+  envelope projection shows the settled amount. Azure, Bedrock and CLI bindings, and
+  request-unit reporting, still report nothing.
 - **Clock.** Envelope decisions never use a time earlier than one already used, so
   a wall clock stepping back holds time instead of failing settlement.
 - **Visibility.** `envelopeAvailability()` is a live projection (window, remaining,
