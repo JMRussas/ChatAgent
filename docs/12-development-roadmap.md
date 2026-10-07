@@ -1839,6 +1839,16 @@ tests on the final source and 2,131 tests before only the summary wording change
 Format, lint and documentation checks passed. The consumer gate is accepted;
 CA-ISSUE-011 remains implemented pending a real producer export and end-to-end check.
 
+_Export input implemented and root-accepted 2026-10-07 (CA-ISSUE-011):_
+`compose --export <dir>` reads the closed 13-file `handoff-export.v0` layout root
+froze in bridge message 1549. It refuses missing, extra, nested or linked entries,
+files replaced after listing, and any index other than the canonical one, then
+always checks the expectation. Tests use a synthetic golden-derived export; the
+Hekate producer, a captured real export and the end-to-end check remain outstanding.
+Root independently passed 86 CLI and publishing tests after reviewing the bounded
+directory-listing correction. Claude passed all 435 handoff tests; format, lint and
+documentation checks passed. CA-ISSUE-011 remains implemented pending the producer.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for

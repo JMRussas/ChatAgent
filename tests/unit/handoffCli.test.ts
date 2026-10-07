@@ -7,6 +7,8 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
+  unlinkSync,
   writeFileSync
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -367,22 +369,23 @@ describe("--emit-request (CA-ISSUE-003 slot)", () => {
   });
 });
 
+/** A v0 expectation from the golden valid composition (produced with the real H1). */
+const goldenExpectation = () => {
+  const expected = JSON.parse(readFileSync(join(GOLDEN, "expected/valid/expected.json"), "utf8"));
+  const wrapper = JSON.parse(readFileSync(join(GOLDEN, "delivery/wrapper.json"), "utf8"));
+  return {
+    version: "handoff-expectation.v0",
+    h1Builder: "chatagent-h1",
+    viewDigest: expected.viewDigest,
+    viewPartSha256: sha256Hex(readFileSync(join(GOLDEN, "expected/valid/view-part.txt"))),
+    reservationTokens: expected.reservationTokens,
+    viewCost: expected.viewCost,
+    h1SuppliedSha256: expected.h1SuppliedSha256,
+    candidateDigest: wrapper.candidateDigest
+  } as Record<string, unknown>;
+};
+
 describe("--expect parity with the producer's consumer (CA-ISSUE-011)", () => {
-  /** A v0 expectation from the golden valid composition (produced with the real H1). */
-  const goldenExpectation = () => {
-    const expected = JSON.parse(readFileSync(join(GOLDEN, "expected/valid/expected.json"), "utf8"));
-    const wrapper = JSON.parse(readFileSync(join(GOLDEN, "delivery/wrapper.json"), "utf8"));
-    return {
-      version: "handoff-expectation.v0",
-      h1Builder: "chatagent-h1",
-      viewDigest: expected.viewDigest,
-      viewPartSha256: sha256Hex(readFileSync(join(GOLDEN, "expected/valid/view-part.txt"))),
-      reservationTokens: expected.reservationTokens,
-      viewCost: expected.viewCost,
-      h1SuppliedSha256: expected.h1SuppliedSha256,
-      candidateDigest: wrapper.candidateDigest
-    } as Record<string, unknown>;
-  };
   const withExpectation = (content: string) => {
     const dir = temp();
     writeFileSync(join(dir, "expected.json"), content);
@@ -459,5 +462,173 @@ describe("--expect parity with the producer's consumer (CA-ISSUE-011)", () => {
     expect(run([...goldenArgs(out), "--expect", join(temp(), "none.json")]).stderr).toBe(
       "handoff: input_unreadable\n"
     );
+  });
+});
+
+describe("--export of one handoff-export.v0 directory (contract 1549)", () => {
+  /**
+   * A SYNTHETIC export built from the golden bundle, labelled so in its provenance: it
+   * exercises the layout and checks only; no pilot ran and no producer wrote it.
+   */
+  const files = (): Record<string, Buffer> => ({
+    ...Object.fromEntries(
+      readdirSync(join(GOLDEN, "delivery")).map((f) => [
+        `delivery/${f}`,
+        readFileSync(join(GOLDEN, "delivery", f))
+      ])
+    ),
+    "fresh.json": readFileSync(join(GOLDEN, "inputs/fresh.json")),
+    "policy.json": readFileSync(join(GOLDEN, "inputs/policy-allow.json")),
+    "request.json": readFileSync(join(GOLDEN, "inputs/request.json")),
+    "retrieval.json": readFileSync(join(GOLDEN, "recorded/retrieval.json")),
+    "expected.json": Buffer.from(JSON.stringify(goldenExpectation(), null, 2) + "\n"),
+    "view-part.txt": readFileSync(join(GOLDEN, "expected/valid/view-part.txt")),
+    "provenance.json": Buffer.from(
+      JSON.stringify({
+        exportVersion: "handoff-export.v0",
+        synthetic: true,
+        note: "SYNTHETIC: derived from tests/fixtures/hekate/e2e-consumer-v0; no pilot ran"
+      })
+    )
+  });
+  const indexOf = (content: Record<string, Buffer>) =>
+    Object.keys(content)
+      .sort()
+      .map((path) => `${sha256Hex(content[path])}  ${path}\n`)
+      .join("");
+  /** Writes an export; `index` overrides the canonical index text. */
+  const writeExport = (content = files(), index = indexOf(content)) => {
+    const dir = join(temp(), "export");
+    for (const [path, bytes] of Object.entries(content)) {
+      mkdirSync(join(dir, path, ".."), { recursive: true });
+      writeFileSync(join(dir, path), bytes);
+    }
+    writeFileSync(join(dir, "INDEX.sha256"), index);
+    return dir;
+  };
+  const compose = (dir: string, ...extra: string[]) => {
+    const out = join(temp(), "out");
+    return { out, result: run(["compose", "--export", dir, "--out", out, ...extra]) };
+  };
+  const refused = (dir: string, code = "export_invalid") => {
+    const { out, result } = compose(dir);
+    expect(result).toEqual({ code: 1, stdout: "", stderr: `handoff: ${code}\n` });
+    expect(existsSync(out)).toBe(false);
+  };
+
+  it("composes with the real H1, matches the expectation and records the export", () => {
+    const dir = writeExport();
+    const { out, result } = compose(dir);
+    expect(result.code).toBe(0);
+    expect(readFileSync(join(out, "view-part.txt"))).toEqual(
+      readFileSync(join(dir, "view-part.txt"))
+    );
+    const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"));
+    expect(summary.expectation).toMatchObject({
+      sha256: sha256Hex(readFileSync(join(dir, "expected.json"))),
+      result: "matches the supplied expectation"
+    });
+    expect(summary.export).toMatchObject({
+      version: "handoff-export.v0",
+      indexSha256: sha256Hex(readFileSync(join(dir, "INDEX.sha256"))),
+      provenanceSha256: sha256Hex(readFileSync(join(dir, "provenance.json"))),
+      files: 13
+    });
+    expect(summary.export.integrity).toContain("not authenticated producer evidence");
+    expect(summary.export.provenance).toContain("producer-declared");
+    expect(summary.inputs.retrieval).toBe(sha256Hex(readFileSync(join(dir, "retrieval.json"))));
+  });
+
+  it("emits a worker request from an export", () => {
+    const { out, result } = compose(writeExport(), "--emit-request", "deep");
+    expect(result.code).toBe(0);
+    expect(JSON.parse(readFileSync(join(out, "request.json"), "utf8"))).toMatchObject({
+      role: "deep"
+    });
+  });
+
+  it.each([
+    ["an input path flag", ["--fresh", "x.json"]],
+    ["an expectation flag", ["--expect", "x.json"]],
+    ["a retrieval flag", ["--retrieval", "x.json"]]
+  ])("refuses --export mixed with %s as a usage error", (_label, extra) => {
+    expect(compose("export", ...extra).result.code).toBe(2);
+  });
+
+  it("requires --out with --export", () => {
+    expect(run(["compose", "--export", "export"]).code).toBe(2);
+  });
+
+  it("refuses an altered expectation as expectation_mismatch", () => {
+    const content = files();
+    content["expected.json"] = Buffer.from(
+      JSON.stringify({ ...goldenExpectation(), viewDigest: "0".repeat(64) })
+    );
+    refused(writeExport(content), "expectation_mismatch");
+  });
+
+  it.each<[string, (c: Record<string, Buffer>) => void]>([
+    ["a missing file, even when indexed consistently", (c) => delete c["fresh.json"]],
+    ["an extra top-level file", (c) => (c["notes.txt"] = Buffer.from("x"))],
+    ["an extra nested file", (c) => (c["delivery/extra.bin"] = Buffer.from("x"))],
+    ["an extra subdirectory", (c) => (c["more/fresh.json"] = Buffer.from("x"))],
+    [
+      "a provenance of another version",
+      (c) => (c["provenance.json"] = Buffer.from('{"exportVersion":"handoff-export.v1"}'))
+    ],
+    ["a provenance that is not JSON", (c) => (c["provenance.json"] = Buffer.from("{"))],
+    [
+      "a view part that is not the expected one",
+      (c) => (c["view-part.txt"] = Buffer.concat([c["view-part.txt"], Buffer.from(" ")]))
+    ]
+  ])("refuses %s as export_invalid", (_label, change) => {
+    const content = files();
+    change(content);
+    refused(writeExport(content));
+  });
+
+  it("refuses a one-byte change after indexing", () => {
+    const dir = writeExport();
+    const policy = readFileSync(join(dir, "policy.json"));
+    policy[policy.length - 2] ^= 1;
+    writeFileSync(join(dir, "policy.json"), policy);
+    refused(dir);
+  });
+
+  it.each<[string, (index: string) => string]>([
+    ["CRLF line endings", (i) => i.replaceAll("\n", "\r\n")],
+    ["no final newline", (i) => i.slice(0, -1)],
+    ["unsorted lines", (i) => i.trimEnd().split("\n").reverse().join("\n") + "\n"],
+    ["a duplicated line", (i) => i + i.split("\n")[0] + "\n"],
+    ["an uppercase hash", (i) => i.replace(/^[0-9a-f]{64}/, (h) => h.toUpperCase())],
+    ["a traversal path", (i) => i.replace("  fresh.json", "  ../fresh.json")],
+    ["a self entry", (i) => i + `${"0".repeat(64)}  INDEX.sha256\n`],
+    ["a single space separator", (i) => i.replaceAll("  ", " ")],
+    ["an empty index", () => ""]
+  ])("refuses an index with %s", (_label, change) => {
+    refused(writeExport(files(), change(indexOf(files()))));
+  });
+
+  it("refuses a missing index", () => {
+    const dir = writeExport();
+    unlinkSync(join(dir, "INDEX.sha256"));
+    refused(dir);
+  });
+
+  it("refuses a missing export directory", () => {
+    refused(join(temp(), "none"));
+  });
+
+  it("refuses a linked delivery directory and a linked export root", () => {
+    // Junctions need no privilege on Windows; elsewhere the type argument is ignored.
+    const dir = writeExport();
+    const real = join(temp(), "delivery");
+    cpSync(join(dir, "delivery"), real, { recursive: true });
+    rmSync(join(dir, "delivery"), { recursive: true });
+    symlinkSync(real, join(dir, "delivery"), "junction");
+    refused(dir);
+    const link = join(temp(), "linked");
+    symlinkSync(writeExport(), link, "junction");
+    refused(link);
   });
 });

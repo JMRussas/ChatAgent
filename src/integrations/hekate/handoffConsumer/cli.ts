@@ -1,8 +1,10 @@
 import {
   closeSync,
   fstatSync,
+  lstatSync,
   mkdirSync,
   openSync,
+  opendirSync,
   readSync,
   rmdirSync,
   unlinkSync,
@@ -32,8 +34,10 @@ import { AttachRefusal, HANDOFF_VIEW_SLOT, handoffWorkerRequest } from "./worker
  *
  *   npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <file>
  *     --request <file> --out <new-dir> [--retrieval <recorded.json>]
+ *   npx tsx scripts/handoff.ts compose --export <dir> --out <new-dir>
  *
- * It reads only the files named, composes with ChatAgent's own H1 at this checkout,
+ * It reads only the files named (or the fixed files of one `handoff-export.v0`
+ * directory, checked against its index), composes with ChatAgent's own H1 at this checkout,
  * and writes the emitted view part, the bound H1 text and a summary into a new
  * directory. The snapshot file is a historical as-of input, never live authority.
  * Nothing touches a network, a provider, a source store or a conversation; there is
@@ -56,7 +60,8 @@ export type CliErrorCode =
   | "output_unwritable"
   | "request_unavailable"
   | "expectation_invalid"
-  | "expectation_mismatch";
+  | "expectation_mismatch"
+  | "export_invalid";
 
 export class CliError extends Error {
   constructor(readonly code: CliErrorCode) {
@@ -74,18 +79,27 @@ export interface CliIo {
 }
 
 export const USAGE =
-  "usage: handoff compose --delivery <dir> --fresh <file> --policy <file> --request <file> --out <new-dir> [--retrieval <file>] [--emit-request fast|deep] [--expect <file>]";
+  "usage: handoff compose --delivery <dir> --fresh <file> --policy <file> --request <file> --out <new-dir> [--retrieval <file>] [--emit-request fast|deep] [--expect <file>]\n" +
+  "   or: handoff compose --export <dir> --out <new-dir> [--emit-request fast|deep]";
 const JSON_INPUT_MAX = 1 << 20;
 const EXPECTATION_MAX = 4096;
 const WRAPPER_MAX = 4096;
+const PROVENANCE_MAX = 64 << 10;
 const H1_INPUT_MAX =
   INGRESS_LIMITS.h1Response + INGRESS_LIMITS.h1RuleBytes + 4 * INGRESS_LIMITS.h1Instruction;
+
+/** The device and inode a listed file had, so a later open can be held to it. */
+interface FileIdentity {
+  dev: bigint;
+  ino: bigint;
+}
 
 /**
  * Reads at most `cap` bytes of a regular file through one descriptor: the size is
  * taken from that descriptor, and one byte past the cap is read to catch growth.
+ * With `identity`, the opened file must be the one that was listed.
  */
-export function readBounded(path: string, cap: number): Uint8Array {
+export function readBounded(path: string, cap: number, identity?: FileIdentity): Uint8Array {
   let fd: number;
   try {
     fd = openSync(path, "r");
@@ -95,12 +109,14 @@ export function readBounded(path: string, cap: number): Uint8Array {
   try {
     let stat;
     try {
-      stat = fstatSync(fd);
+      stat = fstatSync(fd, { bigint: true });
     } catch {
       return fail("input_unreadable");
     }
     if (!stat.isFile()) fail("input_unreadable");
-    if (stat.size > cap) fail("input_too_large");
+    if (identity && (stat.dev !== identity.dev || stat.ino !== identity.ino))
+      fail("input_unreadable");
+    if (stat.size > BigInt(cap)) fail("input_too_large");
     const buffer = Buffer.alloc(cap + 1);
     let length = 0;
     try {
@@ -167,13 +183,18 @@ const DELIVERY_FILES = {
   h1Input: ["h1-input.json", H1_INPUT_MAX]
 } as const;
 
-function loadDelivery(dir: string) {
-  const raw = Object.fromEntries(
+type DeliveryBytes = Record<keyof typeof DELIVERY_FILES, Uint8Array>;
+
+function readDeliveryDir(dir: string): DeliveryBytes {
+  return Object.fromEntries(
     Object.entries(DELIVERY_FILES).map(([field, [file, cap]]) => [
       field,
       readBounded(join(dir, file), cap)
     ])
-  ) as Record<keyof typeof DELIVERY_FILES, Uint8Array>;
+  ) as DeliveryBytes;
+}
+
+function loadDelivery(raw: DeliveryBytes) {
   const wrapper = readJson(raw.wrapper, WRAPPER_MAX);
   if (
     !isPlain(wrapper) ||
@@ -358,58 +379,212 @@ function checkExpectation(expected: HandoffExpectation, c: Composition) {
     fail("expectation_mismatch");
 }
 
-interface Args {
+/** The raw inputs of one composition, from named paths or from one export directory. */
+interface Inputs {
+  delivery: ReturnType<typeof loadDelivery>;
+  fresh: Uint8Array;
+  policy: Uint8Array;
+  request: Uint8Array;
+  retrieval?: Uint8Array;
+  expectation?: Uint8Array;
+  exported?: { index: Uint8Array; provenance: Uint8Array; viewPart: Uint8Array };
+}
+
+export const EXPORT_VERSION = "handoff-export.v0";
+export const EXPORT_INDEX = "INDEX.sha256";
+/**
+ * The closed `handoff-export.v0` layout (contract frozen in bridge message 1549):
+ * exactly these files, each with its read cap, plus the index. Paths are fixed here
+ * and never taken from the index, so nothing it names can reach another path.
+ */
+const EXPORT_FILES: Record<string, number> = {
+  ...Object.fromEntries(
+    Object.values(DELIVERY_FILES).map(([file, cap]) => [`delivery/${file}`, cap])
+  ),
+  "fresh.json": JSON_INPUT_MAX,
+  "policy.json": JSON_INPUT_MAX,
+  "request.json": JSON_INPUT_MAX,
+  "retrieval.json": JSON_INPUT_MAX,
+  "expected.json": EXPECTATION_MAX,
+  "view-part.txt": JSON_INPUT_MAX,
+  "provenance.json": PROVENANCE_MAX
+};
+const EXPORT_INDEX_MAX = 4096;
+
+/**
+ * Lists one directory and requires exactly `names`, each a real directory or regular
+ * file as asked (a symlink, junction or other entry is refused). Returns the identity
+ * of each file so the later read is held to the file that was listed.
+ */
+function listExact(dir: string, names: Record<string, "dir" | "file">) {
+  const wanted = Object.keys(names);
+  // Streamed, so an oversized directory is refused at its first unexpected entry
+  // instead of being loaded whole; the handle is always closed.
+  const handle = opendirSync(dir);
+  const seen = new Set<string>();
+  try {
+    for (let entry = handle.readSync(); entry !== null; entry = handle.readSync()) {
+      if (!Object.hasOwn(names, entry.name) || seen.has(entry.name)) fail("export_invalid");
+      seen.add(entry.name);
+    }
+  } finally {
+    handle.closeSync();
+  }
+  if (seen.size !== wanted.length) fail("export_invalid");
+  const files = new Map<string, FileIdentity>();
+  for (const name of wanted) {
+    const stat = lstatSync(join(dir, name), { bigint: true });
+    if (stat.isSymbolicLink()) fail("export_invalid");
+    if (names[name] === "dir" ? !stat.isDirectory() : !stat.isFile()) fail("export_invalid");
+    if (names[name] === "file") files.set(name, { dev: stat.dev, ino: stat.ino });
+  }
+  return files;
+}
+
+/** The only index an export can carry: every listed file's hash, sorted, LF-terminated. */
+function canonicalIndex(files: Map<string, Uint8Array>) {
+  return [...files.keys()]
+    .sort()
+    .map((path) => `${sha256Hex(files.get(path)!)}  ${path}\n`)
+    .join("");
+}
+
+/**
+ * Reads one export: the directory must hold exactly the fixed layout, each file is
+ * read once through a bounded descriptor held to its listing, and the index must
+ * equal the one built from those bytes. Any missing, extra, nested, linked,
+ * duplicate, unsorted or mismatched entry is `export_invalid`. The hashes prove the
+ * files were not altered after indexing; they do not authenticate the producer.
+ */
+function readExport(dir: string): Inputs {
+  let bytes: Map<string, Uint8Array>;
+  let index: Uint8Array;
+  try {
+    const root = lstatSync(dir);
+    if (root.isSymbolicLink() || !root.isDirectory()) fail("export_invalid");
+    const top = Object.keys(EXPORT_FILES).filter((p) => !p.includes("/"));
+    const identities = listExact(dir, {
+      ...Object.fromEntries(top.map((n) => [n, "file" as const])),
+      [EXPORT_INDEX]: "file",
+      delivery: "dir"
+    });
+    const nested = listExact(
+      join(dir, "delivery"),
+      Object.fromEntries(Object.values(DELIVERY_FILES).map(([file]) => [file, "file" as const]))
+    );
+    for (const [name, identity] of nested) identities.set(`delivery/${name}`, identity);
+    bytes = new Map(
+      Object.entries(EXPORT_FILES).map(([path, cap]) => [
+        path,
+        readBounded(join(dir, ...path.split("/")), cap, identities.get(path))
+      ])
+    );
+    index = readBounded(join(dir, EXPORT_INDEX), EXPORT_INDEX_MAX, identities.get(EXPORT_INDEX));
+  } catch (error) {
+    // A missing, unreadable, oversized or replaced file is an invalid export.
+    if (error instanceof CliError || (error as NodeJS.ErrnoException).code) fail("export_invalid");
+    throw error;
+  }
+  if (Buffer.compare(index, Buffer.from(canonicalIndex(bytes), "utf8")) !== 0)
+    fail("export_invalid");
+  let provenance: unknown;
+  try {
+    provenance = readJson(bytes.get("provenance.json")!, PROVENANCE_MAX);
+  } catch (error) {
+    if (error instanceof CliError) fail("export_invalid");
+    throw error;
+  }
+  // Only the version is read; everything else in it is producer-declared.
+  if (!isPlain(provenance) || provenance.exportVersion !== EXPORT_VERSION) fail("export_invalid");
+  const delivery = Object.fromEntries(
+    Object.entries(DELIVERY_FILES).map(([field, [file]]) => [field, bytes.get(`delivery/${file}`)!])
+  ) as DeliveryBytes;
+  return {
+    delivery: loadDelivery(delivery),
+    fresh: bytes.get("fresh.json")!,
+    policy: bytes.get("policy.json")!,
+    request: bytes.get("request.json")!,
+    retrieval: bytes.get("retrieval.json")!,
+    expectation: bytes.get("expected.json")!,
+    exported: {
+      index,
+      provenance: bytes.get("provenance.json")!,
+      viewPart: bytes.get("view-part.txt")!
+    }
+  };
+}
+
+/** Reads the named input files, in the order the explicit mode always has. */
+function readPaths(p: PathArgs): Inputs {
+  const delivery = loadDelivery(readDeliveryDir(p.delivery));
+  const fresh = readBounded(p.fresh, JSON_INPUT_MAX);
+  const policy = readBounded(p.policy, JSON_INPUT_MAX);
+  const request = readBounded(p.request, JSON_INPUT_MAX);
+  const retrieval = p.retrieval ? readBounded(p.retrieval, JSON_INPUT_MAX) : undefined;
+  let expectation: Uint8Array | undefined;
+  if (p.expect)
+    try {
+      expectation = readBounded(p.expect, EXPECTATION_MAX);
+    } catch (error) {
+      // An unreadable or oversized expectation is still an invalid expectation.
+      if (error instanceof CliError && error.code === "input_too_large")
+        fail("expectation_invalid");
+      throw error;
+    }
+  return { delivery, fresh, policy, request, retrieval, expectation };
+}
+
+interface PathArgs {
   delivery: string;
   fresh: string;
   policy: string;
   request: string;
-  out: string;
   retrieval?: string;
-  emitRequest?: "fast" | "deep";
   expect?: string;
 }
+interface Args {
+  out: string;
+  emitRequest?: "fast" | "deep";
+  source: { paths: PathArgs } | { export: string };
+}
+const PATH_FLAGS = ["--delivery", "--fresh", "--policy", "--request", "--retrieval", "--expect"];
+
 function parseArgs(argv: string[]): Args | undefined {
   const [command, ...rest] = argv;
   if (command !== "compose" || rest.length % 2 !== 0) return undefined;
   const flags = new Map<string, string>();
   for (let i = 0; i < rest.length; i += 2) {
     const flag = rest[i];
-    if (
-      ![
-        "--delivery",
-        "--fresh",
-        "--policy",
-        "--request",
-        "--out",
-        "--retrieval",
-        "--emit-request",
-        "--expect"
-      ].includes(flag)
-    )
-      return undefined;
+    if (![...PATH_FLAGS, "--out", "--emit-request", "--export"].includes(flag)) return undefined;
     if (flags.has(flag) || !rest[i + 1] || rest[i + 1].startsWith("--")) return undefined;
     flags.set(flag, rest[i + 1]);
   }
   const get = (flag: string) => flags.get(flag);
-  if (
-    !get("--delivery") ||
-    !get("--fresh") ||
-    !get("--policy") ||
-    !get("--request") ||
-    !get("--out")
-  )
-    return undefined;
   const role = get("--emit-request");
   if (role !== undefined && role !== "fast" && role !== "deep") return undefined;
+  const out = get("--out");
+  if (!out) return undefined;
+  const common = { out, emitRequest: role as "fast" | "deep" | undefined };
+  const exportDir = get("--export");
+  if (exportDir !== undefined) {
+    // An export names all of its inputs; no path flag may be mixed in.
+    if (PATH_FLAGS.some((flag) => flags.has(flag))) return undefined;
+    return { ...common, source: { export: exportDir } };
+  }
+  if (!get("--delivery") || !get("--fresh") || !get("--policy") || !get("--request"))
+    return undefined;
   return {
-    delivery: get("--delivery")!,
-    fresh: get("--fresh")!,
-    policy: get("--policy")!,
-    request: get("--request")!,
-    out: get("--out")!,
-    retrieval: get("--retrieval"),
-    emitRequest: get("--emit-request") as "fast" | "deep" | undefined,
-    expect: get("--expect")
+    ...common,
+    source: {
+      paths: {
+        delivery: get("--delivery")!,
+        fresh: get("--fresh")!,
+        policy: get("--policy")!,
+        request: get("--request")!,
+        retrieval: get("--retrieval"),
+        expect: get("--expect")
+      }
+    }
   };
 }
 
@@ -462,7 +637,8 @@ function summary(
   delivery: HandoffDelivery,
   hashes: Record<string, string | null>,
   request?: { role: string; sha256: string },
-  expectation?: { sha256: string }
+  expectation?: { sha256: string },
+  exported?: { indexSha256: string; provenanceSha256: string }
 ) {
   return (
     JSON.stringify(
@@ -491,6 +667,18 @@ function summary(
               }
             }
           : {}),
+        ...(exported
+          ? {
+              export: {
+                version: EXPORT_VERSION,
+                ...exported,
+                files: Object.keys(EXPORT_FILES).length,
+                integrity:
+                  "every file matched the export index under the fixed layout; integrity only, not authenticated producer evidence",
+                provenance: "producer-declared and not verified here; recorded by hash only"
+              }
+            }
+          : {}),
         ...(request
           ? {
               request: {
@@ -515,22 +703,21 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
     return 2;
   }
   try {
-    const { delivery, hashes } = loadDelivery(args.delivery);
-    const freshBytes = readBounded(args.fresh, JSON_INPUT_MAX);
-    const policyBytes = readBounded(args.policy, JSON_INPUT_MAX);
-    const requestBytes = readBounded(args.request, JSON_INPUT_MAX);
-    const retrievalBytes = args.retrieval ? readBounded(args.retrieval, JSON_INPUT_MAX) : undefined;
-    let expectationBytes: Uint8Array | undefined;
-    if (args.expect)
-      try {
-        expectationBytes = readBounded(args.expect, EXPECTATION_MAX);
-      } catch (error) {
-        // An unreadable or oversized expectation is still an invalid expectation.
-        if (error instanceof CliError && error.code === "input_too_large")
-          fail("expectation_invalid");
-        throw error;
-      }
+    const inputs =
+      "export" in args.source ? readExport(args.source.export) : readPaths(args.source.paths);
+    const { delivery, hashes } = inputs.delivery;
+    const {
+      fresh: freshBytes,
+      policy: policyBytes,
+      request: requestBytes,
+      retrieval: retrievalBytes,
+      expectation: expectationBytes,
+      exported
+    } = inputs;
     const expectation = expectationBytes ? readExpectation(expectationBytes) : undefined;
+    // The export's evidence copy of the view part must be the one its expectation names.
+    if (exported && sha256Hex(exported.viewPart) !== expectation!.viewPartSha256)
+      fail("export_invalid");
     const fresh = toFresh(readJson(freshBytes, JSON_INPUT_MAX));
     const request = readJson(requestBytes, JSON_INPUT_MAX);
     if (!isPlain(request) || !exactKeys(request, ["destination"], ["wanted"]))
@@ -590,7 +777,11 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
             role: args.emitRequest!,
             sha256: sha256Hex(Buffer.from(requestFile[1], "utf8"))
           },
-          expectationBytes && { sha256: sha256Hex(expectationBytes) }
+          expectationBytes && { sha256: sha256Hex(expectationBytes) },
+          exported && {
+            indexSha256: sha256Hex(exported.index),
+            provenanceSha256: sha256Hex(exported.provenance)
+          }
         )
       ]
     ]);

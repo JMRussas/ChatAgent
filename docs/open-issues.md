@@ -220,13 +220,23 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   host-slot tests on the final source; its 2,131-test full run preceded only the
   summary-claim wording change. Format, lint and documentation checks passed.
   The issue remains implemented until the end-to-end closure criteria below pass.
-- **Depends on:** a Hekate pilot export that writes `handoff-expectation.v0` from its
-  consumer run with ChatAgent's real H1 (schema proposed in bridge message 1515 and
-  acknowledged unchanged by Hekate's implementer in 1524; the export itself is not
-  implemented yet).
+- **Export input implemented and independently verified 2026-10-07:**
+  `compose --export <dir>` reads one `handoff-export.v0` directory (contract frozen by root in bridge
+  message 1549) and always checks its expectation. Tests use a synthetic,
+  golden-derived export labelled as such; no real export has been captured.
+  `cli.ts` SHA-256 `eb1f974b8de6c48f5d0cb772a63e8016084daf325f15630323d682d6c0875d5b`
+  (uncommitted, base `d7a6c32`). Root reviewed the fixed layout, streamed listing,
+  descriptor identity checks and parity gate and independently passed all 86 CLI and
+  publishing tests. Claude passed all 435 handoff tests; format, lint and
+  documentation checks passed. This verifies the consumer path with synthetic
+  inputs; end-to-end closure still requires the actual producer export below.
+- **Depends on:** a Hekate pilot export in that layout that writes
+  `handoff-expectation.v0` from its consumer run with ChatAgent's real H1 (schema
+  proposed in bridge message 1515 and acknowledged unchanged by Hekate's implementer
+  in 1524; the producer is not implemented yet).
 - **Closure criteria:** a real pilot handoff export, composed by ChatAgent with
-  `--expect`, matches; a deliberately altered expectation is refused; independently
-  verified.
+  `--export` (or `--expect`), matches; a deliberately altered expectation is refused;
+  independently verified.
 
 ## External dependencies
 

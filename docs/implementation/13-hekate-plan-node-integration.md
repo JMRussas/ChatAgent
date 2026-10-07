@@ -379,12 +379,40 @@ npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <fil
   independently reviewed producer run, is evidence that two consumers agree. The
   schema was acknowledged unchanged by Hekate's implementer (bridge message 1524);
   the producer export is not implemented yet.
+- **Export input (implemented 2026-10-07, awaiting root review).**
+  `compose --export <dir> --out <new-dir> [--emit-request fast|deep]` reads one
+  `handoff-export.v0` directory, the contract root froze in bridge message 1549:
+  exactly `delivery/{wrapper.json, manifest.bin, envelope.bin, task.bin,
+receipt.json, h1-input.json}`, `fresh.json`, `policy.json`, `request.json`,
+  `retrieval.json`, `expected.json`, `view-part.txt` and `provenance.json`, plus
+  `INDEX.sha256`. The input path flags and `--expect` cannot be combined with it
+  (usage error). The directory and `delivery/` must list exactly those names as real
+  directories and regular files; a missing, extra or nested entry, a symlink or
+  junction, or a missing directory is `export_invalid`; the listing is streamed and
+  stops at the first unexpected entry, so an oversized directory is never loaded
+  whole, and its handle is always closed. Each file is read once
+  through the bounded descriptor read, which must open the same device and inode
+  the listing saw, so a file replaced after listing is refused even with identical
+  bytes. The index must be byte-equal to the only one these files allow: one
+  `<lowercase sha256>  <fixed path>` line per file, sorted, LF-terminated,
+  excluding itself. A changed byte, CRLF, a duplicate, an unsorted or extra line, a
+  traversal path or a self entry are all `export_invalid`, and paths are never taken
+  from the index. `provenance.json` must be a JSON object with `exportVersion`
+  `handoff-export.v0`; nothing else in it is read, and the summary records it by
+  hash as producer-declared. `view-part.txt` must hash to the expectation's
+  `viewPartSha256`. The expectation is then always checked as with `--expect`. The
+  summary adds the export version, the index and provenance hashes, and states that
+  the index proves integrity only, not authenticated producer evidence. Tests use a
+  synthetic export built from the golden bundle and labelled synthetic in its
+  provenance; no real pilot export exists yet.
 - **Failures** print `handoff: <code>` with exit 1 (usage: exit 2), never content
   or paths.
 
 Tests: `tests/unit/handoffCli.test.ts`, including one subprocess run of the script,
 and `tests/unit/handoffCliPublish.test.ts`, which injects a partial write, a failed
-close and a foreign file through a pass-through `node:fs` mock.
+close, a foreign file, an export file replaced between listing and reading, and an
+export directory padded with unknown entries (enumeration stops early, handles close)
+through a pass-through `node:fs` mock.
 
 ### Host slot for the consumer view (CA-ISSUE-003)
 
