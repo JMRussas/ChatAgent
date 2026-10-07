@@ -158,6 +158,18 @@ Keep the active implementation running; do not interrupt it or treat message
 receipt as evidence of execution. Hand review ownership back explicitly at the
 agreed checkpoint, with exact revisions, checks and outstanding decisions.
 
+Before reassigning work or resuming a session, verify actual CLI execution state;
+bridge presence and delivery do not establish that a model is running. The
+installed Claude CLI supports `claude agents --json --cwd <path>` to list
+interactive and background agent status. Check local help and session evidence:
+an idle agent and a last assistant `stop_reason: end_turn` indicate an ended turn.
+Help also supports `--resume <session-id> --fork-session --bg --model <model>` for
+a separate continuation. Confirm active ownership and the assigned scope before
+using it; preserve review, test and commit ownership and an explicit handback.
+Never interrupt an active implementer or launch duplicate work. A
+`Workspace not trusted` refusal blocks that launch until the required user trust
+approval is granted; do not bypass the prompt or silently change trust settings.
+
 ## Repository rules (ChatAgent)
 
 - Use the Node version pinned in `.node-version` (currently 24.21.0).
