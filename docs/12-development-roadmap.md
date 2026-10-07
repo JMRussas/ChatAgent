@@ -11,12 +11,12 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 Current reading checkpoint (updated 2026-10-07); historical milestones and their
 validation evidence remain below:
 
-| Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 1,717 TypeScript tests and 34 browser tests pass                                                                                                                                         |
-| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                    |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference-fixture export underway; ChatAgent consumer integration pending; no production journal, real workers or wake |
-| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                                                                                                   |
+| Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 1,779 TypeScript tests and 34 browser tests pass                                                                                                                                                             |
+| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                                        |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference fixtures imported; ChatAgent byte-reader foundation accepted, full consumer pending; no production journal, real workers or wake |
+| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                                                                                                                       |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1720,6 +1720,20 @@ H1 still supplies its one byte-preserved required package and requires the count
 to be zero. Claude implemented the change; Codex verified 127 focused context/H1
 tests, 1,717 tests across 143 files, 34 browser tests, format, lint and documentation
 contracts. No cross-conversation import or new authority is introduced.
+
+_Offline handoff byte-reader foundation implemented and reviewed 2026-10-07:_ the
+reviewed E2e reference bundle is captured byte-for-byte in
+`tests/fixtures/hekate/e2e-consumer-v0/` with its pinned hash index, provenance and
+formatting/line-ending protection. `handoffConsumer/exactJson.ts` reads bounded
+strict UTF-8 JSON into immutable nodes with exact byte spans and numeric lexemes,
+hashes raw bytes, preserves large integers and refuses unsupported numeric
+conversions. Depth and node bounds are enforced without recursive parsing; duplicate
+decoded keys, lone surrogates and forged numeric nodes are refused. It validates
+JSON grammar only, not Python canonical spelling, finite clock semantics, delivery
+bindings, current authority or composition. Those consumer layers remain pending.
+Claude implemented the primitive and review correction; Codex verified 159 focused
+reader/H1/C1a tests, 1,779 tests across 144 files, format, lint and documentation
+contracts. H1 and C1a implementations are unchanged by this increment.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
