@@ -17,7 +17,7 @@ import type {
 } from "../domain/types";
 import type { DeadLetterRecord, DeadLetterStore } from "./deadLetterStore";
 import type { AdaptiveRoutingCoordinator } from "../routing/adaptiveRouting";
-import type { ConversationTimelineStore } from "./timelineStore";
+import { assertReadBudget, type ConversationTimelineStore } from "./timelineStore";
 import type { TaskQueue } from "../providers/interfaces";
 
 /**
@@ -359,16 +359,28 @@ export class ChatService {
     return this.timelineStore.getEvents(conversationId);
   }
 
-  /** Events after a sequence. Stores without getEventsAfter pay the full read. */
+  /**
+   * Events after a sequence, optionally within a serialized-byte budget (the first
+   * event is always included). Stores without getEventsAfter pay the full read and
+   * cannot apply the budget.
+   */
   async getTimelineAfter(
     conversationId: string,
-    afterSequence: number
+    afterSequence: number,
+    maxBytes?: number
   ): Promise<ChatTimelineEvent[]> {
+    assertReadBudget(maxBytes);
     if (this.timelineStore.getEventsAfter)
-      return this.timelineStore.getEventsAfter(conversationId, afterSequence);
+      return this.timelineStore.getEventsAfter(conversationId, afterSequence, maxBytes);
     return (await this.timelineStore.getEvents(conversationId)).filter(
       (event) => (event.sequence ?? 0) > afterSequence
     );
+  }
+
+  /** The last timeline sequence; stores without lastSequence pay a full read. */
+  async lastTimelineSequence(conversationId: string): Promise<number> {
+    if (this.timelineStore.lastSequence) return this.timelineStore.lastSequence(conversationId);
+    return (await this.timelineStore.getEvents(conversationId)).at(-1)?.sequence ?? 0;
   }
 
   async listDeadLetters(): Promise<DeadLetterRecord[]> {

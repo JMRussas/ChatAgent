@@ -34,8 +34,23 @@ export interface ConversationTimelineStore {
   /**
    * Optional: copies of only the events after a sequence, with the same availability
    * and access semantics as getEvents. Callers fall back to getEvents when absent.
+   * With maxBytes, events are admitted in order while the serialized sizes copied
+   * stay within it; the first event is always admitted, so one read copies at most
+   * max(maxBytes, the first event's size).
    */
-  getEventsAfter?(conversationId: string, afterSequence: number): Promise<ChatTimelineEvent[]>;
+  getEventsAfter?(
+    conversationId: string,
+    afterSequence: number,
+    maxBytes?: number
+  ): Promise<ChatTimelineEvent[]>;
+  /** Optional: the last assigned sequence (0 if none), checked like getEvents, copying nothing. */
+  lastSequence?(conversationId: string): number;
+}
+
+/** A read budget must be a positive safe integer; anything else is a caller error. */
+export function assertReadBudget(maxBytes: number | undefined) {
+  if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1))
+    throw new RangeError(`Read budget must be a positive integer; got ${String(maxBytes)}.`);
 }
 
 export class NoopConversationTimelineStore implements ConversationTimelineStore {
@@ -57,6 +72,8 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
     {
       version: symbol;
       events: ChatTimelineEvent[];
+      /** Serialized size of each stored event, index-aligned with events. */
+      sizes: number[];
       bytes: number;
       sequence: number;
       at: number;
@@ -83,9 +100,16 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
   }
   private expire(
     id: string,
-    record: { events: ChatTimelineEvent[]; bytes: number; expired: boolean; expiredAt?: number }
+    record: {
+      events: ChatTimelineEvent[];
+      sizes: number[];
+      bytes: number;
+      expired: boolean;
+      expiredAt?: number;
+    }
   ) {
     record.events = [];
+    record.sizes = [];
     record.bytes = 0;
     record.expired = true;
     record.expiredAt = this.clock();
@@ -138,6 +162,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
     record = {
       version: Symbol(id),
       events: [],
+      sizes: [],
       bytes: 0,
       sequence: 0,
       at: this.clock(),
@@ -183,8 +208,11 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       };
       used = true;
       record.sequence++;
+      // The size of the exact stored event, sequence included.
+      const size = Buffer.byteLength(JSON.stringify(stored));
       record.events.push(stored);
-      record.bytes += Buffer.byteLength(JSON.stringify(stored));
+      record.sizes.push(size);
+      record.bytes += size;
       record.at = this.clock();
       try {
         this.observer?.(id, structuredClone(stored));
@@ -220,6 +248,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       throw new GenerationError("CONVERSATION_HISTORY_CAPACITY", false);
     record.sequence++;
     record.events.push(stored);
+    record.sizes.push(bytes);
     record.bytes += bytes;
     record.at = this.clock();
     try {
@@ -235,10 +264,14 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
   /** Copies only the suffix after a sequence; events are stored in sequence order. */
   async getEventsAfter(
     conversationId: string,
-    afterSequence: number
+    afterSequence: number,
+    maxBytes?: number
   ): Promise<ChatTimelineEvent[]> {
+    // Checked before pruning: an invalid request changes nothing.
+    assertReadBudget(maxBytes);
     this.assertConversationAvailable(conversationId);
-    const events = this.records.get(conversationId)?.events ?? [];
+    const record = this.records.get(conversationId);
+    const events = record?.events ?? [];
     // First index whose sequence is greater than afterSequence.
     let low = 0,
       high = events.length;
@@ -247,6 +280,19 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       if ((events[middle].sequence ?? 0) > afterSequence) high = middle;
       else low = middle + 1;
     }
-    return structuredClone(events.slice(low));
+    // Admit each event before adding it; only the first may exceed the budget.
+    let end = low;
+    if (maxBytes === undefined) end = events.length;
+    else
+      for (let copied = 0; end < events.length; end++) {
+        const size = record!.sizes[end];
+        if (end > low && copied + size > maxBytes) break;
+        copied += size;
+      }
+    return structuredClone(events.slice(low, end));
+  }
+  lastSequence(conversationId: string): number {
+    this.assertConversationAvailable(conversationId);
+    return this.records.get(conversationId)?.sequence ?? 0;
   }
 }

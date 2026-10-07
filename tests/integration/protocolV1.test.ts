@@ -12,6 +12,8 @@ import {
 } from "../../src/providers/interfaces";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { MockDeepProvider } from "../../src/providers/mockProviders";
+import { V1_READ_BYTES } from "../../src/app/protocolV1";
+import type { ConversationTimelineStore } from "../../src/app/timelineStore";
 import { ContextManager } from "../../src/app/contextManager";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
 import type { GenerationControl } from "../../src/domain/generation";
@@ -301,10 +303,17 @@ async function openStream(
       { headers },
       (res) => {
         let buffer = "";
+        // One data and one end handler for the whole response; waiters are woken by
+        // either, so no listener is added per wait.
         const waiting: Array<() => void> = [];
+        let ended = false;
         res.setEncoding("utf8");
         res.on("data", (chunk: string) => {
           buffer += chunk;
+          waiting.splice(0).forEach((wake) => wake());
+        });
+        res.once("end", () => {
+          ended = true;
           waiting.splice(0).forEach((wake) => wake());
         });
         cleanups.push(async () => void req.destroy());
@@ -314,11 +323,10 @@ async function openStream(
             return buffer;
           },
           async next() {
-            while (!buffer.includes("\n\n"))
-              await new Promise<void>((wake, fail) => {
-                waiting.push(wake);
-                res.once("end", () => fail(new Error("EOF")));
-              });
+            while (!buffer.includes("\n\n")) {
+              if (ended) throw new Error("EOF");
+              await new Promise<void>((wake) => waiting.push(wake));
+            }
             const end = buffer.indexOf("\n\n");
             const frame = buffer.slice(0, end);
             buffer = buffer.slice(end + 2);
@@ -430,11 +438,16 @@ it.each([
     createProvisionalReply: async () => ({ text: "a", finishReason: "stop" })
   });
   await h.post();
-  const reads = vi.spyOn(h.service, "getTimeline");
+  // Every read seam: the full read, the suffix read and the open-time high-water read.
+  const reads = [
+    vi.spyOn(h.service, "getTimeline"),
+    vi.spyOn(h.service, "getTimelineAfter"),
+    vi.spyOn(h.service, "lastTimelineSequence")
+  ];
   const s = await openStream(h, "afterSequence=0", { "Last-Event-ID": value });
   expect(s.status).toBe(400);
   expect(JSON.parse(s.body)).toMatchObject({ code: "INVALID_CURSOR" });
-  expect(reads).not.toHaveBeenCalled();
+  for (const read of reads) expect(read).not.toHaveBeenCalled();
   expect(h.server.retentionStats()).toMatchObject({ streams: 0 });
 });
 
@@ -475,7 +488,10 @@ it("v1 pumps copy only events after the cursor, so idle pumps copy none", async 
   const stream = await openStream(h, "afterSequence=0");
   await stream.next();
   await turnsUntil(stream, one);
-  const total = (await h.service.getTimeline(full.mock.calls[0][0])).length;
+  // Opening checked the cursor without copying the timeline.
+  expect(full).not.toHaveBeenCalled();
+  // The stream reads its own internal conversation id through its polls.
+  const total = (await h.service.getTimeline(after.mock.calls[0][0])).length;
   full.mockClear();
   copied.length = 0;
   await new Promise((r) => setTimeout(r, 350));
@@ -490,4 +506,101 @@ it("v1 pumps copy only events after the cursor, so idle pumps copy none", async 
   await turnsUntil(stream, three);
   expect(Math.max(...copied)).toBeLessThan(total);
   stream.close();
+});
+
+it("v1 delivers a backlog larger than its read budget completely, one bounded poll at a time", async () => {
+  // Synthetic large answers: a backlog of several budgets, and one event over budget.
+  const sizes = [120_000, 120_000, 120_000, 300_000];
+  let next = 0;
+  const h = await setup({
+    createProvisionalReply: async () => ({ text: "x".repeat(sizes[next++]), finishReason: "stop" })
+  });
+  const ids: ReturnType<typeof randomUUID>[] = [];
+  for (let i = 0; i < sizes.length; i++) {
+    ids.push(randomUUID());
+    await h.post(`m${i}`, ids[i]);
+  }
+  const original = h.service.getTimelineAfter.bind(h.service);
+  const copied: number[][] = [];
+  vi.spyOn(h.service, "getTimelineAfter").mockImplementation(async (id, cursor, budget) => {
+    const events = await original(id, cursor, budget);
+    copied.push(events.map((e) => Buffer.byteLength(JSON.stringify(e))));
+    return events;
+  });
+  const stream = await openStream(h, "afterSequence=0");
+  await stream.next();
+  const frames = await turnsUntil(stream, ids.at(-1)!);
+  stream.close();
+  const delivered = frames.map((f) => f.id);
+  expect(delivered).toEqual([...new Set(delivered)].sort((a, b) => a - b));
+  for (const id of ids)
+    expect(frames.some((f) => f.data.messageId === id && f.data.type === "terminal")).toBe(true);
+  // Every poll copied at most the budget, or a single event that alone exceeds it.
+  for (const batch of copied.filter((b) => b.length))
+    expect(batch.length === 1 || batch.reduce((n, b) => n + b, 0) <= V1_READ_BYTES).toBe(true);
+  expect(copied.filter((b) => b.length).length).toBeGreaterThan(1);
+  expect(copied.some((b) => b.length === 1 && b[0] > V1_READ_BYTES)).toBe(true);
+});
+
+it("v1 still streams through a store without the optional reads", async () => {
+  const backing = new InMemoryConversationTimelineStore();
+  const plain: ConversationTimelineStore = {
+    appendEvent: (id, e) => backing.appendEvent(id, e),
+    getEvents: (id) => backing.getEvents(id)
+  };
+  const queue = new InMemoryTaskQueue();
+  const service = new ChatService(
+    new ChatOrchestrator(
+      { createProvisionalReply: async () => ({ text: "a", finishReason: "stop" }) },
+      queue,
+      plain
+    ),
+    new DeepWorker(queue, new MockDeepProvider(), plain),
+    plain,
+    queue
+  );
+  const server = createChatServer(service, { auth: allowAllTestAuth });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  cleanups.push(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const conversation = randomUUID();
+  const messageId = randomUUID();
+  await fetch(`${base}/v1/conversations/${conversation}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      protocolVersion: "1.0",
+      accountId: "a",
+      projectId: "p",
+      messageId,
+      text: "hello",
+      clientTimestampIso: new Date().toISOString()
+    })
+  });
+  const h = { base, path: `/v1/conversations/${conversation}`, scope: "accountId=a&projectId=p" };
+  const stream = await openStream(h as Awaited<ReturnType<typeof setup>>, "afterSequence=0");
+  await stream.next();
+  expect((await turnsUntil(stream, messageId)).length).toBeGreaterThan(0);
+  stream.close();
+});
+
+it("v1 refuses an invalid query cursor before any read", async () => {
+  const h = await setup({
+    createProvisionalReply: async () => ({ text: "a", finishReason: "stop" })
+  });
+  await h.post();
+  const reads = [
+    vi.spyOn(h.service, "getTimeline"),
+    vi.spyOn(h.service, "getTimelineAfter"),
+    vi.spyOn(h.service, "lastTimelineSequence")
+  ];
+  for (const cursor of ["-1", "1.5", "abc", "9007199254740992"]) {
+    const s = await openStream(h, `afterSequence=${cursor}`);
+    expect(s.status, cursor).toBe(400);
+  }
+  for (const read of reads) expect(read).not.toHaveBeenCalled();
+  expect(h.server.retentionStats()).toMatchObject({ streams: 0 });
 });

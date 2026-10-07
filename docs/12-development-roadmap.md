@@ -1150,17 +1150,34 @@ pre-header read, the synchronous-finish timer guard and the page's reopen) each
 failed their targeted tests and were reverted. No live provider calls or service
 restart.
 
-Still open for step 2: per-stream memory still scales with the conversation size,
-since the legacy stream re-sends whole snapshots and v1 still copies the whole
-timeline at open and may copy a large unsent suffix; cross-owner denial with an authenticated identity remains the prerequisite for
+Still open for step 2: per-stream memory still scales with the conversation size
+for the legacy stream, which re-sends whole snapshots; a v1 poll is budgeted but
+one event can still reach the conversation byte limit, and stores without the
+optional reads copy whole timelines; cross-owner denial with an authenticated identity remains the prerequisite for
 any shared deployment.
+
+_V1 budgeted reads implemented 2026-10-06; see the
+[runtime reference](runtime-reference.md#event-stream-limits):_ with the in-memory
+store, a v1 stream checks its cursor at open without copying events, and each poll
+copies at most the larger of 256 KiB of serialized event bytes and one event,
+admitting each event before adding it; backlogs continue over later polls. This is
+a per-poll serialized-byte bound, not a heap, per-stream or whole-process bound.
+Primary validation passed 1,395 TypeScript tests across 133 files and 34 browser
+tests. Independent review passed 55 stream, protocol and timeline checks.
+Seven mutations were rejected; removing expiry cleanup of the size array survived
+because returned events are unchanged, but it would retain memory. The cleanup
+was verified by source review rather than claimed as mutation-tested.
+The full run preceded a test-helper listener cleanup found during independent
+review; the final 24 protocol checks passed afterward without the listener warning.
+Format, lint and documentation checks passed. No sustained-memory claim is added.
 
 _V1 suffix reads implemented 2026-10-06; see the
 [runtime reference](runtime-reference.md#event-stream-limits):_ after opening, a v1
 stream's polls copy only the timeline events after its cursor instead of the whole
-timeline, so idle polls copy none. This reduces repeated work but sets no per-stream
-byte cap (the initial read and a large unsent suffix are still copied), so the open
-memory item above stands. Stores without the optional read fall back to a full copy.
+timeline, so idle polls copy none. At this initial increment (`919b869`), the open
+still copied the full timeline and polls could copy a large unsent suffix; the
+budgeted-read increment above supersedes those limitations for the in-memory store,
+with its stated large-event exception. Custom stores can still fall back to a full copy.
 Primary validation passed 1,388 TypeScript tests across 133 files and 34 browser
 tests, with six rejected mutations. Independent review passed 48 suffix-read,
 protocol and stream checks, including blocked reads, cursor resumption and
@@ -1556,6 +1573,14 @@ Hekate plans 024/025 record the evidence. E2a, a test-only in-memory evidence mo
 and classifier for launch and review-pending evidence, is accepted at `d0428dc` (plan
 027); no durable journal, coherent production read, restart recovery, real worker,
 wake or model activation is established.
+The E2b-a disposable-database journal experiment (accepted design `ca672ec`, Hekate
+plan 028) is implemented but remains uncommitted and unaccepted. Its implementer
+reports 318 default tests plus 31 pure and one live interoperability check. Final
+review requires corrections to missing-record uncertainty, invalid scan bounds,
+and queue cleanup across paginated scans. The original implementation session is
+idle; a separate CLI continuation was refused by Claude's workspace-trust gate,
+and approval to accept that repository's trust prompt is pending. The owned test
+container remains stopped; independent validation of the corrected source has not run.
 Provider reuse and real execution remain gated;
 this does not decide the generic orchestration engine wholesale.
 

@@ -10,6 +10,12 @@ import type { ChatTimelineEvent } from "../domain/types";
 import { sseFrame, type EventStreamRegistry } from "./eventStreams";
 import { scopedOwnerKey } from "../auth/authenticator";
 
+/**
+ * Serialized event bytes one v1 poll may copy; a single larger event is still sent
+ * alone. A local-use choice, not a measurement.
+ */
+export const V1_READ_BYTES = 256 * 1024;
+
 const scopeSchema = z.object({
   accountId: z.string().min(1).max(200),
   projectId: z.string().min(1).max(200)
@@ -207,15 +213,16 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     }
     // Admitted before any timeline read; a refused stream allocates no identity.
     const sse = streams.open(res);
-    let initial: ChatTimelineEvent[];
+    // Only the high-water mark is needed here; no events are copied to check it.
+    let highWater: number;
     try {
-      initial = internalId ? await sse.read(() => service.getTimeline(internalId!)) : [];
+      highWater = internalId ? await sse.read(() => service.lastTimelineSequence(internalId!)) : 0;
     } catch (error) {
       sse.close();
       throw error;
     }
     if (!sse.open) return true;
-    if (cursor > (initial.at(-1)?.sequence ?? 0)) {
+    if (cursor > highWater) {
       sse.close();
       json(res, 409, { code: "CURSOR_UNAVAILABLE" });
       return true;
@@ -236,8 +243,9 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
           throw new GenerationError("CONVERSATION_EXPIRED", false);
         boundId = currentId;
         if (!currentId) return;
-        // Only events after the cursor are copied, not the whole timeline each tick.
-        for (const event of await service.getTimelineAfter(currentId, cursor)) {
+        // Only events after the cursor are copied, within a per-poll byte budget; the
+        // rest follow on later polls from the advanced cursor.
+        for (const event of await service.getTimelineAfter(currentId, cursor, V1_READ_BYTES)) {
           const wire = projectTurnEvent(conversationId, event);
           if (wire) {
             const written = sse.write(sseFrame("turn", JSON.stringify(wire), wire.sequence));

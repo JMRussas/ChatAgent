@@ -114,7 +114,10 @@ it("shares one stream limit across legacy and v1 routes and refuses before any s
 
   const reads = vi.spyOn(h.service, "getTimeline");
   const afterReads = vi.spyOn(h.service, "getTimelineAfter");
-  const before = reads.mock.calls.length + afterReads.mock.calls.length;
+  const lastReads = vi.spyOn(h.service, "lastTimelineSequence");
+  const count = () =>
+    reads.mock.calls.length + afterReads.mock.calls.length + lastReads.mock.calls.length;
+  const before = count();
   for (const path of [
     "/conversations/c2/events/stream",
     `/v1/conversations/${randomUUID()}/events/stream?accountId=a&projectId=p`
@@ -126,7 +129,7 @@ it("shares one stream limit across legacy and v1 routes and refuses before any s
     expect(await refused.json()).toMatchObject({ code: "STREAM_CAPACITY" });
   }
   // Refusal read no timeline and allocated no protocol identity.
-  expect(reads.mock.calls.length + afterReads.mock.calls.length).toBe(before);
+  expect(count()).toBe(before);
   expect(h.server.retentionStats()).toMatchObject({ streams: 2, wireConversations: 0 });
 
   // Closing a stream frees its slot; a new stream on the other route is admitted.
@@ -202,7 +205,7 @@ it("v1: a full write advances the cursor, blocks reads, and resumes without gaps
 
   res.drain();
   // The stream reads its own internal conversation; project it the same way.
-  const internalId = reads.mock.calls[0][0];
+  const internalId = pumpReads.mock.calls[0][0];
   const expected = (await h.service.getTimeline(internalId))
     .map((e) => projectTurnEvent(h.conversation, e))
     .filter((w) => w !== undefined)
