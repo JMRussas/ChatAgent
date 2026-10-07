@@ -81,6 +81,16 @@ ownership is unaffected.
 - Rotations are serialized by an exclusive lock file. A lock left by a crash is
   reported, never broken automatically.
 - Rotation refuses to pass the largest safe epoch, leaving the file unchanged.
+- The new file replaces the old one by rename while the lock is held. On Windows a
+  rename onto a file another process holds open fails with `EPERM` until it is
+  released (shown with a deliberate holder process; which process held the file in
+  the failed full-suite runs is not established). That error alone is retried with
+  the same files after waits of 25, 50, 100, 200, 400 and 800 ms: seven attempts and
+  1575 ms of waiting, though the renames themselves can add to the elapsed time.
+  Any other error, `EPERM` on another platform, or `EPERM` after the last wait
+  is thrown unchanged. The old file is never deleted or copied over and permissions
+  are unchanged, so a failed rotation leaves the old identity in place and removes
+  its temp file and lock.
 - A running server is not affected until it is given the new identity
   (`LocalAuthenticator.useIdentity`, intended for a later operator endpoint) or
   restarted. Rotation alone does not revoke sessions in a running server.

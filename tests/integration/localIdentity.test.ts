@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { chmod, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { execFileSync, spawn } from "node:child_process";
+import { chmod, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,14 +8,20 @@ import { FilePrivacyError, makePrivate, verifyPrivate } from "../../src/auth/fil
 import {
   LocalIdentityError,
   loadOrCreateIdentity,
+  replaceIdentityFile,
   rotateIdentity
 } from "../../src/auth/localIdentity";
 
 // Real files and real permissions: on Windows these call PowerShell for the ACL.
 const TIMEOUT = 120_000;
 const roots: string[] = [];
+const holders: Array<() => Promise<void>> = [];
 afterEach(async () => {
+  // Held files cannot be removed, so every holder is released first. Directories
+  // are still removed if a release fails; that failure is then reported.
+  const released = await Promise.allSettled(holders.splice(0).map((release) => release()));
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const r of released) if (r.status === "rejected") throw r.reason;
 });
 async function root() {
   const dir = await mkdtemp(join(tmpdir(), "chat-identity-"));
@@ -37,6 +43,219 @@ function widen(path: string) {
     { env: { ...process.env, P: path }, windowsHide: true }
   );
 }
+
+const HOLDER_READY_MS = 30_000;
+const HOLDER_EXIT_MS = 10_000;
+
+/** Whether p settles within ms; a rejection of p propagates. */
+async function settlesWithin(p: Promise<unknown>, ms: number) {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<false>((resolve) => {
+    timer = setTimeout(resolve, ms, false);
+  });
+  try {
+    return await Promise.race([p.then(() => true), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Windows only: another process opens path sharing read access only, so renaming
+ * onto it fails with EPERM until the returned release closes it. Nothing is timed:
+ * the file stays held until release is called. Release is registered before the
+ * holder is ready, is idempotent, and kills the child if it does not exit when asked.
+ */
+async function hold(path: string) {
+  const child = spawn(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$f = [System.IO.File]::Open($env:CHATAGENT_IDENTITY_TEST_PATH, 'Open', 'Read', 'Read'); [Console]::Out.WriteLine('ready'); [void][Console]::In.ReadLine(); $f.Close()"
+    ],
+    {
+      env: { ...process.env, CHATAGENT_IDENTITY_TEST_PATH: path },
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "inherit"]
+    }
+  );
+  // A child that already exited makes ending its stdin fail with EPIPE; exit is
+  // what release waits for, so that pipe error carries no information.
+  child.stdin.on("error", () => undefined);
+  const exited = new Promise<void>((resolve) => {
+    child.once("close", () => resolve());
+    child.once("error", () => resolve());
+  });
+  let released: Promise<void> | undefined;
+  const release = () =>
+    (released ??= (async () => {
+      child.stdin.end();
+      if (await settlesWithin(exited, HOLDER_EXIT_MS)) return;
+      child.kill();
+      if (!(await settlesWithin(exited, HOLDER_EXIT_MS)))
+        throw new Error(`holder process ${child.pid} did not exit`);
+    })());
+  holders.push(release);
+
+  let out = "";
+  const ready = new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", () => reject(new Error("holder exited before holding the file")));
+    child.stdout.on("data", (chunk: Buffer) => {
+      out += chunk.toString("utf8");
+      if (out.includes("ready")) resolve();
+    });
+  });
+  try {
+    if (!(await settlesWithin(ready, HOLDER_READY_MS)))
+      throw new Error(`holder did not report ready within ${HOLDER_READY_MS} ms`);
+  } catch (error) {
+    // The readiness failure is the error to report; a failed release is still
+    // reported by afterEach, which awaits the same registered release.
+    await release().catch(() => undefined);
+    throw error;
+  }
+  return release;
+}
+
+const WAITS = [25, 50, 100, 200, 400, 800];
+const onWindows = process.platform === "win32";
+
+describe("identity file replacement", () => {
+  async function pair() {
+    const dir = await root();
+    const temp = join(dir, "next.tmp"),
+      target = join(dir, "identity.json");
+    await writeFile(temp, "next");
+    await writeFile(target, "current");
+    return { temp, target };
+  }
+
+  it(
+    "throws any other error at once, without waiting",
+    async () => {
+      const { temp, target } = await pair();
+      const waits: number[] = [];
+      await expect(
+        replaceIdentityFile(temp + ".missing", target, { wait: async (ms) => waits.push(ms) })
+      ).rejects.toMatchObject({ code: "ENOENT" });
+      expect(waits).toEqual([]);
+      expect(await readFile(target, "utf8")).toBe("current");
+    },
+    TIMEOUT
+  );
+
+  it.runIf(onWindows)(
+    "does not retry EPERM on any other platform",
+    async () => {
+      const { temp, target } = await pair();
+      await hold(target);
+      const waits: number[] = [];
+      await expect(
+        replaceIdentityFile(temp, target, {
+          platform: "linux",
+          wait: async (ms) => waits.push(ms)
+        })
+      ).rejects.toMatchObject({ code: "EPERM", syscall: "rename" });
+      expect(waits).toEqual([]);
+    },
+    TIMEOUT
+  );
+
+  it.runIf(onWindows)(
+    "replaces a held file once the holder releases it",
+    async () => {
+      const { temp, target } = await pair();
+      const release = await hold(target);
+      const waits: number[] = [];
+      // Released only after a real rename against the held file has failed.
+      await replaceIdentityFile(temp, target, {
+        wait: async (ms) => {
+          waits.push(ms);
+          await release();
+        }
+      });
+      expect(waits).toEqual([25]);
+      expect(await readFile(target, "utf8")).toBe("next");
+      expect(await readdir(join(target, ".."))).toEqual(["identity.json"]);
+    },
+    TIMEOUT
+  );
+
+  it.runIf(onWindows)(
+    "gives up after the last bounded wait with the real error, leaving both files",
+    async () => {
+      const { temp, target } = await pair();
+      await hold(target);
+      const waits: number[] = [];
+      await expect(
+        replaceIdentityFile(temp, target, { wait: async (ms) => waits.push(ms) })
+      ).rejects.toMatchObject({ code: "EPERM", syscall: "rename", path: temp, dest: target });
+      expect(waits).toEqual(WAITS);
+      expect(await readFile(target, "utf8")).toBe("current");
+      expect(await readFile(temp, "utf8")).toBe("next");
+    },
+    TIMEOUT
+  );
+});
+
+describe.runIf(onWindows)("rotation while identity.json is held", () => {
+  it(
+    "keeps the lock and temp file while it waits, then completes once released",
+    async () => {
+      const dir = join(await root(), "ChatAgent");
+      const before = await loadOrCreateIdentity(dir);
+      const release = await hold(join(dir, "identity.json"));
+      const during: string[][] = [];
+      const after = await rotateIdentity(dir, {
+        wait: async () => {
+          during.push(await readdir(dir));
+          await release();
+        }
+      });
+      expect(during).toHaveLength(1);
+      expect(during[0]).toEqual(
+        expect.arrayContaining(["identity.json", "rotate.lock", expect.stringMatching(/\.tmp$/)])
+      );
+      expect(during[0]).toHaveLength(3);
+      expect(after).toMatchObject({ principalId: before.principalId, epoch: 1 });
+      expect(await loadOrCreateIdentity(dir)).toEqual(after);
+      await verifyPrivate(join(dir, "identity.json"), "file");
+      expect(await readdir(dir)).toEqual(["identity.json"]);
+    },
+    TIMEOUT
+  );
+
+  it(
+    "fails with the real error after the last wait, leaving the old identity and no lock or temp",
+    async () => {
+      const dir = join(await root(), "ChatAgent");
+      await loadOrCreateIdentity(dir);
+      const path = join(dir, "identity.json");
+      const original = await readFile(path, "utf8");
+      const release = await hold(path);
+      const waits: number[] = [];
+      await expect(
+        rotateIdentity(dir, {
+          wait: async (ms) => {
+            expect(await readdir(dir)).toContain("rotate.lock");
+            waits.push(ms);
+          }
+        })
+      ).rejects.toMatchObject({ code: "EPERM", syscall: "rename", dest: path });
+      expect(waits).toEqual(WAITS);
+      await release();
+      expect(await readFile(path, "utf8")).toBe(original);
+      await verifyPrivate(path, "file");
+      expect(await readdir(dir)).toEqual(["identity.json"]);
+      // The lock was released, so a later rotation proceeds from the old identity.
+      expect((await rotateIdentity(dir)).epoch).toBe(1);
+    },
+    TIMEOUT
+  );
+});
 
 describe("local identity rotation limits", () => {
   it(

@@ -1408,9 +1408,22 @@ connection cap; real-socket integration tests cover that boundary separately.
   34 browser tests, format, lint and documentation contracts. The final broader run
   passed 1,694 of 1,695 tests across 143 files; the sole failure was a Windows rename
   `EPERM` in identity rotation. It also occurred in the preceding full run, while
-  the seven-test identity file passed an isolated rerun. This repeated validation
-  limitation remains under investigation; the full suite is not reported green.
-  Complete provider accounting remains outside this view.
+  the seven-test identity file passed an isolated rerun. The subsequent identity
+  replacement fix below restores full-suite validation. Complete provider
+  accounting remains outside this view.
+  _Windows identity replacement retry implemented and reviewed 2026-10-07:_ a
+  disposable Node 24.21.0/PowerShell probe reproduced `EPERM` while another process
+  held the destination open and a successful rename after release. The holder in
+  the failed suite runs is not established. Rotation now retries only Windows
+  `EPERM`, using the same atomic replacement under the existing rotation lock,
+  with at most seven attempts and six waits totaling 1,575 ms (filesystem call time
+  is additional). Persistent failures still throw; no destination unlink, copy or
+  permission relaxation occurs. Real held-file tests verify delayed success,
+  bounded exhaustion, non-Windows and other-error refusal, lock retention, cleanup
+  and preservation of the old identity after failure. Claude implemented the fix;
+  Codex reviewed it and verified 13 identity tests, two consecutive full runs of
+  1,701 tests across 143 files, 34 browser tests, format, lint and documentation
+  contracts. No real installation identity was read or rotated.
   Still open: streamed Azure usage on other API versions (each needs its own
   primary evidence), complete CLI token accounting (unproven as above), persisting runtime
   declarations and provider-authoritative reconciliation.

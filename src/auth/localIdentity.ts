@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { link, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
 import { makePrivate, verifyPrivate } from "./filePrivacy";
 
@@ -117,6 +118,47 @@ async function writePrivateTemp(dir: string, identity: LocalIdentity) {
 }
 
 /**
+ * Waits between replacement attempts: six waits totalling 1575 ms, so seven attempts.
+ * This bounds the waiting, not the elapsed time; the renames themselves may take longer.
+ */
+const REPLACE_WAITS_MS = [25, 50, 100, 200, 400, 800];
+
+/** @internal Test seam for replaceIdentityFile and rotateIdentity. */
+export interface ReplaceOptions {
+  /** Defaults to the running platform. */
+  platform?: NodeJS.Platform;
+  /** Defaults to a real timer. */
+  wait?: (ms: number) => Promise<unknown>;
+}
+
+/**
+ * @internal Exported for tests; rotateIdentity is the caller.
+ *
+ * Renames temp over target. On Windows, EPERM from that rename may be transient:
+ * it is what a rename onto a file another process holds open returns until the file
+ * is released, although EPERM alone does not prove such a holder. So that one error
+ * is retried after each bounded wait with the same temp and target. Any other error,
+ * EPERM on any other platform, or EPERM after the last wait is thrown unchanged. The
+ * target is never removed first, and temp is left for the caller to clean up.
+ */
+export async function replaceIdentityFile(
+  temp: string,
+  target: string,
+  { platform = process.platform, wait = sleep }: ReplaceOptions = {}
+): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(temp, target);
+      return;
+    } catch (error) {
+      const held = platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM";
+      if (!held || attempt >= REPLACE_WAITS_MS.length) throw error;
+      await wait(REPLACE_WAITS_MS[attempt]);
+    }
+  }
+}
+
+/**
  * Loads the installation identity, creating it once if absent. The directory is made
  * private before any secret exists. An existing file is verified and never
  * regenerated, even if invalid. Concurrent first starts agree on one identity:
@@ -172,9 +214,14 @@ export async function loadIdentity(dir = defaultIdentityDir()): Promise<LocalIde
 /**
  * Replaces the authenticators and increments epoch, keeping the principal id so
  * ownership is unaffected. A running server keeps its loaded identity until it is
- * given the new one (LocalAuthenticator.useIdentity) or restarted.
+ * given the new one (LocalAuthenticator.useIdentity) or restarted. The file is
+ * replaced through replaceIdentityFile while the rotation lock is held; `wait` is
+ * passed to it, for tests.
  */
-export async function rotateIdentity(dir = defaultIdentityDir()): Promise<LocalIdentity> {
+export async function rotateIdentity(
+  dir = defaultIdentityDir(),
+  { wait }: Pick<ReplaceOptions, "wait"> = {}
+): Promise<LocalIdentity> {
   await verifyPrivate(dir, "directory");
   const path = join(dir, FILE);
   // Rotations are serialized: two concurrent ones would read the same epoch. A lock
@@ -198,7 +245,7 @@ export async function rotateIdentity(dir = defaultIdentityDir()): Promise<LocalI
     const next: LocalIdentity = { ...current, ...authenticators(), epoch: current.epoch + 1 };
     const temp = await writePrivateTemp(dir, next);
     try {
-      await rename(temp, path);
+      await replaceIdentityFile(temp, path, wait ? { wait } : {});
     } finally {
       await rm(temp, { force: true });
     }
