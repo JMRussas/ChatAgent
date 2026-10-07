@@ -102,6 +102,43 @@ does not prove what a provider means.
 Validation: 30 focused contract tests; 1,147 tests across 125 files, 34 browser
 tests, format and lint passed. No live provider calls or admission changes.
 
+## Configured quota envelopes (2026-10-06)
+
+`src/routing/quotaEnvelope.ts` is conservative **local** accounting against
+operator-declared fixed-window envelopes. It is **not** provider reconciliation:
+its only authority is an explicit configured envelope, it never reads quota
+observations, and observation-v1 coverage or timestamps never refund or release
+anything. It is pure and unwired; `ResourceAdmission` does not use it yet.
+
+- **Declarations.** An envelope names its pool, window id, an explicit successor
+  `sequence`, fixed bounds, allowance, unit, scope (`account` or one configured
+  credential) and evidence times. The schema is strict, so an observation-shaped
+  payload cannot pass. A re-declaration of the same window is a no-op; the same
+  window with newer evidence (a later check, an expiry no earlier) refreshes it;
+  anything else, a change of unit or scope, an overlap, a successor at or below the
+  pool's highest sequence, or a successor starting before its declaration time is
+  a conflict. A new window applies only once declared and started: no reset is
+  inferred from time.
+- **Accounting.** Amounts are exact decimal units. Every open charge (reserved,
+  started, or finished without a per-call usage report) counts once against the
+  window active at the time. Unstarted reservations therefore carry into a newly
+  active window exactly once; a started charge straddling a reset counts in both
+  windows. Per-call reported usage from the call's own response finalizes that one
+  charge, in every retained window it straddled; it is distinct from provider
+  aggregate observations. A delayed report applies once to an open, finished
+  charge; reports for unknown, final or unfinished charges change nothing. Usage
+  without a report stays debited at its estimate. Debt beyond an allowance is kept
+  and refuses new work, including zero-unit reservations.
+- **Safety.** Every refusal leaves the ledger unchanged. Starting work rechecks the
+  active window and its debit. Changes may not move the clock backwards;
+  `available` is a non-mutating projection that does not advance it. Charge ids
+  are a per-ledger prefix plus a BigInt counter and are never reused. Credential
+  identities never appear in snapshots or errors.
+- **Bounds.** Pools, open charges per pool and retained windows per pool are
+  capped. At the open-charge cap a reservation is refused; nothing open is evicted.
+  The oldest window is dropped only once it has ended, is not active and no open
+  charge started in it; otherwise a new declaration is refused.
+
 ## Admission and selection (04)
 
 Policy names must express intent: allowed execution scopes, allowed billing modes,

@@ -1250,6 +1250,25 @@ connection cap; real-socket integration tests cover that boundary separately.
   an operator recovery path. Do not infer a quota reset from elapsed cache TTL,
   model changes or a local counter clear. Keep local, metered API, cloud and CLI
   subscription policies configurable; avoid automatic usage checks on every call.
+  _Configured envelope ledger implemented 2026-10-06 (unwired); see
+  [configured quota envelopes](implementation/08-resource-policy.md#configured-quota-envelopes-2026-10-06):_
+  conservative local accounting against operator-declared fixed windows, not
+  provider reconciliation. Open charges count against the active window, unknown
+  usage stays debited, debt is kept, and refusals change nothing. Admission does
+  not use it yet; provider-authoritative reconciliation still needs per-charge
+  coverage proof that no current adapter supplies.
+  Lead review accepts this configured, process-local prerequisite only. Final
+  validation passed 1,420 TypeScript tests in two full runs and 34 browser tests;
+  independent review passed 90 focused quota/admission/retention tests on the
+  final source. Ten earlier independent boundary assertions preceded the final
+  ID-counter and documentation changes. Fourteen temporary mutations were caught;
+  one survived and was judged equivalent while the latest window is retained.
+  An earlier full run had one unexplained failure in the unchanged local-identity
+  rotation test; its full diagnostic output was not retained. That file passed
+  three isolated reruns, and both later full runs passed without source changes.
+  The cause remains unknown. Format, lint and documentation checks passed.
+  Next is a reviewed opt-in admission-integration design covering atomic monetary
+  and quota reservation, cancellation, retries and bounded late-report identity.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._
