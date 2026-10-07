@@ -42,6 +42,13 @@ git rev-parse --short HEAD
 
 Do not invent CLI launch flags or bridge features; check the tool metadata.
 
+With the local Hekate profile running, `npx tsx scripts/devcoord.ts status --root
+<plan-root>` (with `HEKATE_PLAN_API_URL` set to a loopback address) shows each
+managed plan leaf's state, attempt and artifact. It is read-only and reports
+execution acknowledgement as unknown: it shows allocation and results, not that a
+worker is running. See the
+[integration contract](implementation/13-hekate-plan-node-integration.md#development-coordination-status-c1a).
+
 ## Bootstrapping a session
 
 1. Discover tool metadata if bridge tools are not directly surfaced, then call

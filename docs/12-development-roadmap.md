@@ -1582,6 +1582,27 @@ cross-repository engine decision. Do not build a second generic interpreter in
 ChatAgent before that decision. Increment 1 contract work should target fields
 that Hekate plan nodes can carry, rather than a ChatAgent-only plan store.
 
+_Development coordination status (C1a) implemented 2026-10-06; see
+[the contract](implementation/13-hekate-plan-node-integration.md#development-coordination-status-c1a):_
+a read-only, fail-closed projection of a Hekate managed plan into per-leaf states,
+identities and stale-input flags, with a loopback-only CLI. It mutates nothing and
+reports execution acknowledgement as unknown. Evidence: offline regressions on a
+captured raw view and labelled synthetic edits, a CLI subprocess test against a fake
+loopback server, and an independent CLI smoke against a disposable Hekate API; no
+live model or wake-up was involved. Durable acknowledgement, review handling,
+progress evidence and wake-ups remain unfinished and depend on Hekate.
+Lead review accepts this read-only slice. Final implementer validation passed
+1,470 tests across 136 files and 34 browser tests; independent validation passed
+97 status-consumer and H1 tests on the frozen source. The independent live CLI
+smoke used a clean Hekate `d0ed671` archive and the same source hashes, with verified
+cleanup of its disposable API and database. A temporary container-classification
+mutation was caught and restored. Format, lint and documentation checks passed.
+The next increment is Hekate-owned durable execution acknowledgement and review
+progress, followed by a supported wake adapter. Hekate's lead has not acknowledged
+the handoff. A separate, read-only Claude continuation was refused by the CLI's
+workspace-trust gate; no session was interrupted and no trust setting changed.
+This reader does not resolve either coordination blocker.
+
 _Receipt-to-context package (H1) implemented 2026-10-06; see
 [the contract](implementation/13-hekate-plan-node-integration.md#receipt-to-context-package-h1):_
 deterministic validation and rendering turn one raw Hekate claim response and the

@@ -132,6 +132,43 @@ activation or recording is established by these checks.
   sources. The estimate is the conservative UTF-8 count, not a provider tokenizer
   or a proof of fit. The snapshot ID is random; provenance is the source and hashes.
 
+## Development coordination status (C1a)
+
+Implemented 2026-10-06 in `src/integrations/hekate/devCoordination.ts`, with the
+read-only CLI `scripts/devcoord.ts` (`HEKATE_PLAN_API_URL=http://127.0.0.1:<port>
+npx tsx scripts/devcoord.ts status --root <plan-root> [--json]`). It reads one managed
+plan view (`GET /api/plan-contract/v1/plans/{root}`) and reports each leaf as ready,
+blocked, in progress, awaiting review, accepted, rejected, stale or cancelled, with
+its exact identities (attempt, executor reference, artifact, decision), readiness
+flags and blockers. Tests use a raw response captured from Hekate `d0ed671`
+(`tests/fixtures/hekate/`) plus labelled synthetic edits, and run the CLI as a
+subprocess against a fake loopback server; nothing in the suite is live. An
+independent smoke of the CLI against a disposable Hekate `d0ed671` API returned the
+expected states with acknowledgement unknown.
+
+- **Read-only.** There is no claim, finish, decide or content client: those
+  mutations belong to the Hekate supervisor and the reviewing lead.
+- **No acknowledgement inferred.** A claim or an in-progress state is allocation, not
+  proof that a worker started; `executionAcknowledged` is always `unknown`. Bridge
+  delivery is never an acknowledgement either.
+- **No stale work shown as current.** Attempt pins are `current` only when they exist,
+  the content revision is unchanged and nothing upstream changed; an attempt
+  without pins is `unknown`. An acceptance whose inputs changed is shown as stale.
+- **Fail closed.** Contract version and root must match; every number must be an
+  exact safe integer and no object may repeat a key or use `__proto__` (checked on
+  the raw text); the hierarchy must be one tree with every node classified once as
+  a leaf or container, where a container is the root or a node with children (as
+  in Hekate's `IsContainer`), so pending leaf work cannot hide as a container;
+  references must stay inside the plan; and a current
+  decision must be the recorded decision on the current attempt. Readiness errors
+  report the plan as invalid without inferring states.
+- **Bounded client.** Literal loopback http only (`127.0.0.1` or `[::1]`), no
+  redirects, one deadline covering headers and body, and a 4 MiB body cap enforced
+  while reading. Output carries states, identities and refusal codes only.
+
+Durable execution acknowledgement, progress evidence and wake-ups remain
+unimplemented; they depend on Hekate's journal and supervisor work.
+
 ## Acceptance and evidence boundaries
 
 - A pilot passes when the task moves through implement, independent review, fixes

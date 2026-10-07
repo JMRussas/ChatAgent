@@ -16,3 +16,39 @@ in `.prettierignore`. Do not edit them; capture new ones instead.
 
 Variants built in tests from these bodies (for example a nested prerequisite
 `attemptEpoch` of 0, or non-null content) are synthetic and labelled as such.
+
+## Plan status fixture
+
+`c1-plan-status.raw.json` is a raw `GET /api/plan-contract/v1/plans/{root}` response
+body for root `e3f9c48e-1338-492a-b6c4-a9fbb1525957`, captured by codex-chatagent
+without re-serialization (agent-bridge message 1075) from a clean `git archive` of
+Hekate `d0ed671` running in an isolated harness API and disposable database, using
+`capture_c1.py` under `uv run --locked` with CPython 3.13.13. The database and API
+were removed afterwards; no shared service was changed. It holds four leaves (ready,
+in progress, done awaiting review, accepted) and the root container.
+
+| File                      | SHA-256                                                            |
+| ------------------------- | ------------------------------------------------------------------ |
+| `c1-plan-status.raw.json` | `4224bc2245afd13f1ee76281c2d7f72954d18b1f982e5f131cb521ded8853d91` |
+
+Other plan-view variants in `tests/unit/devCoordination.test.ts` are synthetic edits
+of this body and are labelled as such.
+
+The capture script lives outside this repository (it imports Hekate's
+`scripts/local/supervisor_e1` harness). To recapture, run it from that directory
+against a clean archive with the harness's own API and database, never a shared
+service:
+
+1. Create a managed plan with a fresh root, then add four children named `Ready`,
+   `In progress`, `Awaiting review` and `Accepted`, each with
+   `attributes.scope = "fixture only; base: 93f3624"`.
+2. Move children 2–4 to `in_progress` with attempt ids `fixture-attempt-<n>` and
+   executor `fixture:worker`; move children 3–4 to `done` with artifact
+   `git:` followed by 40 `a` characters.
+3. Record `accepted` on child 4 against its current content revision, artifact and
+   attempt epoch, with evidence `fixture:checks`.
+4. Write the bytes of `GET /api/plan-contract/v1/plans/{root}` unchanged, record
+   their SHA-256, and stop the harness, keeping its work only on failure.
+
+A recapture has new identifiers and a new hash, so it replaces this fixture and
+its table row together; tests name the root and leaf ids directly.
