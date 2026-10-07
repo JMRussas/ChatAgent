@@ -510,6 +510,26 @@ curl -X POST http://localhost:3100/routing/policy/tune \
 	-d '{"queueDepth":10}'
 ```
 
+8. Read quota envelope accounting (operator endpoint; needs the operator token or a
+   paired browser)
+
+```bash
+curl http://localhost:3100/routing/quota-envelopes \
+	-H "Authorization: Bearer <operator token>"
+```
+
+The answer is `source: "local-declared-window-accounting"`: this process's own
+accounting against operator-declared windows, not provider quota, and lost on
+restart. It reports `asOf`, `unsettledEnvelopeLinks` and, per pool ordered by
+digest, its unit, highest declared sequence, availability (remaining and any debt,
+or an unavailable reason), retained windows and open reserved, started and unsettled
+charges. Pool and window identifiers appear only as digests; scope and credential
+references never appear. Reading changes nothing: no ledger change, clock commit,
+pruning or settlement. An unusable clock answers `200` with `asOf: null` and every
+pool unavailable with `CLOCK_UNAVAILABLE`. Without catalog dispatch the route
+answers `404 QUOTA_ENVELOPES_DISABLED`; with no envelope pools, `pools` is empty.
+Field details are in `docs/implementation/08-resource-policy.md`.
+
 ## TDD flow
 
 Use this loop for each feature:

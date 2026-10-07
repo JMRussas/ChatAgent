@@ -83,6 +83,7 @@ export const ROUTES: readonly RouteRule[] = [
   rule("POST", "/routing/policy/set", "operator"),
   // Runtime windows for envelope pools that configuration already declared.
   rule("POST", "/routing/quota-envelopes/declare", "operator"),
+  rule("GET", "/routing/quota-envelopes", "operator"),
   rule("GET", "/conversations/retention", "operator"),
   rule("DELETE", "/conversations/:conversationId/identity", "operator")
 ];

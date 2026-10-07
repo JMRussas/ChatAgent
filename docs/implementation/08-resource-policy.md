@@ -307,9 +307,36 @@ Q1c-c Bedrock tokens; Q1c-e request units).**
     answers `404 QUOTA_ENVELOPES_DISABLED`. The usual local authentication, body
     limit, object-body check and exact-origin rule for browser sessions apply.
   - **Not claimed.** Declarations are not persisted: a restart returns to the
-    configured windows. There is no inventory route, no automatic refresh and no
-    provider reconciliation; a declaration is still the operator's statement, not a
-    provider observation.
+    configured windows. There is no automatic refresh and no provider
+    reconciliation; a declaration is still the operator's statement, not a provider
+    observation. The read route below shows the result.
+- **Operator read (2026-10-07).** The operator-only `GET /routing/quota-envelopes`
+  projects every envelope pool through `ResourceAdmission.quotaEnvelopeProjection`
+  and the server's `quotaEnvelopeView`. It is local declared-window accounting, never
+  provider quota, and describes only this process's ledger, which a restart loses.
+  - **Answers.** `200` with `source: "local-declared-window-accounting"`, `asOf`
+    (the sampled admission time, or `null`), `unsettledEnvelopeLinks` (finished
+    envelope charges awaiting a per-call report, read directly rather than through
+    `retentionStats()`) and `pools`, ordered by `poolDigest`. Each pool carries
+    `poolDigest`, `unit`, `highWater` (highest declared sequence), `availability`
+    (`available` with `windowSequence`, `windowDigest`, `remaining` and, when
+    over-committed, `debt`; or `unavailable` with `QUOTA_UNKNOWN_OR_STALE` or
+    `CLOCK_UNAVAILABLE`), `windows` (`sequence`, `windowDigest`, `phase` of
+    `future`, `current`, `ended` or `unknown`, `startsAt`, `resetsAt`, `allowance`,
+    `finalUsed`, `evidence.checkedAt` and `evidence.expiresAt`) and `open`
+    (`reserved`, `started` and `unsettled` charge counts and their `units`, each at
+    the larger of its estimate and any observed minimum). Unit amounts are decimal
+    strings. Catalog dispatch with no envelope pools answers `pools: []`; without
+    catalog dispatch the route answers `404 QUOTA_ENVELOPES_DISABLED`.
+  - **Redaction.** Pool and window identifiers are operator labels that may name
+    accounts, so they appear only as digests. Scope, credential references and
+    ticket identities are never included.
+  - **No mutation.** One admission time is sampled and never committed, and the
+    ledger is snapshotted once, so the read changes neither the ledger nor the
+    admission clock, prunes no retained request and settles nothing. An unusable
+    clock answers `200` with `asOf: null`, every pool `unavailable` with
+    `CLOCK_UNAVAILABLE` and every window phase `unknown`, instead of an error.
+    Contract tests: `tests/integration/quotaEnvelopeReadHttp.test.ts`.
 - **Not claimed.** This is in-process: a restart loses it, and it is no
   account-wide cap across processes. Pools and bindings change only through
   configuration and a restart; runtime declarations (above) add windows to existing

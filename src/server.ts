@@ -12,7 +12,7 @@ import { platform, arch } from "node:os";
 import { createRuntimeHandle, loadShutdownConfig, type RuntimeHandle } from "./app/runtimeHandle";
 import { loadDispatchConfig } from "./config/dispatchConfig";
 import { CatalogDispatch } from "./routing/catalogDispatch";
-import { AdmissionError } from "./routing/resourceAdmission";
+import { AdmissionError, type ResourceAdmission } from "./routing/resourceAdmission";
 import { ModelSelectionError } from "./routing/modelSelector";
 import { buildProviderRegistry, entryBindingId } from "./providers/providerRegistry";
 import { connectHekateClaude } from "./providers/cli/hekateClaude";
@@ -191,6 +191,12 @@ interface ServerOptions {
    * QUOTA_ENVELOPES_DISABLED.
    */
   declareQuotaEnvelope?: (raw: unknown) => { outcome: "declared" | "refreshed" | "unchanged" };
+  /**
+   * Reads every envelope pool (ResourceAdmission's quotaEnvelopeProjection), without
+   * changing it. Absent without catalog dispatch: the route answers 404
+   * QUOTA_ENVELOPES_DISABLED.
+   */
+  quotaEnvelopes?: () => ReturnType<ResourceAdmission["quotaEnvelopeProjection"]>;
   evaluationStatus?: () => unknown;
   contextTelemetry?: () => ReturnType<ContextManager["getSummaryTelemetry"]>;
   /** Limit on a request body in bytes, enforced while reading. */
@@ -403,6 +409,57 @@ function resolveDeepWorkerAutoRunConfig(env: NodeJS.ProcessEnv) {
   return {
     enabled: parseBooleanEnv(env.DEEP_WORKER_AUTO_RUN, true),
     intervalMs: parsePositiveIntEnv(env.DEEP_WORKER_INTERVAL_MS, 500, 100, 60_000)
+  };
+}
+
+/**
+ * The operator view of the envelope pools. Pool and window identifiers are
+ * operator-supplied labels that may name accounts, so they appear only as digests,
+ * as in the routing policy view; window sequences and times identify windows.
+ * Scope, credential references and ticket identities are never included.
+ */
+function quotaEnvelopeView(projection: ReturnType<ResourceAdmission["quotaEnvelopeProjection"]>) {
+  return {
+    source: "local-declared-window-accounting",
+    asOf: projection.asOf,
+    unsettledEnvelopeLinks: projection.unsettledEnvelopeLinks,
+    pools: projection.pools
+      .map(({ poolId, unit, highWater, availability, windows, open }) => {
+        const active =
+          availability.status === "available"
+            ? windows.find((w) => w.windowId === availability.windowId)
+            : undefined;
+        return {
+          poolDigest: digest(poolId),
+          unit,
+          highWater,
+          availability:
+            availability.status === "available" && active
+              ? {
+                  status: "available" as const,
+                  windowSequence: active.sequence,
+                  windowDigest: digest(active.windowId),
+                  remaining: availability.remaining,
+                  ...(availability.debt ? { debt: availability.debt } : {})
+                }
+              : {
+                  status: "unavailable" as const,
+                  reason: availability.reason ?? ("QUOTA_UNKNOWN_OR_STALE" as const)
+                },
+          windows: windows.map((w) => ({
+            sequence: w.sequence,
+            windowDigest: digest(w.windowId),
+            phase: w.phase,
+            startsAt: w.startsAt,
+            resetsAt: w.resetsAt,
+            allowance: w.allowance,
+            finalUsed: w.finalUsed,
+            evidence: w.evidence
+          })),
+          open
+        };
+      })
+      .sort((a, b) => (a.poolDigest < b.poolDigest ? -1 : a.poolDigest > b.poolDigest ? 1 : 0))
   };
 }
 
@@ -1177,6 +1234,15 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         }
       }
 
+      if (method === "GET" && url.pathname === "/routing/quota-envelopes") {
+        if (!options.quotaEnvelopes)
+          return json(res, 404, {
+            code: "QUOTA_ENVELOPES_DISABLED",
+            error: "Catalog dispatch is not configured"
+          });
+        return json(res, 200, quotaEnvelopeView(options.quotaEnvelopes()));
+      }
+
       if (method === "GET" && url.pathname === "/conversations/retention")
         return json(res, 200, service.conversationRetention());
 
@@ -1804,7 +1870,10 @@ export async function startServer(
     modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },
     ...(dispatch
-      ? { declareQuotaEnvelope: (raw: unknown) => dispatch.admission.declareQuotaEnvelope(raw) }
+      ? {
+          declareQuotaEnvelope: (raw: unknown) => dispatch.admission.declareQuotaEnvelope(raw),
+          quotaEnvelopes: () => dispatch.admission.quotaEnvelopeProjection()
+        }
       : {}),
     evaluationStatus: () =>
       recorder ? { enabled: true, ...recorder.status() } : { enabled: false },

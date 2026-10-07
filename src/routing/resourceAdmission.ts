@@ -260,6 +260,56 @@ export class ResourceAdmission {
       .map((poolId) => ({ poolId, ...this.envelopes.available(poolId, t) }));
   }
   /**
+   * Side-effect-free operator projection of every envelope pool: its retained windows,
+   * open charges (at max(estimate, observed minimum)), unsettled links and availability,
+   * all at one sampled time. Local declared-window accounting, never provider quota.
+   * The sample is never committed and nothing is pruned or settled, so reading changes
+   * neither the ledger nor the admission clock. An unusable clock yields unavailable
+   * entries, not an error. Raw pool and window identifiers stay for the caller to redact.
+   */
+  quotaEnvelopeProjection() {
+    let t: number | undefined;
+    try {
+      t = this.admissionTime();
+    } catch {
+      t = undefined;
+    }
+    const clockUnavailable = {
+      status: "unavailable" as const,
+      reason: "CLOCK_UNAVAILABLE" as const
+    };
+    return {
+      asOf: t === undefined ? null : new Date(t).toISOString(),
+      // Read directly: retentionStats() prunes, which a projection must not do.
+      unsettledEnvelopeLinks: this.unsettledEnvelopes.size,
+      pools: this.envelopes.snapshot().map(({ scope: _scope, windows, ...pool }) => {
+        let availability: ReturnType<QuotaEnvelopeLedger["available"]> | typeof clockUnavailable =
+          clockUnavailable;
+        if (t !== undefined)
+          try {
+            availability = this.envelopes.available(pool.poolId, t);
+          } catch {
+            availability = clockUnavailable;
+          }
+        return {
+          ...pool,
+          availability,
+          windows: windows.map((w) => ({
+            ...w,
+            phase:
+              t === undefined
+                ? ("unknown" as const)
+                : t < Date.parse(w.startsAt)
+                  ? ("future" as const)
+                  : t >= Date.parse(w.resetsAt)
+                    ? ("ended" as const)
+                    : ("current" as const)
+          }))
+        };
+      })
+    };
+  }
+  /**
    * Declares a window for an envelope pool that configuration already declared, with
    * the ledger's own rules unchanged: an identical declaration is a no-op, the same
    * window may only refresh to newer evidence, and a successor must have a higher

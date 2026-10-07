@@ -10,12 +10,12 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fcceff2`:
 
-| Area                | Current scope                                                                                                                                                                                                                                                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                                                                                                                                                  |
-| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                                                                                                                                          |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a, E2b-a and the E2c disposable fixture accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029/031); E2d fixture-only package and review rollover underway, not accepted (plan 032); no production journal, real workers or wake |
-| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                |
+| Area                | Current scope                                                                                                                                                                                                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                                                                                                                                                                                   |
+| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                                                                                                                                                                           |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a, E2b-a, E2c and E2d disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029/031/033); E2d acceptance reports 534 suite checks plus 4 independent probes; consumer/import placement remains open; no production journal, real workers or wake |
+| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                                                 |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1399,6 +1399,18 @@ connection cap; real-socket integration tests cover that boundary separately.
   (7 symbols, 15 invariants). No live provider calls or service restart. Not in scope:
   persistence (a restart returns to configured windows), an inventory route, new
   pools or bindings at runtime, automatic refresh and provider reconciliation.
+  _Operator quota-window view implemented and reviewed 2026-10-07:_ Claude implemented
+  operator-only `GET /routing/quota-envelopes`, projecting local accounting with
+  pool/window digests, retained window phases, effective open charges and unresolved
+  link counts. Reads do not commit the admission clock or prune state. Codex's
+  source review found no blocker; all 31 focused endpoint/authentication tests,
+  including empty pools, ordering, active calls and no pruning, pass, together with
+  34 browser tests, format, lint and documentation contracts. The final broader run
+  passed 1,694 of 1,695 tests across 143 files; the sole failure was a Windows rename
+  `EPERM` in identity rotation. It also occurred in the preceding full run, while
+  the seven-test identity file passed an isolated rerun. This repeated validation
+  limitation remains under investigation; the full suite is not reported green.
+  Complete provider accounting remains outside this view.
   Still open: streamed Azure usage on other API versions (each needs its own
   primary evidence), complete CLI token accounting (unproven as above), persisting runtime
   declarations and provider-authoritative reconciliation.
