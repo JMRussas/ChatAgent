@@ -1316,10 +1316,37 @@ connection cap; real-socket integration tests cover that boundary separately.
   Node 24.21.0: 1,559 tests across 138 files and 34 browser tests pass, together
   with format, lint and documentation-contract checks. All provider responses
   are offline fixtures; no live provider calls or service restart.
+  _Slice Q1c-c (Bedrock) implemented and reviewed 2026-10-07:_ Converse usage is
+  normalized as `inputTokens` plus cache reads and writes for input and
+  `outputTokens` for output, with every sum checked and `totalTokens` required to
+  match (evidence linked in the contract). Non-streaming calls report only with an
+  explicit accepted stop reason. Streams keep the answer validated at `messageStop`
+  and then read at most one more event for up to 250 ms within the request's signal
+  and deadline; only a valid metadata-only event settles, and every other tail
+  outcome returns the answer without usage, including an oversized or malformed
+  tail and a read that resolves just before cancellation. The stream is now driven
+  by hand so an abandoned read or failing close cannot delay the result; the
+  adapter bounds the return and handles rejections but cannot force an arbitrary
+  iterator to settle. Tests: `tests/unit/bedrockUsage.test.ts` and the Bedrock
+  cases in `tests/integration/quotaUsageSettlement.test.ts`. First focused
+  verification passed 117 tests across 5 files before the review corrections
+  (tail size limit, malformed tail and post-read cancellation checks). Installed
+  SDK cleanup was verified independently by the lead with a local probe kept in
+  the ignored cache (`node_modules/.cache/bedrock-review/cleanup.cjs`): Bedrock
+  client 3.1140.0 with Smithy core 3.35.0 and NodeHttp2Handler 4.12.1 against a
+  real local HTTP/2 server that sent an encoded answer and `messageStop`, then
+  stalled. The stream's `return()` queued behind the pending read; the transport
+  abort settled both, the server saw the stream and session close, no unhandled
+  rejection occurred, and cleanup took 15 ms. No live AWS call was made. Claude
+  implemented the slice and review corrections; Codex accepted the corrected
+  source and ran final validation on Windows Node 24.21.0: 1,614 tests across 139
+  files and 34 browser tests pass, together with format, lint and
+  documentation-contract checks. Provider responses in the suite are offline
+  fixtures; the separate transport probe uses only loopback. No service restart.
   Still open: streamed Azure usage on other API versions (each needs its own
-  primary evidence), Bedrock and CLI usage (each needs its own primary-source check
-  of what its counts include), request-unit reports, a runtime window-declaration
-  route and provider-authoritative reconciliation.
+  primary evidence), CLI usage (needs a primary-source check of what its counts
+  include), request-unit reports, a runtime window-declaration route and
+  provider-authoritative reconciliation.
 - On bridge protocol failure, terminate/drain the child and settle pending requests.
   _Containment implemented 2026-10-06; see
   [conversation tasks](implementation/11-conversation-tasks.md#bridge-failure-containment)._

@@ -79,6 +79,9 @@ function abortError(signal: AbortSignal) {
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps an Azure streamed response estimated when %s
  * @test tests/integration/quotaUsageSettlement.test.ts :: settles a completed Azure stream when the turn is aborted after it returns
  * @test tests/integration/quotaUsageSettlement.test.ts :: keeps the estimate when a stream is aborted after its usage chunk while awaiting [DONE]
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles a Bedrock streamed response from the metadata after messageStop
+ * @test tests/integration/quotaUsageSettlement.test.ts :: settles a Bedrock streamed deep response on its deep ticket
+ * @test tests/integration/quotaUsageSettlement.test.ts :: keeps a Bedrock streamed response estimated when %s
  *
  * @invariant usage-settles-its-own-ticket-once — A report applies to the exact ticket the
  * work ran on, after that ticket finished, at most once; if finishing throws, the ticket

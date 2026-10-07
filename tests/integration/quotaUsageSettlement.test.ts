@@ -6,6 +6,9 @@ import { GenerationError, type GenerationControl } from "../../src/domain/genera
 import { entryBindingId } from "../../src/providers/providerRegistry";
 import { OllamaDeepProvider } from "../../src/providers/ollamaProviders";
 import { AzureDeepProvider, AzureFastProvider } from "../../src/providers/azureProviders";
+import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
+import { BedrockDeepProvider, BedrockFastProvider } from "../../src/providers/bedrockProviders";
+import { MAX_ANSWER_BYTES } from "../../src/providers/streaming";
 import { budget, entry, evidence, now, resources, runtime } from "../helpers/dispatchFixtures";
 
 // Per-call provider usage settling token-envelope tickets through CatalogDispatch.
@@ -485,6 +488,199 @@ describe("per-call usage settlement", () => {
       const c = control();
       if (label.includes("cancelled")) c.value.onDelta = async () => c.controller.abort();
       const call = streamedFast(dispatch, plan, c, apiVersion);
+      if (outcome === "answer")
+        expect(await call).toEqual({ text: "answer", finishReason: "stop" });
+      else await expect(call).rejects.toMatchObject({ code: outcome });
+      expect(remaining(dispatch)).toBe(estimated);
+      expect(links(dispatch)).toBe(1);
+      expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+    }
+  );
+
+  // Bedrock ConverseStream events, driven by hand; send() is replaced, nothing leaves.
+  const bedrockStream = (
+    events: unknown[],
+    after: () => Promise<IteratorResult<unknown>> = async () => ({ done: true, value: undefined })
+  ) => {
+    let i = 0;
+    const stream = {
+      next: () =>
+        i < events.length ? Promise.resolve({ done: false, value: events[i++] }) : after(),
+      return: async () => ({ done: true as const, value: undefined }),
+      [Symbol.asyncIterator]() {
+        return stream;
+      }
+    };
+    vi.spyOn(BedrockRuntimeClient.prototype, "send").mockImplementation((async () => ({
+      stream
+    })) as any);
+  };
+  const stalled = () => new Promise<IteratorResult<unknown>>(() => {});
+  const bedrockDelta = (text: string) => ({ contentBlockDelta: { delta: { text } } });
+  const bedrockStop = (stopReason = "end_turn") => ({ messageStop: { stopReason } });
+  // inputTokens excludes cache reads and writes: 10 + 20 + 5 input, 5 output, 40 total.
+  const bedrockMetadata = (totalTokens = 40) => ({
+    metadata: {
+      usage: {
+        inputTokens: 10,
+        cacheReadInputTokens: 20,
+        cacheWriteInputTokens: 5,
+        outputTokens: 5,
+        totalTokens
+      }
+    }
+  });
+  const bedrockFast = (dispatch: CatalogDispatch, plan: Plan, c: { value: GenerationControl }) =>
+    dispatch.execute(plan.fast, c.value, "medium", () =>
+      new BedrockFastProvider("us-east-1", "model", 0).createProvisionalReply(
+        {
+          message: { conversationId: "c", userId: "u", text: "Explain code", timestampIso: now },
+          correctedText: "Explain code",
+          routeDecision: "direct",
+          context: plan.fast.context
+        },
+        c.value
+      )
+    );
+
+  it("settles a Bedrock streamed response from the metadata after messageStop", async () => {
+    const { dispatch, plan, ticket } = await setup();
+    bedrockStream([bedrockDelta("ans"), bedrockDelta("wer"), bedrockStop(), bedrockMetadata()]);
+    const c = control();
+    const emitted: string[] = [];
+    c.value.onDelta = async (text) => {
+      emitted.push(text);
+    };
+    const result = await bedrockFast(dispatch, plan, c);
+    expect(result).toEqual({ text: "answer", finishReason: "stop", usage: usage(35, 5) });
+    expect(emitted).toEqual(["ans", "wer"]);
+    expect(remaining(dispatch)).toBe("99960");
+    expect(links(dispatch)).toBe(0);
+    expect(charge(dispatch, ticket)).toMatchObject({ status: "unsettled", reportedUsd: null });
+  });
+
+  it("settles a Bedrock streamed deep response on its deep ticket", async () => {
+    const {
+      dispatch,
+      plan,
+      ticket: fastTicket
+    } = await setup(enveloped(), [window()], ["a"], "deep");
+    const fastReserved = charge(dispatch, fastTicket)!.quotaUnits!;
+    bedrockStream([bedrockDelta("deep answer"), bedrockStop(), bedrockMetadata()]);
+    const c = control();
+    const result = await dispatch.execute(plan.deep!, c.value, "medium", () =>
+      new BedrockDeepProvider("us-east-1", "model", 0).resolveDeepTask(
+        {
+          taskId: "deep-task",
+          conversationId: "c",
+          normalizedPrompt: "Explain code",
+          createdAtIso: now,
+          context: plan.deep!.context
+        },
+        c.value
+      )
+    );
+    expect(result.usage).toEqual(usage(35, 5));
+    expect(remaining(dispatch)).toBe(String(100_000 - fastReserved - 40));
+    expect(charge(dispatch, fastTicket)).toMatchObject({ status: "reserved", started: false });
+    expect(links(dispatch)).toBe(0);
+    dispatch.release(plan.fast);
+  });
+
+  // The expected outcome is the answer without usage, or the exact error code.
+  it.each([
+    [
+      "metadata arrives only before messageStop",
+      [bedrockMetadata(), bedrockDelta("answer"), bedrockStop()],
+      undefined,
+      "answer"
+    ],
+    [
+      "the stream ends at messageStop",
+      [bedrockDelta("answer"), bedrockStop()],
+      undefined,
+      "answer"
+    ],
+    [
+      "the metadata total disagrees",
+      [bedrockDelta("answer"), bedrockStop(), bedrockMetadata(15)],
+      undefined,
+      "answer"
+    ],
+    [
+      "the metadata tail stalls past its bound",
+      [bedrockDelta("answer"), bedrockStop()],
+      stalled,
+      "answer"
+    ],
+    [
+      "the turn is cancelled while waiting for metadata",
+      [bedrockDelta("answer"), bedrockStop()],
+      "cancel-in-tail",
+      "answer"
+    ],
+    [
+      "the turn is cancelled before messageStop",
+      [bedrockDelta("answer")],
+      "cancel-before-stop",
+      "CANCELLED"
+    ],
+    [
+      "the stop reason is rejected",
+      [bedrockDelta("answer"), bedrockStop("tool_use"), bedrockMetadata()],
+      undefined,
+      "UNSUPPORTED_FINISH"
+    ],
+    [
+      "the metadata event exceeds the event size limit",
+      [
+        bedrockDelta("answer"),
+        bedrockStop(),
+        { metadata: { ...bedrockMetadata().metadata, trace: "x".repeat(MAX_ANSWER_BYTES) } }
+      ],
+      undefined,
+      "answer"
+    ],
+    [
+      "the metadata read result is malformed",
+      [bedrockDelta("answer"), bedrockStop()],
+      async () => null as never,
+      "answer"
+    ],
+    [
+      "a cancellation lands just after the metadata read resolves",
+      [bedrockDelta("answer"), bedrockStop()],
+      "cancel-after-read",
+      "answer"
+    ]
+  ] as [
+    string,
+    unknown[],
+    (() => Promise<IteratorResult<unknown>>) | string | undefined,
+    string
+  ][])(
+    "keeps a Bedrock streamed response estimated when %s",
+    async (_label, events, tail, outcome) => {
+      const { dispatch, plan, ticket } = await setup();
+      const estimated = remaining(dispatch);
+      const c = control();
+      const after =
+        tail === "cancel-after-read"
+          ? () => {
+              const read = Promise.resolve({ done: false, value: bedrockMetadata() });
+              // Subscribes after the adapter does: the abort runs once the read has
+              // settled the wait, before the adapter inspects it.
+              queueMicrotask(() => void read.then(() => c.controller.abort()));
+              return read;
+            }
+          : typeof tail === "string"
+            ? () => {
+                c.controller.abort(); // the read that follows the scripted events cancels
+                return stalled();
+              }
+            : tail;
+      bedrockStream(events, after);
+      const call = bedrockFast(dispatch, plan, c);
       if (outcome === "answer")
         expect(await call).toEqual({ text: "answer", finishReason: "stop" });
       else await expect(call).rejects.toMatchObject({ code: outcome });

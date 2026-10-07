@@ -134,14 +134,15 @@ envelopes behave exactly as before.
 - **Settlement** uses one report decision for both ledgers (a report counts only if
   both amounts are valid). Work finished without a report stays debited at its
   estimate and keeps a link until a per-call report is applied. Only Ollama calls,
-  non-streaming Azure calls and streamed Azure calls on API version `2024-10-21`
-  report usage so far (below); every other call's debits accumulate, and an envelope can be exhausted by unreported work or by its
+  non-streaming Azure calls, streamed Azure calls on API version `2024-10-21` and
+  Bedrock Converse calls report usage so far (below); every other call's debits
+  accumulate, and an envelope can be exhausted by unreported work or by its
   open-charge cap. That is deliberate: elapsed time is not proof of what was
   consumed. If envelope settlement ever fails, nothing changes in either ledger and
   the work keeps its compute until settlement succeeds.
 
 **Per-call usage reporting (2026-10-07; token envelopes only: Q1c-a Ollama, Q1c-b
-Azure).**
+Azure, Q1c-c Bedrock).**
 
 - **Source.** `GenerationResult` and `DeepResult` carry optional `usage`
   (`source: "provider-response"`, `inputTokens`, `outputTokens`). Both counts must be
@@ -182,6 +183,42 @@ Azure).**
     `[DONE]`), rejected finish, error or cancellation cannot settle. There are no
     added retries; finish validation and timeouts are unchanged.
   - Deep results carry the same usage.
+- **Bedrock (Q1c-c).** Converse `TokenUsage` is normalized as input =
+  `inputTokens` + `cacheReadInputTokens` + `cacheWriteInputTokens` (an absent cache
+  count is zero; a present invalid one withdraws the report) and output =
+  `outputTokens`, because `inputTokens` excludes cache reads and writes
+  ([prompt caching, "Understanding the response"](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html);
+  [TokenUsage](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_TokenUsage.html)).
+  Every count and intermediate sum must be a non-negative safe integer, and
+  `totalTokens` must equal the normalized sum, or there is no usage. `cacheDetails`
+  breakdowns are not added again, and no cost is inferred. Reviewed by the lead
+  2026-10-07.
+  - **Non-streaming:** usage is reported only with an explicit `stopReason` the
+    collector accepts as stop or length.
+  - **Streaming:** `metadata` follows `messageStop`
+    ([conversation inference](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html);
+    [ConverseStreamMetadataEvent](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseStreamMetadataEvent.html)).
+    The adapter validates and keeps the answer at `messageStop`, then reads at most
+    one more event, waiting at most 250 ms and never past the request's own
+    cancellation or deadline. Only a metadata-only event within the existing event
+    size limit (`MAX_ANSWER_BYTES`) and with valid usage counts. End of stream, any
+    other, oversized or malformed event or iterator result, a throw while
+    serializing or normalizing it, a rejected read, the wait bound, or cancellation
+    returns the completed answer without usage. Cancellation is checked again after
+    the read resolves, so a read that settles just before an abort is not accepted.
+    Metadata before `messageStop` is ignored, and errors, cancellation and invalid
+    stop reasons before or at `messageStop` keep their existing behavior.
+  - **Bounded return and cleanup.** The stream is driven by hand: a timed-out or
+    cancelled read is abandoned rather than awaited (its later rejection is
+    handled), the stream's `return()` is requested without being awaited (it can
+    queue behind a pending read; a rejecting or throwing close is absorbed), and the
+    existing deadline wrapper then aborts the transport. Each read clears its timer
+    and removes its abort listener when it settles or is abandoned. This bounds when
+    the result returns; it cannot force an arbitrary iterator to settle a read or
+    close it has abandoned. For the installed SDK, the lead's local probe confirmed
+    that the transport abort settles both (see the roadmap). There are no added
+    retries (the client keeps `maxAttempts: 1`).
+  - Deep results carry the same usage.
 - **Settlement.** `CatalogDispatch.execute` revalidates the returned usage and keeps
   it only for a stop or length result. `finish` then finishes the exact ticket as
   before and, for a token-envelope binding only, applies input plus output through
@@ -198,8 +235,8 @@ Azure).**
 - **Not claimed.** These are the provider's per-call counts, not billed amounts or
   account-wide usage. The charge's diagnostic row keeps its estimated units; the
   envelope projection shows the settled amount. Streamed Azure calls on any API
-  version other than `2024-10-21`, Bedrock and CLI bindings, and request-unit
-  reporting still report nothing.
+  version other than `2024-10-21`, Bedrock metadata that misses its 250 ms tail,
+  CLI bindings and request-unit reporting still report nothing.
 - **Clock.** Envelope decisions never use a time earlier than one already used, so
   a wall clock stepping back holds time instead of failing settlement.
 - **Visibility.** `envelopeAvailability()` is a live projection (window, remaining,
