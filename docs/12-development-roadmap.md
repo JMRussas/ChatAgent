@@ -1864,6 +1864,18 @@ reviewed existing-repository task through this supervised loop, with an immutabl
 acceptance oracle and a bounded operator configuration. Unattended recovery and
 production policy remain outside this local pilot.
 
+_First existing-repository task selected 2026-10-07 (CA-ISSUE-012, assigned, not
+implemented):_ operator reload of the role catalog without a restart, through a
+bounded read and an operator route. Its acceptance oracle is frozen on the isolated
+branch `task/ca012-base` at `1f75576` (intentionally failing there; never merged to
+main as-is), and its task spec is frozen as `supervised-task-spec.v0`
+`b919504a…22d4e`. A supervised pipeline worker implements it through Hekate's
+bounded operator task runner, whose design root accepted and whose implementation
+awaits independent review. Closure needs the worker's artifact to pass the oracle and
+`tsc` under the independent verifier, and root review and integration on current
+main. Hekate's PlanStore remains the task authority; this entry records scope and
+evidence only.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for

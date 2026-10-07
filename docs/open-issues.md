@@ -39,16 +39,17 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                   |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | ---------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
+| ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | assigned | codex-chatagent / supervised pipeline worker |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -252,6 +253,51 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   documentation checks passed. The emitted request remains an offline artifact;
   the reviewer was a deterministic verifier. Provenance and model identifiers are
   declared, not authenticated; the snapshot is historical and policy is a test stub.
+
+### CA-ISSUE-012 — Role catalog changes need a restart
+
+- **Gap:** the role catalog is read once at startup (`src/server.ts`,
+  `loadRoleCatalog(process.env.ROLE_CATALOG_PATH)`), through an unbounded file read.
+  `RoleCatalog.replace` exists and claimed messages already keep a snapshot
+  (`tests/unit/roleCatalog.test.ts`), but nothing re-reads the file at runtime, so an
+  operator's role edit needs a restart, which also drops in-memory state such as
+  runtime quota-window declarations (CA-ISSUE-009).
+- **Why deferred, and why selected:** it blocks neither the supervised loop nor
+  unattended running. It is the first existing-repository task chosen to run through
+  the supervised loop, because it is small, operator-usable and testable offline.
+- **Scope:** startup and reload read the configured file through one
+  descriptor-bounded read of at most 1 MiB as strict UTF-8; startup keeps
+  `ROLE_CATALOG_INVALID`. An exported `reloadRoleCatalog` replaces the startup
+  catalog in place, synchronously from read to replace, or throws
+  `ROLE_CATALOG_RELOAD_FAILED` and leaves it unchanged. `POST /roles/config/reload` is
+  an operator route with a strict empty body that re-reads only the configured path:
+  200 `{version, roleIds, sha256}`, 404 `ROLE_RELOAD_DISABLED` without a path, 400 with
+  the catalog unchanged on any failure, echoing no file content. No watcher, UI or
+  automatic reload. Allowed changes: `src/app/roleCatalog.ts`,
+  `src/auth/routePolicy.ts` (the route table is default-deny) and `src/server.ts`.
+- **Acceptance oracle (frozen, isolated):** `tests/unit/roleCatalogReload.test.ts`
+  (SHA-256 `8232625cdcfdf38f014d753a00014306f2fb508286bf6468ffcd66276909397f`) and
+  `tests/integration/roleReloadHttp.test.ts`
+  (`f921fe94164bcf7f6de7bce1dc6d37bcc6445dc2af9b730e5a2f2f84186ed472`), committed only
+  on branch `task/ca012-base` at `1f75576a70fb3379d18f2d4aa9f0f4d5b6ab1a45` (anchor
+  `2383e85`; the anchor-to-base diff is exactly these two added files). They are
+  intentionally failing there and are never merged to main as-is: 14 of 15 tests fail
+  on named assertions, the exact-1 MiB load passes. The HTTP file observes the live
+  catalog through a pass-through wrapper of the real loader, with no production hook.
+- **Task spec (frozen):** `supervised-task-spec.v0` SHA-256
+  `b919504a353bbc21c730caedbbab244c2e457e2ef2d249c5456d91b60c322d4e` (bridge messages
+  1636, 1644 and 1651). It binds the oracle and its structured baseline cases, the
+  verify steps (Vitest oracle and `tsc --noEmit` on pinned Node 24.21.0), the npm CLI,
+  lockfile and tool hashes, and the worker bounds (40 turns, $1.00 per round, at most
+  two rounds).
+- **Depends on:** Hekate's bounded operator task runner for this spec (design
+  accepted in bridge message 1632; implementation and its independent review
+  pending).
+- **Closure criteria:** a supervised worker's artifact passes both oracle files
+  unchanged and `tsc` under the runner's independent verifier, with only the allowed
+  files changed; root reviews the source, including descriptor growth and concurrent
+  reloads, and integrates it onto current main with the oracle; independently
+  verified.
 
 ## External dependencies
 
