@@ -27,12 +27,12 @@ to their owners' registers.
 Current reading checkpoint (updated 2026-10-07); historical milestones and their
 validation evidence remain below:
 
-| Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 2,019 TypeScript tests pass; the latest browser checkpoint passed 34 tests                                                                                                                                                                  |
-| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                                                                       |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference fixtures imported; ChatAgent byte-reader, verification and offline composition accepted; CLI and host slot pending; no production journal, real workers or wake |
-| Open gates          | First pilot: the smallest supervised local task → independent V&V → fix → commit → fresh-handoff loop. Still open: fixed/rolling quota reconciliation and unattended recovery. Outside the first pilot: shared deployment. Optional: human-labelled quality evaluation                                                                                                                                                                                           |
+| Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 2,053 TypeScript tests pass; the latest browser checkpoint passed 34 tests                                                                                                                                                                                |
+| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                                                                                     |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference fixtures imported; ChatAgent byte-reader, verification and offline composition accepted; offline CLI accepted; host slot pending; no production journal, real workers or wake |
+| Open gates          | First pilot: the smallest supervised local task → independent V&V → fix → commit → fresh-handoff loop. Still open: fixed/rolling quota reconciliation and unattended recovery. Outside the first pilot: shared deployment. Optional: human-labelled quality evaluation                                                                                                                                                                                                         |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1791,6 +1791,18 @@ reference stub. Root independently passed 68 composition tests after reviewing t
 policy, callback, malformed-output and budgeting corrections; Claude's final full
 run passed 2,019 tests across 147 files, with lint and documentation checks passing.
 Tests only: no host slot (CA-ISSUE-003), route, CLI or network.
+
+_Offline handoff CLI implemented and root-accepted 2026-10-07:_
+`scripts/handoff.ts compose` runs the accepted composition with ChatAgent's own H1
+over explicitly named delivery, snapshot, policy, request and optional recorded
+retrieval files, with descriptor-bounded reads, strict exact-integer JSON and typed
+codes, and writes the exact view part, the bound H1 text and a provenance summary to
+a new, exclusively created directory. The golden deliveries reproduce byte for byte
+through it, including as a subprocess. It is an offline operator tool for the
+supervised loop, not conversation activation: the host slot stays CA-ISSUE-003.
+Root reviewed the exact request matching, descriptor bounds and partial-write
+cleanup and independently passed 34 CLI/publishing tests. Claude's final full run
+passed 2,053 tests across 149 files, with lint and documentation checks passing.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

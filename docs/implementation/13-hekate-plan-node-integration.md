@@ -314,6 +314,54 @@ view and calls H1 under the reduced window, returning the emitted view part, its
 
 Tests: `tests/unit/handoffCompose.test.ts`.
 
+### Offline operator CLI
+
+Status: implemented and root-accepted 2026-10-07. Root reviewed the descriptor
+bounds, exact request matching and publishing corrections and independently passed
+34 CLI/publishing tests. Claude's final full run passed 2,053 tests across 149 files,
+with lint and documentation checks passing. A usable offline tool over the
+accepted consumer, not an activation path: it starts no conversation and has no
+host slot (CA-ISSUE-003).
+
+```sh
+npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <file>   --request <file> --out <new-dir> [--retrieval <recorded.json>]
+```
+
+- **Inputs** are only the files named. The delivery directory holds `wrapper.json`,
+  `manifest.bin`, `envelope.bin`, `task.bin`, `receipt.json` and `h1-input.json`, as
+  in both fixture bundles. The snapshot file is the snake_case as-of proof, a
+  historical input and never live authority. `--retrieval` answers only exact recorded requests,
+  matched by value with integers and strings kept distinct (a recorded `"7"` never
+  answers `7`); a request recorded twice with different results is refused
+  (`retrieval_invalid`), an identical repeat is accepted; without it every retrieval is `no_retriever`. No network,
+  provider, journal or source store is touched.
+- **Bounded reads.** Each file is opened once; its size comes from that descriptor
+  and at most one byte past the cap is read, so a file that grows is still refused.
+  Delivery fields use the plan 034 ingress caps and the JSON inputs 1 MiB. JSON is
+  read strictly with exact integers; a float is `codec_unsupported`. These file and
+  shape checks (`input_unreadable`, `input_too_large`, `input_invalid_json`,
+  `delivery_invalid`, `fresh_invalid`, `request_invalid`, `retrieval_invalid`) run
+  before the pure verification, which keeps its own order.
+- **Composition** uses ChatAgent's own H1 at the running checkout. The reviewed
+  supplement deliveries are refused here (`h1_refused`): their H1 options are
+  synthetic test data that only the reference's H1-shaped stub accepts.
+- **Output.** After a successful composition the output directory is created
+  exclusively (an existing one, even empty, is `output_exists` and left untouched),
+  each file is written exclusively, and `summary.json` is written last as the
+  completion marker: `view-part.txt` (the exact emitted part), `h1-text.txt` and a
+  deterministic summary of input hashes, digests, cost, the estimator label and its
+  provenance (H1 at this checkout, not the pinned `5255daa` invocation). Each file is
+  owned from the moment its exclusive create succeeds and is written through that
+  descriptor; on a write or close failure only owned files and the directory this
+  attempt created are removed, and a file another process created is never touched. Publishing is not atomic: a
+  reader can see a directory without its summary.
+- **Failures** print `handoff: <code>` with exit 1 (usage: exit 2), never content
+  or paths.
+
+Tests: `tests/unit/handoffCli.test.ts`, including one subprocess run of the script,
+and `tests/unit/handoffCliPublish.test.ts`, which injects a partial write, a failed
+close and a foreign file through a pass-through `node:fs` mock.
+
 ## Acceptance and evidence boundaries
 
 - A pilot passes when the task moves through implement, independent review, fixes
