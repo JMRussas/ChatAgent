@@ -10,12 +10,12 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fcceff2`:
 
-| Area                | Current scope                                                                                                                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                              |
-| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                      |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a test-only evidence model accepted (`d0428dc`, plan 027); no durable journal, coherent production read, real workers or wake |
-| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                            |
+| Area                | Current scope                                                                                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                            |
+| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                    |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a model and E2b-a disposable journal experiment accepted (`d0ed671`, plan 029); no production journal, real workers or wake |
+| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                          |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1573,24 +1573,26 @@ Hekate plans 024/025 record the evidence. E2a, a test-only in-memory evidence mo
 and classifier for launch and review-pending evidence, is accepted at `d0428dc` (plan
 027); no durable journal, coherent production read, restart recovery, real worker,
 wake or model activation is established.
-The E2b-a disposable-database journal experiment (accepted design `ca672ec`, Hekate
-plan 028) is implemented but remains uncommitted and unaccepted. Independent review
-of the corrected checkpoint (bridge msg 992) passed 363 default tests, 31 pure H1
-interoperability checks and one separately run live H1 check, using `uv run --locked`
-in the clean `ca672ec` archive plus the owned overlay. Selecting default and live
-interop together first caused their separate fixtures to contend for test port
-5108; the live suite passed when run separately.
-Two additional independent regression probes fail: an old first claim intent is
-incorrectly retryable after its completed stream is evicted, and queue cleanup can
-reinsert a stale entry from the same scan. Corrections are assigned to Claude
-(msg 996); acceptance and the implementation commit are withheld. Invalid scan
-bounds and cleanup of entries outside the current page are covered by the passing
-suite. The original Claude session is idle; a separate CLI continuation was refused
-by its workspace-trust gate, and approval to accept that prompt remains pending.
-Normal Hekate development services are running (API 5103 and UI 5179 independently
-returned HTTP 200 after validation); the shared PostgreSQL container must remain up.
-The disposable test API on 5108 is stopped, and failing-probe work artifacts are
-retained in the clean gate for diagnosis. This does not establish unattended recovery.
+The E2b-a disposable-database journal experiment is independently accepted and
+committed in Hekate `d0ed671` (design 028, evidence 029). Final `uv run --locked`
+validation in the clean `ca672ec` archive plus the owned overlay passed **366 default
+tests and two independent regression probes**. The probes first reproduced unsafe
+first-intent retry after retention and stale-entry reinsertion during queue cleanup;
+both pass after Claude's corrections. A second reviewer confirmed the fixes.
+The earlier corrected checkpoint passed 31 pure H1 and one separately run live H1
+check; those interoperability suites preceded the final journal/queue corrections.
+The final source differs from the tested source only by a comment clarifying the
+snapshot boundary; plan 029 records the exact hashes and validation timing.
+Missing streams now require operator reconciliation; retry identity remains a
+caller rule. Queue cleanup reflects its database read, so later resolutions may
+remain visible until another scan. Logical journal caps do not bound writer/audit
+rows or total database storage. No production journal, coherent-read contract,
+real worker, automatic wake or unattended recovery is established.
+Claude completed the fixes in its existing session; a separate continuation and
+workspace-trust change were unnecessary for this increment. Normal development
+services remain running (API 5103 and UI 5179 returned HTTP 200 after validation);
+the shared PostgreSQL container stays up. Test API 5108 is stopped, no test database
+remains, and earlier failing-probe artifacts are retained for diagnosis.
 Provider reuse and real execution remain gated;
 this does not decide the generic orchestration engine wholesale.
 
