@@ -1151,9 +1151,22 @@ failed their targeted tests and were reverted. No live provider calls or service
 restart.
 
 Still open for step 2: per-stream memory still scales with the conversation size,
-since the legacy stream re-sends whole snapshots and the v1 stream re-reads the
-whole timeline; and cross-owner denial with an authenticated identity remains the prerequisite for
+since the legacy stream re-sends whole snapshots and v1 still copies the whole
+timeline at open and may copy a large unsent suffix; cross-owner denial with an authenticated identity remains the prerequisite for
 any shared deployment.
+
+_V1 suffix reads implemented 2026-10-06; see the
+[runtime reference](runtime-reference.md#event-stream-limits):_ after opening, a v1
+stream's polls copy only the timeline events after its cursor instead of the whole
+timeline, so idle polls copy none. This reduces repeated work but sets no per-stream
+byte cap (the initial read and a large unsent suffix are still copied), so the open
+memory item above stands. Stores without the optional read fall back to a full copy.
+Primary validation passed 1,388 TypeScript tests across 133 files and 34 browser
+tests, with six rejected mutations. Independent review passed 48 suffix-read,
+protocol and stream checks, including blocked reads, cursor resumption and
+unchanged expiry behavior. Format, lint and documentation checks passed.
+The deterministic idle-poll check observed zero copied events; no sustained-memory
+gate was rerun because that gate does not exercise SSE streams.
 
 _Last-Event-ID resumption implemented 2026-10-06; see the
 [runtime reference](runtime-reference.md#event-stream-limits):_ a v1 stream resumes after

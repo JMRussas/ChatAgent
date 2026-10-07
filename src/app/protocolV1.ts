@@ -236,8 +236,8 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
           throw new GenerationError("CONVERSATION_EXPIRED", false);
         boundId = currentId;
         if (!currentId) return;
-        for (const event of await service.getTimeline(currentId)) {
-          if ((event.sequence ?? 0) <= cursor) continue;
+        // Only events after the cursor are copied, not the whole timeline each tick.
+        for (const event of await service.getTimelineAfter(currentId, cursor)) {
           const wire = projectTurnEvent(conversationId, event);
           if (wire) {
             const written = sse.write(sseFrame("turn", JSON.stringify(wire), wire.sequence));

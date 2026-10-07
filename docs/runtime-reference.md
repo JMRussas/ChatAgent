@@ -334,7 +334,12 @@ stream that was ended but has not flushed. Per stream, memory is the current
 timeline copy from the read, its serialization, and the buffered frames: at most
 the response's high-water mark plus one frame (one v1 event, or one legacy
 snapshot bounded by the conversation byte limit). This is a per-stream bound, not
-a whole-process measurement.
+a whole-process measurement. Since 2026-10-06 each v1 poll after the stream opens
+copies only the events after its cursor (stores without that read fall back to a
+full copy), so an idle v1 stream copies no events. This reduces repeated work; it
+is not a byte cap: the initial read still copies the whole timeline, and a slow or
+newly connected stream may copy the whole unsent suffix. The legacy stream still
+copies and re-sends whole snapshots.
 
 Shutdown (`closeStreams`) clears every stream's timers and listeners at once,
 ends idle streams, and destroys streams that are blocked, still flushing or have

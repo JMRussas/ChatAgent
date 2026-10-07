@@ -113,7 +113,8 @@ it("shares one stream limit across legacy and v1 routes and refuses before any s
   expect(h.server.retentionStats().streams).toBe(2);
 
   const reads = vi.spyOn(h.service, "getTimeline");
-  const before = reads.mock.calls.length;
+  const afterReads = vi.spyOn(h.service, "getTimelineAfter");
+  const before = reads.mock.calls.length + afterReads.mock.calls.length;
   for (const path of [
     "/conversations/c2/events/stream",
     `/v1/conversations/${randomUUID()}/events/stream?accountId=a&projectId=p`
@@ -125,7 +126,7 @@ it("shares one stream limit across legacy and v1 routes and refuses before any s
     expect(await refused.json()).toMatchObject({ code: "STREAM_CAPACITY" });
   }
   // Refusal read no timeline and allocated no protocol identity.
-  expect(reads.mock.calls.length).toBe(before);
+  expect(reads.mock.calls.length + afterReads.mock.calls.length).toBe(before);
   expect(h.server.retentionStats()).toMatchObject({ streams: 2, wireConversations: 0 });
 
   // Closing a stream frees its slot; a new stream on the other route is admitted.
@@ -186,15 +187,17 @@ it("v1: a full write advances the cursor, blocks reads, and resumes without gaps
   await h.postV1("one");
   await h.postV1("two");
   const reads = vi.spyOn(h.service, "getTimeline");
+  // The pump reads only events after its cursor.
+  const pumpReads = vi.spyOn(h.service, "getTimelineAfter");
   const res = new FakeResponse();
   res.allowance = 2; // ready + first turn frame; the second turn frame reports full.
   h.server.emit("request", fakeRequest(h.v1Path), res.asResponse());
   cleanups.push(async () => void res.destroy());
   await vi.waitFor(() => expect(frames(res).filter((f) => f.event === "turn")).toHaveLength(2));
-  const readsWhenBlocked = reads.mock.calls.length;
+  const readsWhenBlocked = reads.mock.calls.length + pumpReads.mock.calls.length;
   await new Promise((r) => setTimeout(r, 350));
   // Blocked: no timeline reads and nothing more written across several poll intervals.
-  expect(reads.mock.calls.length).toBe(readsWhenBlocked);
+  expect(reads.mock.calls.length + pumpReads.mock.calls.length).toBe(readsWhenBlocked);
   expect(frames(res).filter((f) => f.event === "turn")).toHaveLength(2);
 
   res.drain();
@@ -226,19 +229,30 @@ for (const route of ["v1", "legacy"] as const)
     await post("first");
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     cleanups.push(async () => void vi.useRealTimers());
-    const original = h.service.getTimeline.bind(h.service);
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
     let holdNext = false;
     let holding = false;
-    const reads = vi.spyOn(h.service, "getTimeline").mockImplementation(async (id) => {
+    const hold = async () => {
       if (holdNext) {
         holdNext = false;
         holding = true;
         await held;
       }
-      return original(id);
-    });
+    };
+    // Each route polls through its own read: v1 copies only events after its cursor.
+    const original = h.service.getTimeline.bind(h.service);
+    const originalAfter = h.service.getTimelineAfter.bind(h.service);
+    const reads =
+      route === "v1"
+        ? vi.spyOn(h.service, "getTimelineAfter").mockImplementation(async (id, after) => {
+            await hold();
+            return originalAfter(id, after);
+          })
+        : vi.spyOn(h.service, "getTimeline").mockImplementation(async (id) => {
+            await hold();
+            return original(id);
+          });
     const res = new FakeResponse();
     const path = route === "v1" ? h.v1Path : "/conversations/c/events/stream";
     h.server.emit("request", fakeRequest(path), res.asResponse());

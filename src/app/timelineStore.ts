@@ -31,6 +31,11 @@ export interface ConversationTimelineStore {
   retireConversation?(conversationId: string): boolean;
   appendEvent(conversationId: string, event: ChatTimelineEvent): Promise<void>;
   getEvents(conversationId: string): Promise<ChatTimelineEvent[]>;
+  /**
+   * Optional: copies of only the events after a sequence, with the same availability
+   * and access semantics as getEvents. Callers fall back to getEvents when absent.
+   */
+  getEventsAfter?(conversationId: string, afterSequence: number): Promise<ChatTimelineEvent[]>;
 }
 
 export class NoopConversationTimelineStore implements ConversationTimelineStore {
@@ -226,5 +231,22 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
   async getEvents(conversationId: string): Promise<ChatTimelineEvent[]> {
     this.assertConversationAvailable(conversationId);
     return structuredClone(this.records.get(conversationId)?.events ?? []);
+  }
+  /** Copies only the suffix after a sequence; events are stored in sequence order. */
+  async getEventsAfter(
+    conversationId: string,
+    afterSequence: number
+  ): Promise<ChatTimelineEvent[]> {
+    this.assertConversationAvailable(conversationId);
+    const events = this.records.get(conversationId)?.events ?? [];
+    // First index whose sequence is greater than afterSequence.
+    let low = 0,
+      high = events.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if ((events[middle].sequence ?? 0) > afterSequence) high = middle;
+      else low = middle + 1;
+    }
+    return structuredClone(events.slice(low));
   }
 }

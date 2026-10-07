@@ -359,6 +359,18 @@ export class ChatService {
     return this.timelineStore.getEvents(conversationId);
   }
 
+  /** Events after a sequence. Stores without getEventsAfter pay the full read. */
+  async getTimelineAfter(
+    conversationId: string,
+    afterSequence: number
+  ): Promise<ChatTimelineEvent[]> {
+    if (this.timelineStore.getEventsAfter)
+      return this.timelineStore.getEventsAfter(conversationId, afterSequence);
+    return (await this.timelineStore.getEvents(conversationId)).filter(
+      (event) => (event.sequence ?? 0) > afterSequence
+    );
+  }
+
   async listDeadLetters(): Promise<DeadLetterRecord[]> {
     if (!this.deadLetterStore) return [];
     return this.deadLetterStore.list();

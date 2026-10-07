@@ -455,3 +455,39 @@ it("v1 applies its cursor and runtime checks to Last-Event-ID", async () => {
   zero.close();
   await vi.waitFor(() => expect(h.server.retentionStats()).toMatchObject({ streams: 0 }));
 });
+
+it("v1 pumps copy only events after the cursor, so idle pumps copy none", async () => {
+  const h = await setup({
+    createProvisionalReply: async () => ({ text: "a", finishReason: "stop" })
+  });
+  const one = randomUUID();
+  await h.post("one", one);
+  await h.post("two");
+  const original = h.service.getTimelineAfter.bind(h.service);
+  const full = vi.spyOn(h.service, "getTimeline");
+  const after = vi.spyOn(h.service, "getTimelineAfter");
+  const copied: number[] = [];
+  after.mockImplementation(async (id, cursor) => {
+    const events = await original(id, cursor);
+    copied.push(events.length);
+    return events;
+  });
+  const stream = await openStream(h, "afterSequence=0");
+  await stream.next();
+  await turnsUntil(stream, one);
+  const total = (await h.service.getTimeline(full.mock.calls[0][0])).length;
+  full.mockClear();
+  copied.length = 0;
+  await new Promise((r) => setTimeout(r, 350));
+  // Several idle pumps: none read the whole timeline, and none copied an event.
+  expect(full).not.toHaveBeenCalled();
+  expect(copied.length).toBeGreaterThanOrEqual(2);
+  expect(copied.every((n) => n === 0)).toBe(true);
+  expect(total).toBeGreaterThan(0);
+  // New history: the next pump copies only the new events.
+  const three = randomUUID();
+  await h.post("three", three);
+  await turnsUntil(stream, three);
+  expect(Math.max(...copied)).toBeLessThan(total);
+  stream.close();
+});
