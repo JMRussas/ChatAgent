@@ -39,16 +39,16 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status      | Owner / assignee                   |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ----------- | ---------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed      | codex-chatagent / claude-chatagent |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed      | codex-chatagent / claude-chatagent |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed      | codex-chatagent / claude-chatagent |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open        | codex-chatagent / unassigned       |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open        | codex-chatagent / unassigned       |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open        | codex-chatagent / unassigned       |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed      | codex-chatagent / claude-chatagent |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | implemented | codex-chatagent / claude-chatagent |
+| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                   |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | ---------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -219,24 +219,39 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   tests on Node 24.21.0. Claude passed 171 focused CLI, publishing, composition and
   host-slot tests on the final source; its 2,131-test full run preceded only the
   summary-claim wording change. Format, lint and documentation checks passed.
-  The issue remains implemented until the end-to-end closure criteria below pass.
+  This first increment verified the consumer gate; the end-to-end closure is recorded below.
 - **Export input implemented and independently verified 2026-10-07:**
   `compose --export <dir>` reads one `handoff-export.v0` directory (contract frozen by root in bridge
   message 1549) and always checks its expectation. Tests use a synthetic,
-  golden-derived export labelled as such; no real export has been captured.
+  golden-derived export labelled as such; the later real capture is recorded below.
   `cli.ts` SHA-256 `eb1f974b8de6c48f5d0cb772a63e8016084daf325f15630323d682d6c0875d5b`
   (uncommitted, base `d7a6c32`). Root reviewed the fixed layout, streamed listing,
   descriptor identity checks and parity gate and independently passed all 86 CLI and
   publishing tests. Claude passed all 435 handoff tests; format, lint and
   documentation checks passed. This verifies the consumer path with synthetic
-  inputs; end-to-end closure still requires the actual producer export below.
-- **Depends on:** a Hekate pilot export in that layout that writes
+  inputs. The actual producer and its acceptance are recorded below.
+- **Dependency satisfied:** Hekate's producer at `1af9a9e8c20216c05ea43a521277b32cc5dff3d9` writes
   `handoff-expectation.v0` from its consumer run with ChatAgent's real H1 (schema
   proposed in bridge message 1515 and acknowledged unchanged by Hekate's implementer
-  in 1524; the producer is not implemented yet).
+  in 1524). Its source is integrated in Hekate primary at `489f7910`.
 - **Closure criteria:** a real pilot handoff export, composed by ChatAgent with
   `--export` (or `--expect`), matches; a deliberately altered expectation is refused;
   independently verified.
+- **Independently verified and closed 2026-10-07:** the real Claude CLI round
+  `a5882739c150` (root GO 1611) produced the indexed export now preserved unchanged
+  in `tests/fixtures/hekate/pilot-export-v0/`; its adjacent `PROVENANCE.md` records
+  the source, runtime, evidence and limits. INDEX SHA-256
+  `264a494b37f7470fce95645dfd12db61069c9484ceb6995967c0332ef4f99bec` identifies the
+  exact 13-file bundle. The Python producer used the verified real H1 at `5255daa`;
+  ChatAgent's real H1 at `2383e85` rebound the committed task and matched the view
+  bytes, digests, reservation and cost. Claude independently passed 22 acceptance
+  checks, including altered-expectation and tampered-byte controls on copies.
+  Root independently composed the original export and confirmed identical view,
+  summary and emitted-request hashes, then passed all 90 CLI and publishing tests
+  on the captured fixture. Claude passed all 439 handoff tests; format, lint and
+  documentation checks passed. The emitted request remains an offline artifact;
+  the reviewer was a deterministic verifier. Provenance and model identifiers are
+  declared, not authenticated; the snapshot is historical and policy is a test stub.
 
 ## External dependencies
 

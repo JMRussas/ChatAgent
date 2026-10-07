@@ -365,8 +365,8 @@ npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <fil
   reader can see a directory without its summary.
 - **Producer parity (CA-ISSUE-011).** `--expect <file>` reads a closed
   `handoff-expectation.v0` object (at most 4 KiB, strict, no floats): `version`,
-  `h1Builder` (`chatagent-h1` only, since parity needs ChatAgent's real H1 on both
-  sides, never an H1-shaped stub), lowercase-hex `viewDigest`, `viewPartSha256`,
+  `h1Builder` (`chatagent-h1`, the required producer declaration for the real-H1
+  export), lowercase-hex `viewDigest`, `viewPartSha256`,
   `h1SuppliedSha256` and `candidateDigest`, a 10-digit `reservationTokens` and an
   exact `viewCost` equal to it. Anything else is `expectation_invalid`. After
   composing and before publishing, every field must equal the composition's own
@@ -375,11 +375,11 @@ npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <fil
   expectation": the view bytes and bindings agree. `h1Builder` is the producer's
   declaration, not verified here, and equal bytes do not prove which program
   produced the expectation; this is integrity and parity, not provenance,
-  authentication or current authority. Only the golden bundle, from a known,
-  independently reviewed producer run, is evidence that two consumers agree. The
+  authentication or current authority. The golden bundle and captured real pilot
+  export, from known independently reviewed runs, evidence two-consumer agreement. The
   schema was acknowledged unchanged by Hekate's implementer (bridge message 1524);
-  the producer export is not implemented yet.
-- **Export input (implemented 2026-10-07, awaiting root review).**
+  producer is implemented at Hekate `1af9a9e8` under plan 039.
+- **Export input (implemented and root-accepted 2026-10-07).**
   `compose --export <dir> --out <new-dir> [--emit-request fast|deep]` reads one
   `handoff-export.v0` directory, the contract root froze in bridge message 1549:
   exactly `delivery/{wrapper.json, manifest.bin, envelope.bin, task.bin,
@@ -404,7 +404,15 @@ receipt.json, h1-input.json}`, `fresh.json`, `policy.json`, `request.json`,
   summary adds the export version, the index and provenance hashes, and states that
   the index proves integrity only, not authenticated producer evidence. Tests use a
   synthetic export built from the golden bundle and labelled synthetic in its
-  provenance; no real pilot export exists yet.
+  provenance. The real bundle in `tests/fixtures/hekate/pilot-export-v0/` captures
+  round `a5882739c150` at Hekate `1af9a9e8`, with the verified real H1 at `5255daa`
+  on Node 24.21.0. ChatAgent at `2383e85` matched it byte for byte; root reproduced
+  the CLI result and independently passed 90 CLI and publishing tests, while Claude
+  passed all 439 handoff tests. Its INDEX SHA-256 is
+  `264a494b37f7470fce95645dfd12db61069c9484ceb6995967c0332ef4f99bec`.
+  Provenance is documented adjacent to the closed layout. The fresh snapshot is
+  historical, policy is a test stub, model identifiers are CLI-reported, and the
+  emitted request remains offline; a deterministic verifier reviewed the artifact.
 - **Failures** print `handoff: <code>` with exit 1 (usage: exit 2), never content
   or paths.
 

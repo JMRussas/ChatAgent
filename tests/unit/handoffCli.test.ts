@@ -632,3 +632,82 @@ describe("--export of one handoff-export.v0 directory (contract 1549)", () => {
     refused(link);
   });
 });
+
+describe("the first real pilot handoff export (pilot-export-v0)", () => {
+  // Captured byte-for-byte from Hekate 1af9a9e, pilot run a5882739c150 (provenance in
+  // tests/fixtures/hekate/PROVENANCE.md). Composing it with this checkout's real H1
+  // must keep matching the producer's own composition: a guard against H1 or
+  // consumer drift. Negative controls run on temporary copies only.
+  const REAL = resolve("tests/fixtures/hekate/pilot-export-v0");
+  const VIEW = "998e94fc31779273db4d3e411542d294a6c382a90356c19e6348ebc0e502d694";
+  const copyOf = () => {
+    const dir = join(temp(), "export");
+    cpSync(REAL, dir, { recursive: true });
+    return dir;
+  };
+  const reindex = (dir: string) => {
+    const paths = readFileSync(join(dir, "INDEX.sha256"), "utf8")
+      .trimEnd()
+      .split("\n")
+      .map((line) => line.split("  ")[1]);
+    writeFileSync(
+      join(dir, "INDEX.sha256"),
+      paths.map((p) => `${sha256Hex(readFileSync(join(dir, p)))}  ${p}\n`).join("")
+    );
+  };
+
+  it("is the captured export, unchanged", () => {
+    expect(sha256Hex(readFileSync(join(REAL, "INDEX.sha256")))).toBe(
+      "264a494b37f7470fce95645dfd12db61069c9484ceb6995967c0332ef4f99bec"
+    );
+  });
+
+  it("composes with this checkout's real H1 and matches the producer's expectation", () => {
+    const out = join(temp(), "out");
+    const r = run(["compose", "--export", REAL, "--out", out]);
+    expect(r).toEqual({ code: 0, stdout: `handoff: composed viewDigest ${VIEW}\n`, stderr: "" });
+    expect(readFileSync(join(out, "view-part.txt"))).toEqual(
+      readFileSync(join(REAL, "view-part.txt"))
+    );
+    const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"));
+    expect(summary).toMatchObject({
+      viewDigest: VIEW,
+      candidateDigest: "a78ff9cf9130965066b71db09b4350db719af6bcfbae9126fad59ae4da068b4e",
+      expectation: { result: "matches the supplied expectation" },
+      export: {
+        version: "handoff-export.v0",
+        indexSha256: "264a494b37f7470fce95645dfd12db61069c9484ceb6995967c0332ef4f99bec",
+        files: 13
+      }
+    });
+  });
+
+  it("refuses a copy whose expectation was altered and reindexed", () => {
+    const dir = copyOf();
+    const expected = JSON.parse(readFileSync(join(dir, "expected.json"), "utf8"));
+    writeFileSync(
+      join(dir, "expected.json"),
+      JSON.stringify({ ...expected, viewDigest: "0".repeat(64) })
+    );
+    reindex(dir);
+    const out = join(temp(), "out");
+    expect(run(["compose", "--export", dir, "--out", out])).toMatchObject({
+      code: 1,
+      stderr: "handoff: expectation_mismatch\n"
+    });
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it("refuses a copy with one changed byte", () => {
+    const dir = copyOf();
+    const policy = readFileSync(join(dir, "policy.json"));
+    policy[policy.length - 1] ^= 1;
+    writeFileSync(join(dir, "policy.json"), policy);
+    const out = join(temp(), "out");
+    expect(run(["compose", "--export", dir, "--out", out])).toMatchObject({
+      code: 1,
+      stderr: "handoff: export_invalid\n"
+    });
+    expect(existsSync(out)).toBe(false);
+  });
+});

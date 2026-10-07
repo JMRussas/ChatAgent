@@ -89,3 +89,39 @@ It supplements, and never replaces, the golden bundle above: 34 generic JSON byt
 vectors (not deliveries) and 5 producer-reachable deliveries whose receipts and
 as-of proofs are synthetic and whose H1 builder is the H1-shaped stub, not
 ChatAgent's real H1. Its Python generation/replay scripts are provenance only.
+
+## First real pilot handoff export
+
+`pilot-export-v0/` is the first real `handoff-export.v0` (contract frozen in
+bridge messages 1549 and 1550), copied byte-for-byte on 2026-10-07 from the one
+opt-in export run (root GO, bridge message 1611; outcome reported in 1614). It was
+produced at Hekate `1af9a9e8c20216c05ea43a521277b32cc5dff3d9` (clean worktree,
+branch `feat/handoff-export-v0`), pilot run `a5882739c150`, round 1. Root accepted
+the capture in bridge message 1621. Its `INDEX.sha256` has SHA-256
+`264a494b37f7470fce95645dfd12db61069c9484ceb6995967c0332ef4f99bec`; all 13
+indexed files were checked after copying, and no unlisted file is present. The
+export layout is closed, so this provenance lives here, outside the directory. Git
+text conversion and Prettier are disabled for it; do not edit or reserialize it.
+
+In that round a real Claude Code CLI worker (`claude-cli`) completed the pilot's
+disposable task, and Hekate's deterministic verifier accepted the artifact. The
+review task was rendered by ChatAgent's real H1 at the pinned
+`5255daacfc670a4919f61439eb12adcb6a401920` with Node 24.21.0, over the retained
+claim response. The export holds Hekate's own consumer composition with
+`wanted: []` and no retrieval.
+
+Acceptance (procedure in bridge message 1576, results in 1616; root reproduced the
+composition independently): ChatAgent `2383e85`'s `compose --export` on Node
+24.21.0 matched the expectation (view digest
+`998e94fc31779273db4d3e411542d294a6c382a90356c19e6348ebc0e502d694`, candidate
+digest `a78ff9cf9130965066b71db09b4350db719af6bcfbae9126fad59ae4da068b4e`), with
+the same digests in Hekate's run log and the export provenance. An altered
+expectation and a changed byte were refused on copies.
+
+Limits: `provenance.json` is producer-declared and not authenticated. Its
+`reportedModels` (`claude-sonnet-5-5`, requested `sonnet`) are what the CLI
+reported; the worker acknowledgments are a claimed attestation; cost was not
+captured. The reviewer was the deterministic verifier with no input hash, so a
+request ChatAgent emits from this export is an offline artifact that no session is
+known to have consumed. `fresh.json` is a historical as-of proof, never current
+authority, and the policy is a test stub.

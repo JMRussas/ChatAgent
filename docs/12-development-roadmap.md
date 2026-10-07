@@ -1832,22 +1832,37 @@ _Cross-repo view parity gate implemented and root-accepted 2026-10-07
 `handoff-expectation.v0` from the producer and refuses to publish unless its own
 composition (with ChatAgent's real H1) has the same view digest, view-part hash,
 reservation, cost, H1 supplied digest and candidate. It claims view parity only. The
-Hekate pilot export that writes it, the `--export`/index convenience and checking
-the fresh session's actual input are next, once the producer schema is frozen.
+Hekate producer and `--export` input are now accepted below; checking a model
+review session's actual input remains a later increment.
 Root independently passed 56 CLI and publishing tests; Claude passed 171 focused
 tests on the final source and 2,131 tests before only the summary wording changed.
 Format, lint and documentation checks passed. The consumer gate is accepted;
-CA-ISSUE-011 remains implemented pending a real producer export and end-to-end check.
+The end-to-end closure is recorded below.
 
 _Export input implemented and root-accepted 2026-10-07 (CA-ISSUE-011):_
 `compose --export <dir>` reads the closed 13-file `handoff-export.v0` layout root
 froze in bridge message 1549. It refuses missing, extra, nested or linked entries,
 files replaced after listing, and any index other than the canonical one, then
 always checks the expectation. Tests use a synthetic golden-derived export; the
-Hekate producer, a captured real export and the end-to-end check remain outstanding.
+real producer capture and end-to-end check are recorded below.
 Root independently passed 86 CLI and publishing tests after reviewing the bounded
 directory-listing correction. Claude passed all 435 handoff tests; format, lint and
-documentation checks passed. CA-ISSUE-011 remains implemented pending the producer.
+documentation checks passed.
+
+_Real pilot export captured and CA-ISSUE-011 closed 2026-10-07:_ the real Claude
+CLI round `a5882739c150` at Hekate `1af9a9e8` used the pinned real H1 at `5255daa`
+to prepare and compose its handoff. ChatAgent at `2383e85` rebound the task and
+matched the view bytes, digests, reservation and cost. The unchanged 13-file export
+is preserved in `tests/fixtures/hekate/pilot-export-v0/` with its hash index and
+adjacent provenance. Claude passed 22 independent acceptance checks; root
+reproduced the original CLI result and passed 90 CLI and publishing tests on the
+captured fixture. All 439 handoff tests, format, lint and documentation checks pass.
+Hekate's producer passed 807 tests and both replays from clean committed source.
+The reviewer was a deterministic verifier; the request is still an offline
+artifact, the snapshot historical, and the policy a test stub. Next is the first
+reviewed existing-repository task through this supervised loop, with an immutable
+acceptance oracle and a bounded operator configuration. Unattended recovery and
+production policy remain outside this local pilot.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
