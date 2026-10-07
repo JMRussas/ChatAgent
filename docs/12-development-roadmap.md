@@ -1574,13 +1574,23 @@ and classifier for launch and review-pending evidence, is accepted at `d0428dc` 
 027); no durable journal, coherent production read, restart recovery, real worker,
 wake or model activation is established.
 The E2b-a disposable-database journal experiment (accepted design `ca672ec`, Hekate
-plan 028) is implemented but remains uncommitted and unaccepted. Its implementer
-reports 318 default tests plus 31 pure and one live interoperability check. Final
-review requires corrections to missing-record uncertainty, invalid scan bounds,
-and queue cleanup across paginated scans. The original implementation session is
-idle; a separate CLI continuation was refused by Claude's workspace-trust gate,
-and approval to accept that repository's trust prompt is pending. The owned test
-container remains stopped; independent validation of the corrected source has not run.
+plan 028) is implemented but remains uncommitted and unaccepted. Independent review
+of the corrected checkpoint (bridge msg 992) passed 363 default tests, 31 pure H1
+interoperability checks and one separately run live H1 check, using `uv run --locked`
+in the clean `ca672ec` archive plus the owned overlay. Selecting default and live
+interop together first caused their separate fixtures to contend for test port
+5108; the live suite passed when run separately.
+Two additional independent regression probes fail: an old first claim intent is
+incorrectly retryable after its completed stream is evicted, and queue cleanup can
+reinsert a stale entry from the same scan. Corrections are assigned to Claude
+(msg 996); acceptance and the implementation commit are withheld. Invalid scan
+bounds and cleanup of entries outside the current page are covered by the passing
+suite. The original Claude session is idle; a separate CLI continuation was refused
+by its workspace-trust gate, and approval to accept that prompt remains pending.
+Normal Hekate development services are running (API 5103 and UI 5179 independently
+returned HTTP 200 after validation); the shared PostgreSQL container must remain up.
+The disposable test API on 5108 is stopped, and failing-probe work artifacts are
+retained in the clean gate for diagnosis. This does not establish unattended recovery.
 Provider reuse and real execution remain gated;
 this does not decide the generic orchestration engine wholesale.
 
