@@ -39,15 +39,16 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                   |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | ---------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned       |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent |
+| ID           | Title                                                         | Kind   | Gate               | Status      | Owner / assignee                   |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ----------- | ---------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed      | codex-chatagent / claude-chatagent |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed      | codex-chatagent / claude-chatagent |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed      | codex-chatagent / claude-chatagent |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open        | codex-chatagent / unassigned       |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open        | codex-chatagent / unassigned       |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open        | codex-chatagent / unassigned       |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed      | codex-chatagent / claude-chatagent |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | implemented | codex-chatagent / claude-chatagent |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -202,6 +203,30 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   passed 2,113 tests across 150 files (`node_modules/.cache/ca-issue-010-full.log`),
   with format, lint and documentation checks passing. The commit containing this
   closure record records integration of the verified source hash.
+
+### CA-ISSUE-011 — No cross-repo parity check of a handoff view before use
+
+- **Gap:** nothing checked that the view ChatAgent composes for a handoff is the one
+  the producer's own consumer composed for the same delivery, so a divergence
+  between the two consumers would reach a fresh session unnoticed. The first pilot's
+  verification and validation needs that independent agreement.
+- **Implemented and independently verified 2026-10-07, ChatAgent side:** the handoff CLI's
+  `--expect` gate (doc 13, "Offline operator CLI"), `cli.ts` SHA-256
+  `6aec840bfb1093bcc078121ce5b6cf64cc5a53eac4b51377150cc794891ea339` (uncommitted, base `6d355db`), tests in
+  `tests/unit/handoffCli.test.ts` (a match, each field mismatch, eight malformed and
+  three unreadable expectation cases, none publishing output).
+  Root reviewed the exact source and independently passed all 56 CLI and publishing
+  tests on Node 24.21.0. Claude passed 171 focused CLI, publishing, composition and
+  host-slot tests on the final source; its 2,131-test full run preceded only the
+  summary-claim wording change. Format, lint and documentation checks passed.
+  The issue remains implemented until the end-to-end closure criteria below pass.
+- **Depends on:** a Hekate pilot export that writes `handoff-expectation.v0` from its
+  consumer run with ChatAgent's real H1 (schema proposed in bridge message 1515 and
+  acknowledged unchanged by Hekate's implementer in 1524; the export itself is not
+  implemented yet).
+- **Closure criteria:** a real pilot handoff export, composed by ChatAgent with
+  `--expect`, matches; a deliberately altered expectation is refused; independently
+  verified.
 
 ## External dependencies
 

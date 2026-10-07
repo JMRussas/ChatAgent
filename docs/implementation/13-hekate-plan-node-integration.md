@@ -363,6 +363,22 @@ npx tsx scripts/handoff.ts compose --delivery <dir> --fresh <file> --policy <fil
   descriptor; on a write or close failure only owned files and the directory this
   attempt created are removed, and a file another process created is never touched. Publishing is not atomic: a
   reader can see a directory without its summary.
+- **Producer parity (CA-ISSUE-011).** `--expect <file>` reads a closed
+  `handoff-expectation.v0` object (at most 4 KiB, strict, no floats): `version`,
+  `h1Builder` (`chatagent-h1` only, since parity needs ChatAgent's real H1 on both
+  sides, never an H1-shaped stub), lowercase-hex `viewDigest`, `viewPartSha256`,
+  `h1SuppliedSha256` and `candidateDigest`, a 10-digit `reservationTokens` and an
+  exact `viewCost` equal to it. Anything else is `expectation_invalid`. After
+  composing and before publishing, every field must equal the composition's own
+  value, or the run is `expectation_mismatch` and nothing is written. A match is
+  recorded in the summary with the file's hash as "matches the supplied
+  expectation": the view bytes and bindings agree. `h1Builder` is the producer's
+  declaration, not verified here, and equal bytes do not prove which program
+  produced the expectation; this is integrity and parity, not provenance,
+  authentication or current authority. Only the golden bundle, from a known,
+  independently reviewed producer run, is evidence that two consumers agree. The
+  schema was acknowledged unchanged by Hekate's implementer (bridge message 1524);
+  the producer export is not implemented yet.
 - **Failures** print `handoff: <code>` with exit 1 (usage: exit 2), never content
   or paths.
 

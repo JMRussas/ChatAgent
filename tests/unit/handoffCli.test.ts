@@ -366,3 +366,98 @@ describe("--emit-request (CA-ISSUE-003 slot)", () => {
     expect(run([...goldenArgs("x"), "--emit-request", "both"]).code).toBe(2);
   });
 });
+
+describe("--expect parity with the producer's consumer (CA-ISSUE-011)", () => {
+  /** A v0 expectation from the golden valid composition (produced with the real H1). */
+  const goldenExpectation = () => {
+    const expected = JSON.parse(readFileSync(join(GOLDEN, "expected/valid/expected.json"), "utf8"));
+    const wrapper = JSON.parse(readFileSync(join(GOLDEN, "delivery/wrapper.json"), "utf8"));
+    return {
+      version: "handoff-expectation.v0",
+      h1Builder: "chatagent-h1",
+      viewDigest: expected.viewDigest,
+      viewPartSha256: sha256Hex(readFileSync(join(GOLDEN, "expected/valid/view-part.txt"))),
+      reservationTokens: expected.reservationTokens,
+      viewCost: expected.viewCost,
+      h1SuppliedSha256: expected.h1SuppliedSha256,
+      candidateDigest: wrapper.candidateDigest
+    } as Record<string, unknown>;
+  };
+  const withExpectation = (content: string) => {
+    const dir = temp();
+    writeFileSync(join(dir, "expected.json"), content);
+    const out = join(dir, "out");
+    return {
+      out,
+      result: run([...goldenArgs(out), "--expect", join(dir, "expected.json")]),
+      file: join(dir, "expected.json")
+    };
+  };
+
+  it("publishes when the producer's view matches, recording the expectation", () => {
+    const { out, result, file } = withExpectation(JSON.stringify(goldenExpectation(), null, 2));
+    expect(result.code).toBe(0);
+    const summary = JSON.parse(readFileSync(join(out, "summary.json"), "utf8"));
+    expect(summary.expectation).toMatchObject({
+      sha256: sha256Hex(readFileSync(file)),
+      version: "handoff-expectation.v0",
+      result: "matches the supplied expectation"
+    });
+  });
+
+  it.each([
+    ["viewDigest", { viewDigest: "0".repeat(64) }],
+    ["viewPartSha256", { viewPartSha256: "0".repeat(64) }],
+    ["reservation and cost", { reservationTokens: "0000007465", viewCost: 7465 }],
+    ["h1SuppliedSha256", { h1SuppliedSha256: "0".repeat(64) }],
+    ["candidateDigest", { candidateDigest: "0".repeat(64) }]
+  ])("refuses a different %s as expectation_mismatch, publishing nothing", (_label, change) => {
+    const { out, result } = withExpectation(JSON.stringify({ ...goldenExpectation(), ...change }));
+    expect(result).toMatchObject({ code: 1, stderr: "handoff: expectation_mismatch\n" });
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it.each([
+    ["an extra key", (e: Record<string, unknown>) => ({ ...e, extra: 1 })],
+    ["a missing key", (e: Record<string, unknown>) => ({ ...e, candidateDigest: undefined })],
+    [
+      "an uppercase digest",
+      (e: Record<string, unknown>) => ({ ...e, viewDigest: String(e.viewDigest).toUpperCase() })
+    ],
+    ["a stub builder", (e: Record<string, unknown>) => ({ ...e, h1Builder: "h1-stub" })],
+    [
+      "another version",
+      (e: Record<string, unknown>) => ({ ...e, version: "handoff-expectation.v1" })
+    ],
+    [
+      "a cost differing from the reservation",
+      (e: Record<string, unknown>) => ({ ...e, viewCost: 1 })
+    ],
+    ["a short reservation", (e: Record<string, unknown>) => ({ ...e, reservationTokens: "7464" })],
+    ["a string cost", (e: Record<string, unknown>) => ({ ...e, viewCost: "7464" })]
+  ])("refuses an expectation with %s as expectation_invalid", (_label, change) => {
+    const { out, result } = withExpectation(JSON.stringify(change(goldenExpectation())));
+    expect(result.stderr).toBe("handoff: expectation_invalid\n");
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it.each([
+    ["a float cost", JSON.stringify({ x: 1 }).replace("1", "1.5")],
+    ["malformed JSON", "{"],
+    ["an oversized file", " ".repeat(4097)]
+  ])("refuses %s as expectation_invalid", (_label, content) => {
+    const e = JSON.stringify(goldenExpectation());
+    const body =
+      _label === "a float cost" ? e.replace(/"viewCost":\d+/, '"viewCost":7464.0') : content;
+    const { out, result } = withExpectation(body);
+    expect(result.stderr).toBe("handoff: expectation_invalid\n");
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it("refuses a missing expectation file as input_unreadable", () => {
+    const out = join(temp(), "out");
+    expect(run([...goldenArgs(out), "--expect", join(temp(), "none.json")]).stderr).toBe(
+      "handoff: input_unreadable\n"
+    );
+  });
+});

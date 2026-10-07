@@ -1827,6 +1827,18 @@ Root independently passed all 38 status-consumer tests; Claude's final full run
 passed 2,113 tests across 150 files, with format, lint and documentation checks
 passing.
 
+_Cross-repo view parity gate implemented and root-accepted 2026-10-07
+(CA-ISSUE-011):_ the handoff CLI's `--expect` reads a closed
+`handoff-expectation.v0` from the producer and refuses to publish unless its own
+composition (with ChatAgent's real H1) has the same view digest, view-part hash,
+reservation, cost, H1 supplied digest and candidate. It claims view parity only. The
+Hekate pilot export that writes it, the `--export`/index convenience and checking
+the fresh session's actual input are next, once the producer schema is frozen.
+Root independently passed 56 CLI and publishing tests; Claude passed 171 focused
+tests on the final source and 2,131 tests before only the summary wording changed.
+Format, lint and documentation checks passed. The consumer gate is accepted;
+CA-ISSUE-011 remains implemented pending a real producer export and end-to-end check.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for

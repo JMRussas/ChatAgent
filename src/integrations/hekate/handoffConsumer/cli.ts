@@ -54,7 +54,9 @@ export type CliErrorCode =
   | "codec_unsupported"
   | "output_exists"
   | "output_unwritable"
-  | "request_unavailable";
+  | "request_unavailable"
+  | "expectation_invalid"
+  | "expectation_mismatch";
 
 export class CliError extends Error {
   constructor(readonly code: CliErrorCode) {
@@ -72,8 +74,9 @@ export interface CliIo {
 }
 
 export const USAGE =
-  "usage: handoff compose --delivery <dir> --fresh <file> --policy <file> --request <file> --out <new-dir> [--retrieval <file>] [--emit-request fast|deep]";
+  "usage: handoff compose --delivery <dir> --fresh <file> --policy <file> --request <file> --out <new-dir> [--retrieval <file>] [--emit-request fast|deep] [--expect <file>]";
 const JSON_INPUT_MAX = 1 << 20;
+const EXPECTATION_MAX = 4096;
 const WRAPPER_MAX = 4096;
 const H1_INPUT_MAX =
   INGRESS_LIMITS.h1Response + INGRESS_LIMITS.h1RuleBytes + 4 * INGRESS_LIMITS.h1Instruction;
@@ -291,6 +294,70 @@ function recordedRetriever(value: unknown): Retriever {
   };
 }
 
+/** A cross-repo parity expectation (CA-ISSUE-011): what the producer's own consumer emitted. */
+export interface HandoffExpectation {
+  version: "handoff-expectation.v0";
+  /** Parity needs ChatAgent's real H1 on both sides, never an H1-shaped stub. */
+  h1Builder: "chatagent-h1";
+  viewDigest: string;
+  viewPartSha256: string;
+  reservationTokens: string;
+  viewCost: number;
+  h1SuppliedSha256: string;
+  candidateDigest: string;
+}
+const EXPECTATION_KEYS = [
+  "version",
+  "h1Builder",
+  "viewDigest",
+  "viewPartSha256",
+  "reservationTokens",
+  "viewCost",
+  "h1SuppliedSha256",
+  "candidateDigest"
+];
+const HEX64 = /^[0-9a-f]{64}$/;
+
+/** A closed, strictly read v0 expectation; anything else is expectation_invalid. */
+export function readExpectation(bytes: Uint8Array): HandoffExpectation {
+  const invalid = () => fail("expectation_invalid");
+  let value: unknown;
+  try {
+    value = readJson(bytes, EXPECTATION_MAX);
+  } catch (error) {
+    if (error instanceof CliError) return invalid();
+    throw error;
+  }
+  if (!isPlain(value) || !exactKeys(value, EXPECTATION_KEYS)) return invalid();
+  const e = value as Record<string, unknown>;
+  const hex = (key: string) => typeof e[key] === "string" && HEX64.test(e[key] as string);
+  if (
+    e.version !== "handoff-expectation.v0" ||
+    e.h1Builder !== "chatagent-h1" ||
+    !["viewDigest", "viewPartSha256", "h1SuppliedSha256", "candidateDigest"].every(hex) ||
+    typeof e.reservationTokens !== "string" ||
+    !/^[0-9]{10}$/.test(e.reservationTokens) ||
+    typeof e.viewCost !== "number" ||
+    !Number.isSafeInteger(e.viewCost) ||
+    e.viewCost !== Number(e.reservationTokens)
+  )
+    return invalid();
+  return e as unknown as HandoffExpectation;
+}
+
+/** Compares a composition with the producer's expectation; any difference refuses. */
+function checkExpectation(expected: HandoffExpectation, c: Composition) {
+  if (
+    expected.viewDigest !== c.viewDigest ||
+    expected.viewPartSha256 !== sha256Hex(Buffer.from(c.part, "utf8")) ||
+    expected.reservationTokens !== c.reservationTokens ||
+    expected.viewCost !== c.viewCost ||
+    expected.h1SuppliedSha256 !== c.h1.suppliedSha256 ||
+    expected.candidateDigest !== c.candidateDigest
+  )
+    fail("expectation_mismatch");
+}
+
 interface Args {
   delivery: string;
   fresh: string;
@@ -299,6 +366,7 @@ interface Args {
   out: string;
   retrieval?: string;
   emitRequest?: "fast" | "deep";
+  expect?: string;
 }
 function parseArgs(argv: string[]): Args | undefined {
   const [command, ...rest] = argv;
@@ -314,7 +382,8 @@ function parseArgs(argv: string[]): Args | undefined {
         "--request",
         "--out",
         "--retrieval",
-        "--emit-request"
+        "--emit-request",
+        "--expect"
       ].includes(flag)
     )
       return undefined;
@@ -339,7 +408,8 @@ function parseArgs(argv: string[]): Args | undefined {
     request: get("--request")!,
     out: get("--out")!,
     retrieval: get("--retrieval"),
-    emitRequest: get("--emit-request") as "fast" | "deep" | undefined
+    emitRequest: get("--emit-request") as "fast" | "deep" | undefined,
+    expect: get("--expect")
   };
 }
 
@@ -391,7 +461,8 @@ function summary(
   c: Composition,
   delivery: HandoffDelivery,
   hashes: Record<string, string | null>,
-  request?: { role: string; sha256: string }
+  request?: { role: string; sha256: string },
+  expectation?: { sha256: string }
 ) {
   return (
     JSON.stringify(
@@ -408,6 +479,18 @@ function summary(
         h1: "ChatAgent buildPlanTaskContext at this checkout; not the pinned 5255daa invocation",
         runtime: { node: process.version },
         fresh: "historical as-of input, not live authority",
+        ...(expectation
+          ? {
+              expectation: {
+                ...expectation,
+                version: "handoff-expectation.v0",
+                result: "matches the supplied expectation",
+                producerDeclaredH1Builder: "chatagent-h1",
+                claim:
+                  "view bytes and bindings agree with the supplied expectation; its builder is producer-declared and not verified here; this is integrity and parity, not provenance, authentication or current authority"
+              }
+            }
+          : {}),
         ...(request
           ? {
               request: {
@@ -437,6 +520,17 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
     const policyBytes = readBounded(args.policy, JSON_INPUT_MAX);
     const requestBytes = readBounded(args.request, JSON_INPUT_MAX);
     const retrievalBytes = args.retrieval ? readBounded(args.retrieval, JSON_INPUT_MAX) : undefined;
+    let expectationBytes: Uint8Array | undefined;
+    if (args.expect)
+      try {
+        expectationBytes = readBounded(args.expect, EXPECTATION_MAX);
+      } catch (error) {
+        // An unreadable or oversized expectation is still an invalid expectation.
+        if (error instanceof CliError && error.code === "input_too_large")
+          fail("expectation_invalid");
+        throw error;
+      }
+    const expectation = expectationBytes ? readExpectation(expectationBytes) : undefined;
     const fresh = toFresh(readJson(freshBytes, JSON_INPUT_MAX));
     const request = readJson(requestBytes, JSON_INPUT_MAX);
     if (!isPlain(request) || !exactKeys(request, ["destination"], ["wanted"]))
@@ -453,6 +547,8 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
         : undefined,
       h1: chatAgentH1
     });
+    // Parity with the producer's own consumer, checked before anything is published.
+    if (expectation) checkExpectation(expectation, composition);
     // The worker request, built offline through the shared adapter seam: only from
     // ChatAgent's own H1 result, never rebuilt from other options.
     let requestFile: [string, string] | undefined;
@@ -493,7 +589,8 @@ export function runHandoffCompose(argv: string[], io: CliIo): number {
           requestFile && {
             role: args.emitRequest!,
             sha256: sha256Hex(Buffer.from(requestFile[1], "utf8"))
-          }
+          },
+          expectationBytes && { sha256: sha256Hex(expectationBytes) }
         )
       ]
     ]);
