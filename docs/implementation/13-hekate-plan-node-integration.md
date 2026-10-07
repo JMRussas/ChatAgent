@@ -42,15 +42,23 @@ Hekate's companion plan is `LOCAL-PLANNING-HANDOFF.md` in the Hekate repository
   The agent-bridge mailbox is reachable on this machine; it is not part of this
   checkout.
 
-## Transport facts (observed 2026-10-06)
+## Transport facts (observed 2026-10-06, updated 2026-10-07)
 
 These are observations of the agent-bridge, not guarantees this project provides.
 
 - Each agent has its own bearer credential. The admin credential may send under
   any agent name, so a sender name is not verified worker identity.
-- The live WebSocket subscription consumes a message when delivering it, and there
-  is no separate acknowledgement. Unread messages replay on connect, and history
-  is retained.
+- Updated, observed 2026-10-07 (bridge protocol 1.1, agent-bridge-mcp
+  `docs/wire.md` at `7a33328`): ordinary messages are still consumed when a legacy
+  inbox, wait or socket consumer delivers them. A message sent with
+  `ack_required=true` stays pending until the recipient (or the operator)
+  acknowledges it with `bridge_ack` or `POST /api/ack`; receivers opt in with
+  `ack_mode=true`, REST `ack=explicit` or `/notify?ack=explicit&format=json`, and
+  explicit delivery may repeat a message. The acknowledgement timestamp is durable
+  and idempotent. Unread messages replay on connect, and history is retained.
+- A bridge acknowledgement records delivery responsibility only: the recipient
+  accepted the message. It is not execution, task acceptance, review or completion,
+  and it is not Hekate attempt authority.
 - Delivery is not durable task acceptance. Assignment ownership, leases, attempt
   fencing and duplicate suppression belong to the workflow layer.
 
@@ -169,6 +177,84 @@ expected states with acknowledgement unknown.
 Durable execution acknowledgement, progress evidence and wake-ups remain
 unimplemented; they depend on Hekate's journal and supervisor work.
 
+## Offline handoff delivery verification (E2e consumer, verification stage)
+
+Status: implemented and lead-accepted 2026-10-07 after an independent review by
+Hekate's implementer. Pure and offline; not wired to a route, a conversation or the
+bridge. Known limitation L1: a field backed by a detached `ArrayBuffer` fails closed
+with an untyped `TypeError` rather than a typed refusal (no content echoed); it is
+tracked as [CA-ISSUE-001](../open-issues.md) for the next increment.
+`src/integrations/hekate/handoffConsumer/delivery.ts` ports the verification stage
+of Hekate's accepted `e1/consumer.py` (plan 034 revision 3, SHA-256
+`17273a51…2ab9db`) over the exact accepted v0 bytes of one `handoff-delivery.v0`
+wrapper and a host-supplied as-of snapshot. It runs the reference checks in the
+reference order, and the first failure refuses the whole delivery with a stable
+code that never echoes input:
+
+1. raw ingress caps (whole wrapper 4.5 MiB first, then each field), then the wrapper
+   and codec (`ingress_too_large`, `codec_unsupported`);
+2. the strict, closed commit receipt, then `sha256(manifest bytes)` equal to the
+   wrapper and receipt digests (`strict_json`, `receipt_shape`, `digest_mismatch`);
+3. strict reading of the manifest, envelope, task and H1 options, then the closed H1
+   option set and caps (`strict_json`, `h1_input`, `ingress_too_large`);
+4. the reference `verify_stored`: canonical manifest, envelope and task bytes, the
+   envelope bound to exactly this manifest and payload, task, import and note
+   digests, and the required manifest shape (`delivery_mismatch`); then receipt
+   identities against the transition (`receipt_mismatch`) and 032 delivered caps
+   (`delivery_overflow`);
+5. the snapshot: its identity must name this candidate, record, review and package
+   (`fresh_mismatch`), then `receipt_not_current`, `binding_moved`,
+   `review_not_candidate`, `stale_content` and at most 256 uncertainty references
+   (`uncertainty_overflow`); finally the H1 option instructions must equal the
+   committed task (`task_mismatch`).
+
+Digests are computed over received bytes only. `pyCanon.ts` checks `py-canon.v0`
+(Python `json.dumps`, sorted keys, compact, raw UTF-8) token by token against the
+decoded values; nothing is re-serialized in JavaScript and no integer becomes a
+Number. Keys are ordered by Unicode code point. Strings must carry Python's exact
+escapes. Integers are kept exact at any magnitude up to Python's 4,300-digit limit
+(longer is `strict_json`). A float must be shaped as Python's repr writes it, or it is
+`delivery_mismatch`; within the supported subset (-0.0 and [0, 1e16), which covers
+the producer's fake clock and its deadlines) it must also carry the shortest
+round-trip digits that ECMAScript `Number::toString` gives. A longer spelling is
+`delivery_mismatch`; any other difference, and any float outside the subset, is
+`codec_unsupported`, never a guessed mismatch. That digit parity is tested, not
+proven: the reviewed byte-compatibility vectors and deliveries plus an independent
+Hekate probe of about 2.3 million doubles and 2.4 million lexemes in [0, 1e12] found
+no false canonical or false mismatch result. Host capacity limits (depth 64, nodes
+and the `__proto__` key) are `codec_unsupported` with a non-echoing reason, not
+producer-invalid.
+
+Host differences from the reference, all refusing where it would accept or fail
+untyped (reviewed by Hekate's implementer, bridge message 1413):
+
+- Each caller field is read once and text fields are never coerced. Byte fields
+  are measured by their intrinsic length, then copied once with the typed-array
+  constructor (never a field's own `slice()`, which for a Node `Buffer` is a view),
+  and the digest and the parse use only that copy, so a getter, a shared buffer or a
+  later change cannot split them.
+- The manifest's `transition`, `authority` and `optional` must be objects and its
+  `evidenceIndex`, `authority.pending`, `authority.queue`, `optional.evidence` and
+  `optional.imports` arrays; the reference only indexes them and takes `len()`.
+- A snapshot whose review identity has other than exactly its five fields (as the
+  reference's dict equality), a numeric (not exact-integer) attempt epoch, non-array
+  `pending` or `queue`, or a manifest identity missing one of the five is
+  `fresh_mismatch`; the reference raises an untyped error for the last three. As in
+  the reference, the manifest identity's other fields (`lead`, `leadSession`) are
+  not compared.
+- An unsupported float in the manifest is reported as `codec_unsupported` before the
+  envelope and task checks, where the reference could report a later tamper as
+  `delivery_mismatch`. No producer-reachable value is unsupported.
+
+The snapshot is trusted in-process data, as in the reference, not an authenticated
+proof; the result is as-of that snapshot and narrows, never closes, the window
+before a later use. Policy, retrieval, the consumer view, the H1 call and
+composition are not implemented here. Tests: `tests/unit/handoffDelivery.test.ts`
+(every golden and supplement variant, structural codes and order, no effects) and
+`tests/unit/handoffPyCanon.test.ts` (all 34 supplement vectors and Python repr
+spellings), over `tests/fixtures/hekate/e2e-consumer-v0/` and
+`tests/fixtures/hekate/e2e-byte-compat-v0/`.
+
 ## Acceptance and evidence boundaries
 
 - A pilot passes when the task moves through implement, independent review, fixes
@@ -284,8 +370,10 @@ Keep edge types distinct: delegation means `spawned-by`, dependency means
 not imply that every message recipient is a delegated worker or that every
 delegated worker is a plan dependency.
 
-The bridge has no explicit message acknowledgment. Delivery or consumption is
-not workflow acknowledgment, and acknowledgment is not resumed work. Show these
+The bridge's explicit message acknowledgment (protocol 1.1, observed 2026-10-07)
+records delivery responsibility only. Delivery, consumption or a bridge
+acknowledgment is not workflow acknowledgment, and acknowledgment is not resumed
+work. Show these
 as separate textual states, backed by progress evidence, so a consumed completion
 message cannot hide a stalled review. Elapsed time and token usage should name
 their source and scope; unavailable measurements must not appear as zero.

@@ -6,6 +6,22 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
+**Priority update (2026-10-07, user direction relayed by the ChatAgent lead).** The
+first pilot is a usable, supervised local loop for one bounded development task:
+implementation, independent verification and validation, correction, commit and a
+fresh handoff. Verification and validation are part of that loop, not a later
+phase. Human-labelled benchmarking is deferred to optional quality evaluation: it
+is not a blanket gate for working-tool increments, though any claimed
+factual-quality improvement still needs it (step 5). Shared deployment is outside
+the first pilot. Step 6 describes the loop; the Hekate handoff consumer and plan
+integration are its current path. Work faster where it does not reduce quality.
+
+Known defects and gaps are tracked in the [open-issue register](open-issues.md) by
+`CA-ISSUE-NNN` ID. First-pilot blockers: CA-ISSUE-002 (handoff composition) and
+CA-ISSUE-003 (host slot for the consumer view). Unattended blocker: CA-ISSUE-004
+(idle lead/worker recovery). Hekate- and bridge-owned dependencies are linked there
+to their owners' registers.
+
 ### Handoff checkpoint — current execution status
 
 Current reading checkpoint (updated 2026-10-07); historical milestones and their
@@ -16,7 +32,7 @@ validation evidence remain below:
 | Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 1,779 TypeScript tests and 34 browser tests pass                                                                                                                                                             |
 | Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                                        |
 | Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference fixtures imported; ChatAgent byte-reader foundation accepted, full consumer pending; no production journal, real workers or wake |
-| Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                                                                                                                       |
+| Open gates          | First pilot: the smallest supervised local task → independent V&V → fix → commit → fresh-handoff loop. Still open: fixed/rolling quota reconciliation and unattended recovery. Outside the first pilot: shared deployment. Optional: human-labelled quality evaluation                                                                                                                                                            |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1656,6 +1672,11 @@ useful; Python documentation generation is deferred until there is a demonstrate
 
 ### 5. Independent quality evidence, then renewed feature work
 
+Re-scoped 2026-10-07 (priority update above): the human-labelled work below is
+optional quality evaluation, not a gate for working-tool increments. It remains
+required before claiming a factual-quality improvement. The text below is kept as
+originally planned.
+
 - Build a small independently human-labelled held-out set covering ambiguity, team
   resolution, unsupported sports, temporal scope, partial evidence, citation support
   and task completion. Keep development examples separate and record rubric/model/
@@ -1734,6 +1755,28 @@ bindings, current authority or composition. Those consumer layers remain pending
 Claude implemented the primitive and review correction; Codex verified 159 focused
 reader/H1/C1a tests, 1,779 tests across 144 files, format, lint and documentation
 contracts. H1 and C1a implementations are unchanged by this increment.
+
+_Offline handoff delivery verification implemented and root-accepted 2026-10-07:_ `handoffConsumer/delivery.ts` and `pyCanon.ts` port the accepted
+consumer's verification stage over the exact v0 bytes: ingress caps, wrapper and
+codec, the closed receipt and raw digests, strict reading, the closed H1 options,
+canonical `py-canon.v0` manifest/envelope/task checks with cross-field digests and
+032 caps, then a host-supplied as-of snapshot and the H1 instruction binding, in the
+reference refusal order. Canonical floats are verified within -0.0 and [0, 1e16);
+unproven digit differences and other floats are `codec_unsupported`, never a guessed
+mismatch. The reviewed byte-compatibility supplement is captured in
+`tests/fixtures/hekate/e2e-byte-compat-v0/`. Tests cover every golden and
+supplement variant and vector; numeric parity is tested evidence (including an
+independent Hekate probe), not a proof for all doubles. Claude implemented the stage
+and its review corrections (a wide-array traversal crash, the shared-buffer and
+`Buffer.slice` copy gap, intrinsic byte lengths, uncoerced text fields, the exact
+five-field snapshot identity); Hekate's implementer independently reviewed and
+accepted it, and its probe ran the actual canonical checker over 3,268,010 number
+lexemes in -0.0 and [0, 1e16) with no unsound verdict. Codex verified 228 focused
+tests, 1,945 tests across 146 files, format, lint and documentation contracts.
+Known limitation L1 (CA-ISSUE-001, fixed first in the next increment): a field backed by
+a detached `ArrayBuffer` fails closed with an untyped `TypeError` instead of a typed
+refusal; no content is echoed. Policy, retrieval, the consumer view, H1 composition
+and any host slot remain pending.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

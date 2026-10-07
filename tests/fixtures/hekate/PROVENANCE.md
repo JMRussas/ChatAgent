@@ -75,3 +75,17 @@ Policies are test stubs. The imported Python generation/replay scripts are retai
 as provenance artifacts and are not ChatAgent runtime code or test prerequisites.
 Use the bundle README, raw byte files and recorded expectations for offline
 consumer validation; do not regenerate or reserialize them in place.
+
+## E2e byte-compatibility supplement
+
+`e2e-byte-compat-v0/` was copied byte-for-byte from Hekate's reviewed supplement
+(`scripts/local/supervisor_e1/fixtures/e2e-byte-compat-v0`) on 2026-10-07 (lead
+assignment, bridge message 1378). Its `INDEX.sha256` has SHA-256
+`5ee9ff709b6210a95427319a649a67fbff0ca6dee3d72e1a051ffe7b03792605`; all 93
+indexed files were checked after copying, and no unlisted file is present. Git
+text conversion and Prettier are disabled for the entire directory.
+
+It supplements, and never replaces, the golden bundle above: 34 generic JSON byte
+vectors (not deliveries) and 5 producer-reachable deliveries whose receipts and
+as-of proofs are synthetic and whose H1 builder is the H1-shaped stub, not
+ChatAgent's real H1. Its Python generation/replay scripts are provenance only.

@@ -11,3 +11,4 @@ reports/prompt-contract/** -text whitespace=cr-at-eol
 reports/prompt-encoding/** -text whitespace=cr-at-eol
 # Reviewed cross-runtime fixtures are hashed as received, including line endings.
 tests/fixtures/hekate/e2e-consumer-v0/** -text whitespace=cr-at-eol
+tests/fixtures/hekate/e2e-byte-compat-v0/** -text whitespace=cr-at-eol

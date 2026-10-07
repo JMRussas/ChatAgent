@@ -15,6 +15,7 @@ experiments/prompt-encoding/cases.json
 # Raw Hekate API responses, kept byte-for-byte (see their PROVENANCE.md).
 tests/fixtures/hekate/*.json
 tests/fixtures/hekate/e2e-consumer-v0/
+tests/fixtures/hekate/e2e-byte-compat-v0/
 
 # Local review documents must stay outside source history and formatting.
 docs/deep-review-2026-10-01.md
