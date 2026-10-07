@@ -512,7 +512,14 @@ export function verifyDelivery(input: HandoffDelivery): VerifiedDelivery {
   // hashed and parsed, so a shared or later-changed buffer cannot split them. The
   // constructor always copies; a field's own slice() may not (Node's Buffer.slice
   // returns a view of the same memory).
-  const copy = (bytes: Uint8Array) => new Uint8Array(bytes);
+  const copy = (bytes: Uint8Array) => {
+    try {
+      return new Uint8Array(bytes);
+    } catch {
+      // A detached buffer cannot be read (CA-ISSUE-001): a typed refusal, not a throw.
+      return refuse("strict_json");
+    }
+  };
   const d: HandoffDelivery = {
     ...given,
     manifest: copy(given.manifest),

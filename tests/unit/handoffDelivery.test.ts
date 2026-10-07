@@ -554,6 +554,27 @@ describe("no effects", () => {
     expect(outcome({ ...inputs, delivery })).toBe("verified");
   });
 
+  it.each(["manifest", "envelope", "task", "receipt", "h1Input"] as const)(
+    "refuses a detached %s buffer as strict_json, not a TypeError (CA-ISSUE-001)",
+    (field) => {
+      const inputs = golden();
+      const bytes = new Uint8Array(inputs.delivery[field]);
+      structuredClone(bytes.buffer, { transfer: [bytes.buffer] });
+      expect(bytes.byteLength).toBe(0); // detached
+      expect(outcome({ ...inputs, delivery: { ...inputs.delivery, [field]: bytes } })).toBe(
+        "strict_json"
+      );
+    }
+  );
+
+  it("still checks the wrapper size before a detached buffer", () => {
+    const inputs = golden();
+    const bytes = new Uint8Array(4);
+    structuredClone(bytes.buffer, { transfer: [bytes.buffer] });
+    const delivery = { ...inputs.delivery, task: bytes, receipt: new Uint8Array(4097) };
+    expect(outcome({ ...inputs, delivery })).toBe("ingress_too_large");
+  });
+
   it("measures true byte lengths, so a field cannot under-report its size", () => {
     const inputs = golden();
     class Small extends Uint8Array {

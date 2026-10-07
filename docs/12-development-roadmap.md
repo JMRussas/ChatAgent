@@ -1773,10 +1773,12 @@ five-field snapshot identity); Hekate's implementer independently reviewed and
 accepted it, and its probe ran the actual canonical checker over 3,268,010 number
 lexemes in -0.0 and [0, 1e16) with no unsound verdict. Codex verified 228 focused
 tests, 1,945 tests across 146 files, format, lint and documentation contracts.
-Known limitation L1 (CA-ISSUE-001, fixed first in the next increment): a field backed by
-a detached `ArrayBuffer` fails closed with an untyped `TypeError` instead of a typed
-refusal; no content is echoed. Policy, retrieval, the consumer view, H1 composition
-and any host slot remain pending.
+CA-ISSUE-001 is now fixed: detached `ArrayBuffer` fields receive `strict_json`
+after ingress checks. Claude reproduced the failure against the prior revision and
+ran 1,951 tests across 146 files; root reviewed the fix and independently passed
+90 delivery tests. The issue register records the verified source hash and closure
+evidence. Policy, retrieval, the consumer view, H1 composition and any host slot
+remain pending.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

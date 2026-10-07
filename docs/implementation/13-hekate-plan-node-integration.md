@@ -181,9 +181,9 @@ unimplemented; they depend on Hekate's journal and supervisor work.
 
 Status: implemented and lead-accepted 2026-10-07 after an independent review by
 Hekate's implementer. Pure and offline; not wired to a route, a conversation or the
-bridge. Known limitation L1: a field backed by a detached `ArrayBuffer` fails closed
-with an untyped `TypeError` rather than a typed refusal (no content echoed); it is
-tracked as [CA-ISSUE-001](../open-issues.md) for the next increment.
+bridge. Detached `ArrayBuffer` fields receive a typed `strict_json` refusal after
+ingress checks. The former untyped exception is fixed and independently verified;
+[CA-ISSUE-001](../open-issues.md) retains the reproduction and closure evidence.
 `src/integrations/hekate/handoffConsumer/delivery.ts` ports the verification stage
 of Hekate's accepted `e1/consumer.py` (plan 034 revision 3, SHA-256
 `17273a51…2ab9db`) over the exact accepted v0 bytes of one `handoff-delivery.v0`

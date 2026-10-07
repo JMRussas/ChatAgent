@@ -36,12 +36,12 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 
 ## Register
 
-Base for every entry below: ChatAgent `e4af6d2` plus the uncommitted, lead-accepted
-delivery validator (2026-10-07).
+Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
+(2026-10-07). Later fixes are identified separately below.
 
 | ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                   |
 | ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | ---------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | assigned | codex-chatagent / claude-chatagent |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent |
 | CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | assigned | codex-chatagent / claude-chatagent |
 | CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | open     | codex-chatagent / codex-chatagent  |
 | CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned       |
@@ -72,6 +72,17 @@ delivery validator (2026-10-07).
 - **Closure criteria:** a regression test through `verifyDelivery` with a detached
   buffer in each byte field returns `strict_json`, preserving the first-failure
   order; the focused and full suites pass; independently verified.
+- **Implemented, independently verified and closed 2026-10-07:** the private copy refuses an
+  unreadable (detached) buffer as `strict_json`, after the ingress checks, so the
+  first-failure order is unchanged. `delivery.ts` SHA-256 `5168299291f268e588b376088f245a393e3541d08ea6d0c76b27332d8bb9ca11`
+  (uncommitted, base `7ba66ef`). Regressions in `tests/unit/handoffDelivery.test.ts`:
+  one detached buffer per byte field, and the wrapper-size check still preceding it;
+  all five per-field cases fail against `7ba66ef` and pass with the fix.
+  Root reviewed the exact source change and independently ran all 90 delivery tests
+  on Node 24.21.0; all passed. Claude's full run passed 1,951 tests across 146 files
+  (`node_modules/.cache/ca-issue-001-full.log`), with lint and documentation checks
+  passing. The source hash above identifies the verified fix; the commit containing
+  this closure record records its integration without a self-referential commit ID.
 
 ### CA-ISSUE-002 — No handoff composition after delivery verification
 
