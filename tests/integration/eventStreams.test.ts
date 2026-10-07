@@ -6,14 +6,19 @@ import { projectTurnEvent } from "../../src/app/protocolV1";
 import { ChatService } from "../../src/app/chatService";
 import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
 import { InMemoryTaskQueue } from "../../src/providers/interfaces";
-import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
+import {
+  InMemoryConversationTimelineStore,
+  type ConversationTimelineStore
+} from "../../src/app/timelineStore";
+import { conversationRetentionSchema } from "../../src/config/conversationRetention";
+import { scopedOwnerKey } from "../../src/auth/authenticator";
 import { MockDeepProvider } from "../../src/providers/mockProviders";
 import { ContextManager } from "../../src/app/contextManager";
 import { loadContextBudgetConfigFromEnv } from "../../src/config/contextConfig";
 import { GenerationError } from "../../src/domain/generation";
 import type { ChatTimelineEvent } from "../../src/domain/types";
 import { FakeResponse, fakeRequest, frames } from "../helpers/fakeResponse";
-import { allowAllTestAuth } from "../helpers/testAuth";
+import { allowAllTestAuth, testOwner } from "../helpers/testAuth";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -21,9 +26,11 @@ afterEach(async () => {
   await Promise.all(cleanups.splice(0).map((fn) => fn()));
 });
 
-async function setup(maxEventStreams = 2) {
-  const queue = new InMemoryTaskQueue(),
-    timeline = new InMemoryConversationTimelineStore();
+async function setup(
+  maxEventStreams = 2,
+  timeline: ConversationTimelineStore = new InMemoryConversationTimelineStore()
+) {
+  const queue = new InMemoryTaskQueue();
   const service = new ChatService(
     new ChatOrchestrator(
       {
@@ -101,8 +108,43 @@ async function setup(maxEventStreams = 2) {
     cleanups.push(async () => void res.destroy());
     return res;
   };
-  return { server, service, base, conversation, v1Path, postV1, postLegacy, open, fake };
+  return {
+    server,
+    service,
+    timeline,
+    base,
+    conversation,
+    v1Path,
+    postV1,
+    postLegacy,
+    open,
+    fake
+  };
 }
+type Harness = Awaited<ReturnType<typeof setup>>;
+
+/**
+ * Makes `id` owned by the test principal without any message, and returns a direct
+ * append, so every timeline change in a test is explicit.
+ */
+function owned(h: Harness, id: string) {
+  vi.spyOn(h.service, "conversationOwner").mockImplementation((c) =>
+    c === id ? testOwner("u") : undefined
+  );
+  return (text: string) =>
+    h.timeline.appendEvent(id, { type: "user", text, createdAtIso: new Date().toISOString() });
+}
+
+/** Waits until a spied read has been called n more times, i.e. n more polls ran. */
+async function polls(spy: { mock: { calls: unknown[][] } }, n: number) {
+  const target = spy.mock.calls.length + n;
+  await vi.waitFor(() => expect(spy.mock.calls.length).toBeGreaterThanOrEqual(target), {
+    timeout: 5000
+  });
+}
+
+const texts = (frame: { data: { events: ChatTimelineEvent[] } }) =>
+  frame.data.events.map((e) => e.text);
 
 it("shares one stream limit across legacy and v1 routes and refuses before any stream work", async () => {
   const h = await setup(2);
@@ -296,21 +338,27 @@ it("legacy: a buffered snapshot is not resent after drain, and new changes still
   const h = await setup(2);
   await h.postLegacy("c", "first");
   const reads = vi.spyOn(h.service, "getTimeline");
+  const revisions = vi.spyOn(h.service, "timelineRevision");
   const res = new FakeResponse();
   res.allowance = 0; // the first snapshot is buffered but reports full
   h.server.emit("request", fakeRequest("/conversations/c/events/stream"), res.asResponse());
   cleanups.push(async () => void res.destroy());
   await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
   const readsWhenBlocked = reads.mock.calls.length;
+  const revisionsWhenBlocked = revisions.mock.calls.length;
   await new Promise((r) => setTimeout(r, 800));
+  // Blocked: not even the revision is read.
   expect(reads.mock.calls.length).toBe(readsWhenBlocked);
+  expect(revisions.mock.calls.length).toBe(revisionsWhenBlocked);
   expect(frames(res)).toHaveLength(1);
   // Each frame is one write, so a full buffer cannot split event from data.
   expect(res.chunks[0]).toMatch(/^event: timeline\ndata: \{"events":\[/);
 
   res.drain();
-  await vi.waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(readsWhenBlocked));
-  await new Promise((r) => setTimeout(r, 400));
+  // After drain the stream polls again. The buffered snapshot was accepted, so with
+  // its revision unchanged it is neither copied again nor resent.
+  await polls(revisions, 2);
+  expect(reads.mock.calls.length).toBe(readsWhenBlocked);
   expect(frames(res)).toHaveLength(1);
 
   await h.postLegacy("c", "second");
@@ -369,3 +417,193 @@ it("closeStreams releases every stream at once and destroys blocked ones", async
   let done = false;
   while (!done) done = (await reader.read()).done;
 });
+
+// Legacy polls with a revision-capable store: an unchanged revision is not copied.
+const LEGACY = "/conversations/c/events/stream";
+
+it("legacy: idle polls copy nothing, and a change is copied and sent once", async () => {
+  const h = await setup(2);
+  const append = owned(h, "c");
+  await append("first");
+  const reads = vi.spyOn(h.service, "getTimeline");
+  const revisions = vi.spyOn(h.service, "timelineRevision");
+  const res = h.fake(LEGACY);
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+  // The pre-header read and the first snapshot.
+  expect(reads).toHaveBeenCalledTimes(2);
+  await polls(revisions, 2);
+  expect(reads).toHaveBeenCalledTimes(2);
+  expect(frames(res)).toHaveLength(1);
+
+  await append("second");
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(2));
+  expect(reads).toHaveBeenCalledTimes(3);
+  expect(frames(res).map(texts)).toEqual([["first"], ["first", "second"]]);
+  await polls(revisions, 2);
+  expect(reads).toHaveBeenCalledTimes(3);
+  expect(frames(res)).toHaveLength(2);
+});
+
+it("legacy: an empty conversation still gets its first empty snapshot, then idles", async () => {
+  const h = await setup(2);
+  const reads = vi.spyOn(h.service, "getTimeline");
+  const revisions = vi.spyOn(h.service, "timelineRevision");
+  const res = h.fake("/conversations/empty/events/stream");
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+  expect(frames(res)[0]).toEqual({ event: "timeline", data: { events: [] }, id: undefined });
+  expect(reads).toHaveBeenCalledTimes(2);
+  await polls(revisions, 2);
+  expect(reads).toHaveBeenCalledTimes(2);
+  expect(frames(res)).toHaveLength(1);
+});
+
+it("legacy: an unchanged revision still ends the stream when another principal owns it", async () => {
+  const other = scopedOwnerKey("local:other", ["u"]);
+  for (const claimed of [false, true]) {
+    const h = await setup(2);
+    // Unclaimed and empty, or claimed by the test principal with one event.
+    if (claimed) await owned(h, "c")("first");
+    const reads = vi.spyOn(h.service, "getTimeline");
+    const res = h.fake(LEGACY);
+    await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+    // The owner changes; the timeline does not.
+    vi.spyOn(h.service, "conversationOwner").mockImplementation((c) =>
+      c === "c" ? other : undefined
+    );
+    await vi.waitFor(() => expect(res.writableEnded).toBe(true));
+    expect(frames(res)).toHaveLength(1);
+    expect(reads).toHaveBeenCalledTimes(2);
+  }
+});
+
+it("legacy: an unchanged revision still ends the stream as expired when the version changes", async () => {
+  const h = await setup(2);
+  await owned(h, "c")("first");
+  const reads = vi.spyOn(h.service, "getTimeline");
+  const res = h.fake(LEGACY);
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+  // A retired id reused by new work, with the same sequence.
+  vi.spyOn(h.service, "conversationVersion").mockReturnValue(Symbol("reused"));
+  await vi.waitFor(() => expect(res.writableEnded).toBe(true));
+  expect(frames(res).map((f) => f.event)).toEqual(["timeline", "conversation-expired"]);
+  expect(frames(res)[1].data).toEqual({ code: "CONVERSATION_EXPIRED" });
+  expect(reads).toHaveBeenCalledTimes(2);
+});
+
+it("legacy: an idle stream ends as expired when its history expires", async () => {
+  let clock = Date.now();
+  const store = new InMemoryConversationTimelineStore(
+    undefined,
+    conversationRetentionSchema.parse({ idleTtlMs: 60_000 }),
+    () => clock
+  );
+  const h = await setup(2, store);
+  await owned(h, "c")("first");
+  const reads = vi.spyOn(h.service, "getTimeline");
+  const res = h.fake(LEGACY);
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+  clock += 120_000;
+  await vi.waitFor(() => expect(res.writableEnded).toBe(true));
+  expect(frames(res).map((f) => f.event)).toEqual(["timeline", "conversation-expired"]);
+  expect(reads).toHaveBeenCalledTimes(2);
+});
+
+it("legacy: an event appended after a snapshot was read is sent on the next poll", async () => {
+  const h = await setup(2);
+  const append = owned(h, "c");
+  await append("first");
+  const original = h.service.getTimeline.bind(h.service);
+  let appendLate = false;
+  vi.spyOn(h.service, "getTimeline").mockImplementation(async (id) => {
+    const events = await original(id);
+    if (appendLate) {
+      appendLate = false;
+      await append("late");
+    }
+    return events;
+  });
+  const revisions = vi.spyOn(h.service, "timelineRevision");
+  const res = h.fake(LEGACY);
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+  appendLate = true;
+  await append("second");
+  // The accepted revision is the delivered snapshot's last sequence, not a re-read.
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(3));
+  expect(frames(res).map(texts)).toEqual([
+    ["first"],
+    ["first", "second"],
+    ["first", "second", "late"]
+  ]);
+  await polls(revisions, 2);
+  expect(frames(res)).toHaveLength(3);
+});
+
+it("legacy: a store without a revision keeps exactly one full read per poll", async () => {
+  const backing = new InMemoryConversationTimelineStore();
+  const getEvents = vi.fn((id: string) => backing.getEvents(id));
+  const plain: ConversationTimelineStore = {
+    appendEvent: (id, e) => backing.appendEvent(id, e),
+    getEvents
+  };
+  const h = await setup(2, plain);
+  const append = owned(h, "c");
+  await append("first");
+  const revisions = vi.spyOn(h.service, "timelineRevision");
+  const res = h.fake(LEGACY);
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+  await polls(revisions, 3);
+  expect(revisions.mock.results.every((r) => r.value === undefined)).toBe(true);
+  // One per poll plus the pre-header read; never a second read for a revision.
+  expect(getEvents.mock.calls.length).toBe(revisions.mock.calls.length + 1);
+  // Unchanged content is still not resent, and a change still arrives once.
+  expect(frames(res)).toHaveLength(1);
+  await append("second");
+  await vi.waitFor(() => expect(frames(res)).toHaveLength(2));
+  expect(frames(res).map(texts)).toEqual([["first"], ["first", "second"]]);
+  await polls(revisions, 2);
+  expect(frames(res)).toHaveLength(2);
+  expect(getEvents.mock.calls.length).toBe(revisions.mock.calls.length + 1);
+});
+
+it.each([
+  ["missing", undefined],
+  ["zero", 0],
+  ["not a number", Number.NaN]
+])(
+  "legacy: a revision store whose snapshot's last sequence is %s compares content instead",
+  async (_label, bad) => {
+    const backing = new InMemoryConversationTimelineStore();
+    // Nonempty snapshots whose last event has no usable sequence.
+    const getEvents = vi.fn(async (id: string) => {
+      const events = await backing.getEvents(id);
+      if (events.length) {
+        const { sequence: _sequence, ...rest } = events[events.length - 1];
+        events[events.length - 1] = bad === undefined ? rest : { ...rest, sequence: bad };
+      }
+      return events;
+    });
+    const store: ConversationTimelineStore = {
+      appendEvent: (id, e) => backing.appendEvent(id, e),
+      getEvents,
+      lastSequence: (id) => backing.lastSequence(id)
+    };
+    const h = await setup(2, store);
+    const append = owned(h, "c");
+    await append("first");
+    const revisions = vi.spyOn(h.service, "timelineRevision");
+    const res = h.fake(LEGACY);
+    await vi.waitFor(() => expect(frames(res)).toHaveLength(1));
+    await polls(revisions, 3);
+    // The revision is available and unchanged, but no snapshot sequence was accepted:
+    // every poll reads in full, and unchanged content is not resent.
+    expect(revisions.mock.results.at(-1)?.value).toBe(1);
+    expect(getEvents.mock.calls.length).toBe(revisions.mock.calls.length + 1);
+    expect(frames(res)).toHaveLength(1);
+
+    await append("second");
+    await vi.waitFor(() => expect(frames(res)).toHaveLength(2));
+    expect(frames(res).map(texts)).toEqual([["first"], ["first", "second"]]);
+    await polls(revisions, 2);
+    expect(frames(res)).toHaveLength(2);
+  }
+);

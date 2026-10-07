@@ -1306,7 +1306,10 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         res.setHeader("Connection", "keep-alive");
         res.flushHeaders();
 
-        // The last snapshot the response accepted, including one buffered by a full write.
+        // The last snapshot the response accepted, including one buffered by a full write:
+        // by its last sequence where the store keeps a revision and the snapshot carries
+        // valid sequences, otherwise by its serialized form. Only one is set at a time.
+        let acceptedSequence: number | undefined;
         let lastSerializedEvents: string | undefined;
 
         // An EventSource cannot read the 410 its reconnect would get, so say why first.
@@ -1317,22 +1320,46 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
               : undefined
           );
 
-        await stream.start(async () => {
-          const events = await service.getTimeline(conversationId);
+        const checkCurrent = (eventCount: number) => {
           // A retired id reused by new work ends the stream as expired, first.
           const currentVersion = service.conversationVersion(conversationId);
           if (boundVersion && currentVersion !== boundVersion)
             throw new GenerationError("CONVERSATION_EXPIRED", false);
           // Re-checked on every read: a stream opened before the first message must
           // not follow a conversation that another principal then claims.
-          if (!visibleTo(conversationId, principal!.principalId, events.length))
+          if (!visibleTo(conversationId, principal!.principalId, eventCount))
             throw new Error("CONVERSATION_NOT_VISIBLE");
           boundVersion = currentVersion;
+        };
+
+        await stream.start(async () => {
+          // Copies nothing; expired history throws here as getTimeline would.
+          const revision = service.timelineRevision(conversationId);
+          if (revision !== undefined && revision === acceptedSequence) {
+            // Unchanged: the store is append-only per version (lastSequence), and the
+            // version and ownership checks still run. A revision of 0 means empty.
+            checkCurrent(revision);
+            return;
+          }
+          const events = await service.getTimeline(conversationId);
+          checkCurrent(events.length);
+          // The delivered snapshot's own last sequence, never a re-read: an event
+          // appended after this snapshot then differs on the next poll.
+          const raw = events.length ? events[events.length - 1].sequence : 0;
+          const last = typeof raw === "number" && Number.isSafeInteger(raw) ? raw : undefined;
+          // Without a usable sequence (0 only when empty), compare by content instead,
+          // as for stores without a revision.
+          const sequenced =
+            revision !== undefined && last !== undefined && last > 0 === events.length > 0;
+          if (sequenced && last === acceptedSequence) return;
           const serialized = JSON.stringify(events);
-          if (serialized === lastSerializedEvents) return;
+          if (!sequenced && serialized === lastSerializedEvents) return;
           // One frame per write, so a full buffer never splits an event from its data.
           const written = stream.write(sseFrame("timeline", `{"events":${serialized}}`));
-          if (written === "ok" || written === "full") lastSerializedEvents = serialized;
+          if (written !== "ok" && written !== "full") return;
+          // The revision path keeps no serialized copy of the snapshot.
+          acceptedSequence = sequenced ? last : undefined;
+          lastSerializedEvents = sequenced ? undefined : serialized;
         }, endStream);
         stream.every(350, () => void stream.pump());
         stream.heartbeat(15_000);

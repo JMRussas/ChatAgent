@@ -8,12 +8,13 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Handoff checkpoint — current execution status
 
-Current reading checkpoint (2026-10-06), based on reviewed runtime milestone `fcceff2`:
+Current reading checkpoint (updated 2026-10-07); historical milestones and their
+validation evidence remain below:
 
 | Area                | Current scope                                                                                                                                                                                                                                                                                                                                               |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload compatibility and document-task recovery implemented; detailed evidence below                                                                                                                                                                                                                   |
-| Documentation pilot | Accepted three-component reference; 1,243 TypeScript tests and 34 browser tests, with 93 independently reviewed adjacent/pilot tests and generated/copied artifact browser checks                                                                                                                                                                           |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 1,711 TypeScript tests and 34 browser tests pass                                                                                       |
+| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                  |
 | Hekate              | Durable claims/pins, browser, H1 and bounded E1a/E1b interop accepted; E2a, E2b-a, E2c and E2d disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029/031/033); E2d acceptance reports 534 suite checks plus 4 independent probes; consumer/import placement remains open; no production journal, real workers or wake |
 | Open gates          | Fixed/rolling quota reconciliation, shared deployment, independent quality evidence and unattended recovery                                                                                                                                                                                                                                                 |
 
@@ -1150,11 +1151,26 @@ pre-header read, the synchronous-finish timer guard and the page's reopen) each
 failed their targeted tests and were reverted. No live provider calls or service
 restart.
 
-Still open for step 2: per-stream memory still scales with the conversation size
-for the legacy stream, which re-sends whole snapshots; a v1 poll is budgeted but
+Still open for step 2: peak per-stream memory still scales with the conversation size
+for changed legacy snapshots; unchanged polls now avoid full copies with the
+in-memory store. A v1 poll is budgeted but
 one event can still reach the conversation byte limit, and stores without the
 optional reads copy whole timelines; cross-owner denial with an authenticated identity remains the prerequisite for
 any shared deployment.
+
+_Legacy idle-poll revision check implemented and reviewed 2026-10-07; see the
+[runtime reference](runtime-reference.md#event-stream-limits):_ a legacy stream
+checks the optional cheap timeline revision before copying a snapshot. Unchanged
+polls still enforce ownership, expiry and conversation-version checks, but copy
+and serialize nothing. The accepted snapshot's own last sequence replaces the
+retained serialized cache; only accepted or buffered writes advance it. Initial
+empty snapshots, pre-header reads and the full-snapshot wire format stay intact.
+Stores without revisions or usable snapshot sequences retain content comparison.
+This reduces idle allocation and retained cache size, not peak memory during
+changed polls or generation. Claude implemented the change and regressions; Codex
+reviewed source and verified 104 focused stream/ownership/retention/protocol tests,
+1,711 tests across 143 files, 34 browser tests, format, lint and documentation
+contracts. No sustained-memory measurement or new heap bound is claimed.
 
 _V1 budgeted reads implemented 2026-10-06; see the
 [runtime reference](runtime-reference.md#event-stream-limits):_ with the in-memory

@@ -377,6 +377,15 @@ export class ChatService {
     );
   }
 
+  /**
+   * The timeline's revision (its last sequence) without copying any events, or
+   * undefined when the store keeps none. Never falls back to a full read. Checked like
+   * getTimeline: expired history throws CONVERSATION_EXPIRED.
+   */
+  timelineRevision(conversationId: string): number | undefined {
+    return this.timelineStore.lastSequence?.(conversationId);
+  }
+
   /** The last timeline sequence; stores without lastSequence pay a full read. */
   async lastTimelineSequence(conversationId: string): Promise<number> {
     if (this.timelineStore.lastSequence) return this.timelineStore.lastSequence(conversationId);

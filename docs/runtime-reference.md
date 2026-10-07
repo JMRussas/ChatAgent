@@ -341,10 +341,23 @@ of serialized event bytes (the size the store records for each stored event). Ea
 event is admitted before it is added, and the first event of a poll is always
 admitted, so one poll copies at most the larger of 256 KiB and that one event; the
 rest follow on later polls, without gaps or duplicates. An idle stream copies
-nothing. The budget counts serialized bytes, not JavaScript heap. Limits remain: a
-single event can be as large as the conversation byte limit; a store without the
-optional reads falls back to full copies; and the legacy stream still copies and
-re-sends whole snapshots.
+nothing. The budget counts serialized bytes, not JavaScript heap.
+
+Since 2026-10-07, with the in-memory store, a legacy stream polls the timeline's
+revision (its last sequence) first. While the revision equals that of the last
+snapshot the response accepted, the poll still checks the conversation version
+and ownership but copies, serializes and sends nothing, and the stream keeps that
+sequence instead of a serialized copy of its last snapshot. The first snapshot,
+empty or not, is always sent, and the pre-header read is unchanged. A store that
+offers `lastSequence` must keep each conversation version append-only. A store
+without it, or a snapshot without valid sequences, keeps the previous behaviour:
+one full read per poll, compared with the last accepted serialized snapshot.
+
+Limits remain: a single v1 event can be as large as the conversation byte limit;
+a store without the optional reads falls back to full copies; and every change to
+a legacy stream's timeline, including each delta during generation, still copies,
+serializes and re-sends the whole snapshot. The legacy change lowers idle copying
+and the retained per-stream cache; it is not a peak-memory bound.
 
 Shutdown (`closeStreams`) clears every stream's timers and listeners at once,
 ends idle streams, and destroys streams that are blocked, still flushing or have

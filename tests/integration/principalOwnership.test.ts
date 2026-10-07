@@ -236,6 +236,9 @@ describe("conversations are per principal", () => {
     const h = await start();
     const foreign = await h.stream("pending", B);
     await vi.waitFor(() => expect(foreign.text()).toContain("event: timeline"));
+    // An unchanged revision is not read again, so read on every poll, as for a store
+    // without a revision: a read is then pending when the claim lands.
+    vi.spyOn(h.service, "timelineRevision").mockReturnValue(undefined);
     const original = h.service.getTimeline.bind(h.service);
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));

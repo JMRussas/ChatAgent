@@ -43,7 +43,12 @@ export interface ConversationTimelineStore {
     afterSequence: number,
     maxBytes?: number
   ): Promise<ChatTimelineEvent[]>;
-  /** Optional: the last assigned sequence (0 if none), checked like getEvents, copying nothing. */
+  /**
+   * Optional: the last assigned sequence (0 if none), checked like getEvents, copying
+   * nothing. A store that implements it keeps each conversation version append-only:
+   * stored events never change, and the sequence grows with every append, so an
+   * unchanged sequence within one version means an unchanged timeline.
+   */
   lastSequence?(conversationId: string): number;
 }
 
