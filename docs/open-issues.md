@@ -39,14 +39,14 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                   |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | ---------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | assigned | codex-chatagent / claude-chatagent |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | open     | codex-chatagent / codex-chatagent  |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned       |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open     | codex-chatagent / unassigned       |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open     | codex-chatagent / unassigned       |
+| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                   |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | ---------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | open   | codex-chatagent / codex-chatagent  |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned       |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned       |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -99,6 +99,18 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   compositions reproduce their view parts, digests, reservations and H1 text byte for
   byte with the recorded calls; the supplement compositions likewise; the acceptance
   matrix's structural and no-effect cases pass; independently verified.
+- **Implemented, independently verified and closed 2026-10-07:** `handoffConsumer/compose.ts`
+  SHA-256 `9669e673541e2713370184b35c04e8115f5497f83e20109963719e97c02c3b10` (uncommitted, base `5cf0180`), tests in
+  `tests/unit/handoffCompose.test.ts`. The golden compositions reproduce byte for byte
+  with ChatAgent's H1 at HEAD and the recorded windows; the six supplement
+  compositions reproduce with a labelled reference-stub port. The 16-call retrieval
+  cap is tested; the 10-digit reservation overflow is unreachable on the pinned Node
+  24.21.0 runtime (see doc 13).
+  Root reviewed the final source and corrections and independently ran all 68
+  composition tests; all passed. Claude's final full run passed 2,019 tests across
+  147 files (`node_modules/.cache/ca-issue-002-full.log`), with lint and documentation
+  checks passing. The source hash identifies the verified fix; its integration is
+  recorded by the commit containing this closure entry.
 
 ### CA-ISSUE-003 — No host slot for the consumer view
 

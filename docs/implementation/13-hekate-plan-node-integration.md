@@ -255,6 +255,65 @@ composition are not implemented here. Tests: `tests/unit/handoffDelivery.test.ts
 spellings), over `tests/fixtures/hekate/e2e-consumer-v0/` and
 `tests/fixtures/hekate/e2e-byte-compat-v0/`.
 
+## Offline handoff composition (E2e consumer, composition stage)
+
+Status: implemented and root-accepted 2026-10-07 ([CA-ISSUE-002](../open-issues.md)).
+Root reviewed the corrections and independently passed 68 composition tests;
+Claude's final full run passed 2,019 tests across 147 files, with lint and
+documentation checks passing. Golden cases use real H1 at the host revision;
+supplement cases retain their explicit reference-stub provenance.
+Pure and offline, exposed to tests only; no host slot, route, CLI or network.
+`src/integrations/hekate/handoffConsumer/compose.ts` ports the accepted reference
+`compose` (plan 034 §3–§5): `composeHandoff({delivery, fresh, policy, destination,
+h1, wanted?, retriever?})` verifies the delivery itself, then builds the consumer
+view and calls H1 under the reduced window, returning the emitted view part, its
+`viewDigest`, `viewCost`, `reservationTokens` and the bound H1 result.
+
+- **Binding to verified inputs.** Host inputs are read once and copied before any
+  callback, but judged only after the delivery is verified, so an invalid delivery is
+  refused first, as in the reference. The snapshot's basis, pending and queue are
+  fixed as canonical text in the same call that validated them, and a callback that
+  changes the caller's policy, request or snapshot cannot change decisions or the
+  view. The policy shape is strict (a string principal; rules with a string id, a
+  known action, a plain match object and a boolean `allow`), so no value is coerced
+  into an authorization (`policy_invalid`); a non-string destination is
+  `request_invalid`. Retrieval and H1 results are read once into frozen copies.
+- **Canonical writing without JavaScript floats.** Manifest values come from the
+  verified canonical document (a float keeps its verified lexeme, an integer stays
+  exact); the H1 option budget and receipt fields are rewritten as exact integers and
+  strings, never copied as raw, possibly non-canonical spans. Host values may hold
+  only strings, booleans, null and exact integers; a host float, a lone surrogate in
+  any host string, or an uncopyable value is `codec_unsupported`. Budget arithmetic
+  is exact (`BigInt`).
+- **Policy stub, retrieval, imports and note** follow the reference: first matching
+  rule wins and a missing target key compares as null (`target.get`); rule match
+  values are limited to strings, null and exact integers, an explicit boundary where
+  Python's `True == 1` or `1 == 1.0` would differ. Retrieval is bounded and
+  deduplicated before any check, authorized before the callback, capped at 16 calls,
+  64 items and 32 KiB, and a callback that does not echo the exact pointer, errs or
+  finds nothing gives an `unavailable` item, never a refusal or leaked text.
+- **Budget.** The view part is measured with the fixed-width reservation; H1 is called
+  only when the reduced window is at least 1 and leaves input room (otherwise the
+  consumer's own `CONTEXT_TOO_LARGE`, never an H1 options refusal), and optional items
+  are omitted in the order retrieval, import, note. H1 must return exactly one user
+  message equal to the committed task, with its supplied and instruction digests.
+- **Evidence.** The golden `valid`, `denied` and `wrong-destination` compositions
+  reproduce their view parts, digests, reservations, costs and H1 text byte for byte
+  using ChatAgent's own H1 at HEAD (`buildPlanTaskContext`), called once each with
+  exactly the recorded reduced window; the over-budget case refuses before any H1
+  call. The six supplement compositions reproduce byte for byte with a labelled port
+  of the reference's H1-shaped stub, which produced them. The estimator label
+  `chatagent-utf8-conservative-v1@5255daa` is kept on that budget and byte parity; it
+  names the accepted reference algorithm, not a pinned invocation.
+- **Reservation width.** The 10-digit overflow check is kept but cannot be reached
+  on the tested runtime: on the pinned Node 24.21.0 (V8 13.6) a string holds at most
+  536,870,888 UTF-16 units (`buffer.constants.MAX_STRING_LENGTH`), at most three
+  UTF-8 bytes each, so a view part stays under about 1.7 GB, while 10 digits allow
+  costs up to 9,999,999,999. Another runtime would need its own bound. The 16-call retrieval cap is tested with a rebuilt manifest
+  selecting 18 pointers.
+
+Tests: `tests/unit/handoffCompose.test.ts`.
+
 ## Acceptance and evidence boundaries
 
 - A pilot passes when the task moves through implement, independent review, fixes

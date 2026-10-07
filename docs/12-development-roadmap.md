@@ -17,8 +17,8 @@ the first pilot. Step 6 describes the loop; the Hekate handoff consumer and plan
 integration are its current path. Work faster where it does not reduce quality.
 
 Known defects and gaps are tracked in the [open-issue register](open-issues.md) by
-`CA-ISSUE-NNN` ID. First-pilot blockers: CA-ISSUE-002 (handoff composition) and
-CA-ISSUE-003 (host slot for the consumer view). Unattended blocker: CA-ISSUE-004
+`CA-ISSUE-NNN` ID. CA-ISSUE-001 and CA-ISSUE-002 are verified and closed.
+First-pilot blocker: CA-ISSUE-003 (host slot for the consumer view). Unattended blocker: CA-ISSUE-004
 (idle lead/worker recovery). Hekate- and bridge-owned dependencies are linked there
 to their owners' registers.
 
@@ -27,12 +27,12 @@ to their owners' registers.
 Current reading checkpoint (updated 2026-10-07); historical milestones and their
 validation evidence remain below:
 
-| Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 1,779 TypeScript tests and 34 browser tests pass                                                                                                                                                             |
-| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                                        |
-| Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference fixtures imported; ChatAgent byte-reader foundation accepted, full consumer pending; no production journal, real workers or wake |
-| Open gates          | First pilot: the smallest supervised local task → independent V&V → fix → commit → fresh-handoff loop. Still open: fixed/rolling quota reconciliation and unattended recovery. Outside the first pilot: shared deployment. Optional: human-labelled quality evaluation                                                                                                                                                            |
+| Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime reliability | Local limits/authentication, cancellation, discovery/reload and document-task recovery; declared quota windows, per-call settlement/lower bounds, operator quota view and legacy idle-poll optimization implemented; 2,019 TypeScript tests pass; the latest browser checkpoint passed 34 tests                                                                                                                                                                  |
+| Documentation pilot | Accepted three-component reference; 7 symbols and 15 behavioral invariants pass contract checks; historical independent-review and artifact evidence below                                                                                                                                                                                                                                                                                                       |
+| Hekate              | Durable claims/pins, browser, H1 and bounded E1 interop accepted; E2a, E2b-a, E2c, E2d and E2e disposable fixtures accepted by the Hekate lead (`d0ed671` plus reviewed overlay, plans 029–035). E2e: 597 default checks, 33 pinned interop checks and 4 live-fixture checks. Reviewed reference fixtures imported; ChatAgent byte-reader, verification and offline composition accepted; CLI and host slot pending; no production journal, real workers or wake |
+| Open gates          | First pilot: the smallest supervised local task → independent V&V → fix → commit → fresh-handoff loop. Still open: fixed/rolling quota reconciliation and unattended recovery. Outside the first pilot: shared deployment. Optional: human-labelled quality evaluation                                                                                                                                                                                           |
 
 Read the [runtime reference](runtime-reference.md), the relevant implementation
 contract and its evidence, and the [bridge workflow](agent-bridge-development-workflow.md).
@@ -1777,8 +1777,20 @@ CA-ISSUE-001 is now fixed: detached `ArrayBuffer` fields receive `strict_json`
 after ingress checks. Claude reproduced the failure against the prior revision and
 ran 1,951 tests across 146 files; root reviewed the fix and independently passed
 90 delivery tests. The issue register records the verified source hash and closure
-evidence. Policy, retrieval, the consumer view, H1 composition and any host slot
-remain pending.
+evidence.
+
+_Offline handoff composition implemented and root-accepted 2026-10-07
+(CA-ISSUE-002):_ `handoffConsumer/compose.ts` ports the reference composition:
+policy stub, bounded retrieval, imports and note, the consumer view with its digest
+and fixed-width reservation, and ChatAgent's own H1 under the reduced window, bound
+to the committed task. It writes `py-canon.v0` without printing a JavaScript float,
+binds the snapshot, policy and request as given, and budgets with exact integers.
+The golden compositions reproduce byte for byte with H1 at HEAD and the recorded
+windows; the supplement compositions reproduce with a labelled port of the
+reference stub. Root independently passed 68 composition tests after reviewing the
+policy, callback, malformed-output and budgeting corrections; Claude's final full
+run passed 2,019 tests across 147 files, with lint and documentation checks passing.
+Tests only: no host slot (CA-ISSUE-003), route, CLI or network.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
