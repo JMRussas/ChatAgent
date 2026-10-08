@@ -24,9 +24,11 @@ function render(status: CoordinationStatus): string {
       ...status.errors.map((e) => `  ${e.code}${e.nodeId ? ` (${e.nodeId})` : ""}`)
     ].join("\n");
   const p = status.progress;
+  const ready = status.leaves.filter((l) => l.state === "ready").map((l) => l.name ?? l.nodeId);
   return [
     `plan ${status.rootId}: ${status.leaves.length} leaves (execution acknowledgement unknown)`,
     `  progress ${p.state} (root container ${p.rootCompletion}/${p.rootAcceptance})`,
+    ...(ready.length ? [`  ready now: ${ready.join(", ")}`] : []),
     ...status.leaves.map((l) =>
       [
         `  ${l.state.padEnd(14)} ${l.nodeId} ${l.name ?? ""}`.trimEnd(),
@@ -39,7 +41,9 @@ function render(status: CoordinationStatus): string {
         l.acceptanceHistorical && l.acceptance
           ? `prior decision ${l.acceptance.decision}@${l.acceptance.attemptEpoch} (historical)`
           : "",
-        l.blockers.length ? `blockers ${l.blockers.length}` : ""
+        ...l.blockers.map(
+          (b) => `blocked by ${b.predecessorName ?? b.predecessorId} (${b.reason})`
+        )
       ]
         .filter(Boolean)
         .join("  ")

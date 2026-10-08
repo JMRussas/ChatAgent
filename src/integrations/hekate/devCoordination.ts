@@ -242,7 +242,9 @@ export interface LeafStatus {
    * decision (Hekate plan 038): history, not this attempt's outcome.
    */
   acceptanceHistorical?: true;
-  blockers: PlanView["readiness"]["leaves"][number]["blockers"];
+  blockers: (PlanView["readiness"]["leaves"][number]["blockers"][number] & {
+    predecessorName: string | null;
+  })[];
 }
 
 /**
@@ -407,7 +409,10 @@ export function coordinationStatus(
       artifactRef: node.artifactRef,
       acceptance: node.acceptance,
       ...(olderAttemptDecision(node) ? { acceptanceHistorical: true as const } : {}),
-      blockers: leaf.blockers
+      blockers: leaf.blockers.map((b) => ({
+        ...b,
+        predecessorName: nodes.get(b.predecessorId)!.name
+      }))
     };
   });
   const rootContainer = view.readiness.containers.find((c) => c.nodeId === view.rootId)!;

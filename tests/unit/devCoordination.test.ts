@@ -433,14 +433,17 @@ describe("reading over HTTP", () => {
     expect(lines[0]).toBe(`plan ${ROOT}: 4 leaves (execution acknowledgement unknown)`);
     // One leaf of the captured plan is in progress, so the plan is active, not complete.
     expect(lines[1]).toBe("  progress active (root container incomplete/pending)");
-    expect(lines[2]).toMatch(new RegExp(`^  ready +${READY} Ready$`));
-    expect(lines[3]).toMatch(
+    // The ready leaves, by name, in leaf order, right after the progress line.
+    expect(lines[2]).toBe("  ready now: Ready");
+    expect(lines[3]).toMatch(new RegExp(`^  ready +${READY} Ready$`));
+    expect(lines[4]).toMatch(
       new RegExp(`^  in_progress +${RUNNING} In progress  attempt \\S+#1  pins current  executor `)
     );
-    expect(lines[4]).toMatch(
+    expect(lines[5]).toMatch(
       new RegExp(`^  review_pending +${REVIEW} .*pins current.*artifact git:`)
     );
-    expect(lines[5]).toMatch(new RegExp(`^  accepted +${ACCEPTED} .*pins current`));
+    expect(lines[6]).toMatch(new RegExp(`^  accepted +${ACCEPTED} .*pins current`));
+    expect(lines).toHaveLength(7);
 
     const json = await devcoord(["status", "--json", "--root", ROOT], base);
     expect(json).toMatchObject({ exit: 0, stderr: "" });
@@ -466,6 +469,57 @@ describe("reading over HTTP", () => {
     expect(human.stdout).toMatch(
       new RegExp(`review_pending +${ACCEPTED} .*prior decision rejected@1 \\(historical\\)`)
     );
+  });
+
+  // Captured plan-run views (tests/fixtures/hekate/PROVENANCE.md): leaf C waits on leaf B.
+  const planRun = (state: string) => {
+    const dir = "tests/fixtures/hekate/plan-run-v0";
+    const manifest = JSON.parse(readFileSync(`${dir}/MANIFEST.json`, "utf8"));
+    return {
+      body: readFileSync(`${dir}/${state}.plan.raw.json`, "utf8"),
+      root: manifest.states[state].root as string,
+      nodes: manifest.states[state].nodes as Record<"a" | "b" | "c", string>
+    };
+  };
+  const humanLines = async (root: string, body: string) => {
+    const base = await serve((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(body);
+    });
+    const result = await devcoord(["status", "--root", root], base);
+    expect(result).toMatchObject({ exit: 0, stderr: "" });
+    return result.stdout.trimEnd().split("\n");
+  };
+
+  it("names each blocker's predecessor and reason instead of a count", async () => {
+    const { body, root, nodes } = planRun("S1");
+    const lines = await humanLines(root, body);
+    const c = lines.find((l) => l.includes(nodes.c))!;
+    expect(c).toMatch(
+      new RegExp(
+        `^  blocked +${nodes.c} C  gates not holding  blocked by B \\(predecessor_not_completed\\)$`
+      )
+    );
+    expect(lines.some((l) => /blockers \d/.test(l))).toBe(false);
+    // Nothing in S1 is ready, so there is no ready summary line.
+    expect(lines.some((l) => l.startsWith("  ready now:"))).toBe(false);
+  });
+
+  it("falls back to the predecessor id when the predecessor has no name", async () => {
+    const { body, root, nodes } = planRun("S1");
+    const view = JSON.parse(body);
+    view.nodes.find((n: { id: string }) => n.id === nodes.b).name = null;
+    const lines = await humanLines(root, JSON.stringify(view));
+    const c = lines.find((l) => l.includes(nodes.c))!;
+    expect(c).toMatch(new RegExp(`  blocked by ${nodes.b} \\(predecessor_not_completed\\)$`));
+  });
+
+  it("lists a ready leaf by id when it has no name", async () => {
+    const lines = await humanLines(
+      ROOT,
+      synthetic((v) => (node(v, READY).name = null))
+    );
+    expect(lines[2]).toBe(`  ready now: ${READY}`);
   });
 
   it("exits 2 on usage errors and 1 with a code only on refusals", async () => {
