@@ -123,3 +123,43 @@ describe("observation trust boundaries", () => {
     await expect(observer.observe(root, node)).rejects.toMatchObject({ code: "TIMEOUT" });
   });
 });
+
+describe("current attempt claim correlation", () => {
+  const started = (claimKey: string, attemptEpoch = 1) => ({
+    ...events,
+    events: [
+      {
+        seq: 1,
+        nodeId: node,
+        nodeStateRevision: 1,
+        kind: "attempt_started",
+        attemptId: "fixture-attempt-1",
+        attemptEpoch,
+        claimKey
+      }
+    ]
+  });
+  it("refuses a trace claim that conflicts with the current start event", async () => {
+    const { observer } = collector([plan, started("wrong-claim"), trace(), plan]);
+    await expect(observer.observe(root, node)).rejects.toMatchObject({ code: "IDENTITY_MISMATCH" });
+  });
+  it("keeps historical attempts distinct and does not bind their claims", async () => {
+    const { observer } = collector([plan, started("old-claim", 0), trace(), plan]);
+    const result = await observer.observe(root, node);
+    expect(result.trace?.claimLinkage).toBe("unavailable");
+    expect(result.aiSnapshot.facts.events[0].currentAttempt).toBe(false);
+  });
+  it("projects exact matched claim identity and bounded stop facts without raw reason", async () => {
+    const stopped = { ...trace(), exit: { code: null, killReason: "SECRET_STOP_REASON" } };
+    const { observer } = collector([plan, started("claim"), stopped, plan]);
+    const result = await observer.observe(root, node);
+    expect(result.aiSnapshot.facts.trace).toMatchObject({
+      claimKey: "claim",
+      claimLinkage: "matched",
+      killReasonPresent: true
+    });
+    expect(result.aiSnapshot.facts.events[0].currentAttempt).toBe(true);
+    expect(JSON.stringify(result.aiSnapshot)).not.toContain("SECRET_STOP_REASON");
+    expect(result.aiSnapshot.policy.dataTrust).toContain("does not verify the artifact manifest");
+  });
+});
