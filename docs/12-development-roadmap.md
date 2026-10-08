@@ -1968,10 +1968,14 @@ Limits:
 
 Next: more real prepared plans. The first run's friction was hand-built spec packages.
 
-- A single-task authoring command in Hekate is in progress.
-- The reviewed ChatAgent profile it will read is prepared:
-  `docs/contracts/hekate-task-profile.json` (doc 13).
-- Recipes and multi-task authoring stay manual.
+- **Single-task authoring is implemented and verified.** Hekate's `task_author`
+  (`04106f2`) builds one pinned spec from a draft and the reviewed ChatAgent profile
+  (`docs/contracts/hekate-task-profile.json`, doc 13). It proves the spec by baseline
+  capture, the unchanged preflight and the real verifier on a reference patch.
+- **Rehearsal.** An offline rehearsal reproduced the first chain's task A spec in
+  92 seconds, with no model or spend.
+- Task choice, oracles, reference implementations, recipes and multi-task plans stay
+  manual, and nothing decomposes prose into tasks.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

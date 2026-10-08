@@ -207,12 +207,28 @@ unimplemented; they depend on Hekate's journal and supervisor work.
 
 ## Task authoring profile (hekate-task-profile.v0)
 
-Status: the profile is prepared and reviewed. Hekate's single-task authoring command that
-reads it is **pending implementation and verification**, so nothing below is claimed
-as demonstrated until that command is frozen and independently reviewed.
+Status (2026-10-08): implemented and verified.
+
+- **The command.** Hekate's `e1.task_author draft` (`04106f2`, integrated) reads this
+  profile. Its tests: 26 focused tests, plus a 128-passed/1-skipped runner regression
+  for the extracted baseline step, and an independent rerun of the 26.
+- **Real-toolchain rehearsal.** One offline rehearsal ran on the real repository with
+  no model, store or spend: the first chain's task A base and oracle, with the accepted
+  A change as the reference patch. It reported ready in 92 seconds:
+  - capture: 6 cases, 4 failing by assertion;
+  - the unchanged preflight passed;
+  - the real verifier accepted the reference on all four gates (oracle, typecheck,
+    full suite, docs check) within the allow list.
+
+  Read as UTF-8 JSON, the generated spec equals the hand-built spec that the real run
+  used. Only its ellipsis escaping and indentation differ.
+
+- **Still manual.** The lead or authoring agent still chooses the task, writes the
+  oracle and the reference implementation, and decides the allow list. Recipes and
+  multi-task plans are authored by hand, and nothing decomposes prose into tasks.
 
 `docs/contracts/hekate-task-profile.json` is ChatAgent's reviewed input to Hekate's
-single-task authoring command. As agreed, that command composes one pinned
+single-task authoring command, which composes one pinned
 `supervised-task-spec.v0` from this profile and a per-task draft. The draft holds the
 judgment fields: base, task text, allow list, oracle paths and notes.
 
@@ -223,7 +239,7 @@ judgment fields: base, task text, allow list, oracle paths and notes.
     (typecheck, full suite, docs check) and the default worker bounds (Sonnet, a
     nominal $1 per round, 2 rounds, 40 turns).
 
-  As agreed, the command refuses a draft when a pinned tool, or a vitest or tsc entry
+  The command refuses a draft when a pinned tool, or a vitest or tsc entry
   after the offline install, does not hash to its pin. It also refuses when the task
   base's lockfile differs from the pinned one.
 
