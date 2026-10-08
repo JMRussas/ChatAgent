@@ -28,7 +28,7 @@ and review evidence. The retained capture under
 manifest of 93 API requests, all GET. Observed limits: no automatic refresh; no
 view while the runner's API builds or after it stops, so the accepted frame came
 from the read-only view reopened after the run; and no worker conversation,
-verifier steps or attempt trace. The product target above is the next increment.
+verifier steps or attempt trace. The product target below is the next increment.
 
 **Product target (2026-10-08, user direction).** Run this development workflow
 outside VS Code: the application hosts the main conversation and review, Hekate's
@@ -40,6 +40,16 @@ current demonstration, prioritize the smallest usable path toward this target:
 inspect the existing Claude execution path, add Codex execution where missing,
 and expose node/attempt conversation and tool events in the UI. This is planned
 work; the existing Plans view exposes state and events, not those conversations.
+
+Current increment: Hekate is implementing per-attempt prompt and observable stream
+capture and its read-only trace endpoint; the companion attempt viewer is being
+implemented in Hekate's existing UI. Neither is integrated yet. A standalone
+Windows Codex CLI read-only task succeeded outside VS Code, with a clean worktree
+and structured assistant and command-execution events retained under
+`D:/hekate-coordinator/codex-smoke-004`. The successful launch used an explicit
+Windows sandbox setting and excluded the WindowsApps shell alias from that
+worker's PATH only. Earlier failed probes remain preserved. This establishes CLI
+feasibility, not a Codex adapter in Hekate or a completed dual-worker application.
 
 All remaining items are retained as **later work**, not removed or declared
 complete: recovery envelopes and manifest publication, evidence-binding CLI and
