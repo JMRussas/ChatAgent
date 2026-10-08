@@ -81,6 +81,29 @@ exact file addition with empty stderr; retained event hashes were independently
 verified. The earlier failed attempt remains intact. A complete node rehearsal
 after that correction has not been repeated.
 
+**Task navigation (2026-10-08, user direction).** The Hekate application now has
+an additional Tasks view (integrated at `e27cae3`) for Active, Saved and History, with List and Board
+layouts. Filters combine plan, text search, status, effective review decision and
+readiness; History adds an event-kind filter. Saved means all stored tasks,
+including completed work; Active means the recorded state is `in_progress`, not
+an assertion of process liveness. Selecting a task opens its fresh detail and
+attempt conversation; a history event opens its recorded attempt. Returning to
+the catalog retains the filters and layout.
+
+This increment uses the existing GET-only API, loading 20 plans per catalog page
+with four concurrent plan reads. Counts/search cover loaded plans; Load more
+exposes the remaining plans and each plan's history pages. Refresh is explicit,
+and filters are not saved across page reloads. Task creation, saved drafts,
+execution controls and launching plans from the main chat remain next product
+work. Hekate plan 049 records the behavioral contract. The live preview is
+`http://localhost:5193/`, backed by viewer API 5111. Its capture under
+`D:/hekate-coordinator/view-task-navigation-001` records four stored tasks and
+12 history events; opening the Codex node shows its verified trace, with 18 API
+requests, all GET. Existing demo services on 5179 remain available. The full Hekate UI browser suite
+passed 81 tests, including eight new navigation tests; type checking and production
+build passed. Changed navigation modules and tests pass ESLint; full UI lint still
+has two pre-existing errors and three warnings in App, ChatPanel and DebugPanel.
+
 Later research candidate, requested 2026-10-08: Cognition's
 [Memory and Dreaming](https://devin.ai/blog/memory-and-dreaming) and
 [Agent Memory Repo](https://cognition.com/agent-memory-repo). Evaluate reusable,

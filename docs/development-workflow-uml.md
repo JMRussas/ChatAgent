@@ -252,6 +252,36 @@ holds their journal references and recorded integrity metadata. The read-only
 endpoint resolves those references without storing raw conversation blobs in
 PlanStore.
 
+## Task navigation (implemented local increment)
+
+The Tasks view gives stored work a common entry point across plans. List and
+Board show the same filtered tasks; History shows recorded events and opens the
+attempt that produced the selected event. This keeps navigation separate from
+execution and makes older work accessible without recreating conversations.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Saved
+    Saved --> Active: choose active collection
+    Active --> Saved: choose saved collection
+    Saved --> History: inspect recorded events
+    Active --> History: inspect recorded events
+    History --> Saved: return to task collection
+    Saved --> TaskDetail: select task
+    Active --> TaskDetail: select task
+    History --> TaskDetail: select event and its attempt
+    TaskDetail --> AttemptConversation: recorded prompt and tool events
+    TaskDetail --> PreviousView: back with filters preserved
+    PreviousView --> Saved
+    PreviousView --> Active
+    PreviousView --> History
+```
+
+Filters combine plan, text, status, review and readiness. List/Board share those
+filters; History also filters event kind. Discovery and search cover loaded plan
+pages, with explicit paging and refresh. Hekate's plan 049 specifies these
+semantics and the remaining limits; this view does not launch or create tasks.
+
 ## Hekate plans browser (existing, read-only)
 
 Hekate already has a local browser for managed plans
