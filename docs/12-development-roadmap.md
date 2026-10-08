@@ -1982,6 +1982,23 @@ adapter. Hekate runs a prepared plan of dependent tasks:
     boundary. The actual spend was not retained.
   - The accepted artifact was a candidate only. It was integrated through a separately
     reviewed branch carrying the same source and frozen oracles.
+- **Second real run, stopped (2026-10-08, root GO 2063).**
+  - The plan: one task, `devcoord status --check` (spec `df43cd3c`, base `5f4be3a`),
+    with at most 2 rounds.
+  - Round 1: the Sonnet worker produced candidate `a6fb96d`, which changes
+    `scripts/devcoord.ts` only. The oracle and typecheck passed. The full suite
+    failed two `localIdentity` tests at their PowerShell step, so the verifier
+    rejected the candidate.
+  - Round 2: creating its worktree failed before any worker started.
+  - The plan stopped at `needs_operator` at 06:01Z. Its store and evidence are
+    retained, and it was not retried.
+  - Cause: both failures coincide with a Windows restart attempt and logoff at about
+    06:01:52Z. The machine slept at 06:04Z. The same tree later passed the identical
+    full-suite command twice. This is a strong inference from timing; the failing
+    child exit codes were not retained.
+  - Spend: CLI-reported (not metered) $0.06 in 9 turns, round 1 only.
+  - The rejection stands as recorded. Whether the candidate is accepted depends on a
+    fresh verification and an independent review.
 - **Progress in ChatAgent.** The read-only coordination status reports plan progress
   from PlanStore's own verdict, so `no_ready_work` is never shown as done.
 
@@ -2000,7 +2017,10 @@ Limits:
   the same repository, and it continues only in the original run root.
 - **Manual integration.** Accepted work is not integrated into the primary repository
   or pushed automatically; integration stays a reviewed step.
-- **Spend is not recorded.** Per-run spend is not retained in the evidence.
+- **Spend is reported, not metered.** Since Hekate `c701ce0` the evidence keeps each
+  round's CLI-reported cost, turns and duration. Nothing meters spend independently.
+- **Setup failures are hard to diagnose.** The worktree-setup failure in the second run
+  kept no Git exit code or error text.
 
 Next: more real prepared plans. The first run's friction was hand-built spec packages.
 
