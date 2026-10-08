@@ -50,7 +50,7 @@ const MAX_ITEMS = 100_000;
  * (escaped spellings included) or use `__proto__`. The raw text is scanned, so a
  * value hidden behind a later duplicate is still seen. JSON.parse then checks syntax.
  */
-function parseStrictJson(text: string): unknown {
+export function parseStrictJson(text: string): unknown {
   const stack: { keys?: Set<string>; expectKey: boolean }[] = [];
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
