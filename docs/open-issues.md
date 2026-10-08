@@ -416,8 +416,8 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 - **Evidence (2026-10-07):** a bounded reproduction (`eperm_repro.mts`) ran the test's
   create-then-rotate sequence against the real module 80 times. Six runs failed (3 in
   each batch of 40). The retry histogram is bimodal: 74 rotations needed no retry and
-  6 exhausted all six waits; none succeeded after retrying, so the existing bounded
-  `EPERM` retry (1,575 ms) does not help. At each failure the target could still be
+  6 exhausted all six waits; the existing bounded `EPERM` retry (1,575 ms) did not
+  recover any of the 6 observed failures. At each failure the target could still be
   opened for reading and writing, copied and deleted, but renaming onto it kept failing
   for at least 5 to 30 more seconds, also from a separate process. Its ACL was the
   expected private one, and no handle leak was found on the code path. The script,
@@ -428,9 +428,10 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   delete sharing, consistent with an on-access scanner or indexer opening the freshly
   written file. Node's delete uses POSIX semantics and succeeds despite such a handle;
   rename-over-target does not. Naming the holder would need a handle tool.
-- **Known limitation:** the behaviour is accepted for now. A longer retry would not
-  help, and moving the real-file test out of the default suite would hide a material
-  platform failure, so neither is done. Replacing the file non-atomically (moving the
+- **Known limitation:** the behaviour is accepted for now. A longer retry is not
+  selected without a bounded product fix (it might eventually outlast a long hold, but
+  that is unproven), and moving the real-file test out of the default suite would hide
+  a material platform failure, so neither is done. Replacing the file non-atomically (moving the
   current file aside first) is rejected: it opens a window in which
   `loadOrCreateIdentity`, which does not take the rotation lock, could mint a new
   identity.

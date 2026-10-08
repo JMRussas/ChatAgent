@@ -1902,8 +1902,9 @@ revalidation-stage code, so the source-only task was unsatisfiable. Task base v2
 across all four steps before it was frozen. A second pilot needs root's review and GO.
 
 _Known Windows limitation registered 2026-10-07 (CA-ISSUE-014, open):_ identity
-rotation can fail safely with `EPERM` when another process holds `identity.json`
-(80-run reproduction: about 7.5% of rotations, retries never recover). It stays in the
+rotation can fail safely with `EPERM`, with a suspected external file holder (cause
+unproven; 80-run reproduction: about 7.5% of rotations, and the existing retry
+recovered none of the 6 observed failures). It stays in the
 default suite as a visible platform failure; a safe atomic replacement is the bounded
 follow-up.
 
