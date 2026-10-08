@@ -176,10 +176,15 @@ function classifyAssignment(input: ActivityInput, a: AssignmentExtract): Assignm
     if (o.kind !== "blocked" && o.kind !== "completed" && o.kind !== "verified") continue;
     let attribution: Correlation["attribution"] | null = null;
     if (o.actor === agent) attribution = "authenticated";
-    else if (o.actor === "fenrir" && o.role === agent && (session === undefined || o.session === session)) {
+    else if (
+      o.actor === "fenrir" &&
+      o.role === agent &&
+      (session === undefined || o.session === session)
+    ) {
       attribution = "reported";
     }
-    if (attribution) candidates.push({ ts: o.ts, correlation: { source: "outcome", kind: o.kind, attribution } });
+    if (attribution)
+      candidates.push({ ts: o.ts, correlation: { source: "outcome", kind: o.kind, attribution } });
   }
   let uncorrelated = 0;
   for (const l of a.links) {
@@ -202,17 +207,28 @@ function classifyAssignment(input: ActivityInput, a: AssignmentExtract): Assignm
 
   if (candidates.length > 0) {
     const rank = (c: Candidate): number =>
-      (c.correlation.attribution === "authenticated" ? 0 : 2) + (c.correlation.source === "outcome" ? 0 : 1);
+      (c.correlation.attribution === "authenticated" ? 0 : 2) +
+      (c.correlation.source === "outcome" ? 0 : 1);
     let best = candidates[0];
     for (const c of candidates) {
       if (rank(c) < rank(best) || (rank(c) === rank(best) && c.ts < best.ts)) best = c;
     }
-    return { id: a.id, ageS, state: "correlated_reply_observed", correlation: best.correlation, uncorrelated };
+    return {
+      id: a.id,
+      ageS,
+      state: "correlated_reply_observed",
+      correlation: best.correlation,
+      uncorrelated
+    };
   }
   let state: AssignmentState;
   if (ageMs <= thresholdMs) state = "within_threshold";
   else if (
-    a.events.some((e) => (e.kind === "offered" || e.kind === "consumed" || e.kind === "acknowledged") && e.ts >= start)
+    a.events.some(
+      (e) =>
+        (e.kind === "offered" || e.kind === "consumed" || e.kind === "acknowledged") &&
+        e.ts >= start
+    )
   ) {
     state = "fetched_no_correlated_reply";
   } else state = "unfetched_past_threshold";
@@ -268,7 +284,10 @@ function classifySession(input: ActivityInput): SessionState {
     }
   }
   if (last.role === "user" && last.interruptionMarker) return "interrupted_marker_observed";
-  if (last.role === "assistant" && (last.stopReason === "end_turn" || last.stopReason === "stop_sequence")) {
+  if (
+    last.role === "assistant" &&
+    (last.stopReason === "end_turn" || last.stopReason === "stop_sequence")
+  ) {
     return "ended_turn_observed";
   }
   return "session_unknown";
@@ -281,7 +300,11 @@ function classifySession(input: ActivityInput): SessionState {
  */
 export function classifyActivity(input: ActivityInput): ActivityReport {
   if (!isTime(input.nowMs) || !isTime(input.thresholdMs)) {
-    return { agent: input.agent, assignments: input.assignments.map(unknownAssignment), session: "session_unknown" };
+    return {
+      agent: input.agent,
+      assignments: input.assignments.map(unknownAssignment),
+      session: "session_unknown"
+    };
   }
   return {
     agent: input.agent,
