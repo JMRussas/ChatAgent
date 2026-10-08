@@ -89,9 +89,24 @@ Hekate's bounded host-observed provenance is integrated at `2066614` (HK-ISSUE-0
 closed for that metadata scope).
 The epoch/ref-only guarded takeover primitive is integrated at `521d33e`, with
 eight independent tests passing. It does not reconcile a stream or authorize
-any historical disposition. The separate pending-effect inspection defect is
-being fixed: operator-closed intents must remain visible while later intents
-and arbitrary reservation mismatches still fail closed.
+any historical disposition. The pending-effect inspection fix is integrated at
+Hekate `9778b7e`: operator-closed intents remain visible while later intents and
+arbitrary reservation mismatches still fail closed. The follow-up HK-ISSUE-017
+fix protects new resolutions and retains legacy uncompacted records during time
+compaction and pressure eviction. Its source is reviewed at `274e71f`. The broader
+suite passed 1,193 tests with one skip and exposed a previously missed replay
+revision check. The correction at `61e254b` preserves frozen bundle bytes and
+strict replay results; 97 independent focused tests pass. The stack is integrated
+at `61e254b`, preserving all pre-existing dirty paths and frozen fixture bytes.
+
+ChatAgent's current increment is read-only initial-response detection for named
+bridge assignments (CA-ISSUE-004). The bridge and transcript readers, CLI and
+conservative classifier stub are integrated at `8edbbd7`. Validation passed 63
+independent focused tests, 2,304 TypeScript tests with nine skips in the isolated
+checkout, all 39 browser tests, lint and documentation contracts. The classifier
+still reports unknown; its frozen acceptance tests and reference implementation
+are being prepared for the next supervised task. This increment neither resumes
+agents nor detects ongoing-work stalls; CA-ISSUE-004 remains open.
 The HK-ISSUE-015 recovery/continuation design is under revision, with fencing,
 truthful unknown outcomes and cross-run attempt
 bounds still open. Historical `check-002` stays stopped and unchanged. Bridge
