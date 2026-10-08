@@ -79,7 +79,12 @@ A session token is `base64url(payload).base64url(HMAC-SHA256(sessionKey, payload
 ownership is unaffected.
 
 - Rotations are serialized by an exclusive lock file. A lock left by a crash is
-  reported, never broken automatically.
+  reported, never broken automatically. A Windows `EPERM` while opening that lock
+  refuses rotation with `LocalIdentityError` and retains the native error as its
+  cause. The call does not own or remove the lock and has not changed identity
+  bytes. This handles that known error path; it does not establish which holder
+  caused an earlier field failure. Other native codes/platforms retain their
+  existing behavior. Regression: `tests/unit/localIdentityRecurrence.test.ts`.
 - Rotation refuses to pass the largest safe epoch, leaving the file unchanged.
 - The new file replaces the old one by rename while the lock is held. On Windows a
   rename onto a file another process holds open fails with `EPERM` until it is
@@ -87,10 +92,14 @@ ownership is unaffected.
   the failed full-suite runs is not established). That error alone is retried with
   the same files after waits of 25, 50, 100, 200, 400 and 800 ms: seven attempts and
   1575 ms of waiting, though the renames themselves can add to the elapsed time.
-  Any other error, `EPERM` on another platform, or `EPERM` after the last wait
-  is thrown unchanged. The old file is never deleted or copied over and permissions
-  are unchanged, so a failed rotation leaves the old identity in place and removes
-  its temp file and lock.
+  On Windows, an `EPERM` also invokes the fixed, bounded POSIX-semantics replacement
+  helper and checks both files after its exit. Confirmed replacement succeeds;
+  unchanged files continue the existing retry; an uncertain outcome preserves the
+  temp file and lock for inspection. Known unchanged failure leaves the old identity
+  and cleans up this call's temp/lock. Other errors/platforms and exhausted retry
+  preserve the native refusal. The old identity is never removed to recreate it.
+  Regressions: `localIdentityHelper.test.ts` and the unchanged 19-case
+  `tests/integration/localIdentityPosixReplace.test.ts` oracle.
 - A running server is not affected until it is given the new identity
   (`LocalAuthenticator.useIdentity`, intended for a later operator endpoint) or
   restarted. Rotation alone does not revoke sessions in a running server.

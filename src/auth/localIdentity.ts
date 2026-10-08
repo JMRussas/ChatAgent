@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { link, mkdir, open, readFile, rename, rm } from "node:fs/promises";
+import { link, mkdir, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -457,7 +457,15 @@ export async function loadIdentity(dir = defaultIdentityDir()): Promise<LocalIde
  */
 export async function rotateIdentity(
   dir = defaultIdentityDir(),
-  { wait, posixReplace }: Pick<ReplaceOptions, "wait" | "posixReplace"> = {}
+  {
+    wait,
+    posixReplace,
+    platform = process.platform,
+    openLock = (lockPath) => open(lockPath, "wx")
+  }: Pick<ReplaceOptions, "wait" | "posixReplace" | "platform"> & {
+    /** @internal Test seam for creating the rotation lock. */
+    openLock?: (lockPath: string) => Promise<FileHandle>;
+  } = {}
 ): Promise<LocalIdentity> {
   await verifyPrivate(dir, "directory");
   const path = join(dir, FILE);
@@ -467,11 +475,20 @@ export async function rotateIdentity(
   let lock;
   let keepLock = false;
   try {
-    lock = await open(lockPath, "wx");
+    lock = await openLock(lockPath);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST")
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EEXIST")
       throw new LocalIdentityError(
         `Another rotation holds ${lockPath}. If no rotation is running, remove that file and retry.`
+      );
+    // A Windows lock-open EPERM can be contention, including a delete-pending lock;
+    // the original field holder is not established. Refuse before owning a lock or
+    // changing identity bytes, preserving the native cause. Other errors pass through.
+    if (platform === "win32" && code === "EPERM")
+      throw new LocalIdentityError(
+        `Rotation lock ${lockPath} is unavailable, possibly held by another rotation; nothing was changed. Retry.`,
+        { cause: error }
       );
     throw error;
   }
