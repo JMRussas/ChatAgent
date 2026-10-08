@@ -64,7 +64,9 @@ implying an answered outcome. Answer text and citations remain visible. An
 that every claim follows from its cited sources.
 
 The foreground model-call budget displays estimated input used, input capacity
-and remaining capacity (`capacity - used`), along with the full window, output
+and remaining capacity (`capacity - used`). Input capacity is the smaller of the
+window's available input and the role input limit, when a role is active. The
+readout also shows the full window, output
 and safety reserves. These estimates are not provider token counts. This display
 does not change admission or which context is sent to a model.
 

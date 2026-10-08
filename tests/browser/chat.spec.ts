@@ -533,25 +533,38 @@ test("manual roles expose permitted tools and show the admitted context estimate
   await page.getByText("Latest admitted model-call budget (estimated)", { exact: true }).click();
   await expect(page.locator("#contextBudgetStatus")).toContainText("role input limit 6000");
   const conversationId = await page.locator("#conversationId").inputValue();
-  const response = await page.request.get(
-    new URL(`/conversations/${encodeURIComponent(conversationId)}/events`, page.url()).href
-  );
-  expect(response.ok()).toBe(true);
-  const { events } = await response.json();
-  const budget = events.findLast(
-    (event: { contextBudget?: unknown }) => event.contextBudget
-  ).contextBudget;
+  const checkBudget = async () => {
+    const response = await page.request.get(
+      new URL(`/conversations/${encodeURIComponent(conversationId)}/events`, page.url()).href
+    );
+    expect(response.ok()).toBe(true);
+    const { events } = await response.json();
+    const budget = events.findLast(
+      (event: { contextBudget?: unknown }) => event.contextBudget
+    ).contextBudget;
+    const capacity = Math.min(
+      budget.availableInputTokens,
+      budget.roleInputLimit ?? budget.availableInputTokens
+    );
+    await expect(page.locator("#contextBudgetStatus")).toContainText(
+      `Estimated input: ${budget.totalInputTokens} used of ${capacity} capacity; ${capacity - budget.totalInputTokens} remaining.`
+    );
+    await expect(page.locator("#contextBudgetStatus")).toContainText(
+      `Full window ${budget.windowTokens}`
+    );
+    await expect(page.locator("#contextBudgetStatus")).toContainText(
+      `Output reserve ${budget.outputReserve}, safety reserve ${budget.safetyReserve}`
+    );
+    await expect(page.locator("#contextBudgetStatus")).toContainText(
+      "These are estimates, not provider token counts."
+    );
+    return budget;
+  };
+  const roleBudget = await checkBudget();
+  expect(roleBudget.roleInputLimit).toBe(6000);
+  expect(roleBudget.availableInputTokens).toBeGreaterThan(roleBudget.roleInputLimit);
   await expect(page.locator("#contextBudgetStatus")).toContainText(
-    `Estimated input: ${budget.totalInputTokens} used of ${budget.availableInputTokens} capacity; ${budget.availableInputTokens - budget.totalInputTokens} remaining.`
-  );
-  await expect(page.locator("#contextBudgetStatus")).toContainText(
-    `Full window ${budget.windowTokens}`
-  );
-  await expect(page.locator("#contextBudgetStatus")).toContainText(
-    `Output reserve ${budget.outputReserve}, safety reserve ${budget.safetyReserve}`
-  );
-  await expect(page.locator("#contextBudgetStatus")).toContainText(
-    "These are estimates, not provider token counts."
+    "Capacity is limited by the role input limit."
   );
   await page.locator("#runRole").selectOption("writer");
   await expect(page.locator("#roleTools option")).toHaveCount(0);
@@ -562,6 +575,14 @@ test("manual roles expose permitted tools and show the admitted context estimate
   await expect(page.locator("#contextBudgetStatus")).toContainText("tool definitions 2");
   await page.reload();
   await expect(page.locator("#runRole")).toHaveValue("");
+  await send(page, "Explain without a role");
+  await expect(page.locator(".answer-content").last()).toContainText("No evidence selected");
+  await expect(page.locator("#contextBudgetStatus")).not.toContainText("role input limit");
+  const windowBudget = await checkBudget();
+  expect(windowBudget.roleInputLimit).toBeUndefined();
+  await expect(page.locator("#contextBudgetStatus")).toContainText(
+    "Capacity is limited by the window after reserves."
+  );
 });
 
 test("manual evidence answer uses attached rows without a target answer", async ({ page, app }) => {

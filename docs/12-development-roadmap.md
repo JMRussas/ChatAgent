@@ -43,7 +43,8 @@ UI clarity follow-up: the optional action is now **Ask project docs**. Completed
 task replies distinguish answered, insufficient evidence and unavailable answer
 outcomes while preserving execution status, text and citations. Foreground budget
 readouts name estimated input used, input capacity and remaining capacity, and
-show the full window and reserves. Budgeting and execution behavior are unchanged.
+show the full window and reserves. Input capacity honors the smaller of available
+window input and an active role's input limit. Budgeting and execution behavior are unchanged.
 Focused browser regressions cover answer outcomes, legacy results, reload and
 budget arithmetic against the admitted timeline event. Five focused unit tests
 and six focused browser tests pass on pinned Windows Node 24.21.0; formatting,

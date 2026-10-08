@@ -43,7 +43,7 @@ export function documentTaskScript(): string {
           const title=document.createElement('strong');title.textContent='Documentation task — '+task.status;reply.append(title);
           if (task.status==='completed') {
             const outcome=document.createElement('p');
-            outcome.textContent=task.answer?.status==='answered' ? 'Answer outcome: answered.' : task.answer?.status==='insufficient_evidence' ? 'Answer outcome: insufficient evidence.' : 'Answer outcome: unavailable (not reported).';
+            outcome.textContent=task.answer?.status==='answered' ? 'Answer outcome: answered.' : task.answer?.status==='insufficient_evidence' ? 'Answer outcome: insufficient evidence.' : 'Answer outcome: unavailable (not reported or not recognized).';
             reply.append(outcome);
           }
           if (task.answer) {

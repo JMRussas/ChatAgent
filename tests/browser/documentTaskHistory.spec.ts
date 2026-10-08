@@ -17,7 +17,7 @@ for (const status of ["insufficient_evidence", undefined, "unrecognized"] as con
     const outcome =
       status === "insufficient_evidence"
         ? "Answer outcome: insufficient evidence."
-        : "Answer outcome: unavailable (not reported).";
+        : "Answer outcome: unavailable (not reported or not recognized).";
     await expect(task).toContainText("Documentation task — completed");
     await expect(task).toContainText(outcome);
     await expect(task).toContainText("The sources do not establish this.");
@@ -25,7 +25,9 @@ for (const status of ["insufficient_evidence", undefined, "unrecognized"] as con
     await page.reload();
     await expect(task).toContainText(outcome);
     app.tasks[0].answer = null;
-    await expect(task).toContainText("Answer outcome: unavailable (not reported).");
+    await expect(task).toContainText(
+      "Answer outcome: unavailable (not reported or not recognized)."
+    );
   });
 }
 
