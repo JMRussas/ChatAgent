@@ -105,12 +105,12 @@ at `61e254b`, preserving all pre-existing dirty paths and frozen fixture bytes.
 
 ChatAgent's current increment is read-only initial-response detection for named
 bridge assignments (CA-ISSUE-004). The bridge and transcript readers, CLI and
-conservative classifier stub are integrated at `8edbbd7`. Validation passed 63
-independent focused tests, 2,304 TypeScript tests with nine skips in the isolated
-checkout, all 39 browser tests, lint and documentation contracts. The classifier
-still reports unknown; its frozen acceptance tests and reference implementation
-are being prepared for the next supervised task. This increment neither resumes
-agents nor detects ongoing-work stalls; CA-ISSUE-004 remains open.
+classifier are integrated. The readers and CLI landed at `8edbbd7`. The classifier is
+the supervised worker artifact `87e4601` (plan `ca004-001`, accepted in round 1;
+CLI-reported $0.15, nine turns), carried unchanged, then formatted in a separate
+commit. A real transcript larger than the 1 MiB tail reads as `session_unknown`. This
+increment neither resumes agents nor detects ongoing-work stalls; CA-ISSUE-004
+remains open.
 Hekate's pure recovery projection is integrated at `5e55ac7`, with 56 independent
 tests passing. It lists caller-supplied sanitized observations and preserves unknown
 effects and missing evidence; it has no live collector or recovery authority.

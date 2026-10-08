@@ -7,8 +7,8 @@ separate responsibilities: a delivered message does not prove execution, and a
 successful worker test does not finish integration review.
 
 Status on 2026-10-08: the UI history corrections, bridge readers and one-shot CLI
-are integrated. The activity classifier is a conservative stub in main; its
-reviewed reference is being prepared as a supervised task. Hekate's resolution
+are integrated. The activity classifier is integrated: it is the accepted artifact
+of a supervised worker task, verified against a frozen oracle. Hekate's resolution
 guard and pure recovery projection are integrated. Live recovery collection and
 automatic agent resumption remain proposed work.
 
@@ -182,8 +182,8 @@ and `cli_worker.py` under `scripts/local/supervisor_e1/`.
 
 ## Initial response classification
 
-This is the reviewed classifier contract; main still contains the unknown-only
-stub until the supervised task is verified and integrated.
+This is the reviewed classifier contract, which the integrated classifier
+implements.
 
 ```mermaid
 stateDiagram-v2

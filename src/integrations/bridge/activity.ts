@@ -294,9 +294,11 @@ function classifySession(input: ActivityInput): SessionState {
 }
 
 /**
- * The classifier (doc 15). Pure and deterministic: it reports a response, a quiet
- * session or a missing reply only when the input establishes it, and anything
- * incomplete or inconsistent is `unknown`.
+ * The classifier (doc 15). Pure and deterministic. It reports only what the input
+ * directly records: an explicitly correlated reply, an assignment's age against the
+ * threshold and whether a fetch was recorded, and the last transcript observations.
+ * Anything incomplete or inconsistent is `unknown`, and nothing here states that a
+ * model is alive, idle or stalled.
  */
 export function classifyActivity(input: ActivityInput): ActivityReport {
   if (!isTime(input.nowMs) || !isTime(input.thresholdMs)) {

@@ -150,9 +150,9 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   directory, about 12:42 local), and this interactive session stalled about an hour
   on an unseen permission prompt (bridge message 1283).
 - **Next action:** partial, initial-response detection is designed in
-  [doc 15](implementation/15-stall-detection.md) (revision 4, 2026-10-08). Its
-  read-only readers and `scripts/agentStalls.ts` are implemented. The classifier is a
-  conservative stub that reports `unknown` until a prepared task implements it. The
+  [doc 15](implementation/15-stall-detection.md) (revision 5, 2026-10-08). Its
+  read-only readers, `scripts/agentStalls.ts` and the classifier (supervised worker
+  artifact `87e4601`, plan `ca004-001`) are integrated. The
   doc records two retained 2026-10-08 instances: a watcher-starved assignment, and a
   session stopped by an interrupted tool call. This issue stays open until a bounded
   escalation or resumption is demonstrated. A supervised pilot can run without it;

@@ -1,10 +1,15 @@
 # 15. Initial-response detection for bridge assignments (CA-ISSUE-004), proposal
 
-Date: 2026-10-08, revision 4 (root reviews 2271, 2273, 2275, 2278, 2279). Status:
-**the readers, the CLI and a conservative classifier stub are implemented (root GO
-2278); the classifier itself is not.** Until the prepared classifier task lands, every
-assignment reports `unknown` and the session reports `session_unknown`. Nothing wakes,
-interrupts, forks, polls in the background or reconfigures an agent.
+Date: 2026-10-08, revision 5 (root reviews 2271–2345). Status: **the readers, the CLI
+and the classifier are integrated.** The classifier is the supervised worker artifact
+`87e4601` (plan `ca004-001`, run `4ba197858a88`, accepted in round 1), carried unchanged
+and then formatted in a separate commit. The scope is read-only, initial-response
+detection only; CA-ISSUE-004 stays open. Nothing wakes, interrupts, forks, polls in the
+background or reconfigures an agent.
+
+A real transcript larger than the reader's 1 MiB tail is always truncated, so its
+session state is `session_unknown`. Session corroboration therefore applies only to
+transcripts that fit in the window.
 
 ## Purpose and scope
 
@@ -312,9 +317,12 @@ real instances are retained as hashed metadata extracts. `now` is fixed.
    exact exported types and a conservative stub classifier that returns `unknown` and
    `session_unknown` for everything. The worker's oracle then fails at the base by
    assertion only.
-3. **Worker task.** A frozen oracle (matrix rows 1–24) is authored through Hekate's
-   `task_author`. The allow list is `activity.ts` only, with no runner or
-   verifier change.
+3. **Worker task (done).** A frozen oracle of 43 cases (matrix rows 1–24 plus the
+   review additions) was authored through Hekate's `task_author`, with `activity.ts`
+   as the only allowed file and no runner or verifier change. The worker's artifact
+   passed the verifier in round 1. Independent checks agreed: the oracle, typecheck,
+   63 reader and CLI tests, a 5,000-case seeded comparison with the reference (no
+   differences), and a fake-bridge CLI run that exits 0 for a correlated reply.
 
 ## Relation to closure
 
