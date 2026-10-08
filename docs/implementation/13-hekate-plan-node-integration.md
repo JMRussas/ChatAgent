@@ -153,7 +153,7 @@ activation or recording is established by these checks.
 
 Implemented 2026-10-06 in `src/integrations/hekate/devCoordination.ts`, with the
 read-only CLI `scripts/devcoord.ts` (`HEKATE_PLAN_API_URL=http://127.0.0.1:<port>
-npx tsx scripts/devcoord.ts status --root <plan-root> [--json]`). It reads one managed
+npx tsx scripts/devcoord.ts status --root <plan-root> [--json] [--check]`). It reads one managed
 plan view (`GET /api/plan-contract/v1/plans/{root}`) and reports each leaf as ready,
 blocked, in progress, awaiting review, accepted, rejected, stale or cancelled, with
 its exact identities (attempt, executor reference, artifact, decision), readiness
@@ -196,6 +196,24 @@ expected states with acknowledgement unknown.
   `--json` output is the projection itself. This was the first change built by
   Hekate's prepared-plan run: two dependent tasks, the second based on the first's
   accepted artifact. See the roadmap entry "Plan-driven dependent tasks".
+- **Progress as an exit code (2026-10-08).** With `--check`, the output is unchanged
+  and the exit code reports plan progress:
+  - 0: `complete`;
+  - 3: `stuck`, `inconsistent`, or an invalid plan;
+  - 4: work remains (`active`, `awaiting_review` or `ready`).
+
+  Without `--check`, a successful read still exits 0. Refusals still exit 1, and
+  usage errors exit 2. Only `complete` exits 0, so `no_ready_work` and `ready` are
+  never reported as done.
+
+  The flag reads a PlanStore API that is reachable now. A local `plan_cli` run stops
+  its own API when it exits, so `--check` cannot query that store afterwards. The
+  coordinator's own exit and outcome remain the signal that a run finished.
+
+  Tests: `tests/unit/devcoordCheck.test.ts`, 11 cases on the captured fixtures. It
+  was the frozen oracle of the second prepared-plan task (see the roadmap entry
+  "Plan-driven dependent tasks").
+
 - **No stale work shown as current.** Attempt pins are `current` only when they exist,
   the content revision is unchanged and nothing upstream changed; an attempt
   without pins is `unknown`. An acceptance whose inputs changed is shown as stale.

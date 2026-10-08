@@ -46,7 +46,9 @@ With the local Hekate profile running, `npx tsx scripts/devcoord.ts status --roo
 <plan-root>` (with `HEKATE_PLAN_API_URL` set to a loopback address) shows each
 managed plan leaf's state, attempt and artifact. It is read-only and reports
 execution acknowledgement as unknown: it shows allocation and results, not that a
-worker is running. See the
+worker is running. `--check` keeps the same output and exits 0 when the plan is
+complete, 3 when it is stuck, inconsistent or invalid, and 4 when work remains. It
+needs the PlanStore API to be reachable. See the
 [integration contract](implementation/13-hekate-plan-node-integration.md#development-coordination-status-c1a).
 
 ## Bootstrapping a session

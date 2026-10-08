@@ -1,7 +1,7 @@
 /**
  * Read-only development-coordination status from a Hekate managed plan.
  *
- *   HEKATE_PLAN_API_URL=http://127.0.0.1:5100 npx tsx scripts/devcoord.ts status --root <guid> [--json]
+ *   HEKATE_PLAN_API_URL=http://127.0.0.1:5100 npx tsx scripts/devcoord.ts status --root <guid> [--json] [--check]
  *
  * It only reads. Output names states, identities and refusal codes; it never
  * prints response bodies, URLs with credentials, or raw errors.
@@ -13,8 +13,16 @@ import {
 } from "../src/integrations/hekate/devCoordination";
 
 function usage(): never {
-  console.error("usage: devcoord status --root <plan-root-guid> [--json]");
+  console.error("usage: devcoord status --root <plan-root-guid> [--json] [--check]");
   process.exit(2);
+}
+
+// --check: 0 complete; 3 stuck, inconsistent or invalid; 4 work remains.
+function checkExitCode(status: CoordinationStatus): number {
+  if (status.status === "invalid") return 3;
+  const state = status.progress.state;
+  if (state === "complete") return 0;
+  return state === "stuck" || state === "inconsistent" ? 3 : 4;
 }
 
 function render(status: CoordinationStatus): string {
@@ -55,11 +63,13 @@ async function main(argv: string[]) {
   const rootIndex = rest.indexOf("--root");
   const root = rootIndex >= 0 ? rest[rootIndex + 1] : undefined;
   const json = rest.includes("--json");
-  const known = new Set(["--root", "--json", root]);
+  const check = rest.includes("--check");
+  const known = new Set(["--root", "--json", "--check", root]);
   if (!root || rest.some((arg) => !known.has(arg))) usage();
   try {
     const status = await fetchCoordinationStatus(process.env.HEKATE_PLAN_API_URL, root);
     console.log(json ? JSON.stringify(status, null, 2) : render(status));
+    if (check) process.exitCode = checkExitCode(status);
   } catch (error) {
     if (error instanceof DevCoordinationError) {
       console.error(`devcoord: ${error.code}${error.status ? ` ${error.status}` : ""}`);
