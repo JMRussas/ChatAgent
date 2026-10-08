@@ -50,6 +50,26 @@ budget arithmetic against the admitted timeline event, with and without an activ
 role. Five focused unit tests and all 39 browser tests pass on pinned Windows Node
 24.21.0; formatting,
 lint and documentation contract checks pass.
+The full TypeScript suite at `4d1fa16` subsequently passed all 2,230 tests across
+157 files, with no skips. Retained log: `node_modules/.cache/main-4d1fa16-full-validation.log`
+(SHA-256 `ac5f0e4c076933302939080fe281dbd7d1445fde93ed4e287c4e4486f76dace2`).
+
+### Active supervised plan loop (2026-10-08)
+
+The next prepared task targets CA-ISSUE-014: safe Windows identity replacement
+without a missing-file interval or a new principal. ChatAgent's implementer owns
+the mechanism, frozen acceptance tests and satisfiability reference; Hekate's
+implementer owns task authoring and the new plan/run package. The lead reviews
+each frozen revision before execution and integration, then selects the next
+ready increment. A deterministic delete-sharing-reader reproduction and native
+replacement probe pass; the product implementation and prepared task are not yet
+accepted. Existing non-delete-sharing refusal and retry behavior must remain.
+
+Hekate's bounded host-observed provenance is integrated at `2066614` (HK-ISSUE-016
+closed for that metadata scope). Its HK-ISSUE-015 recovery/continuation design is
+under revision, with fencing, truthful unknown outcomes and cross-run attempt
+bounds still open. Historical `check-002` stays stopped and unchanged. Bridge
+delivery or polling presence does not establish that a model is executing.
 
 ### Handoff checkpoint — current execution status
 
