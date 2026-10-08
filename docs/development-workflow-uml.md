@@ -193,6 +193,54 @@ Sources: [development workflow](agent-bridge-development-workflow.md),
 and Hekate's `e1/task_author.py`, `task_runner.py`, `plan_run.py`, `pilot_real.py`
 and `cli_worker.py` under `scripts/local/supervisor_e1/`.
 
+## Headless node execution (product target)
+
+This is the requested target, not a claim that both worker adapters or the trace
+viewer exist today. Hekate already executes Claude CLI workers without VS Code
+and stores managed plan state in its database. Codex worker integration and
+node/attempt conversation viewing remain to be implemented.
+
+```mermaid
+classDiagram
+    class ApplicationUI {
+        +main conversation and review
+        +inspect selected node attempt
+    }
+    class HekateDatabase {
+        +plans and node state
+        +attempt identity and decisions
+    }
+    class TaskNode {
+        +context and predecessor inputs
+        +tool scope and acceptance criteria
+    }
+    class NodeAttempt {
+        +prompt and observable conversation
+        +tool events and result
+    }
+    class WorkerLauncher {
+        +launch in assigned repository worktree
+    }
+    class ClaudeCLI
+    class CodexCLI
+    ApplicationUI ..> HekateDatabase : reads plan and decisions
+    ApplicationUI ..> NodeAttempt : inspects execution trace
+    HekateDatabase "1" o-- "*" TaskNode : holds plan nodes
+    TaskNode "1" o-- "*" NodeAttempt : separate attempt histories
+    WorkerLauncher ..> TaskNode : receives context and tools
+    WorkerLauncher --> NodeAttempt : records observable execution
+    WorkerLauncher ..> ClaudeCLI : existing execution path
+    WorkerLauncher ..> CodexCLI : planned execution path
+```
+
+Each node starts with its own supplied context and tools. Outputs from earlier
+nodes become explicit inputs to later nodes. Keeping attempts separate makes
+retries inspectable without mixing conversations; it does not require an ongoing
+chat for each repository. The trace describes observable messages and tool
+activity, not private model reasoning. VS Code is an optional editor rather than
+the worker host. Trace storage and API details still need an implementation
+decision; this diagram does not require raw conversation blobs in PlanStore.
+
 ## Hekate plans browser (existing, read-only)
 
 Hekate already has a local browser for managed plans
