@@ -1967,9 +1967,11 @@ Limits:
 - **Spend is not recorded.** Per-run spend is not retained in the evidence.
 
 Next: more real prepared plans. The first run's friction was hand-built spec packages.
-It led to a single-task authoring command in Hekate that takes a reviewed ChatAgent
-profile (`docs/contracts/hekate-task-profile.json`, doc 13). Recipes and multi-task
-authoring stay manual.
+
+- A single-task authoring command in Hekate is in progress.
+- The reviewed ChatAgent profile it will read is prepared:
+  `docs/contracts/hekate-task-profile.json` (doc 13).
+- Recipes and multi-task authoring stay manual.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

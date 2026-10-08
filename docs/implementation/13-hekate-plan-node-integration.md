@@ -207,8 +207,12 @@ unimplemented; they depend on Hekate's journal and supervisor work.
 
 ## Task authoring profile (hekate-task-profile.v0)
 
+Status: the profile is prepared and reviewed. Hekate's single-task authoring command that
+reads it is **pending implementation and verification**, so nothing below is claimed
+as demonstrated until that command is frozen and independently reviewed.
+
 `docs/contracts/hekate-task-profile.json` is ChatAgent's reviewed input to Hekate's
-single-task authoring command. That command composes one pinned
+single-task authoring command. As agreed, that command composes one pinned
 `supervised-task-spec.v0` from this profile and a per-task draft. The draft holds the
 judgment fields: base, task text, allow list, oracle paths and notes.
 
@@ -219,16 +223,19 @@ judgment fields: base, task text, allow list, oracle paths and notes.
     (typecheck, full suite, docs check) and the default worker bounds (Sonnet, a
     nominal $1 per round, 2 rounds, 40 turns).
 
-  The command refuses a draft when a pinned tool does not hash to its pin. It also
-  refuses when the task base's lockfile differs from the pinned one.
+  As agreed, the command refuses a draft when a pinned tool, or a vitest or tsc entry
+  after the offline install, does not hash to its pin. It also refuses when the task
+  base's lockfile differs from the pinned one.
 
 - **Values.** They are the ones reviewed for the first real run (chain-ab-001, root
   GO 1946).
 - **Changing them.** A Node, npm or lockfile change needs a reviewed profile update.
-  `tests/unit/hekateTaskProfile.test.ts` fails until it is made: it checks the shape,
-  that the lockfile pin equals `package-lock.json`, that the Node version equals
-  `.node-version`, that every command runs the pinned Node, and that `{oracle}`
-  appears only in the oracle runner.
+  `tests/unit/hekateTaskProfile.test.ts` catches only the repository-side drift: a
+  `package-lock.json` that no longer equals the lockfile pin, or a `.node-version` that
+  no longer equals the pinned Node version. It also checks the shape, that every
+  command runs the pinned Node, and that `{oracle}` appears only in the oracle runner.
+  It never reads the tools, so a changed Node, npm or entry file on disk is caught
+  only by the authoring command's hash checks at run time.
 - **Scope.** The worker executable pin is not part of the profile; each run's launch
   records it. Recipes and multi-task plans are still authored by hand.
 
