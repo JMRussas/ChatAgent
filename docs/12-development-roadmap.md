@@ -1940,9 +1940,10 @@ prepared plan of dependent tasks:
     CLI.
   - The run: real Sonnet workers in one `plan_cli run --store local`, with no operator
     step. Each task was accepted in its first round after all four verify steps
-    passed. B's base was derived from A's accepted artifact. The run took about four
-    minutes.
-  - Spend was capped at $1 per round, but the evidence did not keep the actual cost.
+    passed. B's base was derived from A's accepted artifact. The run took 3 min 50 s,
+    from 05:08:10Z to 05:12:00Z.
+  - Spend: a nominal $1 CLI budget per round, which can overshoot at a turn
+    boundary. The actual spend was not retained.
   - The accepted artifact was a candidate only. It was integrated through a separately
     reviewed branch carrying the same source and frozen oracles.
 - **Progress in ChatAgent.** The read-only coordination status reports plan progress
@@ -1957,8 +1958,8 @@ Limits:
   specs, the oracles, the recipes and a satisfiability proof against a reference
   implementation. Nothing decomposes a roadmap automatically.
 - **No in-tool resolution.** In-flight or uncertain work, including an uncertain
-  operator act, stops the coordinator until an operator resolves it outside the tool.
-  There is no automatic restart recovery and no unattended operation.
+  operator act, stops the coordinator, with no in-tool resolution and no automatic
+  recovery. There is no unattended operation.
 - **Single, same-repository chains.** A recipe successor has exactly one predecessor in
   the same repository, and it continues only in the original run root.
 - **Manual integration.** Accepted work is not integrated into the primary repository
