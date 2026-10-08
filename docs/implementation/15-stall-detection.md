@@ -1,208 +1,263 @@
-# 15. Stalled-agent detection (CA-ISSUE-004), proposal
+# 15. Initial-response detection for bridge assignments (CA-ISSUE-004), proposal
 
-Date: 2026-10-08, revision 2 (root reviews 2271, 2273). Status: **proposal only.**
-Nothing here is implemented or authorized. Nothing wakes, interrupts, forks, polls in
-the background or reconfigures an agent.
+Date: 2026-10-08, revision 3 (root reviews 2271, 2273, 2275). Status: **proposal
+only.** Nothing is implemented or authorized until the exact contract below is
+accepted. Nothing wakes, interrupts, forks, polls in the background or reconfigures
+an agent.
 
 ## Purpose and scope
 
 [CA-ISSUE-004](../open-issues.md#ca-issue-004--no-automatic-recovery-of-an-idle-lead-or-worker)
 needs a stalled lead or worker to be detected from recorded evidence and then resumed
-or escalated, within stated bounds. This proposal is **partial: detection only.**
-CA-ISSUE-004 stays open until a bounded escalation or resumption is demonstrated and
-independently verified.
+or escalated, within stated bounds. This proposal covers only **initial-response
+detection**: has the addressed role recorded a response to a given assignment?
 
-- **In scope:** agents that coordinate through the bridge, such as the lead and the
-  implementer sessions.
-- **Out of scope:** supervised Hekate workers. Their supervisor already bounds them:
-  total timeout, tree kill and journaled acts.
+The following stay out of scope:
+
+- detecting a stall in ongoing work after a response, which needs modelled checkpoint
+  evidence first;
+- resumption and escalation;
+- supervised Hekate workers, which their supervisor already bounds.
+
+CA-ISSUE-004 stays open.
 
 ## Observed instances (2026-10-08)
 
-Both instances come from retained records.
+Both come from retained records.
 
 - **The bridge delivered late.** Assignment 2153 was `sent` at 10:26:27 local. Its
   first `offered` event was at 10:40:27, and it was acknowledged the same second. The
-  recipient's watcher had starved; nothing recorded flagged it.
-- **The session stopped.** Session `d8e91971` had a 7.06-hour transcript gap. It began
-  at 2026-10-08T06:02:10Z, and the last record before it was the user marker
-  `[Request interrupted by user for tool use]`. The next record was at 13:05:41Z, and
-  the bridge mail queued for that role in the meantime went unanswered.
+  recipient's watcher had starved.
+- **The session stopped.** Session `d8e91971` had a 7.06-hour transcript gap starting
+  at 2026-10-08T06:02:10Z. The last record before it was the user interruption marker
+  `[Request interrupted by user for tool use]`.
 
-## What each source can and cannot show
+## Bridge APIs used (surveyed at agent-bridge-mcp `src/agent_bridge`)
 
-| Source                                                                           | Shows                                                                              | Never shows                                                                              |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Bridge events: `sent`, `offered`, `consumed`, `acknowledged`                     | When the bridge stored a message, and when a credential fetched or acknowledged it | That a model observed it. A durable watcher's acknowledgement is a transport receipt.    |
-| Correlated response (below)                                                      | That the role responded to THIS assignment                                         | Acceptance or completion, unless the outcome kind says so                                |
-| Any other later message from the role                                            | Activity                                                                           | A response to this assignment. It never clears the assignment.                           |
-| Claude Code transcript metadata (`~/.claude/projects/<project>/<session>.jsonl`) | When the session last recorded conversational activity, and how that record ended  | The model's current status, liveness or cause. A transcript can be stale or partial.     |
-| Session listings, process IDs, heartbeats, presence                              | Not used                                                                           | Execution. A listing may omit supervisor-owned `-p` workers, and process IDs get reused. |
+The tool reads only. It records nothing.
 
-## Correlation: when an assignment counts as answered
+**`GET /api/evidence?message_id=<id>`** (`evidence.inspect`) returns:
 
-An assignment is a message to role R from the configured lead, or any `ack_required`
-message to R. It is answered **only** by an explicit correlation with its id M:
+- `message`: id, uid, ts, sender, to, thread, `ack_required`,
+  `authenticated_principal`, read, `acknowledged_at` and text.
+- `events`: id, kind, ts and actor, with kinds `sent`, `offered`, `consumed`,
+  `acknowledged` and outcome kinds.
+- `outcomes`: id, `message_id` (uid), kind, `artifact_ref`, `evidence_refs`, details,
+  actor and ts. The kinds are `blocked`, `completed`, `verified`, `accepted` and
+  `reopened`.
+- `links`: links made FROM this message.
 
-1. **An outcome:** a bridge outcome recorded on M (`blocked`, `completed`, `verified`,
-   `accepted` or `reopened`) whose authenticated principal is R.
-2. **A link:** a message from R carrying a bridge link with relation `responds_to`,
-   target type `message` and target M.
-3. **Declared metadata:** a message from R whose `meta.respondsTo` equals M. If R
-   declared a session, `meta.session` must also equal R's declared session id.
+Access is limited to the message's participants and the operator.
 
-Rules for every correlation:
+**`GET /api/links?target_type=message&target_ref=<uid>`** (`evidence.find_links`)
+returns the links that point AT a message, each with id, `message_id` (the linking
+message's uid), relation, `target_type`, `target_ref`, inferred, actor and ts.
 
-- **Attribution:** the principal must be R. For a role that sends through the operator
-  credential (CA-ISSUE-006), a `fenrir` message counts only if it also has the
-  `<R> (session <id>)` text prefix and a matching `meta.role` and `meta.session`. Its
-  attribution is then labelled `reported`, never `authenticated`.
-- **Unrelated replies:** a later message from R without a correlation never answers M.
-  It is reported only as uncorrelated activity, with a count and ids.
-- **Adoption:** today's traffic rarely carries these correlations. Agents adopting
-  them is part of the rollout. Until they do, assignments will show as unanswered,
-  which is correct.
+- Supported relations: `originated_in`, `replies_to`, `supports`, `contradicts`,
+  `followed_up_in`.
+- Message targets are stored by uid.
+
+`actor` on outcomes and links is the authenticated principal that recorded them. The
+bridge permits `accepted` only from the authenticated assigner or the operator.
+
+## Correlation: what counts as a response to assignment M
+
+Only supported, queryable records count. No invented fields and no history scan are
+used.
+
+1. **An outcome on M recorded by the addressed role R.** This is `outcome.actor == R`
+   with kind `blocked`, `completed` or `verified`. The state carries the kind:
+   `blocked` is a response, not progress, and a reply never means acceptance.
+2. **A `replies_to` link at M from a message sent by R.** The link's `actor` must be R,
+   and the linking message's `authenticated_principal` must also be R. This is read
+   with one bounded `GET /api/evidence` of that message.
+
+**Operator-credential roles (CA-ISSUE-006).**
+
+- An outcome or link whose actor is `fenrir` counts only if the linking message's
+  text starts with `<R> (session <id>)`. When `--session` is given, the id must match.
+- The prefix is checked transiently, and only the boolean result is kept.
+- Its attribution is `reported`, never `authenticated`, and the output always shows
+  that.
+
+**Everything else is uncorrelated.** That includes a later message from R in the same
+thread without a link, and links with other relations. It never clears M.
+
+**Adoption.** Agents must record a `replies_to` link or an outcome when they respond.
+Until they do, assignments correctly stay uncorrelated.
 
 ## Contract
 
 ### Seam
 
-- A NEW module, `src/integrations/bridge/activity.ts`, holds the types and the pure
-  classifier.
-- A NEW read-only CLI, `scripts/agentStalls.ts`:
-  - **Arguments:** `--agent R --lead L [--threshold-min 15] [--deadline-s 30]
-[--transcript <path> --session <id>] [--json]`.
-  - **Separation:** it is not part of `devcoord` and does not change the
-    runner/verifier.
-  - **Bridge access:** `BRIDGE_URL` must be loopback. `BRIDGE_TOKEN` comes from the
-    environment and is never printed or logged.
+- **A new module, `src/integrations/bridge/bridgeActivity.ts`.** It holds the
+  metadata types, the readers' sanitized output shapes and the pure classifier.
+- **A new read-only CLI, `scripts/bridgeActivity.ts`.**
+  - Arguments: `--agent R --assignment <id> [--assignment <id> …] (1 to 32)
+[--threshold-min 15] [--deadline-s 30] [--transcript <path> --session <id>]
+[--json]`.
+  - It is not part of `devcoord` and does not change the runner or verifier.
 
-### Readers (reviewed implementer code)
+### Bridge reader (reviewed implementer code)
 
-All bounds are fixed constants. Exceeding any bound marks the affected input
-`partial`.
+**URL and token.**
 
-**Bridge reader.**
+- `BRIDGE_URL` must be http with host `127.0.0.1`, `::1` or `localhost`, which is
+  resolved and checked to be loopback. Anything else is refused.
+- Redirects are never followed (`redirect: "error"`).
+- `BRIDGE_TOKEN` is sent only as the `Authorization` header, to that origin. It is
+  never put in a URL, printed or included in an error. Errors carry only the HTTP
+  status and an error code.
 
-- Reads only `GET /api/history?agent=R`, at most 500 messages.
-- Then makes one `GET /api/evidence` per open assignment, at most 100 calls.
-- Bounds:
-  - each response is at most 1 MiB;
-  - each request times out after 10 s;
-  - the whole run must finish within `--deadline-s`.
-- It keeps only: id, ts, sender, to, thread, `ack_required`, authenticated principal,
-  `meta.respondsTo`, `meta.role` and `meta.session`, the 64-character text prefix
-  needed for the operator-credential rule (kept as a boolean match, not text), events
-  (kind, ts) and outcomes (kind, principal).
+**Calls.** For each assignment id:
 
-**Transcript reader.**
+- one `GET /api/evidence`;
+- one `GET /api/links` for its uid;
+- at most 8 `GET /api/evidence` calls for linking messages.
 
-- Reads only the explicit path, and only its last 1 MiB:
-  - at most 4,000 lines;
-  - each line at most 256 KiB;
-  - a first line that may be partial is dropped.
-- From each JSON line it keeps only `timestamp`, `type`, `sessionId`,
-  `message.role`, `message.stop_reason`, the kinds of the content blocks, `tool_use`
-  ids, `tool_result.tool_use_id`, and one boolean: whether a user text block equals
-  the interruption marker.
-- Text, tool arguments and results, file paths, credentials and every other field are
-  dropped at parse time.
-- A malformed line becomes a `malformed` placeholder record. Records for other session
-  ids are dropped.
+The total is capped at 32 × 10 calls.
 
-### Classifier (pure; the worker task)
+**Caps.**
 
-**Input:** the two extracts, `now`, T and the `partial` flags.
+- Each response is at most 1 MiB; each request times out after 10 s.
+- The whole run must finish within `--deadline-s`.
+- The events, outcomes and links lists are each capped at 200 entries per message.
 
-**Request state.** Exactly one applies, first match first:
+**Fields kept.**
 
-| State                            | Rule                                                                                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `unknown`                        | the bridge input is partial for this assignment                                                |
-| `correlated_response`            | a correlation exists (reported with its source, outcome kind, attribution label and ids)       |
-| `within_threshold`               | age ≤ T                                                                                        |
-| `unfetched_past_threshold`       | age > T, and no `offered`, `consumed` or `acknowledged` event (a transport or watcher problem) |
-| `fetched_no_correlated_response` | age > T, and fetched or acknowledged, with no correlation                                      |
+- From messages: id, uid, ts, sender, to, thread, `ack_required` and
+  `authenticated_principal`, plus the prefix boolean, computed and then discarded.
+- From events: kind and ts.
+- From outcomes: kind, actor and ts.
+- From links: relation, `target_type`, `target_ref`, actor, the linking message's uid
+  and ts.
+
+Text, details, artifact and evidence refs are dropped at parse time.
+
+**Completeness.** A failed, refused, oversized, timed-out, over-cap or malformed
+response marks that assignment's input `incomplete`. Its state is then `unknown`,
+never `unfetched`.
+
+### Transcript reader (optional; reviewed implementer code)
+
+**Bounds.**
+
+- Only the explicit path is read, and only its last 1 MiB.
+- At most 4,000 lines are read; each line is at most 256 KiB.
+- A first line that may be partial is dropped. Any other partial or malformed line
+  becomes a `malformed` placeholder.
+
+**Fields kept per JSON line.**
+
+- `timestamp`, `type`, `sessionId`, `message.role` and `message.stop_reason`;
+- the kinds of the content blocks;
+- `tool_use` ids and `tool_result.tool_use_id`;
+- one boolean: whether a user text block equals the interruption marker.
+
+Text, tool arguments and results, paths and credentials are dropped at parse time.
+Records for other session ids are dropped.
+
+### Classifier (pure; the supervised worker task)
+
+**Input:** the sanitized extracts, `now`, T and the completeness flags.
+
+**Assignment state.** Exactly one applies, first match first:
+
+| State                         | Rule                                                                                                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unknown`                     | the assignment's input is incomplete                                                                                                                            |
+| `correlated_reply_observed`   | a correlation exists. It is reported with its source (an outcome with its kind, or a link), the attribution (`authenticated` or `reported`) and the record ids. |
+| `within_threshold`            | age ≤ T                                                                                                                                                         |
+| `unfetched_past_threshold`    | age > T, the input is complete, and there is no `offered`, `consumed` or `acknowledged` event                                                                   |
+| `fetched_no_correlated_reply` | age > T, the input is complete, the message was fetched or acknowledged, and there is no correlation                                                            |
 
 **Session corroboration.** At most one per run:
 
-- Conversational records are `user` and `assistant`. Bookkeeping types such as
-  attachments, queue operations, system and progress records never decide a state.
+- Conversational records are `user` and `assistant`. Bookkeeping records never decide
+  a state.
 
 | State                         | Rule                                                                                                                                                       |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `session_unobservable`        | no transcript given, for example a Codex lead                                                                                                              |
-| `session_unknown`             | the input is partial; any `malformed` record is among the last 20; no conversational record exists for the session                                         |
-| `observed_recent_record`      | the last conversational record's age is ≤ T. This shows a recent record, not activity now.                                                                 |
-| `tool_pending_unknown_cause`  | the last assistant `tool_use` id has no later `tool_result`. It could be a permission prompt, a long-running tool or a crash.                              |
-| `interrupted_marker_observed` | the last conversational record is a user record with the interruption marker                                                                               |
+| `session_unknown`             | the input is truncated or incomplete; a `malformed` record is among the last 20; or no conversational record exists for the session                        |
+| `observed_recent_record`      | the last conversational record's age is ≤ T. This is a recent record, not activity now.                                                                    |
+| `tool_pending_unknown_cause`  | the last assistant `tool_use` id has no later `tool_result`                                                                                                |
+| `interrupted_marker_observed` | the last conversational record is a user record carrying the interruption marker                                                                           |
 | `ended_turn_observed`         | the last conversational record is an assistant record with `stop_reason` `end_turn` or `stop_sequence`. This corroborates; it is not current model status. |
 | `session_unknown`             | anything else                                                                                                                                              |
 
 **Output.**
 
-- Per assignment: its id, age, state, evidence ids and any uncorrelated-activity
-  count.
-- Per run: the session state and the input flags.
-- No state is called `alive`, `idle` or `stalled`.
-- The output contains no transcript or message text.
+- Per assignment: its id, age, state, record ids and any uncorrelated-activity count.
+  The count covers only linking messages already read; there is no history scan.
+- Per run: the session state and the completeness flags.
+- There is no `alive`, `idle`, `stalled` or `answered` state.
+- The output never contains message or transcript text.
 
 **Exit codes.**
 
-- 0: no assignment is `unfetched_past_threshold`, `fetched_no_correlated_response` or
-  `unknown`;
-- 4: at least one is;
+- 0: every assignment is `correlated_reply_observed` or `within_threshold`;
+- 4: any other state;
 - 1: a refusal, such as a non-loopback URL, a missing token, an unreadable explicit
   transcript or the deadline exceeded;
-- 2: a usage error.
+- 2: a usage error, such as zero or more than 32 assignments.
 
-### Detection bound (conditional)
+### Detection bound (conditional only)
 
-The CLI is one-shot and provides no polling. If a caller runs it at least every P
-minutes and each run completes within its deadline D, a request becomes reported no
-later than T + P + D after it was sent. Otherwise no bound holds. This scope adds no
-daemon, watcher or automatic wake.
+The CLI is one-shot and polls nothing. A missing initial response becomes visible only
+when a caller runs the CLI. If the caller runs it at least every P minutes and each
+run completes within its deadline D, a missing response is reported no later than
+T + P + D after it was sent. No bound holds otherwise.
 
-## Acceptance matrix (deterministic oracle)
+## Acceptance matrix (pure classifier; deterministic)
 
-Fixtures are metadata-only extracts. The two real instances are retained with SHA-256
-values. Every case runs the pure classifier at a fixed `now`.
+Fixtures are sanitized metadata only, with no message or transcript content. The two
+real instances are retained as hashed metadata extracts. `now` is fixed.
 
-| #   | Input                                                                                             | Expected                                                     |
-| --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 1   | The 2153 timeline at 10:40:00, T = 10 min                                                         | `unfetched_past_threshold`                                   |
-| 2   | The 2153 timeline at 10:41, acknowledged, no correlation                                          | `fetched_no_correlated_response`                             |
-| 3   | The same, plus an outcome on 2153 by R                                                            | `correlated_response` (outcome, authenticated)               |
-| 4   | A later message from R in the same thread without `respondsTo`                                    | still `fetched_no_correlated_response`, uncorrelated count 1 |
-| 5   | A message from R with `meta.respondsTo` = M but a different `meta.session`                        | not correlated                                               |
-| 6   | A `fenrir` message with the prefix and matching `meta.role`/`session`/`respondsTo`                | `correlated_response`, attribution `reported`                |
-| 7   | A `fenrir` message with the prefix only                                                           | not correlated                                               |
-| 8   | A link `responds_to` M from R                                                                     | `correlated_response` (link)                                 |
-| 9   | The bridge input is partial                                                                       | `unknown`, exit 4                                            |
-| 10  | The d8e91971 tail around 06:02:10Z, evaluated at 06:30Z                                           | `interrupted_marker_observed`                                |
-| 11  | The last conversational record is an `end_turn` assistant record, followed by bookkeeping records | `ended_turn_observed` (bookkeeping ignored)                  |
-| 12  | A `tool_use` with no `tool_result`                                                                | `tool_pending_unknown_cause`                                 |
-| 13  | A recent assistant record                                                                         | `observed_recent_record`                                     |
-| 14  | A malformed line among the last 20                                                                | `session_unknown`                                            |
-| 15  | Only other-session records                                                                        | `session_unknown`                                            |
-| 16  | No transcript                                                                                     | `session_unobservable`                                       |
-| 17  | Fixtures that contain sentinel text in user, assistant and tool content                           | the output (JSON and human) never contains the sentinel      |
-| 18  | Exit codes                                                                                        | 0, 4, 1 (deadline and non-loopback) and 2                    |
+| #   | Input                                                                                             | Expected                                                               |
+| --- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1   | 2153's events at 10:40:00, T = 10 min                                                             | `unfetched_past_threshold`                                             |
+| 2   | 2153's events at 10:41, acknowledged, with no outcome or link                                     | `fetched_no_correlated_reply`                                          |
+| 3   | The same, plus an outcome `completed` with actor R                                                | `correlated_reply_observed` (outcome `completed`, `authenticated`)     |
+| 4   | An outcome `blocked` with actor R                                                                 | `correlated_reply_observed` (outcome `blocked`)                        |
+| 5   | An outcome with an actor other than R or `fenrir`                                                 | not correlated                                                         |
+| 6   | A `replies_to` link at M; the link's actor and the linking message's principal are both R         | `correlated_reply_observed` (link, `authenticated`)                    |
+| 7   | A `supports` link at M from R                                                                     | not correlated; uncorrelated count 1                                   |
+| 8   | A `replies_to` link with actor `fenrir` and a prefix match for R and the session                  | `correlated_reply_observed`, attribution `reported`                    |
+| 9   | A `replies_to` link with actor `fenrir`, without a prefix match or with another session           | not correlated                                                         |
+| 10  | The assignment's input is incomplete (any reader failure flag)                                    | `unknown`, never `unfetched_past_threshold`                            |
+| 11  | The d8e91971 tail around 06:02:10Z, evaluated at 06:30Z                                           | `interrupted_marker_observed`                                          |
+| 12  | The last conversational record is an `end_turn` assistant record, followed by bookkeeping records | `ended_turn_observed`                                                  |
+| 13  | A `tool_use` with no `tool_result`                                                                | `tool_pending_unknown_cause`                                           |
+| 14  | A recent assistant record                                                                         | `observed_recent_record`                                               |
+| 15  | A malformed record among the last 20, or a truncated input                                        | `session_unknown`                                                      |
+| 16  | Only other-session records                                                                        | `session_unknown`                                                      |
+| 17  | No transcript                                                                                     | `session_unobservable`                                                 |
+| 18  | Output for every case above                                                                       | metadata only; no state named `answered`, `alive`, `idle` or `stalled` |
+
+**Reader tests** belong to the reviewed implementer increment, not the worker oracle:
+
+- loopback-only URLs, refused redirects, and no token in URLs, output or errors;
+- every cap and timeout marks the input incomplete;
+- the field allowlist, with a sentinel string in message and transcript text that
+  never appears;
+- a malformed JSON line becomes a placeholder;
+- exit codes 0, 4, 1 and 2.
 
 ## Implementation path (root decision 2273)
 
-1. **Readers and CLI.** ChatAgent's implementer builds the bridge and transcript
-   readers and `scripts/agentStalls.ts` directly, under review, with reader tests:
-   bounds, partial flags, field allowlists, non-leak, loopback and token handling.
-2. **Prep increment.** A deliberate, reviewed commit adds
-   `src/integrations/bridge/activity.ts` with the exact exported types above and a
-   conservative stub classifier. The stub returns `unknown` and `session_unknown` for
-   everything, so the oracle fails at the base by assertion, never by a missing
-   export.
-3. **Worker task.** The frozen oracle (cases 1-17 against the classifier) is authored
-   through Hekate's `task_author`. The allow list is the classifier module only.
+1. **Readers and CLI.** ChatAgent's implementer builds them directly, under review,
+   with the reader tests.
+2. **Prep increment.** A deliberate, reviewed commit adds `bridgeActivity.ts` with the
+   exact exported types and a conservative stub classifier that returns `unknown` and
+   `session_unknown` for everything. The worker's oracle then fails at the base by
+   assertion only.
+3. **Worker task.** A frozen oracle (matrix rows 1–18) is authored through Hekate's
+   `task_author`. The allow list is `bridgeActivity.ts` only, with no runner or
+   verifier change.
 
 ## Relation to closure
 
-This delivers partial detection. CA-ISSUE-004 stays open: resumption or escalation
-within a bound, and the doc 13 review-pending handoff scenario, remain unimplemented.
+This is partial: initial-response detection only. CA-ISSUE-004 stays open.
+Ongoing-work stalls, resumption or escalation within a bound, and the doc 13
+review-pending handoff scenario all remain.
