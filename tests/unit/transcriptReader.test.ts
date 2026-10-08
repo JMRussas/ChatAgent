@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,13 +8,15 @@ import {
   MAX_LINES,
   MAX_TAIL_BYTES,
   TranscriptReadError,
-  readTranscript
+  readTranscript,
+  type TranscriptIo
 } from "../../src/integrations/bridge/transcriptReader";
 
 // The transcript reader (doc 15) keeps metadata only. SENTINEL stands in for user text,
 // assistant text, tool inputs and tool results; it must never appear in the extract.
 const SENTINEL = "SENTINEL-8d21-do-not-leak";
 const SESSION = "d8e91971-d796-45eb-8da3-f3058dcce173";
+const T = "2026-10-08T06:00:00Z";
 
 const dirs: string[] = [];
 afterEach(async () => {
@@ -110,10 +112,15 @@ describe("transcript reader", () => {
     const path = await file([
       line({
         type: "assistant",
+        timestamp: T,
         message: { role: "assistant", content: [{ type: "text", text: INTERRUPTION_MARKER }] }
       }),
-      line({ type: "user", message: { role: "user", content: `${INTERRUPTION_MARKER} and more` } }),
-      line({ type: "user", message: { role: "user", content: INTERRUPTION_MARKER } })
+      line({
+        type: "user",
+        timestamp: T,
+        message: { role: "user", content: `${INTERRUPTION_MARKER} and more` }
+      }),
+      line({ type: "user", timestamp: T, message: { role: "user", content: INTERRUPTION_MARKER } })
     ]);
     expect((await readTranscript(path, SESSION)).records.map((r) => r.interruptionMarker)).toEqual([
       false,
@@ -176,5 +183,129 @@ describe("transcript reader", () => {
     await expect(
       readTranscript(join(tmpdir(), "no-such-dir-1f2e", "x.jsonl"), SESSION)
     ).rejects.toBeInstanceOf(TranscriptReadError);
+  });
+
+  it.each([
+    [
+      "a missing session id",
+      { type: "user", timestamp: T, message: { role: "user", content: "x" } }
+    ],
+    [
+      "a non-string session id",
+      { sessionId: 7, type: "user", timestamp: T, message: { role: "user", content: "x" } }
+    ],
+    ["a missing type", { sessionId: SESSION, timestamp: T }],
+    ["a user record without its message", { sessionId: SESSION, type: "user", timestamp: T }],
+    [
+      "an assistant record whose role disagrees",
+      {
+        sessionId: SESSION,
+        type: "assistant",
+        timestamp: T,
+        message: { role: "user", content: [] }
+      }
+    ],
+    [
+      "a conversational record without a valid timestamp",
+      {
+        sessionId: SESSION,
+        type: "assistant",
+        timestamp: "yesterday",
+        message: { role: "assistant", content: [] }
+      }
+    ],
+    [
+      "a non-string stop reason",
+      {
+        sessionId: SESSION,
+        type: "assistant",
+        timestamp: T,
+        message: { role: "assistant", stop_reason: 3, content: [] }
+      }
+    ],
+    [
+      "content that is neither text nor blocks",
+      { sessionId: SESSION, type: "user", timestamp: T, message: { role: "user", content: 5 } }
+    ],
+    [
+      "a tool use without an id",
+      {
+        sessionId: SESSION,
+        type: "assistant",
+        timestamp: T,
+        message: { role: "assistant", content: [{ type: "tool_use", name: "Bash" }] }
+      }
+    ],
+    [
+      "a tool result without its tool use id",
+      {
+        sessionId: SESSION,
+        type: "user",
+        timestamp: T,
+        message: { role: "user", content: [{ type: "tool_result", content: SENTINEL }] }
+      }
+    ]
+  ])("marks %s malformed instead of dropping or trusting it", async (_, value) => {
+    const out = await readTranscript(await file([JSON.stringify(value)]), SESSION);
+    expect(out.records).toEqual([expect.objectContaining({ malformed: true })]);
+    expect(JSON.stringify(out)).not.toContain(SENTINEL);
+  });
+
+  it("still drops records of another valid session", async () => {
+    const out = await readTranscript(
+      await file([
+        line({
+          sessionId: "other",
+          type: "user",
+          timestamp: T,
+          message: { role: "user", content: "x" }
+        })
+      ]),
+      SESSION
+    );
+    expect(out.records).toEqual([]);
+  });
+
+  it("refuses anything but a regular file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "transcript-"));
+    dirs.push(dir);
+    await expect(readTranscript(dir, SESSION)).rejects.toMatchObject({
+      code: "TRANSCRIPT_NOT_A_FILE"
+    });
+  });
+
+  it("refuses at once when the deadline has already passed", async () => {
+    const path = await file([line({ type: "attachment" })]);
+    await expect(
+      readTranscript(path, SESSION, { deadline: AbortSignal.abort() })
+    ).rejects.toMatchObject({ code: "DEADLINE" });
+  });
+
+  it("refuses a read that returns after the deadline, still closing its handle", async () => {
+    const path = await file([line({ type: "attachment" })]);
+    const deadline = new AbortController();
+    let closed = 0;
+    const io: TranscriptIo = {
+      lstat,
+      open: (async (p: string, flags: string) => {
+        const handle = await open(p, flags);
+        return {
+          stat: () => handle.stat(),
+          // The read completes only after the deadline has passed.
+          read: async (...args: Parameters<typeof handle.read>) => {
+            deadline.abort();
+            return handle.read(...args);
+          },
+          close: async () => {
+            closed++;
+            await handle.close();
+          }
+        };
+      }) as unknown as TranscriptIo["open"]
+    };
+    await expect(
+      readTranscript(path, SESSION, { deadline: deadline.signal, io })
+    ).rejects.toMatchObject({ code: "DEADLINE" });
+    expect(closed).toBe(1);
   });
 });

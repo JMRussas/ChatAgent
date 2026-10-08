@@ -167,6 +167,8 @@ async function readOne(req: Request, id: string): Promise<AssignmentExtract> {
   const evidence = result(await getJson(req, `/api/evidence?message_id=${encodeURIComponent(id)}`));
   if (!isObject(evidence) || !isObject(evidence.message)) throw new Incomplete("INVALID_RESPONSE");
   const m = evidence.message;
+  // The response must be about the message that was asked for.
+  if (m.id !== Number(id)) throw new Incomplete("INVALID_RESPONSE");
   const uid = str(m.uid);
   const events: BridgeEvent[] = list(evidence.events).map((e) => {
     if (!isObject(e)) throw new Incomplete("INVALID_RESPONSE");
@@ -182,7 +184,9 @@ async function readOne(req: Request, id: string): Promise<AssignmentExtract> {
       await getJson(req, `/api/links?target_type=message&target_ref=${encodeURIComponent(uid)}`)
     )
   ).map((l) => {
-    if (!isObject(l)) throw new Incomplete("INVALID_RESPONSE");
+    // Every link must point at this assignment.
+    if (!isObject(l) || l.target_type !== "message" || l.target_ref !== uid)
+      throw new Incomplete("INVALID_RESPONSE");
     return {
       relation: str(l.relation),
       actor: str(l.actor),
@@ -201,8 +205,10 @@ async function readOne(req: Request, id: string): Promise<AssignmentExtract> {
       );
       if (!isObject(linked) || !isObject(linked.message)) throw new Incomplete("INVALID_RESPONSE");
       const lm = linked.message;
+      // The linking message read must be the one the link names.
+      if (lm.uid !== l.fromUid) throw new Incomplete("INVALID_RESPONSE");
       from = {
-        uid: str(lm.uid),
+        uid: l.fromUid,
         sender: str(lm.sender),
         principal: principalOf(lm),
         ...declared(lm.meta)
@@ -227,13 +233,20 @@ async function readOne(req: Request, id: string): Promise<AssignmentExtract> {
 
 /**
  * Reads the named assignments in order. A failure on one assignment marks only that
- * assignment incomplete; the whole-run deadline refuses the whole read.
+ * assignment incomplete; the whole-run deadline refuses the whole read. A caller that
+ * also reads other sources passes its own `deadline` signal so that one deadline
+ * covers them all; otherwise `deadlineMs` starts one here.
  */
 export async function readAssignments(
   baseUrl: string | undefined,
   token: string | undefined,
   ids: readonly string[],
-  options: { deadlineMs?: number; timeoutMs?: number; maxBytes?: number } = {}
+  options: {
+    deadlineMs?: number;
+    deadline?: AbortSignal;
+    timeoutMs?: number;
+    maxBytes?: number;
+  } = {}
 ): Promise<AssignmentExtract[]> {
   const base = bridgeApiBase(baseUrl);
   if (!token) throw new BridgeReadError("MISSING_TOKEN");
@@ -248,7 +261,7 @@ export async function readAssignments(
   const req: Request = {
     base,
     token,
-    deadline: AbortSignal.timeout(deadlineMs),
+    deadline: options.deadline ?? AbortSignal.timeout(deadlineMs),
     timeoutMs: Math.min(options.timeoutMs ?? REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS),
     maxBytes: Math.min(options.maxBytes ?? MAX_RESPONSE_BYTES, MAX_RESPONSE_BYTES)
   };

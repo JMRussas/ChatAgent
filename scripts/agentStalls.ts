@@ -8,7 +8,9 @@
  * It only reads, polls nothing and wakes nothing. Output is metadata only: ids, ages,
  * states and counts, never message or transcript text, and never the token.
  * Exit codes: 0 every assignment has an observed correlated reply or is within the
- * threshold; 4 any other state; 1 a refusal; 2 a usage error.
+ * threshold; 4 any other state; 1 a refusal; 2 a usage error. One deadline covers
+ * every read, and the process stops at --deadline-s plus one second even when a
+ * filesystem read has not returned.
  */
 import { classifyActivity, type ActivityReport } from "../src/integrations/bridge/activity";
 import {
@@ -121,18 +123,30 @@ function exitCode(report: ActivityReport): number {
     : 4;
 }
 
+/** The grace after the deadline before the process stops, for an in-flight check. */
+const HARD_STOP_GRACE_MS = 1000;
+
 async function main(argv: string[]) {
   const args = parse(argv);
+  const deadlineMs = args.deadlineS * 1000;
+  // One deadline covers the bridge and the transcript. The readers check it between
+  // steps, but filesystem I/O cannot be interrupted, so the process itself stops at
+  // the deadline rather than waiting for a read that has not returned.
+  const deadline = AbortSignal.timeout(deadlineMs);
+  const hardStop = setTimeout(() => {
+    console.error("agentStalls: DEADLINE");
+    process.exit(1);
+  }, deadlineMs + HARD_STOP_GRACE_MS);
   try {
     const assignments = await readAssignments(
       process.env.BRIDGE_URL,
       process.env.BRIDGE_TOKEN,
       args.assignments,
-      { deadlineMs: args.deadlineS * 1000 }
+      { deadline }
     );
     const transcript =
       args.transcript && args.session
-        ? await readTranscript(args.transcript, args.session)
+        ? await readTranscript(args.transcript, args.session, { deadline })
         : undefined;
     const report = classifyActivity({
       agent: args.agent,
@@ -145,16 +159,14 @@ async function main(argv: string[]) {
     console.log(args.json ? JSON.stringify(report, null, 2) : render(report));
     process.exitCode = exitCode(report);
   } catch (error) {
-    if (error instanceof BridgeReadError) {
+    if (error instanceof BridgeReadError || error instanceof TranscriptReadError) {
       console.error(`agentStalls: ${error.code}`);
-      process.exit(1);
-    }
-    if (error instanceof TranscriptReadError) {
-      console.error("agentStalls: TRANSCRIPT_UNREADABLE");
       process.exit(1);
     }
     console.error("agentStalls: UNEXPECTED_ERROR");
     process.exit(1);
+  } finally {
+    clearTimeout(hardStop);
   }
 }
 

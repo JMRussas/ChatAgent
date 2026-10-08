@@ -127,7 +127,8 @@ The total is capped at 32 × 10 calls.
 **Caps.**
 
 - Each response is at most 1 MiB; each request times out after 10 s.
-- The whole run must finish within `--deadline-s`.
+- One deadline (`--deadline-s`) is shared by every bridge request and the
+  transcript read.
 - The events, outcomes and links lists are each capped at 200 entries per message.
 
 **Fields kept.**
@@ -140,19 +141,29 @@ The total is capped at 32 × 10 calls.
   and ts.
 
 Text, the rest of `meta` and `details`, and artifact and evidence refs are dropped at
-parse time. A run-deadline overrun refuses the whole run (exit 1).
+parse time. A deadline overrun refuses the whole run (exit 1).
 
-**Completeness.** A failed, refused, oversized, timed-out, over-cap or malformed
-response marks that assignment's input `incomplete`. Its state is then `unknown`,
-never `unfetched`.
+**Binding.** Responses are checked against what was asked:
+
+- the evidence response's `message.id` must equal the requested decimal id;
+- every returned link must have `target_type` `message` and `target_ref` equal to the
+  assignment's uid;
+- a linking message read must have the uid its link names.
+
+A mismatch is `INVALID_RESPONSE`, never a correlation.
+
+**Completeness.** A failed, refused, oversized, timed-out, over-cap, malformed or
+mismatched response marks that assignment's input `incomplete`. Its state is then
+`unknown`, never `unfetched`.
 
 ### Transcript reader (optional; reviewed implementer code)
 
 **Bounds.**
 
-- Only the explicit path is read, and only its last 1 MiB.
-- At most 4,000 lines are read; each line is at most 256 KiB.
-- A first line that may be partial is dropped. Any other partial or malformed line
+- Only the explicit path is read, and only when `lstat` shows a regular file. A
+  directory, link, pipe or device is refused (`TRANSCRIPT_NOT_A_FILE`, exit 1).
+- Only the last 1 MiB is read; at most 4,000 lines; each line at most 256 KiB.
+- A first line that may be partial is dropped. Any other oversized or non-JSON line
   becomes a `malformed` placeholder.
 
 **Fields kept per JSON line.**
@@ -163,7 +174,28 @@ never `unfetched`.
 - one boolean: whether a user text block equals the interruption marker.
 
 Text, tool arguments and results, paths and credentials are dropped at parse time.
-Records for other session ids are dropped.
+
+**Strictness.** A line becomes a `malformed` placeholder, never silently dropped or
+trusted, when it:
+
+- has a missing or non-string `sessionId`, or a missing `type`;
+- is a `user` or `assistant` record whose timestamp is invalid, whose `message` is
+  missing or has a different role, whose `stop_reason` is not a string, or whose
+  content is neither a string nor a list of typed blocks;
+- has a `tool_use` block without an id, or a `tool_result` block without a
+  `tool_use_id`.
+
+Only records of another valid session id are dropped.
+
+**Deadline.**
+
+- The readers check the shared deadline between steps: before the first request,
+  around each bridge response, and before and after the transcript `lstat`, open,
+  stat and read. The transcript handle is closed even when a late read completes
+  after the deadline.
+- Filesystem I/O itself cannot be interrupted inside the library. So the CLI stops the
+  process at the deadline plus one second (`DEADLINE`, exit 1), rather than waiting
+  for a read that has not returned.
 
 ### Classifier (pure; the supervised worker task)
 

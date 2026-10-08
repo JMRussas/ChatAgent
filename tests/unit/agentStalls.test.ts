@@ -119,6 +119,12 @@ describe("agentStalls", () => {
         { BRIDGE_URL: url, BRIDGE_TOKEN: TOKEN }
       )
     ).toMatchObject({ exit: 1, stderr: "agentStalls: TRANSCRIPT_UNREADABLE\n" });
+    expect(
+      await run([...base, "--transcript", tmpdir(), "--session", "s-1"], {
+        BRIDGE_URL: url,
+        BRIDGE_TOKEN: TOKEN
+      })
+    ).toMatchObject({ exit: 1, stderr: "agentStalls: TRANSCRIPT_NOT_A_FILE\n" });
     const slow = await bridge(3000);
     expect(
       await run([...base, "--deadline-s", "1"], { BRIDGE_URL: slow, BRIDGE_TOKEN: TOKEN })

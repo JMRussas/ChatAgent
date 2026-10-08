@@ -280,6 +280,8 @@ describe("bridge reader output", () => {
             result: Array.from({ length: MAX_REPLY_READS + 1 }, (_, i) => ({
               message_id: `uid-x${i}`,
               relation: "replies_to",
+              target_type: "message",
+              target_ref: "uid-2153",
               actor: "claude-chatagent",
               ts: 1
             }))
@@ -288,7 +290,58 @@ describe("bridge reader output", () => {
       },
       "OVER_CAP"
     ],
-    ["an unreadable linking message", { reply: { status: 403, body: {} } }, "FORBIDDEN"]
+    ["an unreadable linking message", { reply: { status: 403, body: {} } }, "FORBIDDEN"],
+    // Responses are bound to what was asked: a mismatch is invalid, never a correlation.
+    [
+      "a response about another message",
+      { evidence: { body: evidence(2154) } },
+      "INVALID_RESPONSE"
+    ],
+    [
+      "a link at another message",
+      {
+        links: {
+          body: {
+            result: [
+              {
+                message_id: "uid-r1",
+                relation: "replies_to",
+                target_type: "message",
+                target_ref: "uid-9999",
+                actor: "claude-chatagent",
+                ts: 1
+              }
+            ]
+          }
+        }
+      },
+      "INVALID_RESPONSE"
+    ],
+    [
+      "a link at another kind of target",
+      {
+        links: {
+          body: {
+            result: [
+              {
+                message_id: "uid-r1",
+                relation: "replies_to",
+                target_type: "assignment",
+                target_ref: "uid-2153",
+                actor: "claude-chatagent",
+                ts: 1
+              }
+            ]
+          }
+        }
+      },
+      "INVALID_RESPONSE"
+    ],
+    [
+      "a linking message that is not the one linked",
+      { reply: { body: reply("uid-other", "claude-chatagent") } },
+      "INVALID_RESPONSE"
+    ]
   ])("marks %s incomplete, never as no reply", async (_, overrides, reason) => {
     const { url } = await serve(bridge(overrides as Parameters<typeof bridge>[0]));
     const [a] = await readAssignments(url, TOKEN, ["2153"]);
@@ -320,6 +373,14 @@ describe("bridge reader output", () => {
       ["2153", "TIMEOUT"],
       ["2154", "NOT_FOUND"]
     ]);
+  });
+
+  it("uses a deadline signal shared with the caller", async () => {
+    const { url, seen } = await serve(bridge());
+    await expect(
+      readAssignments(url, TOKEN, ["2153"], { deadline: AbortSignal.abort() })
+    ).rejects.toMatchObject({ code: "DEADLINE" });
+    expect(seen).toEqual([]);
   });
 
   it("refuses the whole read when the run deadline passes", async () => {
