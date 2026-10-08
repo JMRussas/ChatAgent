@@ -2035,8 +2035,10 @@ Limits:
   three things: an idempotent writer takeover and re-acquisition; replay after a
   crash part-way through an operator act; and recipe predecessor selection. These
   belong in one joint recovery and continuation design.
-- **A stopped node cannot continue.** A node's run root holds exactly one run. A
-  same-root continuation stops at `node_run_root_exists` before any claim. A new
+- **A stopped node cannot continue.** A node's run root holds exactly one run. While
+  the node is still in progress, as check-002's is, a same-root continuation stops at
+  `inflight`. Even after a reset it would stop at `node_run_root_exists`. Both stops
+  come before any claim. A new
   run root re-attaches to the same PlanStore node, because plan identities are derived
   from the plan file. Nothing counts attempts across runs, so a new run would get a
   fresh round budget. Continuation needs its own design: a retry root per node,
