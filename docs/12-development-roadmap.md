@@ -2040,10 +2040,10 @@ Limits:
   PlanStore node.
   - While an attempt is open, as check-002's is, a run in the same root or a new root
     stops at `inflight` before any claim.
-  - Only a reset to `todo` would change that, and resets are not allowed. After one,
+  - Only a reset to `todo` would change that, and no reset is authorized for this stopped run. After one,
     the same root would stop at `node_run_root_exists`, and a new root would run the
     node again with a fresh round budget.
-  - PlanStore's attempt epoch counts attempts, but no bound across runs is enforced.
+  - PlanStore's attempt epoch records attempts, but no round bound is enforced across runs.
 
   Continuation needs its own design: a retry root per node, predecessor binding across
   runs, and an enforced cross-run attempt bound.
