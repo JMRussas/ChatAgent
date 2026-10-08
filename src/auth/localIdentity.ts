@@ -266,8 +266,14 @@ export function windowsPosixReplace(
     });
     child.stdout?.on("data", (chunk: Buffer | string) => {
       if (failed) return;
-      out += chunk.toString();
-      if (out.length > POSIX_REPLACE_MAX_OUTPUT) failed = true;
+      const text = chunk.toString();
+      // Checked before appending, so no more than the cap is ever kept.
+      if (out.length + text.length > POSIX_REPLACE_MAX_OUTPUT) {
+        failed = true;
+        out = "";
+        return;
+      }
+      out += text;
     });
     child.on("close", (code: number | null) => {
       finish(() => {
@@ -277,6 +283,9 @@ export function windowsPosixReplace(
       });
     });
     deadline = setTimeout(() => {
+      // A helper stopped at the deadline has no valid result, even if it printed one and
+      // then closes cleanly; the readback decides what happened.
+      failed = true;
       try {
         child.kill();
       } catch {
@@ -349,10 +358,18 @@ export interface ReplaceOptions {
  *
  * Renames temp over target. On Windows, EPERM from that rename may be transient:
  * it is what a rename onto a file another process holds open returns until the file
- * is released, although EPERM alone does not prove such a holder. So that one error
- * is retried after each bounded wait with the same temp and target. Any other error,
- * EPERM on any other platform, or EPERM after the last wait is thrown unchanged. The
- * target is never removed first, and temp is left for the caller to clean up.
+ * is released, although EPERM alone does not prove such a holder. On Windows the same
+ * attempt then tries posixReplace (by default windowsPosixReplace), which replaces the
+ * target even while another process holds it with delete sharing. The attempt is
+ * judged by reading both files back, never by the helper's result alone: replaced
+ * (temp gone, target holds temp's bytes) returns; unchanged after a failed helper
+ * retries after each bounded wait with the same temp and target; anything else throws
+ * IdentityReplaceUncertain, and rotateIdentity then keeps temp and the rotation lock.
+ * A holder without delete sharing, an older Windows or a filesystem without POSIX
+ * rename leaves the files unchanged, so the bounded retry applies as before. Any other
+ * error, EPERM on any other platform, or the rename's EPERM after the last wait is
+ * thrown unchanged. The target is never removed first, and temp is left for the caller
+ * to clean up.
  */
 export async function replaceIdentityFile(
   temp: string,
