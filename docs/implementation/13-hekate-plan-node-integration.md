@@ -244,12 +244,16 @@ untyped (reviewed by Hekate's implementer, bridge message 1413):
 - The manifest's `transition`, `authority` and `optional` must be objects and its
   `evidenceIndex`, `authority.pending`, `authority.queue`, `optional.evidence` and
   `optional.imports` arrays; the reference only indexes them and takes `len()`.
+- The manifest's review identity must be an object carrying `rootId`, `nodeId`,
+  `attemptId`, `attemptEpoch` and `artifactRef`. One that is not an object or lacks
+  any of them is refused at verification as `delivery_mismatch`, as the revised
+  reference consumer does (CA-ISSUE-013; Hekate HK-ISSUE-002). This checks presence
+  only: values are compared at revalidation, a present null `artifactRef` still
+  verifies, and the identity's other fields (`lead`, `leadSession`) are not compared.
 - A snapshot whose review identity has other than exactly its five fields (as the
-  reference's dict equality), a numeric (not exact-integer) attempt epoch, non-array
-  `pending` or `queue`, or a manifest identity missing one of the five is
-  `fresh_mismatch`; the reference raises an untyped error for the last three. As in
-  the reference, the manifest identity's other fields (`lead`, `leadSession`) are
-  not compared.
+  reference's dict equality), a numeric (not exact-integer) attempt epoch, or
+  non-array `pending` or `queue` is `fresh_mismatch`, as the revised reference also
+  refuses a malformed proof.
 - An unsupported float in the manifest is reported as `codec_unsupported` before the
   envelope and task checks, where the reference could report a later tamper as
   `delivery_mismatch`. No producer-reachable value is unsupported.

@@ -39,18 +39,18 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                             |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | -------------------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed   | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | assigned | codex-chatagent / supervised pipeline worker |
+| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | closed | codex-chatagent / supervised pipeline worker |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -386,11 +386,21 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   check. Known risk: the existing Windows test `tests/integration/localIdentity.test.ts`
   can fail independently of the task (an `EPERM` rename during identity rotation), which
   would reject at the full-suite step.
-- **Depends on:** root's review of the v2 freeze and a new GO for one supervised run.
 - **Closure criteria:** the worker's artifact passes both oracle files, typecheck, the
   full suite and the documentation check under the runner's independent verifier, with
   only `delivery.ts` changed; root reviews the source and integrates it onto current
   main with the oracle, formatted; independently verified.
+- **Closed 2026-10-07:** the second pilot, run `d980a658bbad` (root GO 1801), was
+  accepted in round 1. The real Claude CLI artifact
+  `bd0365095ef7a317b82f5f0ce986290373970799` changes only `delivery.ts`:
+  `verifyStored` requires the identity to be an object carrying the five keys. The
+  runner's verifier passed all four steps on fresh dependencies: the 17 frozen oracle
+  cases, typecheck, the full suite and the documentation check, with no failure lines
+  (bridge message 1808). ChatAgent Claude reviewed the source and scope independently.
+  The integration carries the artifact's `delivery.ts` blob unchanged
+  (`07eb59c3f6c993c14500588835f6720e09942c53`), both frozen oracle files byte-identical
+  to the v2 base, and the matching update to the verification contract in
+  doc 13.
 
 ## External dependencies
 

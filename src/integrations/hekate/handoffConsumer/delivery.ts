@@ -448,7 +448,10 @@ function verifyStored(
   // The consumer's required manifest shape.
   const transition = asObject(member(m, "transition"), fail);
   const authority = asObject(member(m, "authority"), fail);
-  path(m, ["state", "mandatory", "identity"], fail);
+  const identity = asObject(path(m, ["state", "mandatory", "identity"], fail), fail);
+  for (const key of ["rootId", "nodeId", "attemptId", "attemptEpoch", "artifactRef"]) {
+    if (member(identity, key) === undefined) fail();
+  }
   const evidenceIndex = asArray(member(m, "evidenceIndex"), fail);
   const pending = asArray(member(authority, "pending"), fail);
   const queue = asArray(member(authority, "queue"), fail);

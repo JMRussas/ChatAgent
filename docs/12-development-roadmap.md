@@ -1901,6 +1901,14 @@ revalidation-stage code, so the source-only task was unsatisfiable. Task base v2
 `b644847c…2ccc3` was proven satisfiable by a throwaway reference implementation
 across all four steps before it was frozen. A second pilot needs root's review and GO.
 
+_CA-ISSUE-013 verified and integrated 2026-10-07 (closed):_ the second pilot was
+accepted in round 1. The real Claude CLI artifact `bd03650` changed only `delivery.ts`,
+and the runner's verifier passed the frozen oracle, typecheck, the full repository
+suite and the documentation check. This is the first task accepted with full-repo
+regression checks inside the verifier. The integration carries the artifact unchanged
+with both frozen oracle files. The TypeScript and Python consumers now refuse a
+missing review identity field at the same stage with the same code.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for

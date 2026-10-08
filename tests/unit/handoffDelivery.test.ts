@@ -500,7 +500,9 @@ describe("delivered content and revalidation", () => {
     expect(outcome(extra)).toBe("verified");
     const field = /^"artifactRef":"[^"]*",/.exec(manifest.slice(at))![0];
     const missing = withManifest(inputs, manifest.slice(0, at) + manifest.slice(at + field.length));
-    expect(outcome(missing)).toBe("fresh_mismatch");
+    // A missing required identity field is refused at verification, as the revised
+    // reference consumer does (CA-ISSUE-013), not later at revalidation.
+    expect(outcome(missing)).toBe("delivery_mismatch");
   });
 
   it("refuses more than 256 uncertainty references, counting pending and queue", () => {
