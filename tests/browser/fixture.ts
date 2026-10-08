@@ -25,7 +25,7 @@ import {
   type GenerationResult
 } from "../../src/domain/generation";
 
-async function runtime(maxEventStreams?: number) {
+async function runtime(maxEventStreams?: number, documentationTasks = false) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
     worker: boolean;
@@ -210,7 +210,52 @@ async function runtime(maxEventStreams?: number) {
   // Real authentication: an in-memory identity and the real pairing flow.
   const ephemeral = createEphemeralAuth();
   const pairing = new PairingController();
+  const tasks: Array<{
+    taskId: string;
+    conversationId: unknown;
+    question: string;
+    status: string;
+    createdAt: number;
+    scheduled: boolean;
+    answer: null | {
+      answer: string;
+      citations: Array<{ path: string; start_line: number; end_line: number }>;
+    };
+  }> = [];
   const server = createChatServer(service, {
+    ...(documentationTasks
+      ? {
+          documentTasks: {
+            close() {},
+            async request(data: Record<string, unknown>) {
+              if (data.op === "list")
+                return tasks.filter((t) => t.conversationId === data.conversationId);
+              if (data.op === "start") {
+                const task = {
+                  taskId: (tasks.length + 1).toString(16).padStart(32, "0"),
+                  conversationId: data.conversationId,
+                  question: String(data.question),
+                  status: "running",
+                  createdAt: Date.now() / 1000,
+                  scheduled: true,
+                  answer: null
+                };
+                tasks.push(task);
+                return task;
+              }
+              const task = tasks.find(
+                (t) => t.taskId === data.taskId && t.conversationId === data.conversationId
+              );
+              if (!task) throw new Error("Unknown task");
+              if (data.op === "cancel") {
+                task.status = "cancelled";
+                task.scheduled = false;
+              }
+              return task;
+            }
+          }
+        }
+      : {}),
     briefings: sports.http,
     maxEventStreams,
     auth: ephemeral.auth,
@@ -243,6 +288,7 @@ async function runtime(maxEventStreams?: number) {
   return {
     url: `http://127.0.0.1:${handle.address.port}`,
     pending,
+    tasks,
     controls,
     disconnect: () => server.closeStreams(),
     /** Pairs the browser through the real /pair page, using a code read from the controller. */
@@ -292,11 +338,13 @@ async function runtime(maxEventStreams?: number) {
 }
 export const test = base.extend<{
   streamCap: number | undefined;
+  documentationTasks: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
-  app: async ({ streamCap }, use) => {
-    const app = await runtime(streamCap);
+  documentationTasks: [false, { option: true }],
+  app: async ({ streamCap, documentationTasks }, use) => {
+    const app = await runtime(streamCap, documentationTasks);
     try {
       await use(app);
     } finally {

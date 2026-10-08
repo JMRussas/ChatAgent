@@ -188,7 +188,7 @@ class ConversationTasks:
     def view(self,task_id):
         s=self.manager.status(task_id);r=s['last_checkpoint'];answer=r.get('answer')
         with self.manager.connect() as c:question=c.execute('SELECT question FROM bindings WHERE task=?',(task_id,)).fetchone()[0]
-        return {'taskId':task_id,'question':question,'status':s['status'],
+        return {'taskId':task_id,'question':question,'status':s['status'],'createdAt':s['created_at'],
                 'modelCalls':r.get('model_calls',0),'toolCalls':r.get('tool_calls',0),
                 'answer':answer if s['status']=='completed' else None,
                 'error':(r.get('status') or 'execution_failed') if s['status']=='failed' else None,

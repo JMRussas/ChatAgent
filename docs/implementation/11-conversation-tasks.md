@@ -51,9 +51,9 @@ Foreground chat still uses its separately configured providers; enabling this
 worker alone does not switch foreground mock responses to live inference.
 
 In the composer, enter a documentation question and choose **Run documentation
-task**. **Send** remains available for ordinary chat. The conversation's task panel
-polls status, displays answers with source references or failures, and offers
-Cancel. After a restart, previously queued/paused unscheduled tasks offer Resume.
+task**. **Send** remains available for ordinary chat. The conversation history shows documentation questions and task replies alongside
+ordinary chat, ordered by their original submission times. Task replies poll status,
+display answers with source references or failures, and offer Cancel. After a restart, previously queued/paused unscheduled tasks offer Resume.
 Question and answer text are rendered using textContent, not HTML.
 
 ## Contract and ownership
@@ -70,8 +70,10 @@ list before creating another task. The UI does not automatically retry starts.
 ChatService applies its existing owner guard. The sidecar also persists conversation
 owners and task bindings and checks them on every command. List on an empty
 conversation does not claim an owner. This is the prototype's client-supplied userId
-ownership guard, not authentication. Task completions appear in a dedicated panel;
-they are not inserted into the conversation timeline or LLM context automatically.
+ownership guard, not authentication. Task turns share the visible conversation history, including after a page reload.
+The task view exposes its persisted creation time (`createdAt`, Unix seconds) for
+ordering alongside chat messages. This is a UI projection: tasks are not inserted
+into the chat event store or LLM context automatically.
 
 ## Execution and admission
 

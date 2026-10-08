@@ -15,6 +15,8 @@ it("explains an abandoned task's unknown external outcome", async () => {
     const node = {
       textContent: "",
       value: "x",
+      dataset: {},
+      setAttribute: () => undefined,
       children: [] as Node[],
       append: (...n: Node[]) => node.children.push(...n),
       replaceChildren: () => (node.children = []),
@@ -49,9 +51,13 @@ it("explains an abandoned task's unknown external outcome", async () => {
     { addEventListener: () => undefined },
     {}
   );
-  await vi.waitFor(() => expect(elements.documentTasks.children).toHaveLength(1));
-  const texts = elements.documentTasks.children[0].children.map((n) => n.textContent);
-  expect(texts).toContain("How? — abandoned");
+  await vi.waitFor(() => expect(elements.thread.children).toHaveLength(1));
+  const texts = elements.thread.children[0].children.flatMap((n) => [
+    n.textContent,
+    ...n.children.map((c) => c.textContent)
+  ]);
+  expect(texts).toContain("How?");
+  expect(texts).toContain("Documentation task — abandoned");
   expect(texts.join(" ")).toMatch(/unknown, and no answer will be shown/);
   // No action is offered for an abandoned task.
   expect(texts).not.toContain("Resume");

@@ -60,6 +60,8 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(asyncio.gather(*list(b.jobs.values())),3)
             result=(await b.command({**base,'op':'list'}))[0]
             self.assertEqual(result['status'],'completed');self.assertIsNotNone(result['answer'])
+            self.assertIsInstance(result['createdAt'],(float,int))
+            self.assertEqual(result['createdAt'],t['createdAt'])
             self.assertNotIn('events',result)
             await b.close()
             restarted=ConversationTasks(td,None,fixture_corpus())

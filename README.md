@@ -24,8 +24,8 @@ No sibling repository or private project is required to run it.
   Independent tasks support status, cancellation and resume; uncertain in-flight
   execution is refused rather than automatically replayed.
 - **Context engineering:** bounded conversation snapshots and background source-linked
-  memory; original transcript records remain intact. Completed documentation tasks
-  appear separately and are not automatically inserted into model context.
+  memory; original transcript records remain intact. Documentation questions and results
+  appear in the conversation history without automatic insertion into model context.
 - **Evidence-based decisions:** controlled prompt experiments, lifecycle fault
   injection and real local-model contention measurements inform the design.
 

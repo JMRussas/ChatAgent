@@ -444,7 +444,6 @@ export function renderHomePageHtml(
         <div class="meta-grid">
           <label>
             Conversation ID
-            <p id="selectedConversationContext" role="status">Conversation scope: general</p>
             <input id="conversationId" value="conv-ui-demo" required minlength="1" />
           </label>
           <label>
@@ -452,6 +451,7 @@ export function renderHomePageHtml(
             <input id="userId" value="user-demo" required minlength="1" />
           </label>
         </div>
+        <p id="selectedConversationContext" role="status">Conversation scope: general</p>
         <label>
           Prompt
           <textarea id="prompt" required minlength="1" placeholder="Ask something with external data need to trigger deep path..."></textarea>
@@ -460,9 +460,9 @@ export function renderHomePageHtml(
         ${documentTasks ? '<button id="documentTaskStart" type="button">Run documentation task</button>' : ""}
       </form>
 
-      ${documentTasks ? '<section aria-label="Documentation tasks"><h2>Documentation tasks</h2><p id="documentTaskStatus" role="status"></p><div id="documentTasks" aria-live="polite"></div></section>' : ""}
+      ${documentTasks ? '<p id="documentTaskStatus" class="status" role="status"></p>' : ""}
       <div id="conversationNotice" class="conversation-notice" role="alert" hidden><span id="conversationNoticeText"></span><button type="button" id="newConversation">Start a new conversation</button></div>
-      <div id="thread" class="thread" aria-live="polite"></div>
+      <div id="thread" class="thread" aria-label="Conversation history" aria-live="polite"></div>
       <footer id="status" class="status">Ready.</footer>
     </section>
 
@@ -746,6 +746,7 @@ export function renderHomePageHtml(
           node = { row, user, bubble, answers, details, summary, summaryLabel, spinner, history, outcomes, transport, stop, timers: [], answerNodes: new Map(), historyKey: "", wasActive: true };
           turnNodes.set(turn.messageId, node); thread.appendChild(row);
         }
+        node.row.dataset.threadTime = state.events.find(e => e.type === "user" && e.messageId === turn.messageId)?.createdAtIso || node.row.dataset.threadTime || new Date().toISOString();
         node.user.textContent = turn.userText;
         node.bubble.setAttribute("aria-busy", String(turn.active));
         node.stop.hidden = !turn.active;
@@ -812,6 +813,7 @@ export function renderHomePageHtml(
         }
       }
       updateActivityTimers();
+      window.dispatchEvent(new Event("chatagent-thread-rendered"));
     }
 
     function renderTelemetry(payload) {

@@ -202,11 +202,12 @@ function createUi(state: { events: ChatTimelineEvent[]; reconnecting: boolean })
     "thread",
     "document",
     "$",
+    "window",
     script.slice(
       script.indexOf("    const deriveTurns ="),
       script.indexOf("    function renderTelemetry")
     ) + "return { renderThread, updateActivityTimers, turnNodes };"
-  )(state, thread, { createElement: () => new Element() }, () => target);
+  )(state, thread, { createElement: () => new Element() }, () => target, new EventTarget());
   return { ...ui, html };
 }
 

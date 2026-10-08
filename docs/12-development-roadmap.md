@@ -23,6 +23,22 @@ integration. Unattended blocker: CA-ISSUE-004
 (idle lead/worker recovery). Hekate- and bridge-owned dependencies are linked there
 to their owners' registers.
 
+### Visible conversation history correction (2026-10-08)
+
+Documentation questions, results, failures and cancellations now render as task
+turns within the same visible history as ordinary chat, ordered by persisted task
+creation time. Reload and conversation switching retain the correct projection;
+background tasks remain separate from the chat event store and model context.
+Successful task submission clears the unchanged composer text. The conversation
+scope note now sits below both ID fields so their labels and inputs align.
+Browser regressions cover mixed chat/task ordering, reload, cancellation, scope
+changes, literal model text and desktop/mobile field layout. The Python bridge
+regression checks that task creation time survives completion and restart.
+Validation on pinned Windows Node 24.21.0: 2,219 TypeScript tests and 36 browser
+tests pass; six Python bridge tests pass under the uv-managed interpreter.
+Formatting, lint and documentation contracts pass. The live UI rehearsal completed
+conversation recall, a cited documentation answer and task cancellation.
+
 ### Handoff checkpoint — current execution status
 
 Current reading checkpoint (updated 2026-10-07); historical milestones and their
