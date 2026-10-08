@@ -9,8 +9,9 @@ successful worker test does not finish integration review.
 Status on 2026-10-08: the UI history corrections, bridge readers and one-shot CLI
 are integrated. The activity classifier is integrated: it is the accepted artifact
 of a supervised worker task, verified against a frozen oracle. Hekate's resolution
-guard and pure recovery projection are integrated. Live recovery collection and
-automatic agent resumption remain proposed work.
+guard, pure recovery projection and read-only journal collector library are
+integrated. Recovery manifest publication, a collector CLI and automatic agent
+resumption remain proposed work.
 
 ## Conversation and documentation execution
 
@@ -89,6 +90,12 @@ classDiagram
         +intent and outcome records
         +outstanding reservations
     }
+    class JournalStore {
+        +durable streams and records
+    }
+    class RecoveryCollector {
+        +collect_observation()
+    }
     class RecoveryProjection {
         +project()
     }
@@ -102,6 +109,8 @@ classDiagram
     ActivityClassifier ..> BridgeReader : uses sanitized metadata
     ActivityClassifier ..> TranscriptReader : uses sanitized metadata
     ActivityClassifier --> ActivityReport : produces
+    RecoveryCollector ..> JournalStore : reads one transaction
+    RecoveryCollector --> JournalObservation : produces sanitized input
     RecoveryProjection ..> JournalObservation : consumes sanitized input
     RecoveryProjection --> RecoveryReport : produces
 ```
@@ -119,6 +128,11 @@ does not prove the operation had no effects. Compacted records cannot be
 enumerated, so the report marks that evidence incomplete. The pure projection
 accepts caller-supplied sanitized observations and labels their hashes unverified;
 it grants no recovery authority and performs no database or filesystem work.
+The separate collector validates records through Hekate's existing bounded reader
+in one read-only journal transaction. It returns sanitized input for the
+projection, with a soft deadline and cancellation requests. It has no CLI or
+manifest file writer, and it does not inspect PlanStore or prove that any worker
+is currently executing.
 
 Sources: [activity contract](implementation/15-stall-detection.md),
 [bridge reader](../src/integrations/bridge/bridgeReader.ts),
@@ -126,7 +140,7 @@ Sources: [activity contract](implementation/15-stall-detection.md),
 [classifier seam](../src/integrations/bridge/activity.ts) and
 [one-shot CLI](../scripts/agentStalls.ts). Hekate sources are
 `scripts/local/supervisor_e1/e1/evidence.py`, `durable.py`, `handoff.py` and
-`recovery_manifest.py` in the sibling repository.
+`recovery_manifest.py` and `recovery_collector.py` in the sibling repository.
 
 ## Supervised development execution
 

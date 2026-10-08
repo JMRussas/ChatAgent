@@ -1,10 +1,28 @@
 # Development roadmap
 
-## Current plan — reliability before feature expansion (2026-10-01)
+## Current plan — visible happy path first (2026-10-08)
 
 This section is the authoritative execution order. Earlier dated entries below are
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
+
+**Priority update (2026-10-08, user direction).** Make the useful happy path
+visible before extending hardening: create one bounded plan, watch its worker
+execute in the existing Hekate Plans UI, and review the accepted result and its
+integration. The next demonstration adds a development-workflow overview and
+links to the existing UML in the repository README. Use the existing runner,
+verifier and browser; keep the normal review and validation needed for that task.
+The browser currently needs manual refresh and shows plan state and events,
+rather than the worker's conversation or verifier progress. Those limits should
+be explicit during the demonstration.
+
+All remaining items are retained as **later work**, not removed or declared
+complete: recovery envelopes and manifest publication, evidence-binding CLI and
+UI checks, recovery/continuation and fencing, ongoing-work stall detection and
+automatic resumption, further reliability work, shared deployment and optional
+quality evaluation. Preserve their contracts, issue entries and existing
+evidence. Resume those items after the visible happy path has been demonstrated
+and reviewed; they are not new gates for this demonstration.
 
 **Priority update (2026-10-07, user direction relayed by the ChatAgent lead).** The
 first pilot is a usable, supervised local loop for one bounded development task:
@@ -111,9 +129,25 @@ CLI-reported $0.15, nine turns), carried unchanged, then formatted in a separate
 commit. A real transcript larger than the 1 MiB tail reads as `session_unknown`. This
 increment neither resumes agents nor detects ongoing-work stalls; CA-ISSUE-004
 remains open.
+A live adoption check linked each Claude's initial reply to its assignment. The
+CLI observed both correlations: Hekate's own credential was authenticated;
+ChatAgent's proxy reply was reported with its declared role and session. Final
+classifier integration checks passed 2,347 TypeScript tests with nine skips and
+all 39 browser tests, plus lint and documentation contracts.
 Hekate's pure recovery projection is integrated at `5e55ac7`, with 56 independent
 tests passing. It lists caller-supplied sanitized observations and preserves unknown
-effects and missing evidence; it has no live collector or recovery authority.
+effects and missing evidence; it has no recovery authority. Its separate read-only
+journal collector library is integrated at `d7b51e2`. Collection uses one journal
+transaction, capped reads and whitelist sanitization; its deadline is soft, and it
+has no CLI or output-file writer. Manifest publication and evidence-binding checks
+are retained later proposals, behind the visible happy-path demonstration.
+
+The existing Hekate Plans browser was exercised against the completed `ca004-001`
+plan: tree, node details, dependency map and event history matched its accepted
+first attempt and worker artifact. The retained capture under
+`D:/hekate-coordinator/view-ca004-001/captures` recorded nine API requests, all GET.
+The local demo uses UI port 5179 and API port 5111; service lifetime is separate
+from this retained evidence.
 The HK-ISSUE-015 recovery/continuation design is under revision, with fencing,
 truthful unknown outcomes and cross-run attempt
 bounds still open. Historical `check-002` stays stopped and unchanged. Bridge
