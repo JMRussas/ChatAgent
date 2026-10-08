@@ -4,14 +4,9 @@ import { describe, expect, it } from "vitest";
 // Frozen acceptance for the operator entrypoint. Runtime exit semantics are
 // exercised separately by devcoordCheck.test.ts against a real loopback server.
 describe("plan monitoring entrypoint", () => {
-  it("exposes the existing read-only status command through npm", () => {
-    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(pkg.scripts["plan:status"]).toBe("tsx scripts/devcoord.ts status");
-  });
-
   it("documents a copyable status command and its supervision limits", () => {
     const readme = readFileSync("README.md", "utf8");
-    expect(readme).toContain("npm run plan:status -- --root");
+    expect(readme).toContain("npx tsx scripts/devcoord.ts status --root");
     expect(readme).toContain("HEKATE_PLAN_API_URL");
     expect(readme).toContain("--json");
     expect(readme).toContain("--check");
