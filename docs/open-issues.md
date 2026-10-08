@@ -149,12 +149,14 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   2026-10-07, `codex-chatagent` idle about 52 minutes with 27 unread messages (bridge
   directory, about 12:42 local), and this interactive session stalled about an hour
   on an unseen permission prompt (bridge message 1283).
-- **Next action:** a partial, initial-response detection design is proposed in
-  [doc 15](implementation/15-stall-detection.md) (revision 3, 2026-10-08; not yet
-  implemented). It records two retained 2026-10-08 instances: a watcher-starved
-  assignment, and a session stopped by an interrupted tool call. This issue stays
-  open until a bounded escalation or resumption is demonstrated. A supervised pilot
-  can run without it; unattended operation cannot.
+- **Next action:** partial, initial-response detection is designed in
+  [doc 15](implementation/15-stall-detection.md) (revision 4, 2026-10-08). Its
+  read-only readers and `scripts/agentStalls.ts` are implemented. The classifier is a
+  conservative stub that reports `unknown` until a prepared task implements it. The
+  doc records two retained 2026-10-08 instances: a watcher-starved assignment, and a
+  session stopped by an interrupted tool call. This issue stays open until a bounded
+  escalation or resumption is demonstrated. A supervised pilot can run without it;
+  unattended operation cannot.
 - **Closure criteria:** a stalled lead or worker is detected from recorded evidence
   and resumed or escalated within a stated bound, demonstrated by the proposed
   review-pending handoff acceptance scenario in doc 13; independently verified.
