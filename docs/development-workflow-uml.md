@@ -12,9 +12,12 @@ of a supervised worker task, verified against a frozen oracle. Hekate's resoluti
 guard, pure recovery projection and read-only journal collector library are
 integrated. Recovery manifest publication, a collector CLI and automatic agent
 resumption remain proposed work.
-Hekate's per-attempt prompt/stream capture and attempt viewer are integrated at
-`3ba10b7`; their read-only trace endpoint and the Codex worker adapter remain under
-implementation. The complete live trace path has not yet been demonstrated.
+Hekate's prompt/stream capture, read-only trace endpoint, central attempt viewer
+and Claude/Codex worker adapters are integrated at `1a3b6d9`. Both live README
+rehearsals reached accepted state with verified traces. The Codex rehearsal
+recorded shell startup failures; a worker PATH correction at `c063455` passed a
+subsequent real shell-read and file-edit smoke. The
+[roadmap](12-development-roadmap.md) records the evidence and remaining limits.
 
 ## Conversation and documentation execution
 
@@ -198,12 +201,13 @@ and `cli_worker.py` under `scripts/local/supervisor_e1/`.
 
 ## Headless node execution (product target)
 
-This is the requested target, not a claim that both worker adapters or the trace
-viewer are connected today. Hekate already executes Claude CLI workers without VS
-Code and stores managed plan state in its database. Prompt/stream capture and the
-attempt viewer are integrated; the trace endpoint and Codex worker integration
-remain to be implemented. A standalone Codex CLI read-only task has succeeded
-outside VS Code, establishing feasibility rather than a Hekate node integration.
+Hekate executes Claude CLI and Codex CLI workers without VS Code, stores managed
+plan state in its database, and exposes each attempt through the trace endpoint
+and viewer. Both paths have completed a live README node rehearsal. The Codex
+worker used its file-change tool while shell startup failed; its independent
+verifier passed. Main-conversation hosting and application-driven plan launching
+remain the product target. The PATH fix passed a bounded shell/file-edit smoke;
+a full node rehearsal after the fix has not been repeated.
 
 ```mermaid
 classDiagram
@@ -235,7 +239,7 @@ classDiagram
     WorkerLauncher ..> TaskNode : receives context and tools
     WorkerLauncher --> NodeAttempt : records observable execution
     WorkerLauncher ..> ClaudeCLI : existing execution path
-    WorkerLauncher ..> CodexCLI : planned execution path
+    WorkerLauncher ..> CodexCLI : integrated execution path
 ```
 
 Each node starts with its own supplied context and tools. Outputs from earlier
@@ -243,8 +247,10 @@ nodes become explicit inputs to later nodes. Keeping attempts separate makes
 retries inspectable without mixing conversations; it does not require an ongoing
 chat for each repository. The trace describes observable messages and tool
 activity, not private model reasoning. VS Code is an optional editor rather than
-the worker host. Trace storage and API details still need an implementation
-decision; this diagram does not require raw conversation blobs in PlanStore.
+the worker host. Trace files are retained in the attempt run directory; PlanStore
+holds their journal references and recorded integrity metadata. The read-only
+endpoint resolves those references without storing raw conversation blobs in
+PlanStore.
 
 ## Hekate plans browser (existing, read-only)
 

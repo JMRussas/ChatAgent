@@ -12,9 +12,9 @@ execute in the existing Hekate Plans UI, and review the accepted result and its
 integration. The next demonstration adds a development-workflow overview and
 links to the existing UML in the repository README. Use the existing runner,
 verifier and browser; keep the normal review and validation needed for that task.
-The browser currently needs manual refresh and shows plan state and events,
-rather than the worker's conversation or verifier progress. Those limits should
-be explicit during the demonstration.
+The initial browser demonstration needed manual refresh and exposed plan state
+and events. The trace increment below adds observable worker conversation;
+verifier progress and automatic refresh remain later work.
 
 **Demonstrated (2026-10-08).** Plan `readme-001` (task base `2ebd31e`, one
 README-only node with a frozen four-case oracle) ran through the existing runner.
@@ -38,23 +38,48 @@ and observable execution conversation; each attempt retains a separate trace.
 Persistent repository-wide worker conversations are unnecessary. After the
 current demonstration, prioritize the smallest usable path toward this target:
 inspect the existing Claude execution path, add Codex execution where missing,
-and expose node/attempt conversation and tool events in the UI. This is planned
-work; the existing Plans view exposes state and events, not those conversations.
+and expose node/attempt conversation and tool events in the UI. The local
+CLI/trace increment below demonstrates that execution path. Hosting the main
+conversation and launching plans from the application remain product work.
 
-Current increment: per-attempt prompt and observable stream capture and the
-companion attempt viewer are integrated in Hekate at `3ba10b7`. Independent checks
-passed 95 capture/CLI tests and 21 UI tests; the implementer's broader capture
-regression passed 387 tests with one opt-in skip. The read-only trace endpoint is
-integrated at `a3c3ba0`, with 20 independent pure trace tests passing and retained
-implementer checks of 192 pure and 66 disposable-database tests. A live trace
-rehearsal remains pending. The Codex worker adapter remains under implementation.
-A standalone
-Windows Codex CLI read-only task succeeded outside VS Code, with a clean worktree
-and structured assistant and command-execution events retained under
-`D:/hekate-coordinator/codex-smoke-004`. The successful launch used an explicit
-Windows sandbox setting and excluded the WindowsApps shell alias from that
-worker's PATH only. Earlier failed probes remain preserved. This establishes CLI
-feasibility, not a Codex adapter in Hekate or a completed dual-worker application.
+Current increment: per-attempt prompt/stream capture, the read-only trace endpoint,
+the central conversation viewer and both CLI worker adapters are integrated in
+Hekate at `1a3b6d9`. Independent checks passed 95 capture/CLI tests, 21 initial UI
+trace tests, 20 pure endpoint tests and 18 Codex adapter tests; retained
+implementer checks include 387 capture tests with one opt-in skip, 192 pure and
+66 disposable-database endpoint tests, and 22 UI trace tests after the layout
+follow-up. The viewer displays messages, tool calls/results, stderr and final
+usage separately from Hekate's acceptance decision.
+
+Live rehearsals reused the frozen README task without changing its spec or oracle:
+
+- Claude plan `readme-trace-001`, run `71e5acf5dcaa`, was accepted in round 1.
+  Its prompt and 37-record trace match their recorded hashes. The browser showed
+  the conversation during execution and the verified trace after completion.
+- Codex plan `codex-trace-001`, run `6640483a3350`, was accepted in round 1.
+  Its prompt and 12-record trace match their recorded hashes. The trace contains
+  a real README file-change call/result and three shell startup failures.
+  Acceptance came from Hekate's independent verifier: oracle, typecheck,
+  full suite (2,351 passing, nine skipped) and documentation check all passed;
+  the worker explicitly reported that its own validation could not run.
+
+Retained browser captures are under
+`D:/hekate-coordinator/view-trace-001/captures-trace-001` and
+`captures-codex-001`. The latter records 128 API requests, all GET, and ends with
+accepted state and verified trace. The local viewer runs on API port 5111 and UI
+port 5179. It requires explicit refresh/check-for-new requests; temporary API
+shutdowns during runner/viewer ownership changes remain visible as unavailable.
+
+The Codex adapter uses standalone Windows CLI 0.157.0 without VS Code. Its
+workspace-write sandbox bounds shell access, but does not enforce a per-command
+allowlist or the Claude dollar/turn flags; supervisor time and output bounds
+remain enforced. The accepted Codex rehearsal exposed packaged PowerShell access
+denied under the unelevated sandbox. A Codex-only PATH correction at `c063455`
+removes both the shell alias and packaged-app directories. The subsequent real
+`codex-smoke-005`, launched from PowerShell, completed a UTF-8 shell read and an
+exact file addition with empty stderr; retained event hashes were independently
+verified. The earlier failed attempt remains intact. A complete node rehearsal
+after that correction has not been repeated.
 
 Later research candidate, requested 2026-10-08: Cognition's
 [Memory and Dreaming](https://devin.ai/blog/memory-and-dreaming) and
