@@ -149,11 +149,12 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   2026-10-07, `codex-chatagent` idle about 52 minutes with 27 unread messages (bridge
   directory, about 12:42 local), and this interactive session stalled about an hour
   on an unseen permission prompt (bridge message 1283).
-- **Next action:** a detection-only design is proposed in
-  [doc 15](implementation/15-stall-detection.md) (2026-10-08, not authorized). It is
-  read-only and wakes nothing, and it records two retained 2026-10-08 instances: a
-  watcher-starved assignment, and a session stopped by an interrupted tool call. A
-  supervised pilot can run without it; unattended operation cannot.
+- **Next action:** a partial, detection-only design is proposed in
+  [doc 15](implementation/15-stall-detection.md) (revision 2, 2026-10-08; not yet
+  implemented). It records two retained 2026-10-08 instances: a watcher-starved
+  assignment, and a session stopped by an interrupted tool call. This issue stays
+  open until a bounded escalation or resumption is demonstrated. A supervised pilot
+  can run without it; unattended operation cannot.
 - **Closure criteria:** a stalled lead or worker is detected from recorded evidence
   and resumed or escalated within a stated bound, demonstrated by the proposed
   review-pending handoff acceptance scenario in doc 13; independently verified.
