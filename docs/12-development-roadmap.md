@@ -16,6 +16,20 @@ The browser currently needs manual refresh and shows plan state and events,
 rather than the worker's conversation or verifier progress. Those limits should
 be explicit during the demonstration.
 
+**Demonstrated (2026-10-08).** Plan `readme-001` (task base `2ebd31e`, one
+README-only node with a frozen four-case oracle) ran through the existing runner.
+The worker artifact `44b67b5` was accepted in round 1 (run `387015eba30a`) and is
+integrated unchanged as the README "Development workflow" subsection; an
+independent clean-worktree check passed the oracle, the full suite, `tsc` and the
+documentation check. The Plans browser showed the run live, driven only by its own
+Refresh button: todo, in progress, done, then done and accepted with the artifact
+and review evidence. The retained capture under
+`D:/hekate-coordinator/view-ca004-001/captures-readme-001` holds eight frames and a
+manifest of 93 API requests, all GET. Observed limits: no automatic refresh; no
+view while the runner's API builds or after it stops, so the accepted frame came
+from the read-only view reopened after the run; and no worker conversation,
+verifier steps or attempt trace. The product target above is the next increment.
+
 **Product target (2026-10-08, user direction).** Run this development workflow
 outside VS Code: the application hosts the main conversation and review, Hekate's
 database holds the plan and node state, and Claude CLI or Codex CLI executes a
