@@ -92,6 +92,37 @@ permission to install software on the host or to deploy. If a specific rule
 blocks the work, quote the rule and its source instead of asking for blanket
 approval.
 
+### Recording the initial response
+
+A reply is correlated with an assignment only by an explicit bridge record. A later
+message in the same thread, a text prefix, a fetch or an acknowledgement does not count
+(see [doc 15](implementation/15-stall-detection.md)). The convention adopted on
+2026-10-08:
+
+1. Send the initial reply with `bridge_send`, using the role's own credential.
+   - A role that sends through the operator credential (`fenrir`) also passes
+     `meta: {role: "<role>", session: "<its Claude Code session id>"}`.
+   - That role and session are a declaration, not an attestation: the operator
+     credential can send for any role, so the detector labels these replies
+     `reported`.
+2. Record `bridge_link(<reply id>, "replies_to", "message", <assignment id>)` with the
+   same credential.
+   - The bridge stores the target as the assignment's message UID, and the link's
+     actor is the recording principal.
+   - A role with its own credential is then `authenticated`.
+3. Record a `bridge_outcome` on the assignment only when the work state really
+   changes. Use `blocked`, `completed`, or `verified` with its artifact and evidence
+   references. The proxy adds the same role and session in `details`.
+
+If the link call fails, retry only the link, and at most once. If its outcome is
+uncertain, re-read the evidence first, because duplicate links count against the
+reader's caps. Never resend the reply.
+
+`scripts/agentStalls.ts --agent <role> --assignment <id>` then reports the assignment
+as `correlated_reply_observed`. This is detection only: nothing wakes, resumes or
+reconfigures an agent. Session corroboration comes from the transcript and is
+`session_unknown` for any transcript larger than the reader's 1 MiB tail.
+
 ## Staying responsive
 
 During an active Codex turn, call `bridge_wait` with a bounded timeout of
