@@ -2024,7 +2024,23 @@ Limits:
   implementation. Nothing decomposes a roadmap automatically.
 - **No in-tool resolution.** In-flight or uncertain work, including an uncertain
   operator act, stops the coordinator, with no in-tool resolution and no automatic
-  recovery. There is no unattended operation.
+  recovery. There is no unattended operation. A dispatch that stopped before its
+  worker launched also stays unresolved. The second run's stopped round is one such
+  case. Its stopped state is kept as the truthful record, and its candidate was
+  verified and integrated separately.
+- **Why there is no reconciliation command yet (decided 2026-10-08).** A reviewed
+  design was deferred, including a read-only check mode. Resetting the node to `todo`
+  would let a new run root rerun it with a fresh round budget. It would also show
+  work as unfinished when that work is already integrated. A safe design also needs
+  three things: an idempotent writer takeover and re-acquisition; replay after a
+  crash part-way through an operator act; and recipe predecessor selection. These
+  belong in one joint recovery and continuation design.
+- **A stopped node cannot continue.** A node's run root holds exactly one run. A
+  same-root continuation stops at `node_run_root_exists` before any claim. A new
+  run root re-attaches to the same PlanStore node, because plan identities are derived
+  from the plan file. Nothing counts attempts across runs, so a new run would get a
+  fresh round budget. Continuation needs its own design: a retry root per node,
+  predecessor binding across runs, and cross-run attempt accounting.
 - **Single, same-repository chains.** A recipe successor has exactly one predecessor in
   the same repository, and it continues only in the original run root.
 - **Manual integration.** Accepted work is not integrated into the primary repository
