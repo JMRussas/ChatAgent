@@ -1,0 +1,61 @@
+{
+ "S4": "skipped: a worker ACK is a supervisor-journal fact, not a PlanStore contract fact; at the contract level S4 equals S1",
+ "S6revise": {
+  "code": null,
+  "status": 200
+ },
+ "files": {
+  "S1.claim.json": "87bb7a606a815c1accfd13b02b68b2f951feb7174137cc62abd2dc4f4ce4dc7f",
+  "S1.plan.raw.json": "291d5b588706793e3ace8b25153721e7e74b3b90f35e179eedb45220b0466f4b",
+  "S2.claim.json": "87bb7a606a815c1accfd13b02b68b2f951feb7174137cc62abd2dc4f4ce4dc7f",
+  "S2.plan.raw.json": "53abc15ad7eb43d030bcada33613bf9a3a5f42311ecb02eff2bbf66d91c0d6c9",
+  "S3.claim.json": "87bb7a606a815c1accfd13b02b68b2f951feb7174137cc62abd2dc4f4ce4dc7f",
+  "S3.plan.raw.json": "89493fd32f36b7beeb3b832c320e52447c00bf6e68f892e894b14259b6700a12",
+  "S5.claim.json": "87bb7a606a815c1accfd13b02b68b2f951feb7174137cc62abd2dc4f4ce4dc7f",
+  "S5.plan.raw.json": "e8d4bfa1b151042dff5466593941495a25d6c51caa4fcaa97bcaa24f5be4fc4c",
+  "S6.claim.json": "87bb7a606a815c1accfd13b02b68b2f951feb7174137cc62abd2dc4f4ce4dc7f",
+  "S6.plan.raw.json": "a6c2408e1feb0933caaaa9416509821156745247e4c05c6017a28a26fd6b81e7"
+ },
+ "states": {
+  "S1": {
+   "nodes": {
+    "a": "f8ba420e-9c44-574c-93dc-770618054530",
+    "b": "3ffa0ca9-a111-5168-93a1-c1c7d253acdb",
+    "c": "2b47785f-4ffa-5f66-97c7-5417a0887966"
+   },
+   "root": "7aa78a12-8d9e-5d8b-81fe-093e1e02701e"
+  },
+  "S2": {
+   "nodes": {
+    "a": "f8ba420e-9c44-574c-93dc-770618054530",
+    "b": "3ffa0ca9-a111-5168-93a1-c1c7d253acdb",
+    "c": "2b47785f-4ffa-5f66-97c7-5417a0887966"
+   },
+   "root": "7aa78a12-8d9e-5d8b-81fe-093e1e02701e"
+  },
+  "S3": {
+   "nodes": {
+    "a": "6280eb3d-7ea7-5120-8813-be76e21812e2",
+    "b": "394333d5-b8a7-5583-889f-d855551aa5dd",
+    "c": "a348bf10-2431-5901-8646-8c114219a006"
+   },
+   "root": "3a62f45d-7ea7-588d-a8b0-5214fc76c38e"
+  },
+  "S5": {
+   "nodes": {
+    "a": "f8ba420e-9c44-574c-93dc-770618054530",
+    "b": "3ffa0ca9-a111-5168-93a1-c1c7d253acdb",
+    "c": "2b47785f-4ffa-5f66-97c7-5417a0887966"
+   },
+   "root": "7aa78a12-8d9e-5d8b-81fe-093e1e02701e"
+  },
+  "S6": {
+   "nodes": {
+    "a": "ff1f59d8-7d63-5010-89f0-d20cb5382fb9",
+    "b": "41263ddc-4ec0-52e3-bce1-d741f949c6a1",
+    "c": "9e196b59-e54a-5c0a-ab29-b623396b5503"
+   },
+   "root": "dea4828e-5e53-5632-bfc8-7cd15d624df0"
+  }
+ }
+}

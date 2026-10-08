@@ -125,3 +125,19 @@ captured. The reviewer was the deterministic verifier with no input hash, so a
 request ChatAgent emits from this export is an offline artifact that no session is
 known to have consumed. `fresh.json` is a historical as-of proof, never current
 authority, and the policy is a test stub.
+
+## Plan-run workflow states
+
+`plan-run-v0/` holds raw `GET /api/plan-contract/v1/plans/{root}` response bodies,
+captured without re-serialization by Hekate's `tests/capture_planrun_fixtures.py`
+(SHA-256 `952beb50c8993cf0512756c4b771652273b3c62e647346d100140e64e3daf1fd`) at
+Hekate `5b37ed7cb160b12dd3f512ea9ca233026268773f`, in a disposable harness database
+(bridge message 1823). Each state is one root with an A, B, C chain of accepted
+gates, built only through the contract routes: S1 B in progress, S2 B done awaiting
+review, S3 A rejected, S5 all accepted, S6 A's content revised after acceptance. S4
+(an unacknowledged launch) is not a PlanStore fact and is recorded as skipped in
+`MANIFEST.json`, which also gives each state's root and node ids and every file's
+SHA-256. Each `S*.claim.json` is the receipt of a claim attempted right after the
+capture: `no_ready_work` in every state. Do not edit these files; capture new ones.
+The inconsistent-verdict case in `tests/unit/devCoordinationPlanRun.test.ts` is a
+labelled synthetic edit of S5.

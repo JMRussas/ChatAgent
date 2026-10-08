@@ -13,3 +13,4 @@ reports/prompt-encoding/** -text whitespace=cr-at-eol
 tests/fixtures/hekate/e2e-consumer-v0/** -text whitespace=cr-at-eol
 tests/fixtures/hekate/e2e-byte-compat-v0/** -text whitespace=cr-at-eol
 tests/fixtures/hekate/pilot-export-v0/** -text whitespace=cr-at-eol
+tests/fixtures/hekate/plan-run-v0/** -text whitespace=cr-at-eol

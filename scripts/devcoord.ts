@@ -23,8 +23,10 @@ function render(status: CoordinationStatus): string {
       `plan ${status.rootId}: invalid`,
       ...status.errors.map((e) => `  ${e.code}${e.nodeId ? ` (${e.nodeId})` : ""}`)
     ].join("\n");
+  const p = status.progress;
   return [
     `plan ${status.rootId}: ${status.leaves.length} leaves (execution acknowledgement unknown)`,
+    `  progress ${p.state} (root container ${p.rootCompletion}/${p.rootAcceptance})`,
     ...status.leaves.map((l) =>
       [
         `  ${l.state.padEnd(14)} ${l.nodeId} ${l.name ?? ""}`.trimEnd(),

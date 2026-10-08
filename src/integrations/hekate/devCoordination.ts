@@ -245,9 +245,52 @@ export interface LeafStatus {
   blockers: PlanView["readiness"]["leaves"][number]["blockers"];
 }
 
+/**
+ * Plan-level progress, read from PlanStore's own root container verdict and the
+ * leaf states, never inferred from a claim outcome: `no_ready_work` alone is not
+ * completion. `complete` needs the root container complete and accepted AND every
+ * leaf accepted; `inconsistent` means those two disagree, so neither is claimed.
+ * Otherwise the most actionable condition wins: `active` (a leaf in progress),
+ * `awaiting_review`, `ready`, else `stuck` (nothing ready, running or awaiting
+ * review: blocked, rejected, stale or cancelled work remains).
+ */
+export type PlanProgressState =
+  "complete" | "inconsistent" | "active" | "awaiting_review" | "ready" | "stuck";
+
+export interface PlanProgress {
+  state: PlanProgressState;
+  rootCompletion: PlanView["readiness"]["containers"][number]["completion"];
+  rootAcceptance: PlanView["readiness"]["containers"][number]["acceptance"];
+  leafCounts: Partial<Record<LeafState, number>>;
+}
+
 export type CoordinationStatus =
   | { status: "invalid"; rootId: string; errors: { code: string; nodeId: string | null }[] }
-  | { status: "ok"; rootId: string; leaves: LeafStatus[] };
+  | { status: "ok"; rootId: string; progress: PlanProgress; leaves: LeafStatus[] };
+
+function progressOf(
+  root: PlanView["readiness"]["containers"][number],
+  leaves: LeafStatus[]
+): PlanProgress {
+  const leafCounts: Partial<Record<LeafState, number>> = {};
+  for (const leaf of leaves) leafCounts[leaf.state] = (leafCounts[leaf.state] ?? 0) + 1;
+  const containerDone = root.completion === "complete" && root.acceptance === "accepted";
+  const leavesDone = leaves.length > 0 && leaves.every((l) => l.state === "accepted");
+  const has = (state: LeafState) => (leafCounts[state] ?? 0) > 0;
+  const state: PlanProgressState =
+    containerDone && leavesDone
+      ? "complete"
+      : containerDone !== leavesDone
+        ? "inconsistent"
+        : has("in_progress")
+          ? "active"
+          : has("review_pending")
+            ? "awaiting_review"
+            : has("ready")
+              ? "ready"
+              : "stuck";
+  return { state, rootCompletion: root.completion, rootAcceptance: root.acceptance, leafCounts };
+}
 
 /** Validates a raw plan view for the requested root and projects each leaf. */
 export function coordinationStatus(
@@ -367,7 +410,8 @@ export function coordinationStatus(
       blockers: leaf.blockers
     };
   });
-  return { status: "ok", rootId: view.rootId, leaves };
+  const rootContainer = view.readiness.containers.find((c) => c.nodeId === view.rootId)!;
+  return { status: "ok", rootId: view.rootId, progress: progressOf(rootContainer, leaves), leaves };
 }
 
 function pinsOf(node: PlanView["nodes"][number], upstreamChanged: boolean) {

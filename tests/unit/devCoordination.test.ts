@@ -431,14 +431,16 @@ describe("reading over HTTP", () => {
     expect(human).toMatchObject({ exit: 0, stderr: "" });
     const lines = human.stdout.trimEnd().split("\n");
     expect(lines[0]).toBe(`plan ${ROOT}: 4 leaves (execution acknowledgement unknown)`);
-    expect(lines[1]).toMatch(new RegExp(`^  ready +${READY} Ready$`));
-    expect(lines[2]).toMatch(
+    // One leaf of the captured plan is in progress, so the plan is active, not complete.
+    expect(lines[1]).toBe("  progress active (root container incomplete/pending)");
+    expect(lines[2]).toMatch(new RegExp(`^  ready +${READY} Ready$`));
+    expect(lines[3]).toMatch(
       new RegExp(`^  in_progress +${RUNNING} In progress  attempt \\S+#1  pins current  executor `)
     );
-    expect(lines[3]).toMatch(
+    expect(lines[4]).toMatch(
       new RegExp(`^  review_pending +${REVIEW} .*pins current.*artifact git:`)
     );
-    expect(lines[4]).toMatch(new RegExp(`^  accepted +${ACCEPTED} .*pins current`));
+    expect(lines[5]).toMatch(new RegExp(`^  accepted +${ACCEPTED} .*pins current`));
 
     const json = await devcoord(["status", "--json", "--root", ROOT], base);
     expect(json).toMatchObject({ exit: 0, stderr: "" });

@@ -167,6 +167,18 @@ expected states with acknowledgement unknown.
   the proof, even when an attempt id is reused. Same-epoch drift, a missing decision
   and an epoch below 1 or not older stay `stale`; the field is absent otherwise, so
   existing output is unchanged.
+- **Plan progress (plan-run v0).** The status adds `progress`, read only from
+  PlanStore's own root-container verdict (`completion`, `acceptance`) and the leaf
+  states, never from a claim outcome: `no_ready_work` alone is not completion.
+  `complete` needs the root container complete and accepted and every leaf accepted.
+  `inconsistent` means those two disagree, so neither is claimed. Otherwise the most
+  actionable condition wins: `active` (a leaf in progress), `awaiting_review`, `ready`,
+  else `stuck` (blocked, rejected, stale or cancelled work remains; the leaves' blockers
+  say why). `leafCounts` gives the number of leaves in each state. Tests use raw plan
+  views of one A, B, C dependency chain captured by Hekate's plan-run capture script
+  (`tests/fixtures/hekate/plan-run-v0/`): in progress, awaiting review, rejected,
+  complete and stale predecessor. A claim attempted at every one of them returned
+  `no_ready_work`, and only the complete one reports `complete`.
 - **No stale work shown as current.** Attempt pins are `current` only when they exist,
   the content revision is unchanged and nothing upstream changed; an attempt
   without pins is `unknown`. An acceptance whose inputs changed is shown as stale.
