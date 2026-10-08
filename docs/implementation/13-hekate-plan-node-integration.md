@@ -203,8 +203,8 @@ expected states with acknowledgement unknown.
   - 4: work remains (`active`, `awaiting_review` or `ready`).
 
   Without `--check`, a successful read still exits 0. Refusals still exit 1, and
-  usage errors exit 2. Only `complete` exits 0, so `no_ready_work` and `ready` are
-  never reported as done.
+  usage errors exit 2. With `--check`, only `complete` exits 0, so `no_ready_work`
+  and `ready` are never reported as done.
 
   The flag reads a PlanStore API that is reachable now. A local `plan_cli` run stops
   its own API when it exits, so `--check` cannot query that store afterwards. The
