@@ -16,6 +16,17 @@ The browser currently needs manual refresh and shows plan state and events,
 rather than the worker's conversation or verifier progress. Those limits should
 be explicit during the demonstration.
 
+**Product target (2026-10-08, user direction).** Run this development workflow
+outside VS Code: the application hosts the main conversation and review, Hekate's
+database holds the plan and node state, and Claude CLI or Codex CLI executes a
+node in its assigned repository worktree. Each node owns its context, tool scope
+and observable execution conversation; each attempt retains a separate trace.
+Persistent repository-wide worker conversations are unnecessary. After the
+current demonstration, prioritize the smallest usable path toward this target:
+inspect the existing Claude execution path, add Codex execution where missing,
+and expose node/attempt conversation and tool events in the UI. This is planned
+work; the existing Plans view exposes state and events, not those conversations.
+
 All remaining items are retained as **later work**, not removed or declared
 complete: recovery envelopes and manifest publication, evidence-binding CLI and
 UI checks, recovery/continuation and fencing, ongoing-work stall detection and
