@@ -89,6 +89,10 @@ eight scheduled documentation tasks and runs one at a time; foreground chat uses
 its own path. Shared inference scheduling is experimental, not enabled by default.
 Conversation history remains in memory; documentation checkpoints are durable.
 
+### Development workflow
+
+Changes to this repository start with a plan: a lead breaks the work into small tasks, each with frozen acceptance tests. A supervised worker implements one task at a time against those tests, and an independent verifier and a review then accept or reject the result. An accepted result is integrated through a separately reviewed branch. The [development workflow diagrams](docs/development-workflow-uml.md) show the flow, and [how the agents coordinate](docs/agent-bridge-development-workflow.md) describes the bridge. The [plan-node contract with Hekate](docs/implementation/13-hekate-plan-node-integration.md) defines the plan side, and the [read-only check for unanswered assignments](docs/implementation/15-stall-detection.md) covers stalled work.
+
 ## NBA briefing prototype
 
 The next demo is a personalized league/team briefing with background work and
