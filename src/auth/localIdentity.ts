@@ -453,12 +453,13 @@ export async function loadIdentity(dir = defaultIdentityDir()): Promise<LocalIde
  * ownership is unaffected. A running server keeps its loaded identity until it is
  * given the new one (LocalAuthenticator.useIdentity) or restarted. The file is
  * replaced through replaceIdentityFile while the rotation lock is held; `wait` is
- * passed to it, for tests.
+ * passed to it, for tests. On Windows, creating the lock is retried after the same
+ * bounded waits when it fails with EPERM; EEXIST is never retried.
  */
 export async function rotateIdentity(
   dir = defaultIdentityDir(),
   {
-    wait,
+    wait = sleep,
     posixReplace,
     platform = process.platform,
     openLock = (lockPath) => open(lockPath, "wx")
@@ -474,23 +475,31 @@ export async function rotateIdentity(
   const lockPath = join(dir, "rotate.lock");
   let lock;
   let keepLock = false;
-  try {
-    lock = await openLock(lockPath);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "EEXIST")
-      throw new LocalIdentityError(
-        `Another rotation holds ${lockPath}. If no rotation is running, remove that file and retry.`
-      );
-    // A Windows lock-open EPERM can be contention, including a delete-pending lock;
-    // the original field holder is not established. Refuse before owning a lock or
-    // changing identity bytes, preserving the native cause. Other errors pass through.
-    if (platform === "win32" && code === "EPERM")
-      throw new LocalIdentityError(
-        `Rotation lock ${lockPath} is unavailable, possibly held by another rotation; nothing was changed. Retry.`,
-        { cause: error }
-      );
-    throw error;
+  // Only a successful exclusive creation grants the lock. On Windows, EPERM from that
+  // creation is what a delete-pending lock (removed by its owner while a reader still
+  // holds it open) returns until the last handle closes. The creation failed, so nothing
+  // is owned and nothing is touched; it is retried after the same bounded waits. EEXIST
+  // (a live lock) is never retried, and no lock is removed or stolen.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      lock = await openLock(lockPath);
+      break;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "EEXIST")
+        throw new LocalIdentityError(
+          `Another rotation holds ${lockPath}. If no rotation is running, remove that file and retry.`
+        );
+      if (platform !== "win32" || code !== "EPERM") throw error;
+      if (attempt >= REPLACE_WAITS_MS.length)
+        // The holder is not established; refuse before owning a lock or changing
+        // identity bytes, preserving the native cause.
+        throw new LocalIdentityError(
+          `Rotation lock ${lockPath} is unavailable, possibly held by another rotation; nothing was changed. Retry.`,
+          { cause: error }
+        );
+      await wait(REPLACE_WAITS_MS[attempt]);
+    }
   }
   try {
     await verifyPrivate(path, "file");
@@ -502,7 +511,7 @@ export async function rotateIdentity(
     let keepTemp = false;
     try {
       await replaceIdentityFile(temp, path, {
-        ...(wait ? { wait } : {}),
+        wait,
         ...(posixReplace ? { posixReplace } : {})
       });
     } catch (error) {

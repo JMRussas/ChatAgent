@@ -78,13 +78,17 @@ A session token is `base64url(payload).base64url(HMAC-SHA256(sessionKey, payload
 `rotateIdentity` replaces the authenticators and keeps the principal id, so
 ownership is unaffected.
 
-- Rotations are serialized by an exclusive lock file. A lock left by a crash is
-  reported, never broken automatically. A Windows `EPERM` while opening that lock
-  refuses rotation with `LocalIdentityError` and retains the native error as its
-  cause. The call does not own or remove the lock and has not changed identity
-  bytes. This handles that known error path; it does not establish which holder
-  caused an earlier field failure. Other native codes/platforms retain their
-  existing behavior. Regression: `tests/unit/localIdentityRecurrence.test.ts`.
+- Rotations are serialized by exclusive lock creation. A lock left by a crash is
+  reported, never broken automatically. Windows lock-open `EPERM` is retried with
+  six finite waits (25, 50, 100, 200, 400, 800 ms); successful exclusive creation
+  is the only grant of ownership. `EEXIST` remains immediate refusal. Exhausted
+  `EPERM` gives `LocalIdentityError` retaining native cause; the caller does not
+  own or remove the lock or change identity bytes. Other native codes/platforms
+  retain their existing behavior. Real delete-pending handle tests prove recovery
+  after release, bounded refusal while held, and refusal if another owner wins
+  the name. This establishes the mechanism, not the original field holder.
+  Regression: `tests/integration/localIdentityLockContention.test.ts` and
+  `tests/unit/localIdentityRecurrence.test.ts`.
 - Rotation refuses to pass the largest safe epoch, leaving the file unchanged.
 - The new file replaces the old one by rename while the lock is held. On Windows a
   rename onto a file another process holds open fails with `EPERM` until it is
