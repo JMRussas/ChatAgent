@@ -68,6 +68,7 @@ export const ROUTES: readonly RouteRule[] = [
   rule("POST", "/pair/reissue", "operator"),
   rule("GET", "/telemetry/evaluation", "operator"),
   rule("POST", "/briefings/config/reload", "operator"),
+  rule("POST", "/roles/config/reload", "operator"),
   rule("GET", "/workers/document-tasks/status", "operator"),
   rule("POST", "/workers/document-tasks/restart", "operator"),
   rule("GET", "/workers/document-tasks/recovery-candidates", "operator"),

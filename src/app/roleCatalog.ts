@@ -1,7 +1,7 @@
 import { retrievalAnswerPolicySchema } from "./retrievalAnswerContract";
 import { GenerationError } from "../domain/generation";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { closeSync, openSync, readSync } from "node:fs";
 import { z } from "zod";
 import type { CapabilityTool } from "./capabilityChat";
 import type { RunControls } from "./runControls";
@@ -115,11 +115,45 @@ export class RoleCatalog {
     };
   }
 }
+const MAX_CATALOG_BYTES = 1 << 20;
+/** One read through one descriptor, at most 1 MiB, decoded as strict UTF-8. */
+function readCatalogFile(path: string) {
+  const fd = openSync(path, "r");
+  try {
+    const buffer = Buffer.alloc(MAX_CATALOG_BYTES + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const n = readSync(fd, buffer, length, buffer.length - length, null);
+      if (n === 0) break;
+      length += n;
+    }
+    if (length > MAX_CATALOG_BYTES) throw new Error("Role catalog is too large");
+    const bytes = buffer.subarray(0, length);
+    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+    return { value: JSON.parse(text) as unknown, bytes };
+  } finally {
+    closeSync(fd);
+  }
+}
 export async function loadRoleCatalog(path?: string) {
   if (!path?.trim()) return undefined;
   try {
-    return new RoleCatalog(JSON.parse(await readFile(path, "utf8")));
+    return new RoleCatalog(readCatalogFile(path).value);
   } catch {
     throw new GenerationError("ROLE_CATALOG_INVALID", false);
+  }
+}
+/** Synchronous from read to replace, so reloads cannot interleave. */
+export function reloadRoleCatalog(catalog: RoleCatalog, path: string) {
+  try {
+    const { value, bytes } = readCatalogFile(path);
+    catalog.replace(value);
+    return {
+      version: "role-catalog-v1" as const,
+      roleIds: catalog.list().map((r) => r.id),
+      sha256: createHash("sha256").update(bytes).digest("hex")
+    };
+  } catch {
+    throw new GenerationError("ROLE_CATALOG_RELOAD_FAILED", false);
   }
 }

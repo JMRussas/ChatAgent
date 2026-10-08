@@ -39,17 +39,17 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                             |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | -------------------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | assigned | codex-chatagent / supervised pipeline worker |
+| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed | codex-chatagent / supervised pipeline worker |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -256,7 +256,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 ### CA-ISSUE-012 — Role catalog changes need a restart
 
-- **Gap:** the role catalog is read once at startup (`src/server.ts`,
+- **Original gap (resolved):** the role catalog was read once at startup (`src/server.ts`,
   `loadRoleCatalog(process.env.ROLE_CATALOG_PATH)`), through an unbounded file read.
   `RoleCatalog.replace` exists and claimed messages already keep a snapshot
   (`tests/unit/roleCatalog.test.ts`), but nothing re-reads the file at runtime, so an
@@ -290,14 +290,40 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   verify steps (Vitest oracle and `tsc --noEmit` on pinned Node 24.21.0), the npm CLI,
   lockfile and tool hashes, and the worker bounds (40 turns, $1.00 per round, at most
   two rounds).
-- **Depends on:** Hekate's bounded operator task runner for this spec (design
-  accepted in bridge message 1632; implementation and its independent review
-  pending).
+- **Runner:** Hekate plan 040 at `30279d83a5814a641e3ba06c1da67645a9fe0d3a`,
+  independently reviewed by root (bridge message 1726), with 933 default tests
+  passing and one optional live test skipped. The real npm interoperability check
+  passed separately.
 - **Closure criteria:** a supervised worker's artifact passes both oracle files
   unchanged and `tsc` under the runner's independent verifier, with only the allowed
   files changed; root reviews the source, including descriptor growth and concurrent
   reloads, and integrates it onto current main with the oracle; independently
   verified.
+- **Closure evidence (2026-10-07):** the real Claude CLI produced artifact
+  `a7fd2ec7225e480af20c581844663ffb7853be48` in one round, changing only the three
+  allowed source files. ChatAgent Claude independently reviewed the source, including
+  file growth, atomic replacement, snapshots and operator authorization (bridge
+  message 1707); root also reviewed it.
+- **Verification recovery:** the original Hekate pilot stopped before test execution
+  at a Windows worktree path-length failure and remains `needs_operator` /
+  `review_uncertain`. After the runner fix, one fresh verifier-only recheck accepted
+  the same artifact: all 15 frozen oracle cases and typecheck passed. Its
+  `verify-evidence.json` SHA-256 is
+  `3c05d6cd87e9014f21a89682b91e51dfcfe187cbb5ec4fc6d7280d2dabb23331` (bridge
+  message 1729; root independently checked its bindings, unchanged originals,
+  worktree and oracle hashes). This uses the original recorded binding; the raw
+  review view was not preserved. It is artifact verification, not recovery of the
+  original H1 or PlanStore decision.
+- **Integrated checks:** root's isolated integration on current main passed 2,171
+  tests, with nine skipped and zero failures, plus format, lint and `docs:check`
+  (seven symbols, 15 invariants). The local full-suite report is
+  `node_modules/.cache/root-ca012-checks/full-suite.json`, SHA-256
+  `0beb05fec67e1f4184550b04bf9c026600bf203cc7d80aa443c51fd0e9559896`.
+  Integration adds the new operator route to the existing route-inventory test,
+  gives the integrated HTTP tests explicit 30-second startup timeouts and applies
+  pinned Prettier formatting. The frozen verifier oracle and historical evidence
+  remain unchanged. Tests and implementation are integrated together; the failing
+  oracle-only branch is not merged on its own.
 
 ## External dependencies
 

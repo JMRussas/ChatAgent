@@ -1864,17 +1864,26 @@ reviewed existing-repository task through this supervised loop, with an immutabl
 acceptance oracle and a bounded operator configuration. Unattended recovery and
 production policy remain outside this local pilot.
 
-_First existing-repository task selected 2026-10-07 (CA-ISSUE-012, assigned, not
-implemented):_ operator reload of the role catalog without a restart, through a
-bounded read and an operator route. Its acceptance oracle is frozen on the isolated
-branch `task/ca012-base` at `1f75576` (intentionally failing there; never merged to
-main as-is), and its task spec is frozen as `supervised-task-spec.v0`
-`b919504a…22d4e`. A supervised pipeline worker implements it through Hekate's
-bounded operator task runner, whose design root accepted and whose implementation
-awaits independent review. Closure needs the worker's artifact to pass the oracle and
-`tsc` under the independent verifier, and root review and integration on current
-main. Hekate's PlanStore remains the task authority; this entry records scope and
-evidence only.
+_First existing-repository task verified and integrated 2026-10-07 (CA-ISSUE-012,
+closed):_ operator reload of the role catalog without restarting, with a bounded
+strict-UTF-8 read, atomic replacement and an operator-only route. The real Claude
+CLI produced artifact `a7fd2ec` against the isolated oracle base `1f75576` and frozen
+task spec `b919504a…22d4e`. The original Hekate pilot stopped before tests because
+the verifier worktree exceeded Windows' path limit; its outcome remains
+`needs_operator`, with no recovered PlanStore decision. The repaired runner at
+`30279d8` accepted the same artifact in a fresh verifier-only recheck: all 15 frozen
+oracle tests and typecheck passed. Root independently checked its preserved binding,
+artifact and evidence; the raw review view was not preserved or replayed.
+
+Implementation and tests are integrated together, including the existing auth route
+inventory update, explicit 30-second HTTP test startup timeouts and pinned
+formatting. Root's integration checks passed 2,171 tests (nine skipped, zero
+failures), lint and documentation contracts. The register records the evidence
+digests and exact scope; acceptance of the frozen oracle is narrower than full-repo
+regression checks. Hekate's PlanStore remains the authority for each pilot's task
+state. The broader roadmap is still coordinated through the bridge and documents;
+it is not a persistent live roadmap graph in either application. Unattended recovery
+and production policy remain deferred.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

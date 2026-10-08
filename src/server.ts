@@ -1,5 +1,5 @@
 import { rolePlannerEngine } from "./app/rolePlanner";
-import { loadRoleCatalog } from "./app/roleCatalog";
+import { loadRoleCatalog, reloadRoleCatalog } from "./app/roleCatalog";
 import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
 import type { BriefingHttp } from "./sports/briefingHttp";
@@ -173,6 +173,8 @@ interface ServerOptions {
   /** Without it, /pair answers 404 PAIRING_DISABLED. */
   pairing?: PairingOptions;
   briefings?: BriefingHttp;
+  /** Re-reads the configured role catalog; absent when no catalog file is configured. */
+  reloadRoles?: () => unknown;
   documentTasks?: DocumentTasks;
   /** Operator status and restart of the document sidecar; absent when it is disabled. */
   documentTaskControl?: DocumentTaskControl;
@@ -737,6 +739,21 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         } catch {
           return json(res, 400, {
             code: "SPORTS_BRIEFING_RELOAD_FAILED",
+            error: "Configuration unchanged; check the configured file"
+          });
+        }
+      }
+
+      if (method === "POST" && url.pathname === "/roles/config/reload") {
+        if (!options.reloadRoles) return json(res, 404, { code: "ROLE_RELOAD_DISABLED" });
+        z.object({})
+          .strict()
+          .parse(requireObjectBody(await parseBody()));
+        try {
+          return json(res, 200, options.reloadRoles());
+        } catch {
+          return json(res, 400, {
+            code: "ROLE_CATALOG_RELOAD_FAILED",
             error: "Configuration unchanged; check the configured file"
           });
         }
@@ -1889,8 +1906,12 @@ export async function startServer(
     console.log(
       `Pair a browser: open ${pairUrl} and enter ${code} (one use, valid for 10 minutes).`
     );
+  const rolePath = process.env.ROLE_CATALOG_PATH;
   const server = createChatServer(service, {
     briefings,
+    ...(roleCatalog && rolePath
+      ? { reloadRoles: () => reloadRoleCatalog(roleCatalog, rolePath) }
+      : {}),
     documentTasks,
     documentTaskControl: documentTasks,
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
