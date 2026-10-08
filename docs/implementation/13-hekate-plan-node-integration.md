@@ -205,6 +205,33 @@ expected states with acknowledgement unknown.
 Durable execution acknowledgement, progress evidence and wake-ups remain
 unimplemented; they depend on Hekate's journal and supervisor work.
 
+## Task authoring profile (hekate-task-profile.v0)
+
+`docs/contracts/hekate-task-profile.json` is ChatAgent's reviewed input to Hekate's
+single-task authoring command. That command composes one pinned
+`supervised-task-spec.v0` from this profile and a per-task draft. The draft holds the
+judgment fields: base, task text, allow list, oracle paths and notes.
+
+- **Trusted pins, not whatever is on disk.** The profile pins three things:
+  - the Node executable and npm CLI, by path, version and sha256;
+  - the lockfile, with its vitest and tsc entries, by sha256;
+  - the offline dependency install, the oracle runner, the remaining verify steps
+    (typecheck, full suite, docs check) and the default worker bounds (Sonnet, a
+    nominal $1 per round, 2 rounds, 40 turns).
+
+  The command refuses a draft when a pinned tool does not hash to its pin. It also
+  refuses when the task base's lockfile differs from the pinned one.
+
+- **Values.** They are the ones reviewed for the first real run (chain-ab-001, root
+  GO 1946).
+- **Changing them.** A Node, npm or lockfile change needs a reviewed profile update.
+  `tests/unit/hekateTaskProfile.test.ts` fails until it is made: it checks the shape,
+  that the lockfile pin equals `package-lock.json`, that the Node version equals
+  `.node-version`, that every command runs the pinned Node, and that `{oracle}`
+  appears only in the oracle runner.
+- **Scope.** The worker executable pin is not part of the profile; each run's launch
+  records it. Recipes and multi-task plans are still authored by hand.
+
 ## Offline handoff delivery verification (E2e consumer, verification stage)
 
 Status: implemented and lead-accepted 2026-10-07 after an independent review by
