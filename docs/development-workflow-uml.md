@@ -77,7 +77,6 @@ classDiagram
         +readTranscript()
     }
     class ActivityClassifier {
-        <<in preparation>>
         +classifyActivity()
     }
     class ActivityReport {
@@ -179,6 +178,48 @@ Sources: [development workflow](agent-bridge-development-workflow.md),
 [Hekate integration contract](implementation/13-hekate-plan-node-integration.md)
 and Hekate's `e1/task_author.py`, `task_runner.py`, `plan_run.py`, `pilot_real.py`
 and `cli_worker.py` under `scripts/local/supervisor_e1/`.
+
+## Hekate plans browser (existing, read-only)
+
+Hekate already has a local browser for managed plans
+(`context-store/ui/src/components/ManagedPlansView.tsx`, Hekate plans 021 and 022).
+It shows a plan's tree, dependency map, node detail and event history so a person can
+see each node's readiness, attempts, blockers and decisions. Its API client
+(`context-store/ui/src/planContract/api.ts`) only issues GET requests to PlanStore's
+`/api/plan-contract/v1` endpoints, so it reads PlanStore's own derived state and
+changes nothing.
+
+```mermaid
+classDiagram
+    class ManagedPlansView {
+        +plan list
+        +selected plan and node
+    }
+    class PlanContractApi {
+        +listPlans()
+        +getPlan()
+        +getPlanEvents()
+        +getNodeEvents()
+    }
+    class PlanStore {
+        +plans and nodes
+        +derived states and blockers
+        +attempts and decisions
+        +event history
+    }
+    ManagedPlansView *-- PlanTree
+    ManagedPlansView *-- DependencyMap
+    ManagedPlansView *-- NodeDetail
+    ManagedPlansView *-- EventsTimeline
+    ManagedPlansView ..> PlanContractApi : uses
+    PlanContractApi ..> PlanStore : GET only
+```
+
+This view is distinct from the static diagrams in this document and from evidence that
+a worker is executing. It shows what PlanStore has recorded. A shared ChatAgent and
+Hekate execution and bridge visualization remains proposed
+([doc 13](implementation/13-hekate-plan-node-integration.md#proposed-shared-agent-and-task-visualization))
+and is not implemented.
 
 ## Initial response classification
 
