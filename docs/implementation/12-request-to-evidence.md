@@ -485,7 +485,9 @@ an opt-in catalog at startup. The example uses `fixed` for the configured provid
 catalog-routing deployments must set valid enabled fast-binding IDs instead. Loading
 a role catalog does not make fixture/mock providers factual. The existing unselected
 planner remains available when no `roleId` is supplied; this is task configuration,
-not an application-wide authorization system.
+not an application-wide authorization system. An operator can apply edits to the
+configured file without restarting (CA-ISSUE-012); see
+[Role catalog](../runtime-reference.md#role-catalog) in the runtime reference.
 
 Send `runControls: {roleId: "sports-researcher"}` through the existing chat APIs.
 Optional `toolIds` narrows the role's tools; `bindingId` overrides require an explicit

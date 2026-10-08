@@ -1019,6 +1019,37 @@ games/news. The request uses the briefing schema with explicit exclusive end `no
 and inclusive `lastSuccessful` timestamps. The model-planning path does not depend
 on this endpoint or a sports-specific UI. User IDs remain prototype ownership guards.
 
+## Role catalog
+
+`ROLE_CATALOG_PATH` names an optional role catalog, read once at startup (see
+[role configuration](implementation/12-request-to-evidence.md)). The file is read
+through one bounded read of at most 1 MiB and decoded as strict UTF-8; a larger,
+non-UTF-8, malformed or invalid file fails startup with `ROLE_CATALOG_INVALID`.
+
+After editing that file, apply it without restarting (an operator route: send the
+operator token, or use a paired browser session from the page):
+
+```bash
+curl -X POST http://localhost:3100/roles/config/reload \
+	-H "Authorization: Bearer <operator token>" \
+	-H "Content-Type: application/json" -d '{}'
+```
+
+- `200 {version, roleIds, sha256}`: the catalog was replaced. `sha256` is the digest
+  of the exact bytes read, so you can match it against the file you edited.
+- `400 ROLE_CATALOG_RELOAD_FAILED`: the file is unreadable, larger than 1 MiB, not
+  UTF-8, malformed or invalid. The active catalog is unchanged, and the reply never
+  echoes the file's content or path.
+- `404 ROLE_RELOAD_DISABLED`: no role catalog was configured at startup.
+- `403 OPERATOR_REQUIRED` for a client-only credential.
+
+The body must be `{}`; any field is rejected with `400`. The route always rereads the
+path configured at startup, so changing to a different file still needs a restart.
+A reload validates the whole catalog before replacing it, and runs from read to
+replace without yielding, so two reloads cannot interleave. Messages already claimed
+keep the role snapshot they started with; later messages use the reloaded catalog.
+There is no file watcher, automatic reload or UI control.
+
 ## Remaining retained-state bounds
 
 The in-memory deep queue limits both task count and serialized task bytes. Defaults
