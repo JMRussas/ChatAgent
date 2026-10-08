@@ -1894,6 +1894,13 @@ spec `467fde17…a4a1d8` adds the full repository suite and the documentation ch
 the oracle and typecheck, so the verifier sees full-repo regressions this time. A
 supervised run needs root's GO; Hekate's PlanStore remains the task authority.
 
+_CA-ISSUE-013 re-prepared 2026-10-07 (still assigned):_ the first pilot was correctly
+rejected at the full-suite step in both rounds. An existing test still asserted the old
+revalidation-stage code, so the source-only task was unsatisfiable. Task base v2
+`1bdc103` also updates that assertion and pins both test files. Spec v2
+`b644847c…2ccc3` was proven satisfiable by a throwaway reference implementation
+across all four steps before it was frozen. A second pilot needs root's review and GO.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for

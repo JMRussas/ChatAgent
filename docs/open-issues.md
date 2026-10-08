@@ -360,12 +360,37 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   cases), `tsc --noEmit`, the full repository suite and `docs:check`, on pinned Node
   24.21.0; worker bounds 40 turns, $1.00 per round, at most two rounds. Only the
   vitest and tsc entries are hash-pinned; tsx is covered by the lockfile and `npm ci`.
-- **Depends on:** root's GO for one supervised run of this spec through Hekate's
-  runner.
-- **Closure criteria:** the worker's artifact passes the oracle, typecheck, full suite
-  and documentation check under the runner's independent verifier, with only
-  `delivery.ts` changed; root reviews the source and integrates it onto current main
-  with the oracle, formatted; independently verified.
+- **First pilot (v1 spec), stopped 2026-10-07:** run `d7784379a3e3` (root GO 1768)
+  ended `needs_operator` / `max_rounds`. Both real Claude CLI rounds changed only
+  `delivery.ts` and passed the oracle and typecheck, and the verifier correctly
+  rejected both at the full-suite step. An existing assertion,
+  `tests/unit/handoffDelivery.test.ts` (the missing-`artifactRef` case), still expected
+  the old revalidation-stage `fresh_mismatch`, and the `delivery.ts`-only scope kept the
+  worker from updating it, so the v1 task was unsatisfiable (bridge messages 1775,
+  1777). The oracle preparation had run the full suite only at the base. The v1 base,
+  spec and run evidence are preserved.
+- **Task base v2 (frozen, isolated):** branch `task/ca013-base-v2` at
+  `1bdc1034d2f336a0b795512cd0daea4a2dce1dd8`, descending from `18d5ec9`. It changes only
+  that existing assertion to `delivery_mismatch`, with a comment (`handoffDelivery.test.ts`
+  SHA-256 `4c18545b9bb94bd749c2b0dae60e6377e486950082b3b314df37ee59ecf104e0`). The raw
+  anchor-to-base diff is exactly `A tests/unit/handoffIdentityVerify.test.ts` and
+  `M tests/unit/handoffDelivery.test.ts` (100644), and both files are pinned oracle
+  files. At this base the oracle fails 13 named assertions with 4 passing controls, and
+  the full suite fails those 13 plus the updated assertion.
+- **Task spec v2 (frozen candidate):** `supervised-task-spec.v0` SHA-256
+  `b644847cf964fda80b0c3d6c8e8e8740f23e0de78ee290c731f46d02fae2ccc3`. It validates under
+  Hekate's runner `30279d8`, with the same four verify steps, worker scope and bounds.
+- **Satisfiability proven before freezing:** a throwaway reference implementation,
+  never committed or shared with the worker, passed all four steps at the v2 base: all 17
+  oracle tests, typecheck, the full suite (2,188 passed, none failed) and the documentation
+  check. Known risk: the existing Windows test `tests/integration/localIdentity.test.ts`
+  can fail independently of the task (an `EPERM` rename during identity rotation), which
+  would reject at the full-suite step.
+- **Depends on:** root's review of the v2 freeze and a new GO for one supervised run.
+- **Closure criteria:** the worker's artifact passes both oracle files, typecheck, the
+  full suite and the documentation check under the runner's independent verifier, with
+  only `delivery.ts` changed; root reviews the source and integrates it onto current
+  main with the oracle, formatted; independently verified.
 
 ## External dependencies
 
