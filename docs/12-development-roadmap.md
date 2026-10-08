@@ -77,6 +77,14 @@ the [issue entry](open-issues.md#ca-issue-014--identity-rotation-can-fail-on-win
 records its node reference. A reference proof is not worker acceptance or product
 integration.
 
+The worker run `22ac83497795` was accepted in round 1 (artifact `89432e9`; CLI-reported
+$0.37, 20 turns), and ChatAgent Claude reviewed it independently. The lead's review of
+the immutable artifact found two helper-transport defects: a deadline-killed helper
+could still yield a result, and the output cap was checked after appending. Both are
+corrected in a separate integration commit, with a regression that fails on the
+artifact as accepted. CA-ISSUE-014 is closed for holders that share delete access; the
+remaining limit is recorded in the issue entry.
+
 Hekate's bounded host-observed provenance is integrated at `2066614` (HK-ISSUE-016
 closed for that metadata scope).
 The epoch/ref-only guarded takeover primitive is integrated at `521d33e`, with
@@ -1986,7 +1994,8 @@ revalidation-stage code, so the source-only task was unsatisfiable. Task base v2
 `b644847c…2ccc3` was proven satisfiable by a throwaway reference implementation
 across all four steps before it was frozen. A second pilot needs root's review and GO.
 
-_Known Windows limitation registered 2026-10-07 (CA-ISSUE-014, open):_ identity
+_Windows limitation registered 2026-10-07 (CA-ISSUE-014, closed 2026-10-08 for
+delete-sharing holders; see the active plan loop above):_ identity
 rotation can fail safely with `EPERM`, with a suspected external file holder (cause
 unproven; 80-run reproduction: about 7.5% of rotations, and the existing retry
 recovered none of the 6 observed failures). It stays in the

@@ -39,19 +39,19 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                             |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | -------------------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed   | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | closed   | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM              | defect | deferred           | assigned | codex-chatagent / claude-chatagent           |
+| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | closed | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM              | defect | deferred           | closed | codex-chatagent / supervised pipeline worker |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -459,6 +459,39 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 - **Closure criteria:** rotation on Windows succeeds despite a reader or scanner
   holding the target with delete sharing, or the defect is otherwise resolved, with
   the identity never absent or re-minted during rotation; independently verified.
+- **Closed 2026-10-08:** run `22ac83497795` (root GO 2236) was accepted in round 1.
+  The real Claude CLI artifact `89432e9a7c6c08b0639184a41683a19054418543` changes only
+  `localIdentity.ts`. After a plain rename fails with `EPERM` on Windows, the same
+  attempt tries a POSIX-semantics rename (`SetFileInformationByHandle`,
+  `FileRenameInfoEx`, `REPLACE_IF_EXISTS | POSIX_SEMANTICS`) through a fixed PowerShell
+  helper that receives only paths, in its environment. The outcome is decided by
+  reading both files back after the helper has exited:
+  - replaced: done;
+  - unchanged: the existing bounded retry and the original `EPERM`;
+  - anything else: `IdentityReplaceUncertain`, which keeps the temporary file and the
+    rotation lock.
+
+  The runner's verifier passed all four steps: the 19 frozen oracle cases, typecheck,
+  the full suite (2,240 passed / nine skipped) and the documentation check. ChatAgent
+  Claude reviewed the source independently and reran the oracle and the existing
+  identity tests on the artifact. CLI-reported usage (not metered): $0.37, 20 turns.
+
+- **Integration corrections:** the lead's review of the immutable artifact found two
+  helper-transport defects, which were fixed in a separate commit on top of the
+  unchanged artifact and frozen oracle:
+  - a helper killed at its deadline could still yield a result it had printed before
+    closing cleanly;
+  - an oversized output chunk was kept whole, past the 256-character cap.
+
+  `tests/unit/localIdentityHelper.test.ts` fails on the artifact as accepted and
+  passes with the correction.
+
+- **Remaining limit:** the fix covers holders that share delete access. A holder
+  without delete sharing, an older Windows or a filesystem without POSIX rename keeps
+  the bounded retry and the safe `EPERM` failure. The field holder's share mode is
+  indicated by the 2026-10-07 evidence (deletion succeeded while rename failed) but
+  not proven. If `EPERM` recurs in the real-file rotation test, that is the case to
+  investigate.
 
 ## External dependencies
 
