@@ -12,6 +12,9 @@ of a supervised worker task, verified against a frozen oracle. Hekate's resoluti
 guard, pure recovery projection and read-only journal collector library are
 integrated. Recovery manifest publication, a collector CLI and automatic agent
 resumption remain proposed work.
+Hekate's per-attempt prompt/stream capture and attempt viewer are integrated at
+`3ba10b7`; their read-only trace endpoint and the Codex worker adapter remain under
+implementation. The complete live trace path has not yet been demonstrated.
 
 ## Conversation and documentation execution
 
@@ -196,9 +199,11 @@ and `cli_worker.py` under `scripts/local/supervisor_e1/`.
 ## Headless node execution (product target)
 
 This is the requested target, not a claim that both worker adapters or the trace
-viewer exist today. Hekate already executes Claude CLI workers without VS Code
-and stores managed plan state in its database. Codex worker integration and
-node/attempt conversation viewing remain to be implemented.
+viewer are connected today. Hekate already executes Claude CLI workers without VS
+Code and stores managed plan state in its database. Prompt/stream capture and the
+attempt viewer are integrated; the trace endpoint and Codex worker integration
+remain to be implemented. A standalone Codex CLI read-only task has succeeded
+outside VS Code, establishing feasibility rather than a Hekate node integration.
 
 ```mermaid
 classDiagram

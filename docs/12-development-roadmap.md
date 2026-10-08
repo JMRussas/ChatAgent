@@ -41,9 +41,12 @@ inspect the existing Claude execution path, add Codex execution where missing,
 and expose node/attempt conversation and tool events in the UI. This is planned
 work; the existing Plans view exposes state and events, not those conversations.
 
-Current increment: Hekate is implementing per-attempt prompt and observable stream
-capture and its read-only trace endpoint; the companion attempt viewer is being
-implemented in Hekate's existing UI. Neither is integrated yet. A standalone
+Current increment: per-attempt prompt and observable stream capture and the
+companion attempt viewer are integrated in Hekate at `3ba10b7`. Independent checks
+passed 95 capture/CLI tests and 21 UI tests; the implementer's broader capture
+regression passed 387 tests with one opt-in skip. The read-only trace endpoint and
+Codex worker adapter remain under implementation, and a live trace rehearsal is
+pending those integrations. A standalone
 Windows Codex CLI read-only task succeeded outside VS Code, with a clean worktree
 and structured assistant and command-execution events retained under
 `D:/hekate-coordinator/codex-smoke-004`. The successful launch used an explicit
