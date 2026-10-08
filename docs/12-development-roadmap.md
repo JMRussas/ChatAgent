@@ -6,6 +6,106 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
+### Roadmap review and application execution plan (2026-10-08)
+
+Review baseline: ChatAgent `8a68f31`, clean before this review; Hekate `e27cae3`,
+with unrelated local changes preserved. Source inspection confirms that
+`scripts/devcoord.ts` provides read-only plan inspection and `--check` exit codes;
+Hekate's `e1/plan_cli.py` supports persistent local runs, dependency gating and
+separate CLI workers. The live API on port 5111 returned four earlier demonstration
+plans. Those observations are fresh; the test counts and rehearsal outcomes below
+are retained evidence, not a new full-system test run.
+
+**Assessment.** The supervised coding loop exists and has delivered reviewed
+artifacts. ChatAgent's conversation, document tasks, context controls and bounded
+runtime are implemented foundations. Hekate has authoritative plan state, accepted
+dependency gates, worker execution, independent verification, attempt traces and a
+read-only task browser. The remaining product gap is joining these capabilities in
+ChatAgent: selecting a plan, launching bounded work, seeing progress and reviewing
+the result from the conversation. A recorded `in_progress` state does not prove
+process liveness. A passing worker result does not by itself establish integration
+or user acceptance.
+
+The user requested this review, a stored Hekate plan, and execution of its first
+task with this assistant driving and monitoring. The plan is **ChatAgent supervised
+development from the conversation — 2026-10-08**, with the sequence below. PlanStore
+owns live state; this table defines scope and acceptance, not a duplicate task
+ledger. Execution remains one task at a time through the existing local runner.
+
+Stored plan root: `b556d4ce-b813-50fa-8ac5-3633297518a6`, in the existing local
+coordinator project `198f91ad-9a47-44d0-823e-c3e7993dc10f`. Its immutable import is
+`D:/hekate-coordinator/plans/chatagent-app-20261008/plan.json` (SHA-256
+`925544720a65fb9bdc1b46bcd0440d6f32e474bb59022ca1e527477fa1068248`).
+Readiness and import readback are retained alongside it. Select the plan by title
+in the Hekate Tasks/Plans browser at `http://localhost:5193/`; refresh is explicit.
+
+| Node                        | Deliverable and acceptance                                                                                                                                                                                                                                                                                                                                                                | Dependency                  |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `monitor-runbook`           | README instructions for the existing read-only status command, loopback configuration, JSON output, progress exit codes and liveness limits. Frozen oracle, full suite, typecheck and documentation checks; independently review the worker diff.                                                                                                                                         | None                        |
+| `plan-status-api`           | Opt-in ChatAgent read-only plan-status endpoint reusing `fetchCoordinationStatus`. Bound requests, preserve local authentication/ownership rules, distinguish unavailable from complete, and reject invalid roots and unsafe URLs. HTTP regressions prove no write or worker launch.                                                                                                      | `monitor-runbook`           |
+| `plan-status-ui`            | Attach a selected plan root to the visible conversation and render dependency, attempt and review states. Browser tests cover scope switching, reload, unavailable API and historical decisions. Show observed time and unknown liveness honestly.                                                                                                                                        | `plan-status-api`           |
+| `bounded-plan-launch`       | Host adapter invokes the existing Hekate persistent local runner using an explicitly prepared plan, approved workspace/tool pins and limits. No arbitrary shell input or second scheduler. Prove duplicate-submit refusal, unavailable coordinator, bounded output and uncertain/in-flight stop behavior. Settle viewer/runner API ownership before launch.                               | `plan-status-ui`            |
+| `conversation-run-controls` | A conversation action selects a prepared plan and starts its next permitted work through the adapter. Persist correlation to plan/run/attempt and expose started, stopped, awaiting review and unavailable outcomes. Define safe stop semantics; never portray killing a process as completed rollback. Browser and HTTP tests cover duplicate clicks, reload and conversation switching. | `bounded-plan-launch`       |
+| `attempt-progress-view`     | Expose Hekate attempt conversations and tool events in ChatAgent, with bounded incremental refresh and cancellation on view disposal. Keep verifier decisions separate from worker claims. Test truncation, unavailable trace, attempt changes and refresh cleanup.                                                                                                                       | `conversation-run-controls` |
+| `integrated-rehearsal`      | Run one useful bounded change from ChatAgent, watch worker and verifier evidence, review the exact accepted artifact, integrate it separately and reload the conversation. Retain commands, revisions, test results, trace identities and observed limitations. Demonstrate a refused or failed launch without a duplicate worker.                                                        | `attempt-progress-view`     |
+
+The first node has been authored, executed and accepted in round 1. Successors remain
+`spec_pending` until their predecessor artifact is reviewed and their own frozen
+acceptance and satisfiability proof exist. The existing adapter refuses package,
+lock and dot-configuration edits; the first node therefore documents the existing
+`npx tsx scripts/devcoord.ts status` command rather than adding an npm alias.
+Future tasks must respect those restrictions or explicitly extend the adapter in
+a separately reviewed increment. Do not weaken the runner to fit a task.
+
+First execution evidence: run `2adf0389b8ab`, attempt `pilot-2adf0389b8ab-r1`,
+accepted artifact `1b9d2d24303eb5faae623bdb71df9636fb12f907`. The pinned task base is
+`f8735d1`; spec SHA-256 is
+`601cde42a2dc467a7cb4941fd69224a30504790876ed1976447c2b956e8579e0`.
+The independent verifier passed the two-case oracle, typecheck, documentation
+contracts and 2,353 tests with nine opt-in skips. The worker reported unavailable
+shell tools, so its own formatting/lint claims were not used as evidence. The lead
+reviewed the exact README-only diff and integrated the artifact with its ancestry;
+Prettier's table alignment is a separate formatting correction. CLI-reported usage
+was $0.0640438 over 11 turns, within the $1/40-turn/two-round bounds.
+
+The run stopped with `spec_pending` at `plan-status-api`; dependency readiness is
+not executable readiness. Its persistent state and accepted first node remain in
+the coordinator. Evidence is under
+`D:/hekate-coordinator/runs/chatagent-app-20261008/monitor-runbook/pilot-2adf0389b8ab/`.
+ChatAgent monitor snapshots and the run result are beside the plan import. An
+initial launch refused the missing container-workspace selector before dispatch;
+the corrected launch used the maintained `HEKATE_E1_CONTAINER_WORKSPACE` setting.
+The read-only viewer was stopped through its own STOP marker for runner ownership
+and reopened after the run. No unattended recovery was added.
+
+Integration checks passed: required format/lint, documentation contracts (seven
+symbols, 15 invariants) and 13 focused monitor/oracle tests. A live browser check
+opened the accepted task and displayed “Attempt finished; trace matches its
+recorded hash.” Its 15 API requests were all GET; screenshots and the request
+manifest are beside the plan import. The viewer restart required restoring
+`HEKATE_TRACE_ROOT=D:/hekate-coordinator/runs`; without it the trace was unavailable.
+The Tasks UI at port 5193 was also restarted from clean Hekate `e27cae3`.
+
+For each node, the assistant checks authoritative readiness, prepares its exact
+base and allowlist, reviews the frozen oracle/reference proof, launches at most
+one worker, monitors plan state and retained attempt evidence, reviews the
+verifier result and exact diff, and records integration separately. Stop on stale
+pins, rejection, uncertain effects, missing evidence or exhausted bounds. Preserve
+failed attempts. This is active session supervision, not a promise of unattended
+background monitoring after the session ends.
+
+Deferred work remains explicit: CA-ISSUE-004 unattended recovery; quota
+reconciliation and persistence (008/009); wider recovery/fencing and manifest
+publication; shared deployment; optional answer-quality evaluation; and memory
+consolidation research. None is silently closed by the visible application loop.
+
+**Documentation correction.** The older checkpoint and step 6 foundation table
+below describe their dated baselines. Their statements that real coding workers
+and persistent plan execution are absent have been superseded by the October 8
+rehearsals and current source. Retain their evidence without treating those stale
+absence claims as current blockers. The current product gaps are the seven nodes
+above and the explicitly deferred work.
+
 **Priority update (2026-10-08, user direction).** Make the useful happy path
 visible before extending hardening: create one bounded plan, watch its worker
 execute in the existing Hekate Plans UI, and review the accepted result and its
@@ -248,10 +348,11 @@ truthful unknown outcomes and cross-run attempt
 bounds still open. Historical `check-002` stays stopped and unchanged. Bridge
 delivery or polling presence does not establish that a model is executing.
 
-### Handoff checkpoint — current execution status
+### Historical handoff checkpoint — 2026-10-07
 
-Current reading checkpoint (updated 2026-10-07); historical milestones and their
-validation evidence remain below:
+This checkpoint describes the October 7 baseline. The October 8 review and stored
+application execution plan at the top supersede its execution-gap statements;
+historical milestones and their validation evidence remain below:
 
 | Area                | Current scope                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
