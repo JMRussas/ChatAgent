@@ -1927,8 +1927,8 @@ dependent tasks: plan-run v0 (plan 042, `5b37ed7`) and D3 v1 (plan 044, `7661168
 - **Verified end to end.** A dependent chain runs to completion in one offline
   invocation against a disposable harness database. Root and an independent review
   each ran it.
-- **CLI under review.** A validate/run command-line entrypoint (`plan_cli`) feeds a
-  prepared plan without helper scripts.
+- **CLI integrated.** A validate/run command-line entrypoint (`plan_cli`, `08702fb`)
+  feeds a prepared plan without helper scripts.
 - **Progress in ChatAgent.** The read-only coordination status reports plan progress
   from PlanStore's own verdict, so `no_ready_work` is never shown as done.
 
