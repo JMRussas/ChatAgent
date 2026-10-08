@@ -17,6 +17,7 @@ import {
   BridgeReadError,
   MAX_ASSIGNMENTS,
   MAX_DEADLINE_MS,
+  assignmentId,
   readAssignments
 } from "../src/integrations/bridge/bridgeReader";
 import { readTranscript, TranscriptReadError } from "../src/integrations/bridge/transcriptReader";
@@ -59,7 +60,7 @@ function parse(argv: string[]): Args {
         out.agent = value;
         break;
       case "--assignment":
-        if (!value || !/^[1-9][0-9]{0,15}$/.test(value)) usage();
+        if (!value || !assignmentId(value)) usage();
         out.assignments.push(value);
         break;
       case "--threshold-min":

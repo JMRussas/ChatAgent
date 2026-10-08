@@ -178,6 +178,19 @@ describe("bridge reader endpoint", () => {
     expect(seen).toEqual([]);
   });
 
+  it("accepts the largest safe id and refuses ids that could alias as numbers", async () => {
+    const { url, seen } = await serve(() => ({ status: 404, body: {} }));
+    const [a] = await readAssignments(url, TOKEN, ["9007199254740991"]);
+    expect(a).toMatchObject({ id: "9007199254740991", incomplete: "NOT_FOUND" });
+    expect(seen.length).toBe(1);
+    // 9007199254740993 would read as 9007199254740992: both are refused, before any request.
+    for (const id of ["9007199254740992", "9007199254740993"])
+      await expect(readAssignments(url, TOKEN, [id])).rejects.toMatchObject({
+        code: "INVALID_ASSIGNMENT"
+      });
+    expect(seen.length).toBe(1);
+  });
+
   it("sends the token only as the Authorization header, never in a URL", async () => {
     const { url, seen } = await serve(bridge());
     await readAssignments(url, TOKEN, ["2153"]);

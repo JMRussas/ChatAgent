@@ -58,6 +58,14 @@ export function bridgeApiBase(url: string | undefined): string {
   return parsed.origin;
 }
 
+/**
+ * A positive decimal id that is also a safe integer, so that binding by Number(id)
+ * cannot alias two different decimal ids to one message.
+ */
+export function assignmentId(id: string): boolean {
+  return /^[1-9][0-9]{0,15}$/.test(id) && Number.isSafeInteger(Number(id));
+}
+
 /** One assignment's input stops here; the others are still read. */
 class Incomplete extends Error {
   constructor(readonly reason: IncompleteReason) {
@@ -254,7 +262,7 @@ export async function readAssignments(
     ids.length === 0 ||
     ids.length > MAX_ASSIGNMENTS ||
     new Set(ids).size !== ids.length ||
-    ids.some((id) => !/^[1-9][0-9]{0,15}$/.test(id))
+    ids.some((id) => !assignmentId(id))
   )
     throw new BridgeReadError("INVALID_ASSIGNMENT");
   const deadlineMs = Math.min(options.deadlineMs ?? 30_000, MAX_DEADLINE_MS);

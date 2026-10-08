@@ -57,11 +57,17 @@ async function bridge(delayMs = 0) {
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }
 
-const run = (args: string[], env: Record<string, string | undefined>) =>
+const run = (args: string[], env: Record<string, string | undefined>, preload: string[] = []) =>
   new Promise<{ exit: number | null; stdout: string; stderr: string }>((resolve) => {
     execFile(
       process.execPath,
-      ["--import", "tsx", "scripts/agentStalls.ts", ...args],
+      [
+        ...preload.flatMap((p) => ["--import", p]),
+        "--import",
+        "tsx",
+        "scripts/agentStalls.ts",
+        ...args
+      ],
       { env: { ...process.env, BRIDGE_URL: undefined, BRIDGE_TOKEN: undefined, ...env } },
       (error, stdout, stderr) =>
         resolve({ exit: error ? (error.code as number) : 0, stdout, stderr })
@@ -87,6 +93,10 @@ describe("agentStalls", () => {
     ["a transcript without a session", [...base, "--transcript", "x.jsonl"]],
     ["a session without a transcript", [...base, "--session", "s-1"]],
     ["an out-of-range threshold", [...base, "--threshold-min", "0"]],
+    [
+      "an id beyond the safe integers",
+      ["--agent", "claude-chatagent", "--assignment", "9007199254740992"]
+    ],
     ["an unknown flag", [...base, "--wake"]]
   ])("exits 2 for %s", async (_, args) => {
     const r = await run(args, {});
@@ -155,5 +165,21 @@ describe("agentStalls", () => {
       expect(r.stdout).not.toMatch(/\b(answered|alive|idle|stalled)\b/);
       expect(r.stdout).toContain("2153");
     }
+  });
+
+  it("stops at the deadline even when a transcript read never returns", async () => {
+    const url = await bridge();
+    const dir = await mkdtemp(join(tmpdir(), "stalls-"));
+    dirs.push(dir);
+    const transcript = join(dir, "t.jsonl");
+    await writeFile(transcript, "{}\n");
+    const started = Date.now();
+    const r = await run(
+      [...base, "--deadline-s", "1", "--transcript", transcript, "--session", "s-1"],
+      { BRIDGE_URL: url, BRIDGE_TOKEN: TOKEN },
+      ["./tests/fixtures/agentStalls/hangingRead.mjs"]
+    );
+    expect(r).toMatchObject({ exit: 1, stderr: "agentStalls: DEADLINE\n" });
+    expect(Date.now() - started).toBeLessThan(15_000);
   });
 });

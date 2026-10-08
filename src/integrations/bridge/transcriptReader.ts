@@ -3,7 +3,8 @@ import type { TranscriptExtract, TranscriptRecord } from "./activity";
 
 /**
  * Reads the tail of one Claude Code session transcript (doc 15) as metadata only.
- * Only the explicit path is read, and only when it is a regular file: its last
+ * Only the explicit path is read, and only when lstat and the opened handle both show a
+ * regular file: its last
  * MAX_TAIL_BYTES, at most MAX_LINES lines, each at most MAX_LINE_BYTES. Each JSON line
  * keeps its timestamp, type, session id, message role and stop reason, the ids of
  * tool-use and tool-result blocks, and whether a user text block is the interruption
@@ -125,13 +126,18 @@ export async function readTranscript(
   let truncated = false;
   try {
     // A regular file only: never a directory, link, pipe or device that could block.
+    // lstat before open and stat after it narrow, but cannot close, the window in
+    // which the path is swapped for a special file between the two calls; an open
+    // that blocks there is stopped only by the CLI's hard stop.
     const info = await io.lstat(path);
     if (!info.isFile()) throw new TranscriptReadError("TRANSCRIPT_NOT_A_FILE");
     check();
     const handle = await io.open(path, "r");
     try {
       check();
-      const { size } = await handle.stat();
+      const opened = await handle.stat();
+      if (!opened.isFile()) throw new TranscriptReadError("TRANSCRIPT_NOT_A_FILE");
+      const { size } = opened;
       const length = Math.min(size, MAX_TAIL_BYTES);
       truncated = size > length;
       bytes = Buffer.alloc(length);

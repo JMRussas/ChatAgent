@@ -281,9 +281,11 @@ describe("transcript reader", () => {
     ).rejects.toMatchObject({ code: "DEADLINE" });
   });
 
-  it("refuses a read that returns after the deadline, still closing its handle", async () => {
+  it("refuses a read that completes after the deadline, still closing its handle", async () => {
     const path = await file([line({ type: "attachment" })]);
     const deadline = new AbortController();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
     let closed = 0;
     const io: TranscriptIo = {
       lstat,
@@ -291,9 +293,9 @@ describe("transcript reader", () => {
         const handle = await open(p, flags);
         return {
           stat: () => handle.stat(),
-          // The read completes only after the deadline has passed.
+          // The read stays in flight until the test releases it.
           read: async (...args: Parameters<typeof handle.read>) => {
-            deadline.abort();
+            await gate;
             return handle.read(...args);
           },
           close: async () => {
@@ -303,9 +305,14 @@ describe("transcript reader", () => {
         };
       }) as unknown as TranscriptIo["open"]
     };
-    await expect(
-      readTranscript(path, SESSION, { deadline: deadline.signal, io })
-    ).rejects.toMatchObject({ code: "DEADLINE" });
+    const pending = readTranscript(path, SESSION, { deadline: deadline.signal, io });
+    let settled = false;
+    void pending.catch(() => undefined).finally(() => (settled = true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(settled).toBe(false);
+    deadline.abort();
+    release();
+    await expect(pending).rejects.toMatchObject({ code: "DEADLINE" });
     expect(closed).toBe(1);
   });
 });
