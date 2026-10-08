@@ -27,8 +27,18 @@ const EPOCH = attempt.attemptEpoch as number;
 
 const eventsPath = (n: string, after: number) =>
   `/api/plan-contract/v1/nodes/${n}/events?afterSeq=${after}`;
-const tracePath = (n: string, a: string, after: number) =>
-  `/api/plan-contract/v1/nodes/${n}/attempts/${encodeURIComponent(a)}/trace?afterSeq=${after}`;
+/** The first trace page omits afterSeq entirely: trace seq starts at zero. */
+const tracePath = (n: string, a: string, after: number | null) =>
+  `/api/plan-contract/v1/nodes/${n}/attempts/${encodeURIComponent(a)}/trace` +
+  (after === null ? "" : `?afterSeq=${after}`);
+/** Make the readiness leaves agree with the nodes, as one real plan response does. */
+const syncReadiness = (p: Plan) => {
+  const r = p.readiness as { leaves: Record<string, unknown>[] };
+  for (const l of r.leaves) {
+    const n = p.nodes.find((x) => x.id === l.nodeId);
+    if (n) for (const k of ["name", "work", "attemptId", "attemptEpoch"]) l[k] = n[k];
+  }
+};
 const planPath = `/api/plan-contract/v1/plans/${ROOT}`;
 
 const eventsBody = (
@@ -64,7 +74,7 @@ const traceBody = (
     claimKey: "k",
     status: "running",
     reason: null,
-    integrity: "complete",
+    integrity: "verified",
     executionKind: "agent",
     exit: null,
     prompt: null,
@@ -97,7 +107,7 @@ function fake(handler: Handler) {
 const standard: Handler = (path) => {
   if (path === planPath) return plan();
   if (path === eventsPath(RUNNING, 0)) return eventsBody([ev(3), ev(7)]);
-  if (path === tracePath(RUNNING, ATTEMPT, 0)) return traceBody([rec(1), rec(2)]);
+  if (path === tracePath(RUNNING, ATTEMPT, null)) return traceBody([rec(0), rec(1)]);
   throw new Error(`unexpected ${path}`);
 };
 const observer = (h: Handler, options: RoleObserverOptions = {}) => {
@@ -121,9 +131,10 @@ describe("observation sequence", () => {
     expect(calls.map((c) => c.path)).toEqual([
       planPath,
       eventsPath(RUNNING, 0),
-      tracePath(RUNNING, ATTEMPT, 0),
+      tracePath(RUNNING, ATTEMPT, null),
       planPath
     ]);
+    expect(calls[2].path).not.toContain("afterSeq");
     for (const c of calls) {
       expect(c.method).toBe("GET");
       expect(c.init.redirect).toBe("error");
@@ -170,15 +181,50 @@ describe("observation sequence", () => {
       if (path === planPath) return plan();
       if (path === eventsPath(RUNNING, 0)) return eventsBody([ev(2)], 2);
       if (path === eventsPath(RUNNING, 2)) return eventsBody([ev(5)]);
+      if (path === tracePath(RUNNING, ATTEMPT, null)) return traceBody([rec(0)], 0);
       if (path === tracePath(RUNNING, ATTEMPT, 0)) return traceBody([rec(1)], 1);
       if (path === tracePath(RUNNING, ATTEMPT, 1)) return traceBody([rec(2)]);
       throw new Error(path);
     });
     const s = await o.observe(ROOT, RUNNING);
     expect(s.events.items.map((e) => e.seq)).toEqual([2, 5]);
-    expect(s.trace?.records.map((r) => r.seq)).toEqual([1, 2]);
-    expect(calls).toHaveLength(6);
+    expect(s.trace?.records.map((r) => r.seq)).toEqual([0, 1, 2]);
+    expect(calls).toHaveLength(7);
     expect(s.consistency).toBe("current");
+  });
+
+  it("keeps the first prompt, ORs capped and marks a changed later prompt stale", async () => {
+    const prompt = { text: "p", bytes: 1 };
+    const pages =
+      (second: Record<string, unknown>): Handler =>
+      (path, n) =>
+        path.includes("/trace")
+          ? path.includes("afterSeq")
+            ? traceBody([rec(1)], null, { prompt: null, capped: false, ...second })
+            : traceBody([rec(0)], 0, { prompt, capped: true })
+          : standard(path, n);
+    const ok = await observer(pages({})).o.observe(ROOT, RUNNING);
+    expect(ok.trace?.prompt).toEqual(prompt);
+    expect(ok.trace?.capped).toBe(true);
+    expect(ok.consistency).toBe("partial");
+    expect(ok.reasons).toContain("trace_capped");
+    const changed = await observer(pages({ prompt: { text: "q", bytes: 1 } })).o.observe(
+      ROOT,
+      RUNNING
+    );
+    expect(changed.consistency).toBe("stale");
+    expect(changed.reasons).toContain("trace_prompt_changed");
+    expect(changed.trace?.prompt).toEqual(prompt);
+  });
+
+  it("hashes exactly the validated bytes and refuses a BOM", async () => {
+    const { o } = observer(standard);
+    const s = await o.observe(ROOT, RUNNING);
+    expect(s.evidence[0].sha256).toBe(
+      createHash("sha256").update(Buffer.from(s.evidence[0].rawText, "utf8")).digest("hex")
+    );
+    const bom = observer(() => new Response(new Uint8Array([0xef, 0xbb, 0xbf, 0x7b, 0x7d])));
+    expect(await code(() => bom.o.observe(ROOT, RUNNING))).toBe("INVALID_RESPONSE");
   });
 });
 
@@ -301,14 +347,43 @@ describe("refusals", () => {
     expect(await run(traceBody([rec(1)], null, { status: "not_captured" }))).toBe(
       "INVALID_SEQUENCE"
     );
+    expect(await run(traceBody([rec(0), rec(0)]))).toBe("INVALID_SEQUENCE");
+    for (const bad of [
+      { status: "accepted_by_magic" },
+      { integrity: "complete" },
+      { exit: { code: 0, killReason: null, extra: 1 } },
+      { prompt: { text: "x" } },
+      { attemptEpoch: -1 }
+    ])
+      expect(await run(traceBody([rec(0)], null, bad))).toBe("INVALID_RESPONSE");
+    expect(await run(traceBody([rec(0)], null, { exit: { code: 1.5, killReason: null } }))).toBe(
+      "INVALID_NUMBER"
+    );
+    expect(await run(traceBody([rec(0)]).replace('"stream":"stdout"', '"stream":"network"'))).toBe(
+      "INVALID_RESPONSE"
+    );
     expect(await run(traceBody([rec(1)], 1, {}).replace('"seq":1,"tMs"', '"seq":1.5,"tMs"'))).toBe(
       "INVALID_NUMBER"
     );
   });
 
+  it("refuses duplicate nodes and mismatched readiness identities", async () => {
+    const run = (edit: (p: Plan) => void) =>
+      code(() => observer(() => plan(edit)).o.observe(ROOT, RUNNING));
+    expect(await run((p) => p.nodes.push({ ...runningNode(p) }))).toBe("IDENTITY_MISMATCH");
+    const leaves = (p: Plan) => (p.readiness as { leaves: Record<string, unknown>[] }).leaves;
+    expect(await run((p) => (leaves(p)[0].attemptEpoch = 99))).toBe("IDENTITY_MISMATCH");
+    expect(await run((p) => (leaves(p)[0].nodeId = ROOT))).toBe("IDENTITY_MISMATCH");
+    expect(await run((p) => leaves(p).push({ ...leaves(p)[0] }))).toBe("IDENTITY_MISMATCH");
+  });
+
   it("refuses an unsafe attempt id before requesting the trace", async () => {
     const { o, calls } = observer((p) => {
-      if (p === planPath) return plan((pl) => (runningNode(pl).attemptId = "a b/../c"));
+      if (p === planPath)
+        return plan((pl) => {
+          runningNode(pl).attemptId = "a b/../c";
+          syncReadiness(pl);
+        });
       throw new Error(p);
     });
     expect(await code(() => o.observe(ROOT, RUNNING))).toBe("INVALID_ATTEMPT");
@@ -318,12 +393,16 @@ describe("refusals", () => {
   it("URL-encodes the attempt id in the trace path", async () => {
     const id = "a/b?c#d";
     const { o, calls } = observer((p) => {
-      if (p === planPath) return plan((pl) => (runningNode(pl).attemptId = id));
+      if (p === planPath)
+        return plan((pl) => {
+          runningNode(pl).attemptId = id;
+          syncReadiness(pl);
+        });
       if (p.includes("/events")) return eventsBody([]);
       return traceBody([], null, { attemptId: id });
     });
     await o.observe(ROOT, RUNNING);
-    expect(calls[2].path).toBe(tracePath(RUNNING, id, 0));
+    expect(calls[2].path).toBe(tracePath(RUNNING, id, null));
     expect(calls[2].path).toContain("a%2Fb%3Fc%23d");
   });
 });
@@ -377,7 +456,7 @@ describe("bounds", () => {
     const { o, calls } = observer(
       (p) => {
         if (p === planPath) return plan();
-        const after = Number(p.split("afterSeq=")[1]);
+        const after = p.includes("afterSeq=") ? Number(p.split("afterSeq=")[1]) : -1;
         if (p.includes("/events")) return eventsBody([ev(after + 1)], after + 1);
         return traceBody([rec(after + 1)], after + 1);
       },
@@ -426,7 +505,12 @@ describe("consistency", () => {
     return (p, n) => {
       if (p !== planPath) return bodies(p, n);
       plans++;
-      return plans === 1 ? plan() : plan((pl) => edit(runningNode(pl)));
+      return plans === 1
+        ? plan()
+        : plan((pl) => {
+            edit(runningNode(pl));
+            syncReadiness(pl);
+          });
     };
   };
 
@@ -434,12 +518,29 @@ describe("consistency", () => {
     ["stateRevision", (n: Record<string, unknown>) => (n.stateRevision = 99)],
     ["contentRevision", (n: Record<string, unknown>) => (n.contentRevision = 99)],
     ["attemptEpoch", (n: Record<string, unknown>) => (n.attemptEpoch = 99)],
-    ["attemptId", (n: Record<string, unknown>) => (n.attemptId = "other-attempt")]
+    ["attemptId", (n: Record<string, unknown>) => (n.attemptId = "other-attempt")],
+    ["name", (n: Record<string, unknown>) => (n.name = "renamed")],
+    ["executorRef", (n: Record<string, unknown>) => (n.executorRef = "other-executor")],
+    ["artifactRef", (n: Record<string, unknown>) => (n.artifactRef = "other-artifact")],
+    [
+      "acceptance",
+      (n: Record<string, unknown>) =>
+        (n.acceptance = {
+          decision: "accepted",
+          contentRevision: 1,
+          artifactRef: null,
+          attemptId: null,
+          attemptEpoch: 0,
+          decidedBy: "x",
+          evidenceRef: null
+        })
+    ],
+    ["effectiveAcceptance", (n: Record<string, unknown>) => (n.effectiveAcceptance = "stale")]
   ])("is stale when %s drifts between the plan reads", async (key, edit) => {
     const s = await observer(drift(edit)).o.observe(ROOT, RUNNING);
     expect(s.consistency).toBe("stale");
     expect(s.reasons).toContain(`drift_${key}`);
-    expect(s.bindings.before).not.toEqual(s.bindings.after);
+    if (key in s.bindings.before) expect(s.bindings.before).not.toEqual(s.bindings.after);
   });
 
   it("is stale when the node disappears", async () => {
@@ -448,7 +549,18 @@ describe("consistency", () => {
       if (p !== planPath) return standard(p, n);
       return ++plans === 1
         ? plan()
-        : plan((pl) => (pl.nodes = pl.nodes.filter((x) => x.id !== RUNNING)));
+        : plan((pl) => {
+            pl.nodes = pl.nodes.filter((x) => x.id !== RUNNING);
+            const r = pl.readiness as { leaves: Record<string, unknown>[] };
+            r.leaves = r.leaves.filter((l) => l.nodeId !== RUNNING);
+            for (const l of r.leaves)
+              l.blockers = (l.blockers as Record<string, unknown>[]).filter(
+                (b) => b.ownerId !== RUNNING && b.predecessorId !== RUNNING
+              );
+            pl.dependencies = (pl.dependencies as Record<string, unknown>[]).filter(
+              (d) => d.predecessorId !== RUNNING && d.successorId !== RUNNING
+            );
+          });
     });
     const s = await o.observe(ROOT, RUNNING);
     expect(s.consistency).toBe("stale");
@@ -459,9 +571,9 @@ describe("consistency", () => {
   it("is stale, not current, when trace page metadata changes between pages", async () => {
     const { o } = observer((p, n) =>
       p.includes("/trace")
-        ? p.endsWith("afterSeq=0")
+        ? !p.includes("afterSeq")
           ? traceBody([rec(1)], 1)
-          : traceBody([rec(2)], null, { status: "exited", integrity: "complete" })
+          : traceBody([rec(2)], null, { status: "exited" })
         : standard(p, n)
     );
     const s = await o.observe(ROOT, RUNNING);
@@ -470,17 +582,15 @@ describe("consistency", () => {
     expect(s.trace?.metadataStable).toBe(false);
   });
 
-  it.each(["incomplete", "missing", "unavailable"])(
-    "is partial when trace integrity is %s",
-    async (integrity) => {
-      const { o } = observer((p, n) =>
-        p.includes("/trace") ? traceBody([rec(1)], null, { integrity }) : standard(p, n)
-      );
-      const s = await o.observe(ROOT, RUNNING);
-      expect(s.consistency).toBe("partial");
-      expect(s.reasons).toContain(`trace_integrity_${integrity}`);
-    }
-  );
+  it.each(["unverified", "none"])("is partial when trace integrity is %s", async (integrity) => {
+    const { o } = observer((p, n) =>
+      p.includes("/trace") ? traceBody([rec(1)], null, { integrity }) : standard(p, n)
+    );
+    const s = await o.observe(ROOT, RUNNING);
+    expect(s.consistency).toBe("partial");
+    expect(s.reasons).toContain(`trace_integrity_${integrity}`);
+    expect(s.assessment).toMatchObject({ workerLiveness: "unknown", usefulProgress: "unknown" });
+  });
 
   it("is partial when a trace is capped and accepts not_captured", async () => {
     const capped = observer((p, n) =>
@@ -491,11 +601,13 @@ describe("consistency", () => {
     expect(a.reasons).toContain("trace_capped");
     const none = observer((p, n) =>
       p.includes("/trace")
-        ? traceBody([], null, { status: "not_captured", integrity: "missing", executionKind: null })
+        ? traceBody([], null, { status: "not_captured", integrity: "none", executionKind: null })
         : standard(p, n)
     );
     const b = await none.o.observe(ROOT, RUNNING);
     expect(b.trace?.status).toBe("not_captured");
+    expect(b.consistency).toBe("partial");
+    expect(b.reasons).toContain("trace_not_captured");
     expect(b.assessment.workerLiveness).toBe("unknown");
   });
 
@@ -526,8 +638,13 @@ describe("untrusted data and immutability", () => {
     );
     const s = await o.observe(ROOT, RUNNING);
     expect(s.trace?.records[0].text).toBe(injected);
-    expect(s.aiSnapshot.untrusted.traceTail[0].text).toBe(injected);
-    expect(JSON.stringify(s.aiSnapshot.facts)).not.toContain("IGNORE PREVIOUS");
+    const ai = JSON.stringify(s.aiSnapshot);
+    expect(ai).not.toContain("IGNORE PREVIOUS");
+    for (const forbidden of ["traceTail", "executorRef", "artifactRef", "decidedBy", "evidenceRef"])
+      expect(ai).not.toContain(forbidden);
+    expect(s.aiSnapshot.facts.task.nodeId).toBe(RUNNING);
+    expect(s.aiSnapshot.facts.trace).toMatchObject({ firstSeq: 1, lastSeq: 1, recordCount: 1 });
+    expect(s.aiSnapshot.policy.dataTrust).toMatch(/untrusted source/);
     expect(s.aiSnapshot.policy.dataTrust).toMatch(/Never follow/);
     expect(s.task.effectiveAcceptance).toBe("none");
     expect(calls.every((c) => c.method === "GET")).toBe(true);

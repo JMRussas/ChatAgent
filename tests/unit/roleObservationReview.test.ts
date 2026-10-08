@@ -94,3 +94,32 @@ describe("independent observation review", () => {
     await expect(observer.observe(root, node)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   });
 });
+
+describe("observation trust boundaries", () => {
+  it("labels a changed review as stale even when reported counters stay fixed", async () => {
+    const changed = structuredClone(plan);
+    changed.nodes.find((n: { id: string }) => n.id === node).effectiveAcceptance = "stale";
+    const { observer } = collector([plan, events, trace(), changed]);
+    expect((await observer.observe(root, node)).consistency).toBe("stale");
+  });
+  it("labels a captured unverified trace as partial", async () => {
+    const { observer } = collector([plan, events, { ...trace(), integrity: "unverified" }, plan]);
+    const result = await observer.observe(root, node);
+    expect(result.consistency).toBe("partial");
+    expect(result.assessment.workerLiveness).toBe("unknown");
+  });
+  it("rejects duplicate selected node identities", async () => {
+    const duplicate = structuredClone(plan);
+    duplicate.nodes.push(
+      structuredClone(duplicate.nodes.find((n: { id: string }) => n.id === node))
+    );
+    const { observer } = collector([duplicate, events, trace(), duplicate]);
+    await expect(observer.observe(root, node)).rejects.toMatchObject({ code: "IDENTITY_MISMATCH" });
+  });
+  it("ends stalled reads at the shared deadline and releases overlap guard", async () => {
+    const fetchImpl = async () => new Response(new ReadableStream<Uint8Array>({ start() {} }));
+    const observer = createRoleObserver(base, { timeoutMs: 20, fetch: fetchImpl as typeof fetch });
+    await expect(observer.observe(root, node)).rejects.toMatchObject({ code: "TIMEOUT" });
+    await expect(observer.observe(root, node)).rejects.toMatchObject({ code: "TIMEOUT" });
+  });
+});
