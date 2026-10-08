@@ -1916,17 +1916,34 @@ regression checks inside the verifier. The integration carries the artifact unch
 with both frozen oracle files. The TypeScript and Python consumers now refuse a
 missing review identity field at the same stage with the same code.
 
-_Plan-driven dependent tasks, offline v0 (2026-10-07):_ Hekate's plan-run v0 (plan 042,
-`5b37ed7`) imports a small dependent plan into PlanStore and drives its ready nodes one
-at a time through the existing supervised runner. Root independently ran its two-task
-demo: both tasks were accepted, in dependency order, against a disposable harness
-database. ChatAgent's read-only coordination status now reports plan progress from
-PlanStore's own verdict, so `no_ready_work` is never shown as done (captured fixtures of
-in-progress, awaiting-review, rejected, stale and complete states). Limits: each
-successor's task base is prepared by an operator between tasks (fetch the predecessor's
-artifact, commit the next oracle, freeze and pin its spec); deriving that base
-automatically (D3) is in progress. The plan does not outlive a run (no persistent store
-yet), and nothing runs unattended.
+_Plan-driven dependent tasks, offline v0 (2026-10-07):_ Hekate runs a prepared plan of
+dependent tasks: plan-run v0 (plan 042, `5b37ed7`) and D3 v1 (plan 044, `7661168`).
+
+- **Import and drive.** A small plan is imported into PlanStore. Its ready nodes are
+  driven one at a time through the existing supervised runner.
+- **Successor bases are derived automatically.** A successor's task base now comes from
+  its predecessor's accepted artifact plus a pinned oracle. This works only within the
+  same source repository and needs no operator step between tasks.
+- **Verified end to end.** A dependent chain runs to completion in one offline
+  invocation against a disposable harness database. Root and an independent review
+  each ran it.
+- **CLI under review.** A validate/run command-line entrypoint (`plan_cli`) feeds a
+  prepared plan without helper scripts.
+- **Progress in ChatAgent.** The read-only coordination status reports plan progress
+  from PlanStore's own verdict, so `no_ready_work` is never shown as done.
+
+The earlier manual handoff, in which an operator prepared each successor's base, stays
+recorded in Hekate's plan 042 and its fixture provenance.
+
+Limits:
+
+- the lead or authoring agent still writes the plan, the task specs and the recipes,
+  and nothing decomposes a roadmap automatically;
+- the plan store is disposable, so a stopped run is not resumed: it is rerun;
+- there is no automatic restart recovery and no unattended operation;
+- accepted work is not integrated into the primary repository or pushed automatically.
+
+Next on Hekate is local persistence (P2). No authoring framework is being built yet.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
