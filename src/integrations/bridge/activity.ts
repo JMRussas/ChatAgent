@@ -142,22 +142,150 @@ export interface ActivityInput {
   thresholdMs: number;
 }
 
+const isTime = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n >= 0;
+
+function unknownAssignment(a: AssignmentExtract): AssignmentReport {
+  return {
+    id: a.id,
+    ageS: null,
+    state: "unknown",
+    uncorrelated: 0,
+    ...(a.incomplete ? { incomplete: a.incomplete } : {})
+  };
+}
+
+interface Candidate {
+  correlation: Correlation;
+  ts: number;
+}
+
+function classifyAssignment(input: ActivityInput, a: AssignmentExtract): AssignmentReport {
+  const { agent, session, nowMs, thresholdMs } = input;
+  if (a.incomplete || a.to !== agent) return unknownAssignment(a);
+  if (!isTime(a.ts) || a.ts * 1000 > nowMs) return unknownAssignment(a);
+  for (const r of [...a.events, ...a.outcomes, ...a.links]) {
+    if (!isTime(r.ts) || r.ts * 1000 > nowMs) return unknownAssignment(a);
+  }
+  const start = a.ts;
+  const ageMs = nowMs - start * 1000;
+  const ageS = Math.floor(ageMs / 1000);
+
+  const candidates: Candidate[] = [];
+  for (const o of a.outcomes) {
+    if (o.ts < start) continue;
+    if (o.kind !== "blocked" && o.kind !== "completed" && o.kind !== "verified") continue;
+    let attribution: Correlation["attribution"] | null = null;
+    if (o.actor === agent) attribution = "authenticated";
+    else if (o.actor === "fenrir" && o.role === agent && (session === undefined || o.session === session)) {
+      attribution = "reported";
+    }
+    if (attribution) candidates.push({ ts: o.ts, correlation: { source: "outcome", kind: o.kind, attribution } });
+  }
+  let uncorrelated = 0;
+  for (const l of a.links) {
+    if (l.ts < start) continue;
+    let attribution: Correlation["attribution"] | null = null;
+    if (l.relation === "replies_to" && l.from !== null) {
+      if (l.actor === agent && l.from.principal === agent) attribution = "authenticated";
+      else if (
+        l.actor === "fenrir" &&
+        l.from.principal === "fenrir" &&
+        l.from.role === agent &&
+        (session === undefined || l.from.session === session)
+      ) {
+        attribution = "reported";
+      }
+    }
+    if (attribution) candidates.push({ ts: l.ts, correlation: { source: "link", attribution } });
+    else if (l.actor === agent) uncorrelated++;
+  }
+
+  if (candidates.length > 0) {
+    const rank = (c: Candidate): number =>
+      (c.correlation.attribution === "authenticated" ? 0 : 2) + (c.correlation.source === "outcome" ? 0 : 1);
+    let best = candidates[0];
+    for (const c of candidates) {
+      if (rank(c) < rank(best) || (rank(c) === rank(best) && c.ts < best.ts)) best = c;
+    }
+    return { id: a.id, ageS, state: "correlated_reply_observed", correlation: best.correlation, uncorrelated };
+  }
+  let state: AssignmentState;
+  if (ageMs <= thresholdMs) state = "within_threshold";
+  else if (
+    a.events.some((e) => (e.kind === "offered" || e.kind === "consumed" || e.kind === "acknowledged") && e.ts >= start)
+  ) {
+    state = "fetched_no_correlated_reply";
+  } else state = "unfetched_past_threshold";
+  return { id: a.id, ageS, state, uncorrelated };
+}
+
+function classifySession(input: ActivityInput): SessionState {
+  const { transcript, nowMs, thresholdMs } = input;
+  if (!transcript) return "session_unobservable";
+  if (transcript.truncated) return "session_unknown";
+  const all = transcript.records;
+  const conv: TranscriptRecord[] = [];
+  let lastAssistantIndex = Infinity;
+  let lastAssistantPos = -1;
+  all.forEach((r, i) => {
+    if (r.malformed || (r.role !== "user" && r.role !== "assistant")) return;
+    conv.push(r);
+    if (r.role === "assistant") {
+      lastAssistantIndex = i;
+      lastAssistantPos = conv.length - 1;
+    }
+  });
+  if (conv.length === 0) return "session_unknown";
+  for (const r of conv) {
+    if (!isTime(r.ts) || r.ts > nowMs) return "session_unknown";
+  }
+  const bound = Math.min(all.length - 20, lastAssistantIndex);
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].malformed && i >= bound) return "session_unknown";
+  }
+  const seenUse = new Set<string>();
+  const seenResult = new Set<string>();
+  for (const r of conv) {
+    for (const id of r.toolUseIds) {
+      if (seenUse.has(id)) return "session_unknown";
+      seenUse.add(id);
+    }
+    for (const id of r.toolResultIds) {
+      if (seenResult.has(id)) return "session_unknown";
+      seenResult.add(id);
+    }
+  }
+  const last = conv[conv.length - 1];
+  if (nowMs - (last.ts as number) <= thresholdMs) return "observed_recent_record";
+  if (lastAssistantPos >= 0) {
+    const ids = conv[lastAssistantPos].toolUseIds;
+    if (ids.length > 0) {
+      const later = new Set<string>();
+      for (let k = lastAssistantPos + 1; k < conv.length; k++) {
+        for (const id of conv[k].toolResultIds) later.add(id);
+      }
+      if (ids.some((id) => !later.has(id))) return "tool_pending_unknown_cause";
+    }
+  }
+  if (last.role === "user" && last.interruptionMarker) return "interrupted_marker_observed";
+  if (last.role === "assistant" && (last.stopReason === "end_turn" || last.stopReason === "stop_sequence")) {
+    return "ended_turn_observed";
+  }
+  return "session_unknown";
+}
+
 /**
- * The classifier. A deliberate, conservative stub until the classifier task fills it
- * (doc 15): every assignment is `unknown` and the session is `session_unknown`, so it
- * can never report a response, a quiet session or a missing reply that it has not
- * established.
+ * The classifier (doc 15). Pure and deterministic: it reports a response, a quiet
+ * session or a missing reply only when the input establishes it, and anything
+ * incomplete or inconsistent is `unknown`.
  */
 export function classifyActivity(input: ActivityInput): ActivityReport {
+  if (!isTime(input.nowMs) || !isTime(input.thresholdMs)) {
+    return { agent: input.agent, assignments: input.assignments.map(unknownAssignment), session: "session_unknown" };
+  }
   return {
     agent: input.agent,
-    assignments: input.assignments.map((a) => ({
-      id: a.id,
-      ageS: null,
-      state: "unknown",
-      uncorrelated: 0,
-      ...(a.incomplete ? { incomplete: a.incomplete } : {})
-    })),
-    session: "session_unknown"
+    assignments: input.assignments.map((a) => classifyAssignment(input, a)),
+    session: classifySession(input)
   };
 }
