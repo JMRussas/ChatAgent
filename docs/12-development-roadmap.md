@@ -1992,13 +1992,25 @@ adapter. Hekate runs a prepared plan of dependent tasks:
   - Round 2: creating its worktree failed before any worker started.
   - The plan stopped at `needs_operator` at 06:01Z. Its store and evidence are
     retained, and it was not retried.
-  - Cause: both failures coincide with a Windows restart attempt and logoff at about
-    06:01:52Z. The machine slept at 06:04Z. The same tree later passed the identical
-    full-suite command twice. This is a strong inference from timing; the failing
-    child exit codes were not retained.
+  - Cause: both failures coincide with a Windows restart attempt. Session teardown
+    started at about 06:01:51Z, and the failed restart was logged at 06:01:57Z. The
+    machine slept at 06:04Z. The same tree later passed the identical full-suite
+    command twice. This is a strong inference from timing; the failing child exit
+    codes were not retained.
   - Spend: CLI-reported (not metered) $0.06 in 9 turns, round 1 only.
-  - The rejection stands as recorded. Whether the candidate is accepted depends on a
-    fresh verification and an independent review.
+  - The original stop and the round 1 rejection stand unchanged.
+- **Operator artifact verification of that candidate (2026-10-08, root GO 2092).**
+  - What it is: one independent re-run of Hekate's existing verifier on `a6fb96d`,
+    in a new owned clone under a new output directory. It used no model, journal or
+    PlanStore, and it is not a recovery or a review decision.
+  - Bindings: it was bound to the original spec, the run and evidence records (by
+    sha256), the round 1 receipt and the run-owned ref. The raw review view was not
+    preserved, so the original verifier's report is the declared trust basis.
+  - Result: accepted, with all four frozen steps passing (2221 tests passed,
+    9 skipped). Evidence `verify-evidence.json` sha256 `45e4bd75`. The original
+    records were unchanged by sha256 afterwards.
+  - The candidate's source and its frozen oracle were integrated unchanged, through
+    a separately reviewed branch.
 - **Progress in ChatAgent.** The read-only coordination status reports plan progress
   from PlanStore's own verdict, so `no_ready_work` is never shown as done.
 
