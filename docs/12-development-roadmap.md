@@ -2035,14 +2035,19 @@ Limits:
   three things: an idempotent writer takeover and re-acquisition; replay after a
   crash part-way through an operator act; and recipe predecessor selection. These
   belong in one joint recovery and continuation design.
-- **A stopped node cannot continue.** A node's run root holds exactly one run. While
-  the node is still in progress, as check-002's is, a same-root continuation stops at
-  `inflight`. Even after a reset it would stop at `node_run_root_exists`. Both stops
-  come before any claim. A new
-  run root re-attaches to the same PlanStore node, because plan identities are derived
-  from the plan file. Nothing counts attempts across runs, so a new run would get a
-  fresh round budget. Continuation needs its own design: a retry root per node,
-  predecessor binding across runs, and cross-run attempt accounting.
+- **A stopped node cannot continue.** A node's run root holds exactly one run. Plan
+  identities are derived from the plan file, so a new run root re-attaches to the same
+  PlanStore node.
+  - While an attempt is open, as check-002's is, a run in the same root or a new root
+    stops at `inflight` before any claim.
+  - Only a reset to `todo` would change that, and resets are not allowed. After one,
+    the same root would stop at `node_run_root_exists`, and a new root would run the
+    node again with a fresh round budget.
+  - PlanStore's attempt epoch counts attempts, but no bound across runs is enforced.
+
+  Continuation needs its own design: a retry root per node, predecessor binding across
+  runs, and an enforced cross-run attempt bound.
+
 - **Single, same-repository chains.** A recipe successor has exactly one predecessor in
   the same repository, and it continues only in the original run root.
 - **Manual integration.** Accepted work is not integrated into the primary repository
