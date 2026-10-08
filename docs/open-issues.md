@@ -413,6 +413,14 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   principal, epoch progression and private permissions preserved. Existing
   non-delete-sharing refusal/retry behavior remains required. Helper transport
   uncertainty must be classified only after the helper can no longer mutate.
+- **PlanStore reference:** project `ca42c295-08ca-415b-90e2-52abba8fcdd7`, plan
+  root `db7d97f5-0756-5b44-b871-c29242b2d45a`, node
+  `5e2c005d-b3a2-5dc7-b636-530c74186d13` (`ca014`). PlanStore owns live task,
+  attempt and review state. Prepared spec SHA-256
+  `2eac3967fafe7b74f4ed5b13f755cddc336d71bafe8dfddc4bc5ad4dfb454e8c`;
+  supervised execution authorized by bridge GO 2236 in the new `ca014-001` store
+  and run. This entry records the issue and its verification, not another task
+  status ledger.
 
 - **Observed problem:** on Windows, `rotateIdentity` (`src/auth/localIdentity.ts`) can
   fail with `EPERM` when it renames the new identity over `identity.json`. The failure

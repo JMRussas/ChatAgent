@@ -62,12 +62,30 @@ the mechanism, frozen acceptance tests and satisfiability reference; Hekate's
 implementer owns task authoring and the new plan/run package. The lead reviews
 each frozen revision before execution and integration, then selects the next
 ready increment. A deterministic delete-sharing-reader reproduction and native
-replacement probe pass; the product implementation and prepared task are not yet
-accepted. Existing non-delete-sharing refusal and retry behavior must remain.
+replacement probe pass; the prepared task is accepted for supervised execution,
+and product integration awaits the worker result and review. Existing
+non-delete-sharing refusal and retry behavior must remain.
+
+The CA-ISSUE-014 task is now authored and running under root GO 2236. Its frozen
+oracle has 19 cases (17 assertion failures and two passing controls at base
+`ec39a9b`); the reference proof passed the oracle, typecheck, full suite
+(2,240 passed / nine skipped in the isolated clone) and documentation checks.
+Spec SHA-256: `2eac3967fafe7b74f4ed5b13f755cddc336d71bafe8dfddc4bc5ad4dfb454e8c`.
+The new coordinator state and run are in `D:/hekate-coordinator/state-ca014-001`
+and `D:/hekate-coordinator/runs/ca014-001`. PlanStore owns current task state;
+the [issue entry](open-issues.md#ca-issue-014--identity-rotation-can-fail-on-windows-with-eperm)
+records its node reference. A reference proof is not worker acceptance or product
+integration.
 
 Hekate's bounded host-observed provenance is integrated at `2066614` (HK-ISSUE-016
-closed for that metadata scope). Its HK-ISSUE-015 recovery/continuation design is
-under revision, with fencing, truthful unknown outcomes and cross-run attempt
+closed for that metadata scope).
+The epoch/ref-only guarded takeover primitive is integrated at `521d33e`, with
+eight independent tests passing. It does not reconcile a stream or authorize
+any historical disposition. The separate pending-effect inspection defect is
+being fixed: operator-closed intents must remain visible while later intents
+and arbitrary reservation mismatches still fail closed.
+The HK-ISSUE-015 recovery/continuation design is under revision, with fencing,
+truthful unknown outcomes and cross-run attempt
 bounds still open. Historical `check-002` stays stopped and unchanged. Bridge
 delivery or polling presence does not establish that a model is executing.
 
