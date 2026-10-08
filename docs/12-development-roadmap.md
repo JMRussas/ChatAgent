@@ -1916,6 +1916,18 @@ regression checks inside the verifier. The integration carries the artifact unch
 with both frozen oracle files. The TypeScript and Python consumers now refuse a
 missing review identity field at the same stage with the same code.
 
+_Plan-driven dependent tasks, offline v0 (2026-10-07):_ Hekate's plan-run v0 (plan 042,
+`5b37ed7`) imports a small dependent plan into PlanStore and drives its ready nodes one
+at a time through the existing supervised runner. Root independently ran its two-task
+demo: both tasks were accepted, in dependency order, against a disposable harness
+database. ChatAgent's read-only coordination status now reports plan progress from
+PlanStore's own verdict, so `no_ready_work` is never shown as done (captured fixtures of
+in-progress, awaiting-review, rejected, stale and complete states). Limits: each
+successor's task base is prepared by an operator between tasks (fetch the predecessor's
+artifact, commit the next oracle, freeze and pin its spec); deriving that base
+automatically (D3) is in progress. The plan does not outlive a run (no persistent store
+yet), and nothing runs unattended.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for
