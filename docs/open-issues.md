@@ -39,17 +39,18 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                             |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | -------------------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned                 |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned                 |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned                 |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed | codex-chatagent / supervised pipeline worker |
+| ID           | Title                                                         | Kind   | Gate               | Status   | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------- | ------ | ------------------ | -------- | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed   | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | assigned | codex-chatagent / supervised pipeline worker |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -324,6 +325,47 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   pinned Prettier formatting. The frozen verifier oracle and historical evidence
   remain unchanged. Tests and implementation are integrated together; the failing
   oracle-only branch is not merged on its own.
+
+### CA-ISSUE-013 — Missing review identity fields pass TS verification
+
+- **Observed problem:** a re-signed delivery whose manifest review identity lacks a
+  required field (`rootId`, `nodeId`, `attemptId`, `attemptEpoch`, `artifactRef`), or
+  whose identity is not an object, passes `verifyDelivery`: `verifyStored`
+  (`src/integrations/hekate/handoffConsumer/delivery.ts`) only checks that the identity
+  object exists. The delivery is refused later, at revalidation, as `fresh_mismatch`.
+  The revised Python reference consumer (Hekate HK-ISSUE-002, consumer `aea15fa4`)
+  refuses it at verification as `delivery_mismatch`, so the two consumers now disagree
+  on the stage and code (bridge messages 1752, 1755). Both refuse; the canonical
+  producer cannot emit such a manifest.
+- **Why deferred:** no pilot blocker. It is the second existing-repository task for
+  the supervised loop, with a fuller acceptance gate than CA-ISSUE-012.
+- **Scope (bridge messages 1755, 1757):** presence only, as the reference's
+  `review_identity` does. No new value or type rules (a present null `artifactRef` still
+  verifies), extra identity keys stay accepted, and revalidation semantics and the
+  documented depth-64 `codec_unsupported` difference are unchanged. Allowed change:
+  `src/integrations/hekate/handoffConsumer/delivery.ts` only; it is not a pilot-manifest
+  component, so no contract tags.
+- **Acceptance oracle (frozen, isolated):** `tests/unit/handoffIdentityVerify.test.ts`
+  (SHA-256 `f228ff5cb41531b1fe13e202e2ef142a39f96c8afbb0d07ebf2e6ca018ec7573`),
+  committed only on branch `task/ca013-base` at
+  `18d5ec9b3e38fb59919c5e3873e2cc52aa1ef713` (anchor `b3cfee5`; the anchor-to-base diff
+  is exactly this added file). Each malformed delivery is fully re-signed (manifest,
+  the envelope's embedded manifest, receipt and candidate digest). At the base, 13
+  named assertions fail and 4 controls pass (unchanged golden, optional `lead`
+  removed, present null `artifactRef`, extra key). In the full suite only those 13
+  fail.
+- **Task spec (frozen candidate):** `supervised-task-spec.v0` SHA-256
+  `467fde174ceb7e9429150121a019165b4da22b2c9e06d6b6394b6cdb19a4a1d8`. It validates under
+  Hekate's runner `30279d8`. Verify steps: the oracle with its structured baseline (17
+  cases), `tsc --noEmit`, the full repository suite and `docs:check`, on pinned Node
+  24.21.0; worker bounds 40 turns, $1.00 per round, at most two rounds. Only the
+  vitest and tsc entries are hash-pinned; tsx is covered by the lockfile and `npm ci`.
+- **Depends on:** root's GO for one supervised run of this spec through Hekate's
+  runner.
+- **Closure criteria:** the worker's artifact passes the oracle, typecheck, full suite
+  and documentation check under the runner's independent verifier, with only
+  `delivery.ts` changed; root reviews the source and integrates it onto current main
+  with the oracle, formatted; independently verified.
 
 ## External dependencies
 

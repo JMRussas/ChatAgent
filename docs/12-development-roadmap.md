@@ -1885,6 +1885,15 @@ state. The broader roadmap is still coordinated through the bridge and documents
 it is not a persistent live roadmap graph in either application. Unattended recovery
 and production policy remain deferred.
 
+_Second supervised task prepared 2026-10-07 (CA-ISSUE-013, assigned, not
+implemented):_ align the TypeScript consumer with the revised Python reference so a
+missing required review identity field is refused at verification as
+`delivery_mismatch`. Its oracle is frozen on the isolated branch `task/ca013-base` at
+`18d5ec9` (intentionally failing there; never merged to main as-is), and its candidate
+spec `467fde17…a4a1d8` adds the full repository suite and the documentation check to
+the oracle and typecheck, so the verifier sees full-repo regressions this time. A
+supervised run needs root's GO; Hekate's PlanStore remains the task authority.
+
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or
 import Hekate's full orchestration stack. Hekate provides design references for
