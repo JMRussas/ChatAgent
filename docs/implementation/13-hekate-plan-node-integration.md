@@ -5,9 +5,10 @@ Date: 2026-10-06. Status: implemented bounded contracts and H1; execution integr
 Scope: the plan-node workflow is meant as a generic way to carry out complex tasks
 (outcome, dependencies, capability assignment, execution, verification, revision,
 durable state and delivery; roadmap step 6). Everything executed through it so far
-uses one software-development adapter: Git, npm and the Claude coding CLI. The
-coding-specific parts below, such as frozen failing tests, reference patches and
-reviewed commits, describe that adapter. They are not requirements for other kinds
+uses one software-development adapter, Hekate's e1: Git, npm and the Claude coding
+CLI. The coding-specific parts below, such as frozen failing tests, reference
+patches (an authoring-time satisfiability proof, not a check on the worker's result)
+and reviewed commits, describe that adapter. They are not requirements for other kinds
 of task, which need their own outputs, verification and adapters.
 
 This records the ownership split between ChatAgent and Hekate for the

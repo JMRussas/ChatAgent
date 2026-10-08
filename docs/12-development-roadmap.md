@@ -1732,14 +1732,16 @@ capabilities must not require engine changes; a genuinely new external capabilit
 may require an adapter. Models may propose definitions and results, but cannot
 grant themselves permissions or bypass validated progression conditions.
 
-**Demonstrated so far: one application, software development.** Its single adapter
-covers Git, npm and the Claude coding CLI. A task is an allow-listed source change,
-verified by frozen failing tests, a reference implementation and the repository's
-checks, and delivered as a reviewed commit. That is how this adapter verifies work,
-not a requirement for every task. Research, analysis, planning and operations tasks
-need their own outputs, their own verification and their own adapters, and none of
-those exist yet. Product orchestration of users' ongoing background objectives
-remains a separate acceptance decision.
+**Demonstrated so far: one application, software development.** Its single adapter,
+Hekate's e1 software-development adapter, covers Git, npm and the Claude coding CLI.
+A task is an allow-listed source change. When the task is authored, a reference
+implementation proves that its frozen failing tests can be satisfied. The worker's
+result is verified by those frozen tests and the repository's checks, and delivered
+as a reviewed commit. That is how this adapter verifies work, not a requirement for
+every task. Research, analysis, planning and operations tasks need their own
+outputs, their own verification and their own adapters, and none of those exist
+yet. Product orchestration of users' ongoing background objectives remains a
+separate scope and acceptance decision.
 
 Contract design and a manually supervised experiment on an existing
 roadmap task may proceed alongside reliability work. The step 1 scoped lead
