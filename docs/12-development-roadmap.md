@@ -56,34 +56,34 @@ The full TypeScript suite at `4d1fa16` subsequently passed all 2,230 tests acros
 
 ### Active supervised plan loop (2026-10-08)
 
-The next prepared task targets CA-ISSUE-014: safe Windows identity replacement
-without a missing-file interval or a new principal. ChatAgent's implementer owns
-the mechanism, frozen acceptance tests and satisfiability reference; Hekate's
-implementer owns task authoring and the new plan/run package. The lead reviews
-each frozen revision before execution and integration, then selects the next
-ready increment. A deterministic delete-sharing-reader reproduction and native
-replacement probe pass; the prepared task is accepted for supervised execution,
-and product integration awaits the worker result and review. Existing
-non-delete-sharing refusal and retry behavior must remain.
+The loop's CA-ISSUE-014 task is complete: safe Windows identity replacement, with no
+missing-file interval and no new principal. ChatAgent's implementer owned the
+mechanism, the frozen acceptance tests and the satisfiability reference. Hekate's
+implementer owned task authoring and the plan and run package. The lead reviewed each
+frozen revision before execution and before integration.
 
-The CA-ISSUE-014 task is now authored and running under root GO 2236. Its frozen
-oracle has 19 cases (17 assertion failures and two passing controls at base
-`ec39a9b`); the reference proof passed the oracle, typecheck, full suite
-(2,240 passed / nine skipped in the isolated clone) and documentation checks.
-Spec SHA-256: `2eac3967fafe7b74f4ed5b13f755cddc336d71bafe8dfddc4bc5ad4dfb454e8c`.
-The new coordinator state and run are in `D:/hekate-coordinator/state-ca014-001`
-and `D:/hekate-coordinator/runs/ca014-001`. PlanStore owns current task state;
-the [issue entry](open-issues.md#ca-issue-014--identity-rotation-can-fail-on-windows-with-eperm)
-records its node reference. A reference proof is not worker acceptance or product
-integration.
+- **Evidence before authoring:** a deterministic delete-sharing-reader reproduction
+  and a native replacement probe.
+- **Authoring and the run (root GO 2236):**
+  - The frozen oracle has 19 cases: 17 assertion failures and two passing controls at
+    base `ec39a9b`.
+  - The reference proof passed the oracle, typecheck, the full suite (2,240 passed /
+    nine skipped in the isolated clone) and the documentation checks.
+  - Spec SHA-256: `2eac3967fafe7b74f4ed5b13f755cddc336d71bafe8dfddc4bc5ad4dfb454e8c`.
+  - Coordinator state: `D:/hekate-coordinator/state-ca014-001`; run:
+    `D:/hekate-coordinator/runs/ca014-001`.
+- **Worker result:** run `22ac83497795` was accepted in round 1 (artifact `89432e9`;
+  CLI-reported $0.37, 20 turns). ChatAgent Claude reviewed it independently.
+- **Integration corrections:** the lead's review of the immutable artifact found two
+  helper-transport defects: a deadline-killed helper could still yield a result, and
+  the output cap was checked after appending. Both were corrected in a separate
+  integration commit, with a regression that fails on the artifact as accepted.
+  Existing non-delete-sharing refusal and retry behavior is unchanged.
 
-The worker run `22ac83497795` was accepted in round 1 (artifact `89432e9`; CLI-reported
-$0.37, 20 turns), and ChatAgent Claude reviewed it independently. The lead's review of
-the immutable artifact found two helper-transport defects: a deadline-killed helper
-could still yield a result, and the output cap was checked after appending. Both are
-corrected in a separate integration commit, with a regression that fails on the
-artifact as accepted. CA-ISSUE-014 is closed for holders that share delete access; the
-remaining limit is recorded in the issue entry.
+PlanStore owns the task state. The
+[issue entry](open-issues.md#ca-issue-014--identity-rotation-can-fail-on-windows-with-eperm)
+records its node reference, the closure for holders that share delete access, and the
+remaining limit.
 
 Hekate's bounded host-observed provenance is integrated at `2066614` (HK-ISSUE-016
 closed for that metadata scope).
