@@ -1916,19 +1916,35 @@ regression checks inside the verifier. The integration carries the artifact unch
 with both frozen oracle files. The TypeScript and Python consumers now refuse a
 missing review identity field at the same stage with the same code.
 
-_Plan-driven dependent tasks, offline v0 (2026-10-07):_ Hekate runs a prepared plan of
-dependent tasks: plan-run v0 (plan 042, `5b37ed7`) and D3 v1 (plan 044, `7661168`).
+_Plan-driven dependent tasks (2026-10-07, first real run 2026-10-08):_ Hekate runs a
+prepared plan of dependent tasks:
+
+- plan-run v0: plan 042, `5b37ed7`;
+- D3 v1: plan 044, `7661168`;
+- a persistent local store: P2, plan 043, `0d3c3d1`, with its create command at `019c5bf`.
 
 - **Import and drive.** A small plan is imported into PlanStore. Its ready nodes are
   driven one at a time through the existing supervised runner.
-- **Successor bases are derived automatically.** A successor's task base now comes from
-  its predecessor's accepted artifact plus a pinned oracle. This works only within the
-  same source repository and needs no operator step between tasks.
-- **Verified end to end.** A dependent chain runs to completion in one offline
-  invocation against a disposable harness database. Root and an independent review
-  each ran it.
-- **CLI integrated.** A validate/run command-line entrypoint (`plan_cli`, `08702fb`)
-  feeds a prepared plan without helper scripts.
+- **Successor bases are derived automatically.** A successor's task base comes from its
+  predecessor's accepted artifact plus a pinned oracle. This works only within the same
+  source repository and needs no operator step between tasks.
+- **Command line.** `plan_cli` validates and runs a prepared plan. `local_cli create`
+  makes the coordinator's own marked database, and `--store local` keeps PlanStore
+  state there.
+- **Restart.** A cleanly stopped plan continues in its bound run root, after an operator
+  pin if needed. A second process does not rerun accepted work; this was verified across
+  two OS processes. A single coordinator holds the database, and record times are UTC.
+- **First real run (2026-10-08, root GO 1946).**
+  - The plan: two dependent ChatAgent tasks. Task A adds blocker predecessor names to
+    the coordination status; task B shows `blocked by` and `ready now` in the human
+    CLI.
+  - The run: real Sonnet workers in one `plan_cli run --store local`, with no operator
+    step. Each task was accepted in its first round after all four verify steps
+    passed. B's base was derived from A's accepted artifact. The run took about four
+    minutes.
+  - Spend was capped at $1 per round, but the evidence did not keep the actual cost.
+  - The accepted artifact was a candidate only. It was integrated through a separately
+    reviewed branch carrying the same source and frozen oracles.
 - **Progress in ChatAgent.** The read-only coordination status reports plan progress
   from PlanStore's own verdict, so `no_ready_work` is never shown as done.
 
@@ -1937,13 +1953,20 @@ recorded in Hekate's plan 042 and its fixture provenance.
 
 Limits:
 
-- the lead or authoring agent still writes the plan, the task specs and the recipes,
-  and nothing decomposes a roadmap automatically;
-- the plan store is disposable, so a stopped run is not resumed: it is rerun;
-- there is no automatic restart recovery and no unattended operation;
-- accepted work is not integrated into the primary repository or pushed automatically.
+- **Manual authoring.** The lead or authoring agent still writes the plan, the task
+  specs, the oracles, the recipes and a satisfiability proof against a reference
+  implementation. Nothing decomposes a roadmap automatically.
+- **No in-tool resolution.** In-flight or uncertain work, including an uncertain
+  operator act, stops the coordinator until an operator resolves it outside the tool.
+  There is no automatic restart recovery and no unattended operation.
+- **Single, same-repository chains.** A recipe successor has exactly one predecessor in
+  the same repository, and it continues only in the original run root.
+- **Manual integration.** Accepted work is not integrated into the primary repository
+  or pushed automatically; integration stays a reviewed step.
+- **Spend is not recorded.** Per-run spend is not retained in the evidence.
 
-Next on Hekate is local persistence (P2). No authoring framework is being built yet.
+Next: more real prepared plans. An authoring helper is considered only from their
+observed friction.
 
 Reuse context, provider, budget and lifecycle components where their contracts fit.
 Do not turn the bounded retrieval planner into an unrestricted coding executor or

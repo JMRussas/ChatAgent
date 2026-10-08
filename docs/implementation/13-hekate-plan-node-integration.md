@@ -179,6 +179,14 @@ expected states with acknowledgement unknown.
   (`tests/fixtures/hekate/plan-run-v0/`): in progress, awaiting review, rejected,
   complete and stale predecessor. A claim attempted at every one of them returned
   `no_ready_work`, and only the complete one reports `complete`.
+- **Why work waits, and what is ready (2026-10-08).** Each projected blocker adds
+  `predecessorName`, the predecessor node's name from the same view (`null` when it
+  has none). The other blocker fields and their order are unchanged. The human CLI
+  prints `ready now: <names>` after the progress line when any leaf is ready, and
+  `blocked by <name or id> (<reason>)` per blocker instead of a blocker count. The
+  `--json` output is the projection itself. This was the first change built by
+  Hekate's prepared-plan run: two dependent tasks, the second based on the first's
+  accepted artifact. See the roadmap entry "Plan-driven dependent tasks".
 - **No stale work shown as current.** Attempt pins are `current` only when they exist,
   the content revision is unchanged and nothing upstream changed; an attempt
   without pins is `unknown`. An acceptance whose inputs changed is shown as stale.
