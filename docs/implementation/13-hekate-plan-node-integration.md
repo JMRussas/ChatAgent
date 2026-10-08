@@ -2,6 +2,14 @@
 
 Date: 2026-10-06. Status: implemented bounded contracts and H1; execution integration remains gated.
 
+Scope: the plan-node workflow is meant as a generic way to carry out complex tasks
+(outcome, dependencies, capability assignment, execution, verification, revision,
+durable state and delivery; roadmap step 6). Everything executed through it so far
+uses one software-development adapter: Git, npm and the Claude coding CLI. The
+coding-specific parts below, such as frozen failing tests, reference patches and
+reviewed commits, describe that adapter. They are not requirements for other kinds
+of task, which need their own outputs, verification and adapters.
+
 This records the ownership split between ChatAgent and Hekate for the
 user-directed plan-node workstream and defines the first pilot handoff. Real-worker
 activation remains gated. ChatAgent's H1 receipt-to-context seam is
@@ -207,7 +215,8 @@ unimplemented; they depend on Hekate's journal and supervisor work.
 
 ## Task authoring profile (hekate-task-profile.v0)
 
-Status (2026-10-08): implemented and verified.
+Status (2026-10-08): implemented and verified, for the software-development adapter
+only. The profile pins a coding toolchain.
 
 - **The command.** Hekate's `e1.task_author draft` (`04106f2`, integrated) reads this
   profile. Its tests: 26 focused tests, plus a 128-passed/1-skipped runner regression

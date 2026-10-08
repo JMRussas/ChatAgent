@@ -1713,18 +1713,35 @@ the decision not to reject answers merely because expanded display references ar
 
 ### 6. Declarative role coordination — planned (2026-10-05)
 
-Goal: execute a selected roadmap section through implementation, independent
-review, corrections, validation, commit and an accurate next-task handoff. Roles,
-task dependencies and transitions are plan data, not a coding-specific pipeline
-embedded in the engine. Target a stable interpreter with configurable objects and
-registered capability adapters. New workflows using existing capabilities must
-not require engine changes; genuinely new external capabilities may require an
-adapter. Models may propose definitions and results, but cannot grant themselves
-permissions or bypass validated progression conditions.
+Goal: a generic way to carry out most complex tasks. The intended capability is the
+same for every kind of task:
 
-This workstream concerns development coordination. Product orchestration of
-users' ongoing background objectives remains a separate scope and acceptance
-decision. Contract design and a manually supervised experiment on an existing
+- an outcome;
+- tasks and their dependencies;
+- capability assignment;
+- execution;
+- verification and validation of each result;
+- revision on rejection;
+- durable state;
+- delivery.
+
+Roles, task dependencies and transitions are plan data, not a coding-specific
+pipeline embedded in the engine. Target a stable interpreter with configurable
+objects and registered capability adapters. New workflows that use existing
+capabilities must not require engine changes; a genuinely new external capability
+may require an adapter. Models may propose definitions and results, but cannot
+grant themselves permissions or bypass validated progression conditions.
+
+**Demonstrated so far: one application, software development.** Its single adapter
+covers Git, npm and the Claude coding CLI. A task is an allow-listed source change,
+verified by frozen failing tests, a reference implementation and the repository's
+checks, and delivered as a reviewed commit. That is how this adapter verifies work,
+not a requirement for every task. Research, analysis, planning and operations tasks
+need their own outputs, their own verification and their own adapters, and none of
+those exist yet. Product orchestration of users' ongoing background objectives
+remains a separate acceptance decision.
+
+Contract design and a manually supervised experiment on an existing
 roadmap task may proceed alongside reliability work. The step 1 scoped lead
 acceptance and current single-process loopback boundary review are recorded at
 `fcceff2`; this permits contract design and the manually supervised experiment,
@@ -1932,8 +1949,9 @@ regression checks inside the verifier. The integration carries the artifact unch
 with both frozen oracle files. The TypeScript and Python consumers now refuse a
 missing review identity field at the same stage with the same code.
 
-_Plan-driven dependent tasks (2026-10-07, first real run 2026-10-08):_ Hekate runs a
-prepared plan of dependent tasks:
+_Plan-driven dependent tasks (2026-10-07, first real run 2026-10-08):_ This is the first
+demonstrated application of the generic flow above, using the software-development
+adapter. Hekate runs a prepared plan of dependent tasks:
 
 - plan-run v0: plan 042, `5b37ed7`;
 - D3 v1: plan 044, `7661168`;
