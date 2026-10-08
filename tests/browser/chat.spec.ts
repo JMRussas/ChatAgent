@@ -532,6 +532,27 @@ test("manual roles expose permitted tools and show the admitted context estimate
   expect(input).not.toContain("sports:find-games");
   await page.getByText("Latest admitted model-call budget (estimated)", { exact: true }).click();
   await expect(page.locator("#contextBudgetStatus")).toContainText("role input limit 6000");
+  const conversationId = await page.locator("#conversationId").inputValue();
+  const response = await page.request.get(
+    new URL(`/conversations/${encodeURIComponent(conversationId)}/events`, page.url()).href
+  );
+  expect(response.ok()).toBe(true);
+  const { events } = await response.json();
+  const budget = events.findLast(
+    (event: { contextBudget?: unknown }) => event.contextBudget
+  ).contextBudget;
+  await expect(page.locator("#contextBudgetStatus")).toContainText(
+    `Estimated input: ${budget.totalInputTokens} used of ${budget.availableInputTokens} capacity; ${budget.availableInputTokens - budget.totalInputTokens} remaining.`
+  );
+  await expect(page.locator("#contextBudgetStatus")).toContainText(
+    `Full window ${budget.windowTokens}`
+  );
+  await expect(page.locator("#contextBudgetStatus")).toContainText(
+    `Output reserve ${budget.outputReserve}, safety reserve ${budget.safetyReserve}`
+  );
+  await expect(page.locator("#contextBudgetStatus")).toContainText(
+    "These are estimates, not provider token counts."
+  );
   await page.locator("#runRole").selectOption("writer");
   await expect(page.locator("#roleTools option")).toHaveCount(0);
   app.controls.plan = { action: "answer", message: "No evidence selected yet." };

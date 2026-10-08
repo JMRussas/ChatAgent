@@ -39,6 +39,16 @@ tests pass; six Python bridge tests pass under the uv-managed interpreter.
 Formatting, lint and documentation contracts pass. The live UI rehearsal completed
 conversation recall, a cited documentation answer and task cancellation.
 
+UI clarity follow-up: the optional action is now **Ask project docs**. Completed
+task replies distinguish answered, insufficient evidence and unavailable answer
+outcomes while preserving execution status, text and citations. Foreground budget
+readouts name estimated input used, input capacity and remaining capacity, and
+show the full window and reserves. Budgeting and execution behavior are unchanged.
+Focused browser regressions cover answer outcomes, legacy results, reload and
+budget arithmetic against the admitted timeline event. Five focused unit tests
+and six focused browser tests pass on pinned Windows Node 24.21.0; formatting,
+lint and documentation contract checks pass.
+
 ### Handoff checkpoint — current execution status
 
 Current reading checkpoint (updated 2026-10-07); historical milestones and their

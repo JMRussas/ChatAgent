@@ -82,7 +82,9 @@ flowchart TD
 
 A class-level map with eight diagrams is in [docs/10-class-map.html](docs/10-class-map.html).
 
-The documentation agent is an explicit optional action. The bridge admits up to
+The documentation agent is the optional **Ask project docs** action. Completed
+tasks show whether the worker reports an answer or insufficient evidence; older
+results without an answer status show that the outcome is unavailable. The bridge admits up to
 eight scheduled documentation tasks and runs one at a time; foreground chat uses
 its own path. Shared inference scheduling is experimental, not enabled by default.
 Conversation history remains in memory; documentation checkpoints are durable.

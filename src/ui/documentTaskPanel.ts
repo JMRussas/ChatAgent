@@ -41,6 +41,11 @@ export function documentTaskScript(): string {
           const question=document.createElement('div');question.className='bubble user';question.textContent=task.question;row.append(question);
           const reply=document.createElement('div');reply.className='bubble assistant';reply.setAttribute('aria-busy',String(['queued','running','cancel_requested'].includes(task.status)));row.append(reply);
           const title=document.createElement('strong');title.textContent='Documentation task — '+task.status;reply.append(title);
+          if (task.status==='completed') {
+            const outcome=document.createElement('p');
+            outcome.textContent=task.answer?.status==='answered' ? 'Answer outcome: answered.' : task.answer?.status==='insufficient_evidence' ? 'Answer outcome: insufficient evidence.' : 'Answer outcome: unavailable (not reported).';
+            reply.append(outcome);
+          }
           if (task.answer) {
             const answer=document.createElement('p');answer.textContent=task.answer.answer;reply.append(answer);
             for (const cite of task.answer.citations || []) {const source=document.createElement('p');source.textContent=cite.path+':'+cite.start_line+'–'+cite.end_line;reply.append(source);}

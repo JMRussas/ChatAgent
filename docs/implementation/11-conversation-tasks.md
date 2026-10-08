@@ -50,11 +50,23 @@ Windows Python paths). Omitting DOC_TASK_PYTHON leaves the feature disabled.
 Foreground chat still uses its separately configured providers; enabling this
 worker alone does not switch foreground mock responses to live inference.
 
-In the composer, enter a documentation question and choose **Run documentation
-task**. **Send** remains available for ordinary chat. The conversation history shows documentation questions and task replies alongside
+In the composer, enter a documentation question and choose **Ask project docs**.
+**Send** remains available for ordinary chat. The conversation history shows documentation questions and task replies alongside
 ordinary chat, ordered by their original submission times. Task replies poll status,
 display answers with source references or failures, and offer Cancel. After a restart, previously queued/paused unscheduled tasks offer Resume.
 Question and answer text are rendered using textContent, not HTML.
+
+Task execution status remains distinct from answer outcome: a completed task may
+report `answered` or `insufficient_evidence`. Missing or unrecognized answer
+statuses, including older results, display an unavailable outcome rather than
+implying an answered outcome. Answer text and citations remain visible. An
+`answered` outcome reports the worker's result; it does not independently verify
+that every claim follows from its cited sources.
+
+The foreground model-call budget displays estimated input used, input capacity
+and remaining capacity (`capacity - used`), along with the full window, output
+and safety reserves. These estimates are not provider token counts. This display
+does not change admission or which context is sent to a model.
 
 ## Contract and ownership
 

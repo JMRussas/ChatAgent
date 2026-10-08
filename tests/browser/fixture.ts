@@ -218,6 +218,7 @@ async function runtime(maxEventStreams?: number, documentationTasks = false) {
     createdAt: number;
     scheduled: boolean;
     answer: null | {
+      status?: string;
       answer: string;
       citations: Array<{ path: string; start_line: number; end_line: number }>;
     };

@@ -457,7 +457,7 @@ export function renderHomePageHtml(
           <textarea id="prompt" required minlength="1" placeholder="Ask something with external data need to trigger deep path..."></textarea>
         </label>
         <button id="sendButton" type="submit">Send</button>
-        ${documentTasks ? '<button id="documentTaskStart" type="button">Run documentation task</button>' : ""}
+        ${documentTasks ? '<button id="documentTaskStart" type="button">Ask project docs</button>' : ""}
       </form>
 
       ${documentTasks ? '<p id="documentTaskStatus" class="status" role="status"></p>' : ""}
@@ -708,7 +708,7 @@ export function renderHomePageHtml(
     function renderThread() {
       const budgetEvent=[...state.events].reverse().find(e=>e.contextBudget);
       const b=budgetEvent?.contextBudget;
-      $("contextBudgetStatus").textContent=b ? "Message "+budgetEvent.messageId+": input "+b.totalInputTokens+" / "+b.availableInputTokens+" available; window "+b.windowTokens+". Instructions/framing "+b.instructions+", tool definitions "+b.tools+", selected references/scope "+b.references+", current message "+b.currentMessage+", history "+b.history+", active tasks "+b.activeTasks+", memory "+b.memory+". Output reserve "+b.outputReserve+", safety reserve "+b.safetyReserve+(b.roleInputLimit?"; role input limit "+b.roleInputLimit:"")+"." : "No admitted model-call estimate in this conversation.";
+      $("contextBudgetStatus").textContent=b ? "Message "+budgetEvent.messageId+". Estimated input: "+b.totalInputTokens+" used of "+b.availableInputTokens+" capacity; "+(b.availableInputTokens-b.totalInputTokens)+" remaining. Full window "+b.windowTokens+". Instructions/framing "+b.instructions+", tool definitions "+b.tools+", selected references/scope "+b.references+", current message "+b.currentMessage+", history "+b.history+", active tasks "+b.activeTasks+", memory "+b.memory+". Output reserve "+b.outputReserve+", safety reserve "+b.safetyReserve+(b.roleInputLimit?"; role input limit "+b.roleInputLimit:"")+". These are estimates, not provider token counts." : "No admitted model-call estimate in this conversation.";
       if (typeof refreshReferenceChoices === "function") refreshReferenceChoices();
       const targets = state.events.filter(e => ["provisional","refined"].includes(e.type) && e.processingStatus === "complete" && e.answerKind !== "acknowledgment");
       const unique = [...new Map(targets.map(e=>[e.messageId,e])).values()];

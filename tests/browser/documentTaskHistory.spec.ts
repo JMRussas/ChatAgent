@@ -2,11 +2,39 @@ import { test, expect } from "./fixture";
 
 test.use({ documentationTasks: true });
 
+for (const status of ["insufficient_evidence", undefined, "unrecognized"] as const) {
+  test(`completed documentation task explains answer outcome ${status ?? "missing"}`, async ({
+    page,
+    app
+  }) => {
+    await app.pair(page);
+    await page.locator("#prompt").fill("What does the project document?");
+    await page.getByRole("button", { name: "Ask project docs", exact: true }).click();
+    const task = page.locator("#thread .document-task");
+    await expect(task).toContainText("Documentation task — running");
+    app.tasks[0].status = "completed";
+    app.tasks[0].answer = { status, answer: "The sources do not establish this.", citations: [] };
+    const outcome =
+      status === "insufficient_evidence"
+        ? "Answer outcome: insufficient evidence."
+        : "Answer outcome: unavailable (not reported).";
+    await expect(task).toContainText("Documentation task — completed");
+    await expect(task).toContainText(outcome);
+    await expect(task).toContainText("The sources do not establish this.");
+    await expect(task.getByRole("button")).toHaveCount(0);
+    await page.reload();
+    await expect(task).toContainText(outcome);
+    app.tasks[0].answer = null;
+    await expect(task).toContainText("Answer outcome: unavailable (not reported).");
+  });
+}
+
 test("documentation questions, results and cancellations share ordered chat history", async ({
   page,
   app
 }) => {
   await app.pair(page);
+  await expect(page.getByRole("button", { name: "Ask project docs", exact: true })).toBeVisible();
   await page.locator("#prompt").fill("First chat message");
   await page.locator("#sendButton").click();
   await expect(page.locator("#thread")).toContainText("Draft: First chat message");
@@ -25,10 +53,13 @@ test("documentation questions, results and cancellations share ordered chat hist
   app.pending.get("fast:Chat while the task runs")!.finish();
   app.tasks[0].status = "completed";
   app.tasks[0].answer = {
+    status: "answered",
     answer: "Documented answer <b>literal</b>",
     citations: [{ path: "docs/example.md", start_line: 4, end_line: 9 }]
   };
   await expect(task).toContainText("Documented answer <b>literal</b>");
+  await expect(task).toContainText("Documentation task — completed");
+  await expect(task).toContainText("Answer outcome: answered.");
   await expect(task).toContainText("docs/example.md:4–9");
   await expect(task.locator("b")).toHaveCount(0);
   const questions = [
@@ -39,6 +70,7 @@ test("documentation questions, results and cancellations share ordered chat hist
   await expect(page.locator("#thread .user")).toHaveText(questions);
   await page.reload();
   await expect(page.locator("#thread .user")).toHaveText(questions);
+  await expect(task).toContainText("Answer outcome: answered.");
   await page.locator("#prompt").fill("Cancel this task");
   await page.locator("#documentTaskStart").click();
   const cancelled = page.locator("#thread .document-task").filter({ hasText: "Cancel this task" });
