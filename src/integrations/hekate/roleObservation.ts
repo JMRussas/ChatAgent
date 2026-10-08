@@ -80,7 +80,22 @@ export interface NodeBinding {
   attemptEpoch: number;
 }
 
+export interface SelectedAttempt {
+  attemptId: string;
+  attemptEpoch: number;
+  /** "current" is the node's live attempt; "historical" the latest loaded recorded one. */
+  scope: "current" | "historical";
+  /** The latest loaded event naming a historical attempt; null for the current attempt. */
+  sourceEventSeq: number | null;
+  /** The content revision the attempt ran against; null when not recorded. */
+  attemptContentRevision: number | null;
+  /** Whether that revision still equals the task's content revision. */
+  contentPins: "current" | "stale" | "unknown";
+}
+
 export interface ObservedTask extends NodeBinding {
+  attemptContentRevision: number | null;
+  attemptPrereqDigest: string | null;
   rootId: string;
   projectId: string;
   nodeId: string;
@@ -157,7 +172,9 @@ export interface RoleObservation {
     historyBackfilled: boolean;
     metadataStable: boolean;
   };
-  /** Null when the node has no current attempt (normal) . */
+  /** The attempt whose trace is read: the current one, else the latest loaded historical one. */
+  selectedAttempt: SelectedAttempt | null;
+  /** Null when no attempt is selected (normal). */
   trace: ObservedTrace | null;
   assessment: {
     workerLiveness: "unknown";
@@ -194,6 +211,8 @@ export interface AiSnapshot {
       work: string;
       attemptId: string | null;
       attemptEpoch: number;
+      attemptContentRevision: number | null;
+      attemptPrereqDigest: string | null;
       effectiveAcceptance: ObservedTask["effectiveAcceptance"];
       acceptance: {
         decision: "accepted" | "rejected";
@@ -204,6 +223,7 @@ export interface AiSnapshot {
     workerLiveness: "unknown";
     usefulProgress: "unknown";
     events: { seq: number; nodeStateRevision: number; currentAttempt: boolean }[];
+    selectedAttempt: SelectedAttempt | null;
     trace: {
       status: TraceStatus;
       integrity: TraceIntegrity;
@@ -243,6 +263,7 @@ const eventSchema = z
     kind: z.string().min(1).max(128),
     attemptId: z.string().max(256).nullable().optional(),
     attemptEpoch: seq.optional(),
+    attemptContentRevision: z.number().int().safe().min(1).nullable().optional(),
     claimKey: z.string().max(256).nullable().optional()
   })
   .passthrough();
@@ -433,6 +454,8 @@ function binding(node: PlanView["nodes"][number]): NodeBinding {
 function observedTask(plan: PlanView, node: PlanView["nodes"][number]): ObservedTask {
   return {
     ...binding(node),
+    attemptContentRevision: node.attemptContentRevision,
+    attemptPrereqDigest: node.attemptPrereqDigest,
     rootId: plan.rootId,
     projectId: plan.projectId,
     nodeId: node.id,
@@ -538,12 +561,13 @@ export function createRoleObserver(
       const before = binding(node);
       if (node.attemptId !== null && !ATTEMPT_ID.test(node.attemptId))
         throw new RoleObservationError("INVALID_ATTEMPT");
-      const hasAttempt = node.attemptId !== null;
 
       const nodePath = `/api/plan-contract/v1/nodes/${nodeId}`;
+      // Reserve the final plan and a possible trace: a historical attempt is only
+      // discovered once the events are read, even when the node has no current one.
       const events = await paginate(
         budget,
-        1 + (hasAttempt ? 1 : 0),
+        2,
         0,
         (cursor) => `${nodePath}/events?afterSeq=${cursor}`,
         (json, after): EventsPage => {
@@ -578,9 +602,62 @@ export function createRoleObserver(
       }
       if (events.truncated) reasons.push("events_truncated");
 
+      const task = observedTask(first, node);
+      const startsOf = (id: string, epoch: number) =>
+        items.filter(
+          (e) => e.kind === "attempt_started" && e.attemptId === id && e.attemptEpoch === epoch
+        );
+      let selectedAttempt: SelectedAttempt | null = null;
+      if (node.attemptId !== null) {
+        selectedAttempt = {
+          attemptId: node.attemptId,
+          attemptEpoch: node.attemptEpoch,
+          scope: "current",
+          sourceEventSeq: null,
+          attemptContentRevision: node.attemptContentRevision,
+          contentPins: "unknown"
+        };
+      } else {
+        // The latest loaded event naming an attempt; truncation may hide a later one.
+        let latest: ObservedEvent | null = null;
+        for (const e of items)
+          if (
+            typeof e.attemptId === "string" &&
+            typeof e.attemptEpoch === "number" &&
+            e.attemptEpoch > 0 &&
+            (latest === null || e.seq > latest.seq)
+          )
+            latest = e;
+        if (latest !== null) {
+          const id = latest.attemptId as string;
+          const epoch = latest.attemptEpoch as number;
+          if (!ATTEMPT_ID.test(id)) throw new RoleObservationError("INVALID_ATTEMPT");
+          // Only the start event's own pin counts; event.contentRevision may be newer.
+          const pins = new Set(
+            startsOf(id, epoch).map((e) =>
+              typeof e.attemptContentRevision === "number" ? e.attemptContentRevision : null
+            )
+          );
+          const [pin] = pins.size === 1 ? pins : [null];
+          selectedAttempt = {
+            attemptId: id,
+            attemptEpoch: epoch,
+            scope: "historical",
+            sourceEventSeq: latest.seq,
+            attemptContentRevision: pin ?? null,
+            contentPins: "unknown"
+          };
+        }
+      }
+      if (selectedAttempt && selectedAttempt.attemptContentRevision !== null) {
+        selectedAttempt.contentPins =
+          selectedAttempt.attemptContentRevision === task.contentRevision ? "current" : "stale";
+        if (selectedAttempt.contentPins === "stale") reasons.push("attempt_content_stale");
+      }
+
       let trace: ObservedTrace | null = null;
-      if (hasAttempt) {
-        const attemptId = node.attemptId as string;
+      if (selectedAttempt) {
+        const { attemptId, attemptEpoch } = selectedAttempt;
         const result = await paginate(
           budget,
           1,
@@ -595,7 +672,7 @@ export function createRoleObserver(
             if (
               page.nodeId !== nodeId ||
               page.attemptId !== attemptId ||
-              page.attemptEpoch !== node.attemptEpoch
+              page.attemptEpoch !== attemptEpoch
             )
               throw new RoleObservationError("IDENTITY_MISMATCH");
             if (page.status === "not_captured" && page.records.length > 0)
@@ -624,12 +701,8 @@ export function createRoleObserver(
         const metadataStable =
           !promptChanged && result.pages.every((p) => sameJson(meta(p), meta(result.pages[0])));
         const lastPage = result.pages[result.pages.length - 1];
-        const currentStarts = items.filter(
-          (event) =>
-            event.kind === "attempt_started" &&
-            event.attemptId === attemptId &&
-            event.attemptEpoch === node.attemptEpoch &&
-            typeof event.claimKey === "string"
+        const currentStarts = startsOf(attemptId, attemptEpoch).filter(
+          (event) => typeof event.claimKey === "string"
         );
         const claimedKeys = new Set(currentStarts.map((event) => event.claimKey));
         if (
@@ -671,7 +744,6 @@ export function createRoleObserver(
       const second = parsePlan(await get(budget, planPath), rootId);
       if (second.readiness.errors.length || first.readiness.errors.length)
         reasons.push("plan_readiness_errors");
-      const task = observedTask(first, node);
       const nodeAfter = second.nodes.find((n) => n.id === nodeId);
       const after = nodeAfter ? binding(nodeAfter) : null;
       if (!nodeAfter || !after) {
@@ -713,6 +785,7 @@ export function createRoleObserver(
           historyBackfilled: events.pages[0].historyBackfilled,
           metadataStable: eventsStable
         },
+        selectedAttempt,
         trace,
         assessment: {
           workerLiveness: "unknown",
@@ -745,6 +818,8 @@ export function createRoleObserver(
             work: task.work,
             attemptId: task.attemptId,
             attemptEpoch: task.attemptEpoch,
+            attemptContentRevision: task.attemptContentRevision,
+            attemptPrereqDigest: task.attemptPrereqDigest,
             effectiveAcceptance: task.effectiveAcceptance,
             acceptance: task.acceptance && {
               decision: task.acceptance.decision,
@@ -762,6 +837,7 @@ export function createRoleObserver(
               e.attemptId === node.attemptId &&
               e.attemptEpoch === node.attemptEpoch
           })),
+          selectedAttempt: selectedAttempt && { ...selectedAttempt },
           trace: trace && {
             status: trace.status,
             integrity: trace.integrity,
