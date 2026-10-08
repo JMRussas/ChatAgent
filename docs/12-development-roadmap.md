@@ -2031,8 +2031,11 @@ Limits:
   or pushed automatically; integration stays a reviewed step.
 - **Spend is reported, not metered.** Since Hekate `c701ce0` the evidence keeps each
   round's CLI-reported cost, turns and duration. Nothing meters spend independently.
-- **Setup failures are hard to diagnose.** The worktree-setup failure in the second run
-  kept no Git exit code or error text.
+- **Setup failures in older runs lack Git detail.** The second run's worktree-setup
+  failure kept no Git exit code or error text, and its evidence stays as recorded.
+  Since Hekate `115ab6d`, a failed worktree setup keeps Git's exit code and the tail
+  of its error output. A failed read of the run-owned refs is now recorded as an
+  error, not as an empty list.
 
 Next: more real prepared plans. The first run's friction was hand-built spec packages.
 
