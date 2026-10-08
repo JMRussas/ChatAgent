@@ -41,9 +41,7 @@ function render(status: CoordinationStatus): string {
         l.acceptanceHistorical && l.acceptance
           ? `prior decision ${l.acceptance.decision}@${l.acceptance.attemptEpoch} (historical)`
           : "",
-        ...l.blockers.map(
-          (b) => `blocked by ${b.predecessorName ?? b.predecessorId} (${b.reason})`
-        )
+        ...l.blockers.map((b) => `blocked by ${b.predecessorName ?? b.predecessorId} (${b.reason})`)
       ]
         .filter(Boolean)
         .join("  ")
