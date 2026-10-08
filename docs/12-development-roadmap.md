@@ -56,6 +56,10 @@ The full TypeScript suite at `4d1fa16` subsequently passed all 2,230 tests acros
 
 ### Active supervised plan loop (2026-10-08)
 
+The [UML architecture diagrams](development-workflow-uml.md) show the conversation
+and documentation path, the evidence readers, the supervised development loop and
+the initial-response classifier, with implementation status and design reasons.
+
 The loop's CA-ISSUE-014 task is complete: safe Windows identity replacement, with no
 missing-file interval and no new principal. ChatAgent's implementer owned the
 mechanism, the frozen acceptance tests and the satisfiability reference. Hekate's
@@ -107,6 +111,9 @@ checkout, all 39 browser tests, lint and documentation contracts. The classifier
 still reports unknown; its frozen acceptance tests and reference implementation
 are being prepared for the next supervised task. This increment neither resumes
 agents nor detects ongoing-work stalls; CA-ISSUE-004 remains open.
+Hekate's pure recovery projection is integrated at `5e55ac7`, with 56 independent
+tests passing. It lists caller-supplied sanitized observations and preserves unknown
+effects and missing evidence; it has no live collector or recovery authority.
 The HK-ISSUE-015 recovery/continuation design is under revision, with fencing,
 truthful unknown outcomes and cross-run attempt
 bounds still open. Historical `check-002` stays stopped and unchanged. Bridge
