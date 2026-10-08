@@ -93,6 +93,28 @@ Conversation history remains in memory; documentation checkpoints are durable.
 
 Changes to this repository start with a plan: a lead breaks the work into small tasks, each with frozen acceptance tests. A supervised worker implements one task at a time against those tests, and an independent verifier and a review then accept or reject the result. An accepted result is integrated through a separately reviewed branch. The [development workflow diagrams](docs/development-workflow-uml.md) show the flow, and [how the agents coordinate](docs/agent-bridge-development-workflow.md) describes the bridge. The [plan-node contract with Hekate](docs/implementation/13-hekate-plan-node-integration.md) defines the plan side, and the [read-only check for unanswered assignments](docs/implementation/15-stall-detection.md) covers stalled work.
 
+#### Monitoring a plan
+
+`scripts/devcoord.ts` is a read-only monitor of a Hekate managed plan. It only reads plan state; it does not launch, restart or recover workers. Set `HEKATE_PLAN_API_URL` to a literal loopback HTTP URL (for example `http://127.0.0.1:5100`) and pass the plan root GUID:
+
+```bash
+HEKATE_PLAN_API_URL=http://127.0.0.1:5100 npx tsx scripts/devcoord.ts status --root <plan-root-guid>
+HEKATE_PLAN_API_URL=http://127.0.0.1:5100 npx tsx scripts/devcoord.ts status --root <plan-root-guid> --json
+HEKATE_PLAN_API_URL=http://127.0.0.1:5100 npx tsx scripts/devcoord.ts status --root <plan-root-guid> --check
+```
+
+`--json` prints the status as JSON instead of text. `--check` sets the exit code from the plan's progress, so a script or operator can branch on it:
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Plan complete (without `--check`, 0 means only that the status was read) |
+| 3 | With `--check`: stuck, inconsistent or invalid |
+| 4 | With `--check`: work remains |
+| 1 | Request error |
+| 2 | Usage error |
+
+The status shows state recorded in the plan. Recorded state does not prove worker process liveness: an assignment that looks active may belong to a worker that has stopped, and the output says execution acknowledgement is unknown. The monitor cannot tell the difference and takes no action, so a person must decide whether to intervene. It is not unattended recovery. See [how the agents coordinate](docs/agent-bridge-development-workflow.md) and the [development roadmap](docs/12-development-roadmap.md) for context.
+
 ## NBA briefing prototype
 
 The next demo is a personalized league/team briefing with background work and
