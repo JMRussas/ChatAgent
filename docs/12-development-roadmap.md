@@ -1901,6 +1901,12 @@ revalidation-stage code, so the source-only task was unsatisfiable. Task base v2
 `b644847c…2ccc3` was proven satisfiable by a throwaway reference implementation
 across all four steps before it was frozen. A second pilot needs root's review and GO.
 
+_Known Windows limitation registered 2026-10-07 (CA-ISSUE-014, open):_ identity
+rotation can fail safely with `EPERM` when another process holds `identity.json`
+(80-run reproduction: about 7.5% of rotations, retries never recover). It stays in the
+default suite as a visible platform failure; a safe atomic replacement is the bounded
+follow-up.
+
 _CA-ISSUE-013 verified and integrated 2026-10-07 (closed):_ the second pilot was
 accepted in round 1. The real Claude CLI artifact `bd03650` changed only `delivery.ts`,
 and the runner's verifier passed the frozen oracle, typecheck, the full repository

@@ -51,6 +51,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
 | CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed | codex-chatagent / supervised pipeline worker |
 | CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | closed | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM              | defect | deferred           | open   | codex-chatagent / unassigned                 |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -401,6 +402,45 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   (`07eb59c3f6c993c14500588835f6720e09942c53`), both frozen oracle files byte-identical
   to the v2 base, and the matching update to the verification contract in
   doc 13.
+
+### CA-ISSUE-014 — Identity rotation can fail on Windows with EPERM
+
+- **Observed problem:** on Windows, `rotateIdentity` (`src/auth/localIdentity.ts`) can
+  fail with `EPERM` when it renames the new identity over `identity.json`. The failure
+  is safe: the file is left unchanged and the temporary file is removed, so the
+  operator sees an error and nothing is half-written. The existing test
+  `tests/integration/localIdentity.test.ts` ("rotates authenticators, keeps the
+  principal, and the old ones stop working") therefore fails intermittently, and a
+  supervised verifier's full-suite step can reject an otherwise correct change (it
+  appeared during CA-ISSUE-013 preparation and once in an integration run).
+- **Evidence (2026-10-07):** a bounded reproduction (`eperm_repro.mts`) ran the test's
+  create-then-rotate sequence against the real module 80 times. Six runs failed (3 in
+  each batch of 40). The retry histogram is bimodal: 74 rotations needed no retry and
+  6 exhausted all six waits; none succeeded after retrying, so the existing bounded
+  `EPERM` retry (1,575 ms) does not help. At each failure the target could still be
+  opened for reading and writing, copied and deleted, but renaming onto it kept failing
+  for at least 5 to 30 more seconds, also from a separate process. Its ACL was the
+  expected private one, and no handle leak was found on the code path. The script,
+  log and analysis are preserved locally under `node_modules/.cache/ca014-evidence/`
+  (`eperm_repro.mts` SHA-256 `4ef88f3a…`, `eperm2.log` `33c2c3c6…`, analysis
+  `30450383…`) and summarized in bridge message 1812.
+- **Cause (inference, not proven):** another process holds `identity.json` open with
+  delete sharing, consistent with an on-access scanner or indexer opening the freshly
+  written file. Node's delete uses POSIX semantics and succeeds despite such a handle;
+  rename-over-target does not. Naming the holder would need a handle tool.
+- **Known limitation:** the behaviour is accepted for now. A longer retry would not
+  help, and moving the real-file test out of the default suite would hide a material
+  platform failure, so neither is done. Replacing the file non-atomically (moving the
+  current file aside first) is rejected: it opens a window in which
+  `loadOrCreateIdentity`, which does not take the rotation lock, could mint a new
+  identity.
+- **Bounded follow-up:** design a safe atomic replacement on Windows that keeps the
+  identity readable throughout and never lets a loader mint a new identity mid-rotation,
+  with deterministic tests only for any contract that is genuinely missing (the existing
+  tests already cover transient and persistent `EPERM` and cleanup).
+- **Closure criteria:** rotation on Windows succeeds despite a reader or scanner
+  holding the target with delete sharing, or the defect is otherwise resolved, with
+  the identity never absent or re-minted during rotation; independently verified.
 
 ## External dependencies
 
