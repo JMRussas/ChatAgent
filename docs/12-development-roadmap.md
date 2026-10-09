@@ -267,12 +267,25 @@ document is preserved in main with a newer handoff header; that third branch and
 superseded PR #13 are retired too. A fresh full Git bundle verified before branch
 deletion, exact tip leases
 protected remote deletion, and source branch/HEAD/status/diff hashes are unchanged.
-The dirty local migration checkout and every worktree file are preserved. Eight
-remote feature branches and six open PRs carry unmerged commits; their review is
-recorded as Hekate task `fa1f1f63-2623-5eda-99b6-a8e775426943` rather than silently
-merging or discarding them. Completed cleanup task `4efd53a0-e539-5158-805e-1b78deb979d9`
-is accepted against published Hekate source `7faf1873`. Evidence and branch-level
-unique-commit inventory: `hekate-branch-cleanup-002`.
+The dirty local migration checkout and every worktree file are preserved.
+The initial cleanup retained eight remote branches and six open PRs for
+consolidation (`hekate-branch-cleanup-002`). The user then prioritized repository
+presentation: a subsequent private archive preserves every remaining tip in a
+fresh verified bundle and 24 hashed PR/detail/review/discussion snapshots. All
+eight remote branches are retired with exact tip leases and the six stale PRs
+are closed. GitHub now exposes only `main`, with zero open PRs; visibility remains
+private and published Hekate source stays `7faf1873`.
+
+Actual retirement task `f8445275-e619-5658-9837-698bc8b0f2ae` is accepted;
+prior aggregate triage `fa1f1f63-2623-5eda-99b6-a8e775426943` is superseded and
+cancelled without a worker. Eight scoped assessment tasks now sit under
+`31d5461f-81a4-5ee0-b650-8c7978d0f975` (Archived Hekate work for consolidation),
+with exact archived tips and recovery commands. Execution/observability and task
+projection assessments take priority; asset expansion is deferred beyond the
+MVP. These tasks do not assert every historical change is missing from main and
+do not authorize wholesale merges. Evidence: `hekate-branch-cleanup-003/archive-manifest.json`,
+`retirement-proof.json`, `recovery-backlog.json` and acceptance/backlog readbacks.
+Local branch tips and all dirty source files remain unchanged.
 
 Hermes implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` ended cleanly
 at 16:28:35 UTC on October 9 after 611.669 seconds and 19 distinct assistant
