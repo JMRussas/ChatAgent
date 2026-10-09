@@ -1,6 +1,7 @@
 import { renderToolPayloads } from "./toolPayload";
 import { documentTaskScript } from "./documentTaskPanel";
 import { planStatusPanelHtml, planStatusScript } from "./planStatusPanel";
+import { planRunControlsHtml, planRunControlsScript } from "./planRunControls";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -13,7 +14,8 @@ interface RuntimeModeInfo {
 export function renderHomePageHtml(
   runtimeMode: RuntimeModeInfo = { mode: "unknown" },
   documentTasks = false,
-  planStatus = false
+  planStatus = false,
+  planRunControls = false
 ): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
@@ -463,7 +465,7 @@ export function renderHomePageHtml(
       </form>
 
       ${documentTasks ? '<p id="documentTaskStatus" class="status" role="status"></p>' : ""}
-      ${planStatus ? planStatusPanelHtml() : ""}
+      ${planStatus ? planStatusPanelHtml() + (planRunControls ? `\n      ${planRunControlsHtml()}` : "") : ""}
       <div id="conversationNotice" class="conversation-notice" role="alert" hidden><span id="conversationNoticeText"></span><button type="button" id="newConversation">Start a new conversation</button></div>
       <div id="thread" class="thread" aria-label="Conversation history" aria-live="polite"></div>
       <footer id="status" class="status">Ready.</footer>
@@ -1233,7 +1235,7 @@ export function renderHomePageHtml(
     });
   </script>
 ${documentTasks ? documentTaskScript() : ""}
-${planStatus ? planStatusScript() : ""}
+${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") : ""}
 </body>
 </html>`;
 }

@@ -1605,6 +1605,111 @@ describe("maintained launch preconditions", () => {
   });
 });
 
+describe("operator-approved trace root", () => {
+  /** The run root moves under a trace directory that holds nothing else the host owns. */
+  function traced(trace?: (env: Env) => string | undefined) {
+    const env = makeEnv();
+    env.runRoot = path.join(env.dir, "traces", "run");
+    env.config.roots[0].runRoot = env.runRoot;
+    const root = trace ? trace(env) : path.join(env.dir, "traces");
+    if (root !== undefined) env.config.traceRoot = root;
+    return env;
+  }
+  const childEnvs = (seen: { options: { env?: NodeJS.ProcessEnv } }[]) =>
+    seen.map((s) => s.options.env ?? {});
+  const traceKeys = (env: NodeJS.ProcessEnv) =>
+    Object.keys(env).filter((key) => key.toUpperCase() === "HEKATE_TRACE_ROOT");
+  const spoof = {
+    ...process.env,
+    HEKATE_TRACE_ROOT: "D:\\evil\\trace",
+    hekate_trace_root: "D:\\evil\\lower"
+  };
+
+  it("forwards exactly the configured root to every native child and ignores ambient spoofing", async () => {
+    const env = traced();
+    scenario(env, launchedScenario(env));
+    const { host: h, seen } = host(env, { env: spoof });
+    await h.status(ROOT);
+    await h.launch(ROOT, OP1);
+    await h.stop(ROOT, OP2);
+    const envs = childEnvs(seen);
+    expect(envs.length).toBeGreaterThanOrEqual(5);
+    for (const child of envs) {
+      expect(traceKeys(child)).toEqual(["HEKATE_TRACE_ROOT"]);
+      expect(child.HEKATE_TRACE_ROOT).toBe(env.config.traceRoot);
+      expect(child[CONTAINER_WORKSPACE_ENV]).toBe(ORIGINAL_CONTAINER_WORKSPACE);
+    }
+  });
+
+  it("keeps the legacy behaviour when unset: the ambient value never reaches a child", async () => {
+    const env = traced(() => undefined);
+    const { host: h, seen } = host(env, { env: spoof });
+    await h.status(ROOT);
+    for (const child of childEnvs(seen)) expect(traceKeys(child)).toEqual([]);
+    for (const call of calls(env, "status")) expect(call.traceRootSet).toBe(false);
+  });
+
+  it("reaches the native process as the one approved value", async () => {
+    const env = traced();
+    const { host: h } = host(env, { env: spoof });
+    await h.status(ROOT);
+    expect(calls(env, "status")[0].traceRootSet).toBe(true);
+  });
+
+  it.each([
+    ["a relative path", () => "traces"],
+    ["the filesystem root", (env: Env) => path.parse(env.dir).root],
+    ["a root that does not contain the run root", (env: Env) => path.join(env.dir, "elsewhere")],
+    ["a root inside the run root", (env: Env) => path.join(env.runRoot, "deeper")],
+    ["a root containing the e1 source", (env: Env) => env.dir],
+    [
+      "a root containing the journal",
+      (env: Env) => {
+        env.config.journalDir = path.join(env.dir, "traces", "journal");
+        return path.join(env.dir, "traces");
+      }
+    ],
+    [
+      "a root containing a state directory",
+      (env: Env) => {
+        env.config.roots[0].stateDir = path.join(env.dir, "traces", "state");
+        return path.join(env.dir, "traces");
+      }
+    ],
+    [
+      "a root containing another root's state directory",
+      (env: Env) => {
+        const second = structuredClone(env.config.roots[0]);
+        second.rootId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        second.taskId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        second.stateDir = path.join(env.dir, "traces", "state2");
+        second.runRoot = path.join(env.dir, "traces", "run2");
+        env.config.roots.push(second);
+        return path.join(env.dir, "traces");
+      }
+    ],
+    ["a path with a NUL", (env: Env) => path.join(env.dir, "traces") + "\0x"],
+    ["a non-string value", () => 7 as unknown as string]
+  ])("refuses %s without echoing it", (_name, make) => {
+    const env = traced(make);
+    try {
+      new DispatchHost(env.config);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(DispatchHostConfigError);
+      expect((error as Error).message).toContain("traceRoot");
+      expect((error as Error).message).not.toContain(env.dir);
+    }
+  });
+
+  it("accepts a root equal to the run root and refuses an unknown spelling of the option", () => {
+    const env = traced((e) => e.runRoot);
+    expect(() => new DispatchHost(env.config)).not.toThrow();
+    const config = { ...traced().config, traceRootPath: "x" } as unknown;
+    expect(() => new DispatchHost(config)).toThrow(DispatchHostConfigError);
+  });
+});
+
 // Source-checked against the maintained tree when it is present on this machine; set
 // HEKATE_E1_SOURCE_ROOT to point elsewhere. It is skipped (never passed) when absent.
 const MAINTAINED =
@@ -1657,3 +1762,15 @@ describe.skipIf(!existsSync(path.join(MAINTAINED, "e1", "owned_dispatch.py")))(
     });
   }
 );
+
+describe("native plan key and canonical task identity", () => {
+  it("preserves the native plan key separately from its current node ID", async () => {
+    const env = makeEnv();
+    setStatus(env, report(env, { current: { node: "bounded-plan-launch", nodeId: TASK } }));
+    expect((await host(env).host.status(ROOT)).body.current).toEqual({
+      node: "bounded-plan-launch",
+      nodeId: TASK,
+      workerLiveness: "unknown"
+    });
+  });
+});

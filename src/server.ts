@@ -5,6 +5,7 @@ import {
   planApiBase
 } from "./integrations/hekate/devCoordination";
 import { DispatchHost } from "./integrations/hekate/dispatchHost";
+import { loadDispatchHost } from "./integrations/hekate/dispatchHostConfig";
 import { loadRoleCatalog, reloadRoleCatalog } from "./app/roleCatalog";
 import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
@@ -805,7 +806,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           renderHomePageHtml(
             options.runtimeMode,
             Boolean(options.documentTasks),
-            planApiUrl !== undefined
+            planApiUrl !== undefined,
+            planApiUrl !== undefined && dispatchHost !== undefined
           )
         );
         return;
@@ -1646,6 +1648,8 @@ export async function startServer(
   const boundary = loadHttpBoundaryConfig();
   const turnAdmission = loadTurnAdmissionConfig();
   const streamAdmission = loadStreamAdmissionConfig();
+  // Trusted startup configuration only; a malformed file stops startup before anything runs.
+  const dispatchHost = await loadDispatchHost(process.env);
   const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
   const shutdownConfig = loadShutdownConfig();
   const config = loadRuntimeProviderConfigFromEnv();
@@ -1997,6 +2001,7 @@ export async function startServer(
     documentTasks,
     documentTaskControl: documentTasks,
     planApiUrl: process.env.HEKATE_PLAN_API_URL,
+    ...(dispatchHost ? { dispatchHost } : {}),
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },

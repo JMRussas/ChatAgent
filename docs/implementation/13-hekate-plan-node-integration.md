@@ -1172,8 +1172,9 @@ gracefully stop the existing `e1.owned_dispatch` host for a prepared plan root. 
 is a thin caller, not a scheduler: it never opens LocalStore, claims, retries,
 reclaims or kills a process tree, and the native host stays the single owner and
 final authority. It is enabled only by the trusted `serverOptions.dispatchHost`
-instance; without it the routes answer `404 DISPATCH_HOST_DISABLED`. Loading that
-configuration from an environment file is a later task.
+instance; without it the routes answer `404 DISPATCH_HOST_DISABLED`. Production
+startup builds that instance from a trusted file (see "Startup configuration and
+conversation run controls" below).
 
 | Route                                             | Access   | Effect                                |
 | ------------------------------------------------- | -------- | ------------------------------------- |
@@ -1196,8 +1197,20 @@ unknown key anywhere (including `entryArgs` or `exeArg`) is refused. Top level:
   raises without it on Windows. The host validates the value against exactly those
   two (case and slash insensitive) when constructed and always forwards it to every
   native child. It is never taken from a request or inherited from the parent
-  process. The maintained e1 code reads no `HEKATE_TRACE_ROOT`, so none is assigned
-  and none is inherited.
+  process. The maintained Python e1 modules read no `HEKATE_TRACE_ROOT`; an ambient
+  value is never inherited, and only the optional `traceRoot` below is assigned.
+- `traceRoot` (optional, absolute): the operator-approved root under which Hekate's
+  attempt-trace viewer (`PlanContractEndpoints.Trace`, Hekate `f5a7a6b`) confines its
+  reads and which it requires as `HEKATE_TRACE_ROOT`. It must not be a filesystem root,
+  must contain every configured `runRoot` (equal is allowed), and must not contain
+  `source.e1Root`, `journalDir` or any root's `stateDir`. A violation is refused at
+  construction as field `traceRoot`. When set, the host adds exactly that configured
+  string as `HEKATE_TRACE_ROOT` to each native child, after the allowlist strips every
+  spelling of the ambient variable; when unset, nothing is assigned (the previous
+  behaviour). No request or browser value can reach it. Limit: this sets the variable for
+  the children the adapter starts. The viewer reads its own process environment, which
+  the adapter does not configure, so the Hekate API process must be started with the same
+  approved value (CA-ISSUE-027); nothing here proves the viewer is configured.
 - `python`: the interpreter path, its sha256 and the exact `--version` text. The
   entry is the frozen constant `["-m", "e1.owned_dispatch"]`; the host runs
   `python -m e1.owned_dispatch <command>` with `cwd` set to `source.e1Root`.
@@ -1346,5 +1359,77 @@ Hekate process, model or LocalStore was run: this is not native evidence.
   its own.
 - The adapter cannot see or end a launcher's detached child after a timeout; only
   the native status, never the journal, decides what is running.
-- The root-go text, actor and limits are fixed per root by trusted configuration;
-  loading that configuration from an environment file is a later task.
+- The root-go text, actor and limits are fixed per root by trusted configuration,
+  loaded at startup as described next.
+
+#### Startup configuration and conversation run controls
+
+Prepared reference for the `conversation-run-controls` node; it is a bounded
+preparation, not native feature acceptance. Source-only and fake-host proof: no real
+Python, Hekate, model or LocalStore is run, and the C# observer (the trace viewer) is
+not exercised.
+
+**Startup loader** (`src/integrations/hekate/dispatchHostConfig.ts`). `startServer`
+reads `HEKATE_DISPATCH_CONFIG_PATH` before allocating anything. Unset keeps the dispatch
+routes disabled and the page unchanged. Otherwise the value must be an absolute path
+(at most 500 characters, no NUL) to a regular file of at most 128 KiB, neither a symbolic
+link nor reached through one. The file is read through one descriptor and a file that
+grows past the cap is refused. It must be UTF-8 JSON (a BOM is refused) holding an
+object, which the real `DispatchHost` constructor validates with its closed schema;
+unknown keys, flags and entry arguments are refused there. This workflow also requires an
+explicit `traceRoot` string (`TRACE_ROOT_REQUIRED`), although the adapter alone still
+accepts its legacy shape. Failures throw `DispatchStartupError` with one of
+`INVALID_CONFIG_PATH`, `CONFIG_UNREADABLE`, `CONFIG_NOT_REGULAR`, `CONFIG_TOO_LARGE`,
+`CONFIG_NOT_JSON`, `TRACE_ROOT_REQUIRED` or `CONFIG_INVALID` (plus the adapter's field
+paths); never a configured value, path or credential. Duplicate JSON keys are not
+detected (the last wins). Source, run-root and tool pins stay verified by the adapter on
+each call.
+
+**Controls** (`src/ui/planRunControls.ts`). `renderHomePageHtml`'s optional fourth
+argument (default false) adds a collapsed `<details id="planRunControls">` and one script
+after the unchanged status script. The server passes it only when both the plan API and
+the dispatch host are configured; otherwise the page is byte-identical to before. The
+controls reuse `#planRoot`, `#userId` and `#conversationId` and add three explicit
+buttons.
+
+- **Requests.** `Check host` is a same-origin `GET /development/plans/:root/dispatch`;
+  `Start prepared plan` and `Request stop` are `POST` to the same path plus `/launch` or
+  `/stop` with exactly `{"operationId":"<crypto.randomUUID()>"}`. Cookie credentials only,
+  no `Authorization`, no redirects. At most one request is outstanding and all three
+  buttons are disabled meanwhile, so a duplicate click sends once. There is no automatic
+  POST, polling, retry, or launch on load, reload or scope change.
+- **Binding.** Each request records its user, conversation and root. A change of any of
+  them, the root field, or `pagehide` aborts the browser request and discards a late
+  response. Aborting does not cancel the server; an aborted mutation is recorded as
+  unknown, never as cancelled.
+- **Bounds.** 10 s deadline and 1 MiB body, as in the status panel.
+- **Metadata.** The last operation per user, conversation and root is kept in
+  `sessionStorage` as a typed record (`v`, `root`, `kind`, `operationId`, `launchId`,
+  `outcome`, `code`, `at`; at most 600 characters; anything else is ignored), never a raw
+  body or path.
+- **Unknown stays unknown.** A timeout, network failure, oversized or unrecognized POST
+  response is an `unknown` outcome. Start and stop stay disabled, also after reload,
+  until an explicit `Check host` succeeds; the next click allocates a new operation ID.
+- **Display.** Root, operation ID and launch ID are shown as text. The host lifecycle
+  distinguishes running, stop requested (still running), exited/stopped, unverified or
+  unavailable, owner gone and mismatch; a response with another root, an unknown
+  lifecycle or a malformed field is refused rather than guessed. "Awaiting review" and
+  the task and attempt come from the existing status panel's rendered text (read only,
+  and only when its root matches), shown beside the host's `current.node`. The host
+  heartbeat is labelled as host-only; worker liveness is always "unknown". Every
+  untrusted field is set with `textContent`.
+
+The HTTP routes, body schema, authentication and CSRF behaviour are unchanged.
+
+Tests: `tests/unit/planRunControls.test.ts` (script against a fake DOM),
+`tests/unit/dispatchHostConfig.test.ts` (loader), the "operator-approved trace root"
+cases in `tests/unit/dispatchHost.test.ts`, `tests/unit/homePage.test.ts`, and
+`tests/browser/planRunControls.spec.ts` (the fixture option `planRunControls` supplies a
+real `DispatchHost` over absent paths with a spawn that throws; specs stub the browser's
+requests; the auth cases use the real server boundary). `npm run`-independent helper
+`scripts/check-plan-run-controls-browser.mjs` runs `planStatus.spec.ts` and
+`planRunControls.spec.ts` headless with one worker and no retries, writing to a new
+uniquely named directory beside the worktree. Prepared without a shell: none of these
+have been run by the preparation worker.
+
+Preparation review corrections: startup JSON uses the maintained duplicate-key/exact-integer parser and bounded value-free field diagnostics. Observed links are refused and an opened regular file must match the observed identity; these checks do not claim OS isolation against arbitrary filesystem mutation. Link tests explicitly skip unavailable capabilities. Approved trace root is inherited by the native launcher, detached Python owner and LocalStore C# API; the Python modules do not have to read the variable. Real product launch/trace readback remains a separate proof. Host current plan key and canonical task ID are separate fields; controls match the task ID only, label independent observations and omit stale status-panel correlation.
