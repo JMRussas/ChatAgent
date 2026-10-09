@@ -96,6 +96,15 @@ describe("real rehearsal projection semantics", () => {
   );
 });
 
+describe("reviewed runbook facts", () => {
+  it("preserves the exact reviewed prefix before its delivery checklist", () => {
+    const boundary = text.indexOf("\n## 9.");
+    expect(boundary).toBeGreaterThan(0);
+    expect(createHash("sha256").update(text.slice(0, boundary)).digest("hex")).toBe(
+      "3cb2d6a12ec3672be3d26ecebcd3eeef1bfda59b0c9ad96e5f6127f496cfc233"
+    );
+  });
+});
 describe("conversation operations runbook", () => {
   it("names the trusted startup settings and pins", () => {
     for (const needle of [
@@ -190,5 +199,36 @@ describe("prepared task execution prerequisite", () => {
     expect(text).toMatch(/missing cache/i);
     expect(text).toMatch(/does not start a worker/i);
     expect(text).toMatch(/default/i);
+  });
+});
+
+describe("finite delivery checklist", () => {
+  const section = text.slice(text.indexOf("\n## 9."));
+  const normalized = section.replace(/\s+/g, " ");
+  it("gates one prepared launch on readiness and preserves unknown owner fencing", () => {
+    expect(normalized).toMatch(/readiness/i);
+    expect(normalized).toMatch(/cache/i);
+    expect(normalized).toMatch(/Check host/i);
+    expect(normalized).toMatch(/Start prepared plan/i);
+    expect(normalized).toMatch(/once|one launch/i);
+    expect(normalized).toMatch(/unknown/i);
+    expect(normalized).toMatch(/stop_requested/i);
+    expect(normalized).toMatch(/stopped/i);
+  });
+  it("separates native checks, recorded acceptance, exact integration and explicit reload read", () => {
+    for (const concept of [
+      /attempt/i,
+      /epoch/i,
+      /unknown/i,
+      /native/i,
+      /recorded/i,
+      /accepted/i,
+      /Git SHA/i,
+      /merge/i,
+      /reload/i,
+      /read/i,
+      /blocked/i
+    ])
+      expect(normalized).toMatch(concept);
   });
 });

@@ -438,6 +438,16 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 ### CA-ISSUE-014 — Identity rotation can fail on Windows with EPERM
 
+- **Real rehearsal reference recurrence (2026-10-09):** first immutable rehearsal
+  package passed 2,866 cases, skipped ten explicit cases and failed the existing
+  recurrence test on native Windows replacement `EPERM/rename`. The package
+  remains rejected and unpinned, with exact artifact `9569fb7854a03e23690ba54dcd1002088566cca3`
+  and full evidence under external `authoring/integrated-rehearsal-001`. No test
+  was skipped or relaxed. This confirms the broader issue remains open; it does
+  not identify the handle holder. The new package also corrects an independently
+  found rehearsal-helper acceptance-pin error and adds six pure projection cases,
+  with an actual old-helper negative check and restored exact bytes.
+
 - **Replacement refusal classification (2026-10-08):** full integrated launch
   verification reproduced raw `EPERM/rename` in the concurrent case: 2,761 pass,
   one failure. Follow-up Hekate task `810925e8-96b2-5b4f-a2f7-e5b5ede4fc50` is accepted at
@@ -886,7 +896,12 @@ this rework separately from product defects and preserve the rejected attempt.
 
 ### CA-ISSUE-026 — Stop request can target a replacement dispatcher
 
-Status: open; source fencing and adapter controls are accepted; end-to-end delivery remains. Hekate task
+Status: closed for the controlled local owner-handoff scope (2026-10-09).
+Actual paired product UI delivered an exactly targeted graceful stop to A and
+launched B; a delayed exact A packet was retained and ignored while B heartbeat
+advanced. Source fencing remains adopted at Hekate10163d9. Evidence is external
+conversation-rehearsal-001/rehearsal-preflight.json. Arbitrary filesystem mutation
+races remain outside this proof. Previous preparation history follows. Hekate task
 `93a81ce6-a7c2-5acb-a135-e2eca3195353`; owner `codex-chatagent`, native repair
 assigned to the supervised Mimir worker. The adapter records the observed launch
 ID, but its stop command does not pass that identity to the native owner. If owner
@@ -908,7 +923,11 @@ contract is Hekate plan 053. Preserve all failed and negative-control evidence.
 
 ### CA-ISSUE-027 — Launch adapter omits the trusted observer trace root
 
-Status: open; Hekate controls-preparation task
+Status: closed for local product trace-root delivery (2026-10-09). The real
+paired maintained product read the accepted native progress artifact and verified
+current attempt after its own UI launch, through the actual configured C# API.
+Evidence: external conversation-rehearsal-001/rehearsal-preflight.json. Prior
+Hekate controls-preparation task
 `2ef9442c-3425-5a2b-953c-fc6a18e73207`. Source-reviewed integration gap: maintained
 C# `PlanContractEndpoints.Trace` reads `HEKATE_TRACE_ROOT` and refuses an
 unconfigured root. Accepted adapter `dc5c501` strips ambient environment, including
@@ -946,7 +965,10 @@ helpers. Evidence: external `conversation-controls-prepare-001/monitor-corrected
 
 ### CA-ISSUE-029 — Controls compare a native plan key with a canonical task ID
 
-Status: open; correction is accepted in native controls artifact `5c0ccb5`, integrated at `49bab0c`, following preparation
+Status: closed for native GUID/current-attempt correlation (2026-10-09).
+Actual paired UI progress matched original node9bc28ff4, current epoch1 and exact
+accepted artifact15528e5ac76634220ad4de69bb504350b6f82a8d through the maintained
+API. Evidence: conversation-rehearsal-001/rehearsal-preflight.json. Correction is accepted in native controls artifact `5c0ccb5`, integrated at `49bab0c`, following preparation
 `2ef9442c-3425-5a2b-953c-fc6a18e73207`. Native owned status records both
 `current.node` (the plan key, such as `bounded-plan-launch`) and `current.nodeId`
 (the canonical GUID). The accepted host projection retained only the key. Initial
@@ -972,7 +994,10 @@ fixtures and held-response input/attempt-change negative controls before freeze.
 
 ### CA-ISSUE-030 — Attempt-progress preparation cannot parse
 
-Status: open; blocks freezing the original progress-view task. Hekate preparation
+Status: closed (2026-10-09). Corrected preparation epoch2 is accepted; original
+native progress node is accepted at15528e5 and integrated atcc84238. Maintained
+product public progress passed after actual UI owner launch. First rejected bytes,
+failed checks and timeout remain retained. Previous failed preparation follows. Hekate preparation
 `b0be34f0-1932-5c20-bfad-9d9d9406885c` epoch1 is rejected; correction epoch2
 `attempt-progress-prepare-002-r2` is Active with an actual CLI worker and observer.
 The first worker reached its 600-second bound without finishing the browser helper
@@ -993,7 +1018,11 @@ failure. The 600-second timeout is an operational bound, not a model-speed SLO.
 
 ### CA-ISSUE-031 — Maintained startup omits attempt progress
 
-Status: open within progress preparation task
+Status: closed (2026-10-09). Maintained startup forwarding and the strict
+51-route authorization inventory are integrated atcc84238. Real configured
+startServer and paired browser exercised the actual C# collector and public
+progress after UI launch; startup defaults remain disabled without plan API.
+Evidence: conversation-rehearsal-001/rehearsal-preflight.json. Previous progress preparation task
 `b0be34f0-1932-5c20-bfad-9d9d9406885c` epoch2. Direct test-server fixtures enabled
 the new progress option, but maintained `startServer` did not forward it. The
 assembled-startup regression reproduced a missing panel before any progress request;
@@ -1014,7 +1043,14 @@ prepare a new immutable package before execution.
 
 ### CA-ISSUE-032 — Unconfirmed launch loses recovery identity
 
-Status: open; reproduced in the actual paired conversation rehearsal. Native owner
+Status: closed for retained unconfirmed launch identity and exact-exit recovery
+(2026-10-09). Hekate taskd95f8f72-e281-5233-9556-1f0852bfeffe is accepted at
+repair bundle56168a2e, with exact ChatAgent06d0269/Hekate10163d9 integrated and
+adopted. Actual forced one-second UI launch retained C identity; a fenced CLI stop
+and exact exited C status automatically reconciled its uncertain record before
+UI replacement D, preserving the original result and using no inspection override.
+The same browser correctly blocked mutations during uncertainty. Evidence:
+conversation-rehearsal-001/unconfirmed-recovery.json. Original reproduction follows. Native owner
 A started after the confirmation window, but the native unconfirmed response omitted
 its allocated launch ID and the adapter discarded IDs on that outcome. After an
 exactly fenced clean stop, a replacement was refused with
@@ -1035,3 +1071,100 @@ successful startup. Automatic reconciliation must remain limited to the exact
 matching exited native owner. Missing, malformed or foreign IDs remain blocked.
 Evidence: external `conversation-rehearsal-001/operator-inspection.json`,
 `rehearsal-preflight.json` and `launch-identity-repair-001`.
+
+### CA-ISSUE-033 — Prepared UI launch omits the required dependency cache
+
+Status: closed for trusted cache forwarding (2026-10-09). Actual repair task
+`7ec9091d-4248-5c73-a447-52ed423508ab` accepted artifact `117337f`, integrated
+at `6e97ebb`; the real UI-created owner subsequently claimed and ran prepared
+work. The final task is now accepted at epoch 4. Original reproduction: The UI-created
+owner D attempted the ready package but refused preflight with
+npm_cache_required, before any claim or worker launch. The adapter's restricted
+child environment drops the maintained task runner's explicit warm-cache setting.
+A running host and successful status-only launch proof did not test this execution
+prerequisite. The failed owner exited cleanly, and its immutable plan-run6,
+task preflight, binding and journal remain retained under application-native-001.
+
+Require an optional absolute operator-owned npmCacheDir in the trusted startup
+configuration, forwarded only as npm_config_cache. Never inherit ambient npm
+configuration, registry/proxy credentials or a request-supplied path. The native
+task runner retains its directory validation and offline dependency checks before claim; no default guess
+or download bypass is allowed. The actual Hekate CLI repair is accepted and integrated.
+The existing genuine reliability backlog now owns the sole API in the same retained
+store during repair. Afterwards perform a controlled ready-plan handoff with new
+state/run-root, preserving all original task IDs, six accepted predecessors and
+the refused attempt evidence; prove useful prepared work from the real product UI.
+
+### CA-ISSUE-034 — Generated runbook conflates configuration layers
+
+Status: closed for reviewed operator facts (2026-10-09). Accepted Mimir task
+`b52068c6-649f-5804-b42a-47064e804987`, artifact `9d87850`, supplied the reviewed
+facts prefix, applied separately after exact accepted native artifact `0d18529`
+was merged. The lead delivery checklist and stronger prefix contract are separately
+attributed; package 004 was never pinned or executed. Original lead review of native
+final candidate5b65cda26fe15073d98a3ab1245348214b19d9c9
+found factual gaps that the keyword/format oracle does not detect. The draft labels
+Node/npm/Git TaskSpec pins as dispatch-host configuration, omits the launcher's
+Python and maintained-source hash distinction, says approved cache reaches the
+worker rather than native preparation, and understates the armed finite poll loop.
+The actual runtime is unchanged; this is operator documentation accuracy.
+
+An actual Mimir correction task derives from that exact native artifact and edits
+only the runbook. Require correct launcher versus prepared-task pin descriptions,
+manual page actions versus finite native polling/dispatch, preserved credential
+exclusions and unknown/stop semantics, and no duplicated session-result narrative.
+Native automatic acceptance is separate from lead source review and integration.
+Integrate only after native verification and this exact independently reviewed
+correction both pass. Evidence: external runbook-facts-repair-001 and
+ready-rehearsal-native-observation-002. No oracle was weakened to hide the gap.
+
+### CA-ISSUE-035 — Observer rejects a valid large native trace record
+
+Status: closed for bounded native-record compatibility (2026-10-09). Actual repair
+task `523cb7d0-782b-5b6f-b5ee-c5deba3becc0`, artifact `3a0aa32`, is integrated
+at `d749b1a`. The retained 125334-character private record now validates through
+the real API and remains absent from public activity; the final native real-product
+verifier passes. Total bytes, pages, deadlines, claim checks and privacy projection
+remain bounded. Broader verifier-availability retry routing remains recovery work.
+Original reproduction through the actual maintained API:
+Original final task21dcea12 native rounds1/2 passed source/full gates but the real
+product progress verifier failed. Both rejected attempts are retained; no extra
+original model round is launched against those inputs. A real API200 recordseq12
+in r2 has125334 UTF16 characters, cutfalse. The consumer's undocumented65536
+character schema cap rejects it as INVALID_RESPONSE. Native AttemptTrace instead
+uses a4MiB serialized response budget; ChatAgent already enforces its own4MiB
+streamed observation budget. A large private tool-result record must not make the
+entire legitimate attempt unavailable.
+
+An actual Hekate repair task aligns supported record/prompt field bounds with that
+whole-observation budget while preserving shape/type/sequence/identity checks,
+page/deadline bounds and public privacy projection. Require >64KiB valid-record
+and private-envelope tests, unchanged total-budget refusals, old-source negative
+and real retained-trace readback. Exact source/schema diagnostic contains only
+metadata, hashes, field lengths and validation paths, never worker payload.
+Evidence: ready-plan-handoff-001/observer-schema-diagnostic.json,
+application-ready-native-001/integrated-rehearsal/pilot-3abd5bd5a497 and
+trace-record-repair-001. Upstream observation failure is a verifier-availability
+problem, not evidence that rewriting the worker's Markdown will fix it. Broader
+availability-aware retry routing belongs in the recovery follow-up.
+
+### CA-ISSUE-036 — Lead preparation wrapper hides failed pinning
+
+- **Kind / status:** orchestration defect / corrected locally; no product-runtime
+  change (2026-10-09).
+- **Observed:** the preparation wrapper wrote child exit 1 to retained evidence but
+  itself returned 0. Subsequent stop/launch operations proceeded after package 004
+  pinning failed. The native guard correctly refuses `pin_spec` for previously
+  attempted tasks, even after release to TODO. Final acceptance actually used
+  package 003, content revision 3, epoch 4; it is not package 004 evidence.
+- **Expected:** failed prerequisite commands stop dependent operations. Inspect
+  both exit status and exact pin readback before changing ownership or launching.
+  Revisions after attempted work must use supported content/state CAS; do not
+  weaken the native initial-pin guard.
+- **Resolution / owner:** lead wrapper now propagates nonzero child exits, and a
+  deliberate failing-child check verifies that behavior. Retain original wrapper,
+  failed pin log and accepted task's exact package identities. No additional model
+  retry is required to relabel the completed run.
+- **Evidence:** external `conversation-rehearsal-prepare-001/pin-v4-exit.json`,
+  `rehearsal-rework-001/lead-integration-review.json` and
+  `rehearsal-rework-001/fail-closed-wrapper-negative.json`.

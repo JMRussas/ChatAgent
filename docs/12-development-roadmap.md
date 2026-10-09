@@ -6,89 +6,75 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
-### Current assessment and next delivery gate (2026-10-09, 00:57 Eastern)
+### Current assessment and next execution gate (2026-10-09)
 
-Execution is underway under the user's instruction. **Six of seven application
-nodes are accepted and their exact artifacts are integrated**: monitor runbook,
-plan-status API, plan-status UI, bounded-plan launch, conversation run controls and
-public attempt progress. ChatAgent `cc84238` integrates progress artifact
-`15528e5ac76634220ad4de69bb504350b6f82a8d`. Combined main verification passed
-**2,858 tests**, with one explicit Windows link-capability skip, plus lint and docs.
-This milestone count is not a percentage of effort.
+**All seven original application tasks are accepted and their exact artifacts are
+integrated.** The final task `21dcea12-cb65-54cf-8581-e2f896490139` is accepted at
+attempt epoch 4, content revision 3, attempt `pilot-11c9f94a6bef-r1`, artifact
+`0d1852940975241dd3367cef4299acf2911e5b86`. The native owner completed `all_done`
+and exited cleanly. This count measures accepted milestones, not percentage of effort.
 
-The actual paired product rehearsal has read the accepted native progress artifact,
-refused duplicate starts, delivered a correctly fenced graceful stop to owner A,
-launched owner B and proved that a delayed exact A request packet is retained and
-ignored while B's heartbeat advances. Evidence is retained outside Git under
-`conversation-rehearsal-001`; this controlled handoff does not claim an arbitrary
-filesystem mutation race or global Windows foreground-focus proof.
+The maintained conversation workflow can inspect a prepared plan, launch a finite
+native dispatcher, request a fenced graceful stop, and read bounded public attempt
+progress with exact claim, decision and evidence identities. Real paired UI evidence
+covers duplicate refusal, graceful A-to-B handoff, a retained late old-owner stop,
+and exact uncertain-launch reconciliation. Host heartbeat is not worker liveness
+or useful progress. Hidden launches/headless checks do not prove global Windows
+foreground-focus behavior.
 
-That rehearsal exposed CA-ISSUE-032: an unconfirmed launch omitted its ID, leaving
-the safety journal unable to reconcile after the owner exited. A supported,
-evidence-linked operator inspection resolved only that historical uncertain record;
-the original uncertain outcome remains intact. An actual CLI repair task now
-implements native ID retention and exact exited-owner reconciliation tests.
+Three blocking repairs were executed as actual Hekate CLI tasks and integrated:
+CA-ISSUE-032 retains uncertain launch identity; CA-ISSUE-033 forwards only the trusted
+prepared-task npm cache; CA-ISSUE-035 accepts valid large native trace records within
+the existing total observation budget while withholding private tool results.
+The final native real-product verifier now passes. Its two earlier rejected model
+attempts remain history; epoch 3 is explicitly non-model operator preparation.
 
-Owner B is launch `c180df039c11480da739c273ca84901e`, PID27872, with a
-four-hour/three-dispatch bound and five-second heartbeat. It is waiting for the
-final rehearsal specification; an alive host is not an active worker. Final
-preparation `284d53fd-9058-55a6-ac12-0c5dce635407` epoch1 has finished its CLI
-work and is in lead review, pending meaningful checks and immutable packaging.
-Original rehearsal `21dcea12-cb65-54cf-8581-e2f896490139` remains TODO.
+Independent lead review also corrected operator documentation (CA-ISSUE-034):
+accepted Mimir artifact `9d878502d4837c8d8d483c1e3cab897dd29aba78` supplied the
+reviewed facts prefix, with a separately attributed lead delivery checklist.
+The native final artifact was merged first; rejected original artifacts were not
+merged. Prepared package 004 was **not pinned or executed**: the native pin guard
+correctly refused an already attempted task, but a lead wrapper failed to propagate
+its child failure. The accepted run used package 003. CA-ISSUE-036 records that
+orchestration defect; evidence is retained rather than relabelled.
 
-**Remaining delivery order:**
+**Next delivery order:**
 
-1. Independently verify and integrate the immediate launch-ID repair, preserving
-   single-owner locking, stop fencing and conservative handling of unknown IDs.
-2. Freeze the verified operator runbook and real-product read-only verifier, then
-   execute original `integrated-rehearsal`; independently inspect its exact native
-   artifact, integrate it and prove the accepted decisions survive a UI reload.
-3. Use retained end-to-end evidence to prioritize unattended recovery and broader
-   role orchestration. Optional LangChain/LangGraph primitives exist; persistent
-   role assignment/review/recovery service is unfinished. Metrics integration is
-   deferred: no measured cohort baseline or execution-time SLO exists.
+1. Complete combined main verification and real accepted-result UI/reload proof.
+   Restore the genuine reliability backlog against the same retained store through
+   an explicit product UI launch after the completed application owner has exited.
+2. Prepare and execute the existing recovery task
+   `af690ee2-4e2e-5043-a71a-c0d126030971`, with a frozen acceptance contract that
+   distinguishes observation/verification outages from model/source failures.
+   Do not spend another model retry on an unavailable external verifier. Preserve
+   uncertainty, exact-owner fencing and the original attempts/evidence.
+3. Follow with recovery fencing and handoff evidence, then persistent role
+   assignment/review/recovery. Optional LangChain/LangGraph primitives already
+   exist; an unattended role/recovery service remains unfinished.
+4. Integrate measurements before setting execution-time thresholds: equivalent
+   task/model/host/verification cohorts, phase durations, ready-to-acceptance,
+   acceptance-to-integration, review backlog age, rework and attributed cost per
+   accepted feature. Include failures. Timeouts are bounds, not performance SLOs.
 
-No continuous AI supervision or automatic source integration is claimed. Finite
-host/process observations, PlanStore attempts and independent review evidence are
-separate from unverified public worker activity.
+The genuine eight-task reliability backlog is retained in Hekate under root
+`d6450921-6673-5535-b495-07cc165ada2d`. Dependency-ready tasks with `spec_pending`
+are unprepared, not actively running workers. Use a work-in-progress limit of one
+feature and its immediate blocking repair. Deferred metrics task
+`ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` remains TODO with prior candidates and failed
+attempts retained; no measured cohort baseline or execution-time SLO exists.
 
-Use a work-in-progress limit of one application feature plus its immediate blocking
-repair. Metrics task `ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released
-from epoch2 to `todo`; candidate hashes and failed attempts are retained. It is a
-bounded follow-up, not a prerequisite for delivering the conversation workflow.
+One Start click arms a bounded dispatcher that polls and advances approved ready
+nodes between clicks. Page load/reload never launches work. Neither continuous AI
+supervision nor automatic source integration is implemented. Conversation history
+is process-local; reload is not restart persistence. Preserve historical evidence,
+including the unidentified Windows identity-file holder (CA-ISSUE-014), formatter
+profile adoption limits and resource contention follow-ups.
 
-Native bounded-launch artifact `dc5c501` is integrated at `8ed9e86`; its first
-round passed five frozen steps. The CLI reported 263,725ms, 14turns and
-`0.8692538`USD. Native controls reported 295,434ms, 31turns and
-`0.9321725999999999`USD. These are attributed provider claims, not independently
-metered execution metrics. Both runs retain formatter derivation and idempotence
-proofs. Preparation/control/reference artifacts are never substituted for native
-acceptance or merged as implementations.
-
-Measure ready-to-acceptance, acceptance-to-integration, phase durations, accepted
-features per observed hour, review backlog age, failed/rework time and attributed
-cost per accepted feature. Include failures and compare equivalent task/model/host/
-verification cohorts. Hard timeouts are operational bounds, not performance
-baselines. Evidence still points to preparation/review handoff as the observed
-bottleneck; it does not establish that model execution is too slow. Isolated pilot
-fixtures use a simulated journal clock; persistent LocalStore samples UTC through
-LiveClockJournal. Identify the actual clock domain rather than substituting missing
-stage/decision timestamps.
-
-Combined verification previously reproduced raw Windows `EPERM/rename` in
-concurrent identity rotation. Accepted repair `ca688d0` normalizes only the exact
-owned Windows rename refusal to LocalIdentityError with native cause, preserving
-helper retries and uncertainty retention. Its real permanent-holder negative control
-and full integrated checks pass. CA-ISSUE-014 remains open because the field holder
-is unidentified. CA-ISSUE-027/029 now have accepted controls repairs but require
-real product trace/correlation proof; CA-ISSUE-028 is closed within its observer
-helper scope. Preserve failed and negative-control evidence.
-
-Evidence is retained under external `D:/hekate-coordinator/runs/`, including
-`state-assessment-20261008`, `stop-fence-001/handoff`,
-`dispatch-native-observation-001`, `controls-native-observation-001`,
-`conversation-controls-prepare-001`, `identity-rename-refusal-001`,
-`attempt-progress-prepare-001` and `execution-metrics-003`.
+Evidence is external under `D:/hekate-coordinator/runs/`, notably
+`conversation-rehearsal-001`, `ready-plan-handoff-001`,
+`application-rework-native-001`, `rehearsal-rework-001`,
+`launch-identity-repair-001`, `dispatch-cache-repair-001`,
+`runbook-facts-repair-001` and `trace-record-repair-001`.
 
 ### Roadmap review and application execution plan (2026-10-08)
 
