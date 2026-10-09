@@ -36,6 +36,41 @@ describe("home page HTML", () => {
   });
 });
 
+describe("home page plan status panel", () => {
+  const scripts = (html: string) =>
+    [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+
+  it("is absent unless the server enables it", () => {
+    for (const html of [renderHomePageHtml(), renderHomePageHtml(undefined, true, false)]) {
+      expect(html).not.toContain("planStatusPanel");
+      expect(html).not.toContain("planRoot");
+      expect(html).not.toContain("/development/plans");
+    }
+    expect(renderHomePageHtml(undefined, false, false)).toBe(renderHomePageHtml());
+  });
+
+  it("ships the panel, its script and an unchanged chat script when enabled", () => {
+    const off = renderHomePageHtml({ mode: "unknown" }, false, false);
+    const on = renderHomePageHtml({ mode: "unknown" }, false, true);
+    expect(on).toContain('id="planStatusPanel"');
+    expect(on).toContain('id="planRoot"');
+    expect(on).toContain("/development/plans/");
+    expect(scripts(on)).toHaveLength(scripts(off).length + 1);
+    expect(scripts(on)[0]).toBe(scripts(off)[0]);
+    for (const script of scripts(on)) expect(() => new Function(script)).not.toThrow();
+    // The panel markup sits outside the chat form so Enter cannot send a turn.
+    const form = on.slice(on.indexOf("<form"), on.indexOf("</form>"));
+    expect(form).not.toContain("planStatusPanel");
+  });
+
+  it("can be combined with documentation tasks", () => {
+    const html = renderHomePageHtml(undefined, true, true);
+    expect(html).toContain('id="documentTaskStart"');
+    expect(html).toContain('id="planStatusPanel"');
+    for (const script of scripts(html)) expect(() => new Function(script)).not.toThrow();
+  });
+});
+
 describe("home page conversation expiry", () => {
   it("ships the expiry notice, the stream event handler and the 410 probe", () => {
     const html = renderHomePageHtml();
