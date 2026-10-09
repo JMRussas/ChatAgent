@@ -259,6 +259,18 @@ attempt and automatically starts fixed external checks. It ends at a supplied
 review gate; semantic AI review, acceptance, integration and next-task claiming
 remain separate. CA-ISSUE-004 is still open.
 
+A subsequent Hekate branch audit removed remote `feat/plan-nodes-migration`
+(already merged into published main) and `chore/untrack-settings-local` (its only
+change is already fulfilled by the publication cleanup); superseded PR #7 is
+closed. A fresh full Git bundle verified before branch deletion, exact tip leases
+protected remote deletion, and source branch/HEAD/status/diff hashes are unchanged.
+The dirty local migration checkout and every worktree file are preserved. Nine
+remote feature branches and seven open PRs contain unique work; their review is
+recorded as Hekate task `fa1f1f63-2623-5eda-99b6-a8e775426943` rather than silently
+merging or discarding them. Completed cleanup task `4efd53a0-e539-5158-805e-1b78deb979d9`
+is accepted against published Hekate source `7faf1873`. Evidence and branch-level
+unique-commit inventory: `hekate-branch-cleanup-002`.
+
 Hermes implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` ended cleanly
 at 16:28:35 UTC on October 9 after 611.669 seconds and 19 distinct assistant
 message IDs, below its 15-minute/60-message hard bounds. Provider-reported 40
@@ -270,12 +282,14 @@ or live adoption is claimed.
 
 CA-ISSUE-046 is recorded in real Hekate repair task
 `d2284986-61fc-5433-a66f-3dd41d17c5c8`, attempt
-`checkpoint-continuation-repair-001-r1`, epoch 1. Hermes is running the narrow
-repair with 12 expected/30 hard message IDs, five minutes, 4 MiB and a configured
-USD2.50 provider cap. Independent regression source is committed at `630f679`.
+`checkpoint-continuation-repair-001-r1`, epoch 1. Hermes ended the narrow repair cleanly after 125.033 seconds and 13 distinct
+message IDs, below the 30-message/five-minute hard bounds and slightly above its
+12-message provisional estimate. The 4 MiB output and configured USD2.50 provider
+cap are retained; provider usage remains unverified metadata. Independent regression source is committed at `630f679`.
 The original task is completed and rejected at its exact candidate, keeping the
-old model run separate. Independent final checks, real continuation delivery,
-acceptance and integration remain pending. Evidence is retained under
+old model run separate. Repair candidate `7aa55f5` passes all 38 focused cases and format/type/docs
+checks; its full suite is running. Real continuation delivery, acceptance and
+integration remain pending. Evidence is retained under
 `checkpoint-continuation-implementation-001` and
 `checkpoint-continuation-repair-001`.
 
