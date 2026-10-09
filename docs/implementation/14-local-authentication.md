@@ -144,8 +144,8 @@ There were 34 handlers at commit 2cecb5b. Activation added 4 routes: the pairing
 page, pairing, operator re-issue and `GET /auth/session`. The document sidecar
 restart slice added 2 operator routes, orphan-task recovery 2 more, the
 recovery-candidate listing 1, runtime quota-window declarations 1 and the quota
-envelope read 1. That makes 45 routes, of which 4 are public, 21 client and 20
-operator. Each handler is a
+envelope read 1 and the development plan status read 1. That makes 46 routes, of
+which 4 are public, 21 client and 21 operator. Each handler is a
 `method === X && <path matcher>` branch in `src/server.ts`, or the v1 regular
 expression in `src/app/protocolV1.ts`.
 
@@ -154,6 +154,13 @@ expression in `src/app/protocolV1.ts`.
 | Public   | `GET /`, `GET /pair`, `POST /pair`, `GET /auth/session`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Client   | `POST /briefings` (start, status and cancel), `POST /document-tasks`, `POST /sports/games`, `GET /sports/team-directories`, `POST /conversation-context/detach`, `POST /conversation-context`, `POST /sports/conversations`, `POST /sports/teams`, `POST /sports/results`, `POST /sports/chat`, `POST /messages`, `POST /conversations/:c/messages/:m/cancel`, `GET /telemetry/latency`, `GET /run-controls`, `GET /run-controls/thinking`, `GET /models`, `GET /conversations/:c/events`, `GET /conversations/:c/events/stream`, `POST /v1/conversations/:c/messages`, `GET /v1/conversations/:c/events/stream`, `POST /v1/conversations/:c/messages/:m/cancel`                                                      |
 | Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `GET /workers/document-tasks/status`, `POST /workers/document-tasks/restart`, `GET /workers/document-tasks/recovery-candidates`, `POST /workers/document-tasks/inspect`, `POST /workers/document-tasks/abandon`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `POST /routing/quota-envelopes/declare`, `GET /routing/quota-envelopes`, `GET /conversations/retention`, `DELETE /conversations/:c/identity` |
+
+The 21st operator route, `GET /development/plans/:root/status`, is not in the
+table above. It reads a global Hekate plan through `HEKATE_PLAN_API_URL`, not any
+principal's conversation, so it needs the operator role: no credential is `401`, a
+client credential is `403 OPERATOR_REQUIRED`, and neither reaches Hekate. The
+Host/Origin boundary applies as for every route. Without a configured URL it answers
+`404 PLAN_STATUS_DISABLED`. See `13-hekate-plan-node-integration.md`.
 
 Three of today's handlers match more loosely than this table, using `startsWith`
 and `endsWith` checks:

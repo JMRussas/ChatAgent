@@ -232,6 +232,32 @@ expected states with acknowledgement unknown.
 Durable execution acknowledgement, progress evidence and wake-ups remain
 unimplemented; they depend on Hekate's journal and supervisor work.
 
+### Plan status over HTTP
+
+`GET /development/plans/:rootId/status` on the ChatAgent server returns the same
+projection as `scripts/devcoord.ts status --json`, through the unchanged
+`fetchCoordinationStatus` (one GET, bounded body and deadline, no redirects).
+
+- **Configuration.** `ServerOptions.planApiUrl`, set at production startup from
+  `HEKATE_PLAN_API_URL`. It is checked with `planApiBase` when the server is created,
+  before anything is allocated; an unsafe URL throws `INVALID_URL`. Without it the
+  route answers `404 PLAN_STATUS_DISABLED`. A request can never supply or override the
+  URL.
+- **Access.** Operator only, because the view is global rather than scoped to a
+  principal. The existing authentication and Host/Origin checks apply first: no
+  credential is `401`, a client credential is `403 OPERATOR_REQUIRED`, and neither
+  contacts Hekate. Only GET exists; any other method is an unknown route. Nothing is
+  claimed, launched, recovered or mutated.
+- **Request checks.** Any query parameter is `400 INVALID_QUERY`. A root that is not
+  a lowercase GUID is `400 INVALID_ROOT`. Both are refused before upstream I/O.
+- **Response.** Always `Cache-Control: no-store`. A successful projection is returned
+  unchanged, including an invalid-plan result and `executionAcknowledged: "unknown"`.
+  Every other reader failure is `503` with exactly
+  `{"code":"PLAN_STATUS_UNAVAILABLE","reason":<DevCoordinationError code or "UNAVAILABLE">}`.
+  Upstream bodies, URLs and credentials are never included.
+
+Tests: `tests/integration/planStatusHttp.test.ts`.
+
 ## Task authoring profile (hekate-task-profile.v0)
 
 Status (2026-10-08): implemented and verified, for the software-development adapter
