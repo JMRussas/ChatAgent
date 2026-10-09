@@ -262,10 +262,13 @@ remain separate. CA-ISSUE-004 is still open.
 A subsequent Hekate branch audit removed remote `feat/plan-nodes-migration`
 (already merged into published main) and `chore/untrack-settings-local` (its only
 change is already fulfilled by the publication cleanup); superseded PR #7 is
-closed. A fresh full Git bundle verified before branch deletion, exact tip leases
+closed. Content comparison then proved the entire `docs/chat-runtime-adr-pointer`
+document is preserved in main with a newer handoff header; that third branch and
+superseded PR #13 are retired too. A fresh full Git bundle verified before branch
+deletion, exact tip leases
 protected remote deletion, and source branch/HEAD/status/diff hashes are unchanged.
-The dirty local migration checkout and every worktree file are preserved. Nine
-remote feature branches and seven open PRs contain unique work; their review is
+The dirty local migration checkout and every worktree file are preserved. Eight
+remote feature branches and six open PRs carry unmerged commits; their review is
 recorded as Hekate task `fa1f1f63-2623-5eda-99b6-a8e775426943` rather than silently
 merging or discarding them. Completed cleanup task `4efd53a0-e539-5158-805e-1b78deb979d9`
 is accepted against published Hekate source `7faf1873`. Evidence and branch-level
