@@ -97,7 +97,8 @@ store. Evidence: `rehearsal-rework-001/final-reload.json` and
    distinguish source failures from unavailable external verification before
    choosing a retry. Automatic retry, uncertain-owner restart and unattended
    recovery require their separately reviewed authority and fences.
-4. Continue recovery fencing and handoff evidence, then persistent role
+4. Deliver the P1 checkpoint phase/attention projection in the accepted archived
+   assessment below, then continue recovery fencing and handoff evidence and persistent role
    assignment/review/recovery. Optional LangChain/LangGraph primitives already
    exist; an unattended role/recovery service remains unfinished.
 5. Integrate measurements before setting execution-time thresholds: equivalent
@@ -278,14 +279,53 @@ private and published Hekate source stays `7faf1873`.
 
 Actual retirement task `f8445275-e619-5658-9837-698bc8b0f2ae` is accepted;
 prior aggregate triage `fa1f1f63-2623-5eda-99b6-a8e775426943` is superseded and
-cancelled without a worker. Eight scoped assessment tasks now sit under
-`31d5461f-81a4-5ee0-b650-8c7978d0f975` (Archived Hekate work for consolidation),
-with exact archived tips and recovery commands. Execution/observability and task
-projection assessments take priority; asset expansion is deferred beyond the
-MVP. These tasks do not assert every historical change is missing from main and
-do not authorize wholesale merges. Evidence: `hekate-branch-cleanup-003/archive-manifest.json`,
-`retirement-proof.json`, `recovery-backlog.json` and acceptance/backlog readbacks.
-Local branch tips and all dirty source files remain unchanged.
+cancelled without a worker. All eight scoped assessments under
+`31d5461f-81a4-5ee0-b650-8c7978d0f975` are now accepted against operator-reviewed
+artifact `f08926fbd3b079f95b32aee02811c071d4abfef9`: **one Keep, three Extract and
+four Retire decisions**. Assessment acceptance is not feature completion. The
+[source-backed decision record](implementation/23-archived-hekate-branch-dispositions.md)
+contains all eight exact tips, subchange decisions and narrow acceptance gates.
+The verified local bundle, PR records, local branches and dirty source remain preserved.
+No remote branch is restored.
+
+Only three implementation follow-ups are queued, all still unstarted:
+
+- **P1 ChatAgent checkpoint phase/attention visibility**, task
+  `84290f4f-29bd-527a-a1e6-a6c36037ee13`: project the finite continuation's actual
+  reserved/running/snapshotting/verifying/review_pending/needs_operator states into
+  the executive overview and existing inline detail, with exact attempt/content
+  fences, bounded metadata and unknown/stale evidence handling. This is the next
+  observability increment; it does not add per-step AI supervision or automatic retry.
+- **P2 Hekate Gods task-list dependencies/tools**, task
+  `f9bd68e5-40d9-594f-b5f6-2840b3ce0efe`: fix the confirmed legacy Gods API/consumer
+  omission with validated arrays, filter isolation and bounded queries. Managed
+  PlanStore is a separate ledger; this is not a claimed executive-view defect.
+- **P2 Hekate C# partial round-trip**, task
+  `58d1d46d-17bf-52f2-a7f0-521bc970bba2`: preserve partial modifiers and declaration
+  semantics with compiler regressions; retain evolved shared finalization/outbox
+  code and exclude archived personal seed scripts.
+
+Rate/budget references are attached to existing CA-ISSUE-008/009 tasks rather than
+creating duplicate quota work. Canvas graph/layout ideas are retained as reference;
+its archived needs-review-to-done status mapping and unfenced SSE path are retired.
+The executor fork is superseded, the old retry module is absent, dated policy prose
+is retired, and image expansion remains outside the execution MVP.
+
+Batch Athena review `9b38f5c9-3e18-5d37-a633-0c47686da396` epoch 1 exited cleanly
+in 17.405 seconds with three observed assistant IDs but produced no requested
+artifact or candidate commit. It is rejected; the cause remains unconfirmed and
+provider counters are unverified. Epoch 2 is an explicitly attributed operator
+source assessment, accepted at `f08926f`; it is not delivered cross-model review.
+Its external gate verified 104 immutable snapshots against Git, all eight branch
+identities, unchanged archive hash and representative source facts, plus format,
+lint and documentation checks. No archived runtime was certified or production
+behavior changed. Evidence: `archived-hekate-evaluation-001/no-artifact-review.json`,
+`source-verification.json`, `assessment-accepted-readbacks.json` and
+`followups-final-readbacks.json`. The paired maintained UI check
+(`assessment-final-ui-proof.json`) confirms all eight assessments accepted, three
+implementation tasks ready with zero attempts, same-page detail and old epoch-1
+budget quarantined from epoch-2 operator work. Original archive/restore evidence remains in
+`hekate-branch-cleanup-003`.
 
 Hermes implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` ended cleanly
 at 16:28:35 UTC on October 9 after 611.669 seconds and 19 distinct assistant
