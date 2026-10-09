@@ -884,7 +884,7 @@ this rework separately from product defects and preserve the rejected attempt.
 
 ### CA-ISSUE-026 — Stop request can target a replacement dispatcher
 
-Status: open; blocks exposing adapter stop control. Hekate task
+Status: open; source fencing and adapter controls are accepted; end-to-end delivery remains. Hekate task
 `93a81ce6-a7c2-5acb-a135-e2eca3195353`; owner `codex-chatagent`, native repair
 assigned to the supervised Mimir worker. The adapter records the observed launch
 ID, but its stop command does not pass that identity to the native owner. If owner
@@ -898,8 +898,7 @@ skip. A live wrong-owner request was refused `owner_changed` and left the stop f
 unchanged. Native source is accepted at `f5a7a6b` and the hidden host has adopted it. A real
 foreign-target request was ignored and retained while its heartbeat advanced. The
 corrected adapter passes 228 unit cases and the focused HTTP/auth selection; its
-unfenced mutation fails a stop assertion. The original application task and
-end-to-end adapter stop delivery remain unaccepted.
+unfenced mutation fails a stop assertion. Original bounded-launch task is accepted and integrated at `8ed9e86`, and conversation controls at `49bab0c`. End-to-end adapter stop delivery remains unproved.
 Close only after reviewed native integration, adapter identity/response checks,
 replacement-owner and graceful-stop verification, and a controlled runtime handoff.
 Evidence: `D:/hekate-coordinator/runs/stop-fence-001/`; the candidate's behavior
@@ -945,7 +944,7 @@ helpers. Evidence: external `conversation-controls-prepare-001/monitor-corrected
 
 ### CA-ISSUE-029 — Controls compare a native plan key with a canonical task ID
 
-Status: open; correction is a candidate within preparation
+Status: open; correction is accepted in native controls artifact `5c0ccb5`, integrated at `49bab0c`, following preparation
 `2ef9442c-3425-5a2b-953c-fc6a18e73207`. Native owned status records both
 `current.node` (the plan key, such as `bounded-plan-launch`) and `current.nodeId`
 (the canonical GUID). The accepted host projection retained only the key. Initial
@@ -953,7 +952,7 @@ controls preparation compared that key with the plan status panel's task GUID,
 while its browser fixture used `n1` for both fields and therefore passed. Actual
 native correlation could never match.
 
-Candidate repair preserves optional validated `current.nodeId` separately from the
+Accepted repair preserves optional validated `current.nodeId` separately from the
 key, matches only that canonical ID, excludes stale panel correlation and labels
 separate observations. A producer test and browser fixture use distinct keys/GUIDs;
 substituting the key for the GUID fails the new assertion. This proves node identity,

@@ -6,124 +6,89 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
-### Current assessment and next delivery gate (2026-10-08, 21:36 Eastern)
+### Current assessment and next delivery gate (2026-10-08, 23:14 Eastern)
 
-The supervised development foundation works. The next priority is completing the
-conversation-to-execution workflow and reducing preparation/review delay. PlanStore
-readback confirms **three of seven application nodes accepted**: monitor runbook,
-plan-status API and plan-status UI. This is a milestone count, not an estimate of
-percentage effort completed. ChatAgent HEAD `66985f3` integrates the exact accepted
-UI artifact; its combined validation passed all 2,515 tests, lint and docs checks.
+Execution is underway under the user's instruction. **Five of seven application
+nodes are accepted and their exact artifacts are integrated**: monitor runbook,
+plan-status API, plan-status UI, bounded-plan launch and conversation run controls.
+This is a milestone count, not a percentage of effort. ChatAgent `49bab0c`
+integrates controls artifact `5c0ccb5a5190ffe323aa5ca7e593b6c549406092`.
+Combined main validation passed **2,816 tests**, with one explicit Windows link
+capability skip, plus lint and docs. An initial npm invocation selected unsupported
+Windows Node24.15 and refused before running tests; its log is retained. The
+successful run used the pinned Node24.21 runtime.
 
-| Area                         | Evidence-backed state                                                                                                                                            | Remaining delivery gate                                                                                                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Task authority and execution | Native claims, dependency gates, CLI execution, verification and retained attempts have delivered accepted artifacts.                                            | Prepared specifications and lead review/integration still require active supervision.                                                                              |
-| Human/AI observation         | Shared task/attempt identities, bounded read-only observations, traces and Active-view browser proofs exist. Hekate UI 5193 and API 5111 both returned HTTP 200. | Expose execution phase and evidence freshness so an open task cannot be mistaken for a running worker. Finish the conversation progress view.                      |
-| Roles                        | LangChain/LangGraph planning-role and managed-attempt primitives are integrated and have a real CLI rehearsal.                                                   | A persistent role assignment/review/recovery service is unfinished; role names alone do not establish autonomous operation.                                        |
-| Launch adapter               | Corrected preparation candidate passes 317 focused tests and lint.                                                                                               | Connect launch-specific native stop fencing, review the candidate, prepare its frozen specification on the accepted UI base and run the original application task. |
-| Stop control                 | Candidate passes 76 focused cases with one Windows symlink skip. A live wrong-owner request was refused without changing the stop file.                          | Independent acceptance, source integration, adapter adoption and controlled runtime handoff remain pending.                                                        |
-| Execution metrics            | The current candidate passes 46 projector/hook cases in this assessment; earlier compatibility checks are retained.                                              | Real dispatcher/verifier hook coverage, review, integration and actual-run measurements. No baseline or SLO exists.                                                |
+| Area                         | Evidence-backed state                                                                                                                                                                                                   | Remaining delivery gate                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Task authority and execution | Original application nodes use native claims, prerequisite pins, bounded CLI workers, immutable checks, retained attempts and independent decisions.                                                                    | Preparation and lead review/integration still need supervision.                                                |
+| Conversation controls        | Manual operator check/start/stop, scoped unknown-operation metadata, trusted startup config and approved trace-root forwarding are integrated. Native first round passed all five checks and 32 headless browser cases. | Actual product launch, trace readback and graceful stop in the integrated rehearsal.                           |
+| Human/AI observation         | Shared read-only task/attempt metadata and live Hekate Active-card proofs exist. The controls proof matched its exact native attempt, with 18 GETs and no page errors.                                                  | Deliver the public attempt-progress view, then prove real conversation correlation and review/reload.          |
+| Stop fencing                 | Hekate source `f5a7a6b` is accepted, integrated and adopted by the hidden owned host. Foreign-target requests are refused or retained without stopping the current owner.                                               | End-to-end adapter delivery and replacement-owner/graceful-stop rehearsal evidence; CA-ISSUE-026 remains open. |
+| Roles                        | Optional LangChain/LangGraph planning-role and managed-attempt primitives have an actual CLI rehearsal.                                                                                                                 | Persistent role assignment, independent review and recovery service remains unfinished.                        |
+| Execution metrics            | Deferred candidate and its 46 focused proofs are preserved.                                                                                                                                                             | Actual dispatcher/verifier hook coverage, review, integration and measured cohorts. No baseline or SLO exists. |
 
-At observation time the owned dispatcher was alive, with a fresh five-second
-heartbeat, but **no application task was executing**. It was blocked at
-`bounded-plan-launch/spec_pending`. At that assessment, the three preparation/control/metrics tasks
-were still `in_progress` in PlanStore, while their recorded workers had exited.
-They require lead review or follow-up work; their open task state is not evidence
-of active model computation. The bounded host does not provide persistent AI
-supervision or automatic review/integration.
+The bounded owner is launch `60fb5b65f24c4cdf8df30b7eef102408`, PID62896,
+with a four-hour/three-dispatch bound and five-second host heartbeat. It has
+completed two dispatches and is waiting at `attempt-progress-view/spec_pending`.
+An alive host is not an active worker. Preparation task
+`b0be34f0-1932-5c20-bfad-9d9d9406885c` is now `in_progress` at
+`attempt-progress-prepare-001-r1`, assigned to the actual hidden CLI worker.
+The observer records native process identity, PlanStore state and observation time;
+useful progress remains unknown until inspected and verified. No continuous AI
+supervision or automatic source integration is claimed.
 
-**Delivery order:**
+**Remaining delivery order:**
 
-1. Finish the existing stop-fence review and connect it to the existing launch
-   adapter. Preserve rejected candidates, verify replacement-owner races and
-   duplicate/uncertain outcomes, then freeze the next specification on `66985f3`.
-2. Execute and independently review the original `bounded-plan-launch` node
-   `6bbefda0-cc3b-510d-ab02-f1fbc5b5ba61`; integrate its accepted artifact. Do not
-   create a duplicate feature node or weaken its frozen acceptance checks.
-3. Deliver `conversation-run-controls`, then `attempt-progress-view`. Show task
-   state, worker liveness, execution phase, review state and observation time as
-   separate facts, with explicit unknowns.
-4. Complete `integrated-rehearsal`: start one useful prepared change from the
-   conversation, observe it, demonstrate duplicate refusal and correctly targeted
-   graceful stop, verify the exact result, integrate it and reload the conversation.
-5. Use that end-to-end evidence to prioritize unattended recovery and broader role
+1. Independently verify public attempt-progress preparation, including privacy,
+   exact correlation, bounded requests/watch and cleanup negative controls. Freeze
+   meaningful tests and execute original node
+   `9bc28ff4-829f-5eb6-8b8e-4932f9f960cf`; integrate only its verified native artifact.
+2. Complete original `integrated-rehearsal` node
+   `21dcea12-cb65-54cf-8581-e2f896490139`: start useful prepared work from the
+   conversation, observe it, prove duplicate refusal and correctly targeted stop,
+   independently verify/integrate the result and reload. Controlled owner handoff
+   is required when the current dispatch quota is consumed; never start a second
+   API owner against the same store.
+3. Use this end-to-end evidence to prioritize unattended recovery and broader role
    orchestration. Keep general framework expansion off this delivery path.
 
-Use a work-in-progress limit of one application feature plus its immediate
-blocking repair. Finish or explicitly defer current candidates before adding more
-preparation work. Retain the metrics candidate and review it in a bounded follow-up;
-its completion is not a prerequisite for launching the next feature. Avoid repeated
-full implementation in preparation and execution where smaller contract fixtures
-can prove feasibility; changes to that authoring method need their own reviewed
-contract, not edits to an in-flight frozen oracle.
+Use a work-in-progress limit of one application feature plus its immediate blocking
+repair. Metrics task `ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released
+from epoch2 to `todo`; candidate hashes and failed attempts are retained. It is a
+bounded follow-up, not a prerequisite for delivering the conversation workflow.
 
-Measure ready-to-acceptance and acceptance-to-integration time, phase durations,
-accepted application features per observed hour, review backlog age, failed/rework
-time and attributed reported cost per accepted feature. Keep preparation throughput
-separate, include failed attempts, and compare equivalent task/model/host/verification
-cohorts. Hard timeouts are operational bounds, not a delivery-performance baseline.
-The immediate observed bottleneck is preparation/review handoff; current evidence
-does not support claiming that model execution itself is too slow.
+Native bounded-launch artifact `dc5c501` is integrated at `8ed9e86`; its first
+round passed five frozen steps. The CLI reported 263,725ms, 14turns and
+`0.8692538`USD. Native controls reported 295,434ms, 31turns and
+`0.9321725999999999`USD. These are attributed provider claims, not independently
+metered execution metrics. Both runs retain formatter derivation and idempotence
+proofs. Preparation/control/reference artifacts are never substituted for native
+acceptance or merged as implementations.
 
-Assessment evidence: `D:/hekate-coordinator/runs/state-assessment-20261008/`
-contains timestamped PlanStore responses and hashes plus the focused metrics check.
-This assessment reads the existing plans; it does not claim new task acceptance.
+Measure ready-to-acceptance, acceptance-to-integration, phase durations, accepted
+features per observed hour, review backlog age, failed/rework time and attributed
+cost per accepted feature. Include failures and compare equivalent task/model/host/
+verification cohorts. Hard timeouts are operational bounds, not performance
+baselines. Evidence still points to preparation/review handoff as the observed
+bottleneck; it does not establish that model execution is too slow. Isolated pilot
+fixtures use a simulated journal clock; persistent LocalStore samples UTC through
+LiveClockJournal. Identify the actual clock domain rather than substituting missing
+stage/decision timestamps.
 
-Execution has resumed under the user's instruction. **Four of seven application
-nodes are now accepted.** Native bounded-launch attempt `pilot-52bf717c4465-r1`
-passed all five frozen steps in its first round: 19 HTTP cases, typecheck, 2,753
-full-suite cases with nine existing opt-in skips, docs and format. Exact artifact
-`dc5c5018ce764c6b2059909cbe1295a18532104e` is integrated at ChatAgent
-`8ed9e868b9fb36173e1dca0249099476fa8beef0`. Its CLI reported 263,725 ms, 14 turns
-and `0.8692538` USD; those are attributed provider claims. The pinned formatter
-changed its source, retained exact pre/post bytes and passed a second idempotence
-run. A headless live Hekate check showed the same active attempt (18 GETs, no page
-errors). The owner is now waiting for the conversation-controls specification.
+Combined verification previously reproduced raw Windows `EPERM/rename` in
+concurrent identity rotation. Accepted repair `ca688d0` normalizes only the exact
+owned Windows rename refusal to LocalIdentityError with native cause, preserving
+helper retries and uncertainty retention. Its real permanent-holder negative control
+and full integrated checks pass. CA-ISSUE-014 remains open because the field holder
+is unidentified. CA-ISSUE-027/029 now have accepted controls repairs but require
+real product trace/correlation proof; CA-ISSUE-028 is closed within its observer
+helper scope. Preserve failed and negative-control evidence.
 
-Native stop-fence task `93a81ce6-a7c2-5acb-a135-e2eca3195353` is accepted with source
-`f5a7a6b40b347e787bbf583720cf2f58c4ba004c` and integrated into Hekate. The old
-host exited cleanly; the new hidden host acknowledged launch
-`60fb5b65f24c4cdf8df30b7eef102408`, runtime PID 62896. A real foreign-target
-request was ignored and retained while its heartbeat advanced. This is live gate
-evidence, not a real replacement-process race. Adapter preparation is accepted
-at epoch 2; package SHA-256 is
-`6720b9cd123f8dd6bb2e68e47c3c9df74ff623d131503896e675557f8596c289`.
-
-Conversation-controls preparation `2ef9442c-3425-5a2b-953c-fc6a18e73207` remains Active
-at `conversation-controls-prepare-001-r1`; its actual CLI worker has exited and lead
-verification is underway. Corrected reference passes 43 unit cases (one explicit
-Windows link-capability skip), 32 headless browser cases and lint. Negative controls
-reject duplicate config keys, a plan-key/task-ID substitution and unsafe HTML
-rendering. The source will freeze on the accepted Windows refusal repair ancestry. CA-ISSUE-027 records the reviewed trace-root handoff
-gap: the maintained C# observer needs an explicitly configured root, while the
-adapter strips ambient environment and has no approved forwarding input. The
-controls slice must repair that dependency before a product launch. CA-ISSUE-028
-records a generated observer-helper module-name collision; the original failure
-is retained and the corrected observer confirms the same worker's native birth
-identity. No worker was relaunched. Measurements task
-`ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released to `todo`, with
-candidate hashes and its 46-case proof retained for the bounded follow-up above.
-
-Combined main verification exposed a Windows rotation classification recurrence:
-2,761 tests passed and one concurrent-rotation case received raw `EPERM/rename`.
-Managed repair `identity-rename-refusal-001` is accepted and integrated at
-`ca688d04988ddc5c5706f5a75e6e4167fb234204`. The rotation boundary now normalizes
-only the exact owned Windows rename refusal to `LocalIdentityError`, preserving
-native cause; helper retry/error semantics and uncertainty retention remain intact.
-Twenty focused cases and a real permanent-holder old-source negative control pass;
-full repair worktree passed 2,753 cases with nine existing opt-in skips, plus lint
-and docs. The integrated main environment passed all 2,762 tests, including its opt-in
-Windows cases; lint and docs pass.
-This repairs classification, not an unidentified field holder; CA-ISSUE-014 remains
-open. CA-ISSUE-029 records the controls correlation gap, with candidate repair and
-separate native-name/GUID tests before freeze.
-
-Evidence: external `stop-fence-001/handoff`, `launch-adapter-prepare-003`,
-`dispatch-native-observation-001`, `conversation-controls-prepare-001` and
-`execution-metrics-003` directories. Clock distinction: isolated task-runner/pilot
-fixtures use a simulated journal clock; the persistent `LocalStore` uses a sampled
-UTC `LiveClockJournal`. Neither should be silently substituted for missing stage
-or decision timestamps; the audit/projector must identify the actual clock source.
+Evidence is retained under external `D:/hekate-coordinator/runs/`, including
+`state-assessment-20261008`, `stop-fence-001/handoff`,
+`dispatch-native-observation-001`, `controls-native-observation-001`,
+`conversation-controls-prepare-001`, `identity-rename-refusal-001`,
+`attempt-progress-prepare-001` and `execution-metrics-003`.
 
 ### Roadmap review and application execution plan (2026-10-08)
 
