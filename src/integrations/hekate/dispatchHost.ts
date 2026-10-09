@@ -49,6 +49,12 @@ export const CONTAINER_WORKSPACE_ENV = "HEKATE_E1_CONTAINER_WORKSPACE";
  */
 export const TRACE_ROOT_ENV = "HEKATE_TRACE_ROOT";
 /**
+ * The warm cache the maintained task runner requires for npm-ci tasks. Never inherited:
+ * only the operator-approved `npmCacheDir` of the trusted configuration reaches a child,
+ * and no other npm setting does.
+ */
+export const NPM_CACHE_ENV = "npm_config_cache";
+/**
  * Every maintained module the `status`, `launch`, `stop` and detached `run` commands can
  * import, directly or lazily (curated from the import graph of `owned_dispatch`,
  * `plan_cli`, `plan_run`, `local_store` and their dependencies). The source manifest must
@@ -202,6 +208,8 @@ const configSchema = z
     containerWorkspace: workspaceLabel,
     /** Optional approved root for the attempt-trace viewer; checked against the paths below. */
     traceRoot: absolute.optional(),
+    /** Optional operator-approved warm npm cache; the native task runner validates the directory. */
+    npmCacheDir: absolute.optional(),
     python: z
       .object({
         executable: absolute,
@@ -942,6 +950,7 @@ export class DispatchHost {
     env.PYTHONUTF8 = "1";
     env[CONTAINER_WORKSPACE_ENV] = this.config.containerWorkspace;
     if (this.config.traceRoot !== undefined) env[TRACE_ROOT_ENV] = this.config.traceRoot;
+    if (this.config.npmCacheDir !== undefined) env[NPM_CACHE_ENV] = this.config.npmCacheDir;
     return env;
   }
 

@@ -33,6 +33,9 @@ appendFileSync(
     env: Object.keys(process.env),
     workspace: process.env.HEKATE_E1_CONTAINER_WORKSPACE ?? null,
     traceRootSet: "HEKATE_TRACE_ROOT" in process.env,
+    // Test values only: the cache path, and the names of any other npm variable that arrived.
+    npmCache: process.env.npm_config_cache ?? null,
+    npmKeys: Object.keys(process.env).filter((key) => key.toLowerCase().startsWith("npm_")),
     pid: process.pid
   }) + "\n"
 );

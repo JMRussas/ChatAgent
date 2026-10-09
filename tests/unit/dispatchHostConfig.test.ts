@@ -195,7 +195,18 @@ describe("dispatch host startup configuration", () => {
       ["a root flag", (c) => (c.roots[0].shell = true), "roots.0"],
       ["a bad trace root", (c) => (c.traceRoot = path.join(dir, "elsewhere")), "traceRoot"],
       ["a filesystem trace root", (c) => (c.traceRoot = path.parse(dir).root), "traceRoot"],
-      ["a relative trace root", (c) => (c.traceRoot = "traces"), "traceRoot"]
+      ["a relative trace root", (c) => (c.traceRoot = "traces"), "traceRoot"],
+      ["a relative npm cache", (c) => (c.npmCacheDir = "cache"), "npmCacheDir"],
+      ["a URL npm cache", (c) => (c.npmCacheDir = "https://registry.example/cache"), "npmCacheDir"],
+      ["an empty npm cache", (c) => (c.npmCacheDir = ""), "npmCacheDir"],
+      ["a null npm cache", (c) => (c.npmCacheDir = null), "npmCacheDir"],
+      ["a non-string npm cache", (c) => (c.npmCacheDir = 7), "npmCacheDir"],
+      [
+        "an npm cache with a NUL",
+        (c) => (c.npmCacheDir = path.join(dir, "c") + "\0x"),
+        "npmCacheDir"
+      ],
+      ["an npm registry key", (c) => (c.npmRegistry = "https://registry.example"), "(config)"]
     ];
     for (const [name, change, field] of cases) {
       const config = validConfig(dir);
