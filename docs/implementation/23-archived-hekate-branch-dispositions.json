@@ -1,0 +1,400 @@
+{
+  "schema": "archived-branch-dispositions/v1",
+  "mainRef": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+  "chatAgentBaseRef": "a03ad7c84d197c89b407cbbc0a1885e5406129a9",
+  "assessmentKind": "operator_source_review",
+  "modelAttempt": {
+    "taskId": "9b38f5c9-3e18-5d37-a633-0c47686da396",
+    "attemptEpoch": 1,
+    "decision": "rejected",
+    "reason": "No requested artifacts or candidate commit were produced despite clean process exit.",
+    "cause": "unconfirmed",
+    "recoveryEpoch": 2
+  },
+  "archive": {
+    "bundle": "hekate-branch-cleanup-003/before-retirement.bundle",
+    "sha256": "c6be46e385c1b0d1fe43ce8ec7db4d5d2ca136d2653970e9428c425eaa645f6b",
+    "preservation": "verified_local_archive_retained"
+  },
+  "branches": [
+    {
+      "branch": "canvas-ui",
+      "archivedRef": "1a2ecafec8aaf2ad6753c10ea8dd13d0d6dbf7ec",
+      "assessmentTaskId": "f529b90f-c6ef-5542-bd8e-38db98aa4dc8",
+      "disposition": "extract",
+      "rationale": "Retain graph/layout and inline task-detail ideas as design reference. The archived React Flow dashboard projects the legacy ledger and collapses review/cancellation states; restoring it would give misleading execution status.",
+      "evidence": [
+        {
+          "ref": "1a2ecafec8aaf2ad6753c10ea8dd13d0d6dbf7ec",
+          "path": "orchestration/frontend/src/canvas/planSource.ts",
+          "finding": "needs_review maps to done, cancelled maps to planned, and absent depends_on becomes an empty list."
+        },
+        {
+          "ref": "1a2ecafec8aaf2ad6753c10ea8dd13d0d6dbf7ec",
+          "path": "orchestration/frontend/src/canvas/liveEvents.ts",
+          "finding": "task_needs_review maps to done; event projection identifies a task without current attempt/content fences."
+        },
+        {
+          "ref": "1a2ecafec8aaf2ad6753c10ea8dd13d0d6dbf7ec",
+          "path": "orchestration/frontend/src/canvas/TaskPanel.tsx",
+          "finding": "Provides an inline detail interaction that can inform current presentation without restoring its runtime."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Graph adjacency, layout and inline detail concepts",
+          "disposition": "extract",
+          "rationale": "Reference for a later justified graph view; current executive inline drill-down is the MVP."
+        },
+        {
+          "change": "Legacy route, status projection and SSE integration",
+          "disposition": "retire",
+          "rationale": "Do not resurrect a second dashboard or translate pending review into completion."
+        }
+      ],
+      "proposedWork": [],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "chore/sisyphus-cleanup",
+      "archivedRef": "242782ba665451f5dddc3818f080bb4412581b1c",
+      "assessmentTaskId": "c7bf4f09-189a-5a72-b754-1df2e0e7e2e6",
+      "disposition": "extract",
+      "rationale": "This 165-file branch mixes distinct features and older implementations. Extract checkpoint observability and quota lessons; discard wholesale restoration and duplicate chat ownership.",
+      "evidence": [
+        {
+          "ref": "242782ba665451f5dddc3818f080bb4412581b1c",
+          "path": "Odin/gods/pipeline.py",
+          "finding": "Adds handler timing/event instrumentation that can inform lifecycle observability; it is not the current managed checkpoint lifecycle."
+        },
+        {
+          "ref": "242782ba665451f5dddc3818f080bb4412581b1c",
+          "path": "orchestration/frontend/src/hooks/useObservatoryEvents.ts",
+          "finding": "Polling appends events to an unbounded array; do not copy this retention model."
+        },
+        {
+          "ref": "242782ba665451f5dddc3818f080bb4412581b1c",
+          "path": "Odin/gods/rate_limit.py",
+          "finding": "In-memory token buckets permit unknown providers and do not preserve budget authority across restart."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "CHAT-CONSOLIDATION.md",
+          "finding": "ChatAgent is the maintained chat owner; Psyche restoration would duplicate ownership."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "llm-gateway/conversation.py",
+          "finding": "Immutable comparison shows the archived conversation implementation already matches published main."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Handler events, timing and timeline ideas",
+          "disposition": "extract",
+          "rationale": "Apply to current durable checkpoint phases with bounded sanitized metadata and exact fences."
+        },
+        {
+          "change": "Rate limits, budgets and flags",
+          "disposition": "extract",
+          "rationale": "Reference existing CA-ISSUE-008/009 work; in-memory limits and unverified costs are not provider quota authority."
+        },
+        {
+          "change": "Gateway conversations and structured-checkpoint model/form",
+          "disposition": "retire",
+          "rationale": "Compared files already exist byte-for-byte in published main; unique branch commits do not prove missing behavior."
+        },
+        {
+          "change": "Psyche chat service",
+          "disposition": "retire",
+          "rationale": "ChatAgent owns chat request/context lifecycle."
+        },
+        {
+          "change": "Legacy migrations and registrations",
+          "disposition": "retire",
+          "rationale": "Old plan_nodes schema is not the maintained PlanStore ledger. Require a current need and forward/idempotent migration tests before reusing any migration."
+        },
+        {
+          "change": "Semantic edge resolver and MCP service configuration",
+          "disposition": "extract",
+          "rationale": "Retain reference only; unfinished local resolver work is preserved and service ownership/deployment was not verified. No new implementation task is justified by this review."
+        },
+        {
+          "change": "Historical metrics, deployment docs and MkDocs publication",
+          "disposition": "retire",
+          "rationale": "Preserve historical evidence, but do not treat it as current attempt/SLO proof or publish stale deployment instructions."
+        }
+      ],
+      "proposedWork": ["checkpoint-visibility"],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "docs/pr-workflow-policy",
+      "archivedRef": "9d615888ba3f072ec1b35885768f915b1050b67b",
+      "assessmentTaskId": "773cce05-eeba-5e18-b7d5-917d639ad54a",
+      "disposition": "retire",
+      "rationale": "The one-file policy patch contains dated PR workflow instructions. Current explicit user authorization and maintained repository instructions govern delivery; this decision does not prohibit a future PR workflow.",
+      "evidence": [
+        {
+          "ref": "9d615888ba3f072ec1b35885768f915b1050b67b",
+          "path": "CLAUDE.md",
+          "finding": "The archived change is workflow prose with stale PR references, not missing product behavior."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Archived PR policy prose",
+          "disposition": "retire",
+          "rationale": "No feature port or new workflow task needed."
+        }
+      ],
+      "proposedWork": [],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "feat/csharp-partial-support",
+      "archivedRef": "b558b06b72da31799304806b59fbb32e8ac2d5ac",
+      "assessmentTaskId": "6f399053-6404-50a5-a140-bebf43782d25",
+      "disposition": "extract",
+      "rationale": "Partial type/method preservation is absent from published decomposition/generation. Extract the narrow semantics with compiler regressions; newer finalization/outbox code makes the old service/schema edits unsafe to restore wholesale.",
+      "evidence": [
+        {
+          "ref": "b558b06b72da31799304806b59fbb32e8ac2d5ac",
+          "path": "context-store/Decomposer/CSharpDecomposer.cs",
+          "finding": "Records is_partial attributes for type and method modifiers."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "context-store/Decomposer/CSharpDecomposer.cs",
+          "finding": "The archived is_partial attribute handling is absent."
+        },
+        {
+          "ref": "b558b06b72da31799304806b59fbb32e8ac2d5ac",
+          "path": "context-store/Generator/CSharpGenerator.cs",
+          "finding": "Preserves partial modifiers and declaration-only partial method semicolons."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "context-store/Api/Services/CodeService.cs",
+          "finding": "Current shared FinalizeDecomposition and SyncAllVertices differ from the archived per-file path."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Partial type/method and declaration semantics",
+          "disposition": "extract",
+          "rationale": "Write current compiler-backed regressions and adapt the minimal fix."
+        },
+        {
+          "change": "Archived CodeService, schema and personal seed scripts",
+          "disposition": "retire",
+          "rationale": "Preserve current synchronization/outbox and file identities; personal seed data is not portable product behavior."
+        }
+      ],
+      "proposedWork": ["csharp-partial"],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "feat/image-gen-multi-arch",
+      "archivedRef": "d3975894e98542d6daa1a746e6e91445f1116abc",
+      "assessmentTaskId": "0e48f133-94d3-5c82-9ba1-f84815d8dd9d",
+      "disposition": "retire",
+      "rationale": "Modular image/LoRA/video/ComfyUI work is a separate optional capability. It does not advance checkpoint management or executive observability. Retire it from the active MVP backlog while preserving the archive; no code-quality or runtime failure claim is made.",
+      "evidence": [
+        {
+          "ref": "d3975894e98542d6daa1a746e6e91445f1116abc",
+          "path": "orchestration/backend/image/registry.py",
+          "finding": "Registers image backend capabilities separate from checkpoint execution."
+        },
+        {
+          "ref": "d3975894e98542d6daa1a746e6e91445f1116abc",
+          "path": "orchestration/backend/image/comfy/backend.py",
+          "finding": "Depends on a separate ComfyUI backend/runtime."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Image provider and workflow expansion",
+          "disposition": "retire",
+          "rationale": "Revisit only with an explicit asset-generation product requirement; launch no GPU/model services now."
+        }
+      ],
+      "proposedWork": [],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "feature/claude-code-executor",
+      "archivedRef": "1b293b3611d2e5dc7b570f1d0b51cc970fc61910",
+      "assessmentTaskId": "f797c71e-7805-54b4-9926-41c439df3bd2",
+      "disposition": "retire",
+      "rationale": "The published source already contains the executor, CLI provider, discovery, quota and verification modules, with later prompt/workspace/MCP changes. The context client circuit-breaker core is already preserved. No missing delta requiring a port was established.",
+      "evidence": [
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "orchestration/backend/services/claude_code_executor.py",
+          "finding": "Published executor exists with evolved prompt and workspace behavior."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "orchestration/backend/services/context_store_client.py",
+          "finding": "Circuit-breaker core is preserved; later main adds context operations."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "orchestration/tests/unit/test_claude_code_executor.py",
+          "finding": "Published executor tests exist; their runtime was not exercised by this source-only assessment."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Old executor/provider fork",
+          "disposition": "retire",
+          "rationale": "Superseded implementation; keep maintained runner ownership, launch identity and budget semantics."
+        },
+        {
+          "change": "Unlimited-plan zero-cost assumptions and old automatic retry paths",
+          "disposition": "retire",
+          "rationale": "Provider spend remains unknown until verified; do not reintroduce blind retries or lifecycle ownership."
+        }
+      ],
+      "proposedWork": [],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "fix/list-tasks-include-deps",
+      "archivedRef": "a1802ed2100232722ba2cc29064c3b0f40a69929",
+      "assessmentTaskId": "fa36b3b8-570b-5de8-bb55-a9957d0451ba",
+      "disposition": "keep",
+      "rationale": "The two-file patch addresses a confirmed published Gods list_tasks omission: its frontend contract expects depends_on/tools. Keep this behavior as a narrow adapted patch, not the branch itself. The managed PlanStore API is a separate ledger.",
+      "evidence": [
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "Odin/gods/api.py",
+          "finding": "Published list_tasks does not query task_deps or parse tools_json."
+        },
+        {
+          "ref": "a1802ed2100232722ba2cc29064c3b0f40a69929",
+          "path": "Odin/gods/api.py",
+          "finding": "Adds a bulk task_deps query and projects parsed tools."
+        },
+        {
+          "ref": "a1802ed2100232722ba2cc29064c3b0f40a69929",
+          "path": "Odin/test_api.py",
+          "finding": "Adds test_list_tasks_returns_depends_on_and_tools; the corresponding main test is absent."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Dependencies and validated tools projection",
+          "disposition": "keep",
+          "rationale": "Adapt to current API consumer and tests, with response bounds and filter isolation."
+        },
+        {
+          "change": "Default bulk raw output/error expansion",
+          "disposition": "retire",
+          "rationale": "Not required for this contract fix; avoid unrelated payload/privacy expansion."
+        }
+      ],
+      "proposedWork": ["gods-task-projection"],
+      "verification": "source_review_only"
+    },
+    {
+      "branch": "orch/retry-diagnosis-before-retry",
+      "archivedRef": "bdabd5a2fe481e6f3f7aa26e1c19fb6031e00d75",
+      "assessmentTaskId": "242bb52b-f846-5fd6-89b3-6655a1d8ae1a",
+      "disposition": "retire",
+      "rationale": "The archived sentinel reasoner is absent from published main; current Odin handlers already implement diagnosis and bounded retry transitions. The archived invalid-fix fallback retries as-is, which is not a suitable checkpoint escalation policy.",
+      "evidence": [
+        {
+          "ref": "bdabd5a2fe481e6f3f7aa26e1c19fb6031e00d75",
+          "path": "orchestration/backend/services/sentinel/reasoner.py",
+          "finding": "Legacy fix extraction falls back to retry_as_is for unusable suggestions."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "Odin/gods/handlers/odin.py",
+          "finding": "Current handler diagnosis/retry path uses bounded retries, backoff and atomic transitions."
+        },
+        {
+          "ref": "7faf1873ed791c918ca778c3fd4c4a7321586719",
+          "path": "Odin/gods/odin/dispatch.py",
+          "finding": "Current diagnosis implementation exists in the maintained Odin path."
+        }
+      ],
+      "subchanges": [
+        {
+          "change": "Old sentinel module",
+          "disposition": "retire",
+          "rationale": "No legacy engine restoration or new retry implementation is justified."
+        },
+        {
+          "change": "Validate diagnosis before acting",
+          "disposition": "extract",
+          "rationale": "Retain a review principle; budget overruns still require checkpoint escalation. No current-path defect was demonstrated here."
+        }
+      ],
+      "proposedWork": [],
+      "verification": "source_review_only"
+    }
+  ],
+  "followups": [
+    {
+      "key": "checkpoint-visibility",
+      "taskId": "84290f4f-29bd-527a-a1e6-a6c36037ee13",
+      "priority": "P1",
+      "repository": "ChatAgent",
+      "title": "Expose finite checkpoint continuation phases and attention inline",
+      "sourceBranches": ["chore/sisyphus-cleanup"],
+      "acceptance": [
+        "Project current durable continuation states into executive summary and existing inline detail: reserved, running, snapshotting, verifying, review_pending and needs_operator; do not infer active work from task status alone.",
+        "Retain exact task, attempt, content and source fences; display missing or stale evidence as unknown. Bound timeline retention and expose only sanitized metadata.",
+        "Verify stale-attempt and source-change races, absent records, verifier failure, review pending and stopped-worker cases. No new AI call, automatic retry, next-task claim or separate navigation is required."
+      ]
+    },
+    {
+      "key": "gods-task-projection",
+      "taskId": "f9bd68e5-40d9-594f-b5f6-2840b3ce0efe",
+      "priority": "P2",
+      "repository": "Hekate",
+      "title": "Adapt Gods task-list dependency and tools projection",
+      "sourceBranches": ["fix/list-tasks-include-deps"],
+      "acceptance": [
+        "Reproduce the published Gods GET /tasks/project/{projectId} dependency/tools omission against its maintained frontend consumer; keep the managed PlanStore contract separate.",
+        "Return dependency IDs through a bounded bulk query and validate tools as a string array. Agree field scope with the consumer; do not add raw outputs or errors to the default list response without a separate requirement.",
+        "Test dependency isolation, empty results, malformed and non-array tools JSON, project/status filters and query behavior. Run relevant maintained Python tests with uv."
+      ]
+    },
+    {
+      "key": "csharp-partial",
+      "taskId": "58d1d46d-17bf-52f2-a7f0-521bc970bba2",
+      "priority": "P2",
+      "repository": "Hekate",
+      "title": "Preserve C# partial modifiers and declaration-only methods",
+      "sourceBranches": ["feat/csharp-partial-support"],
+      "acceptance": [
+        "Reproduce loss of partial type and method modifiers in committed decomposition/generation source. Add compiler-backed round-trip fixtures including declaration-only and implemented partial methods.",
+        "Adapt only the modifier and declaration semantics. Preserve current shared finalization, graph synchronization/outbox and file identity; do not restore the archived CodeService or schema wholesale.",
+        "Verify both file and source decomposition entry points, parse/regenerate/compile behavior and relevant current tests. Do not restore personal seed scripts or overwrite unfinished local work."
+      ]
+    }
+  ],
+  "existingQuotaTasks": [
+    {
+      "taskId": "e5a948bc-9015-57d8-b497-4ab8385520aa",
+      "issue": "CA-ISSUE-008",
+      "reference": "Archived rate/budget ideas are reference only; provider-authoritative quotas and outstanding reservations remain the maintained scope."
+    },
+    {
+      "taskId": "7f3c754a-6c52-5646-82a5-ca92a55f5778",
+      "issue": "CA-ISSUE-009",
+      "reference": "The archived in-memory token bucket does not resolve declared quota windows, restart semantics or durable reservation ownership."
+    }
+  ],
+  "limits": [
+    "Source assessment only; no archived feature was ported or runtime-certified.",
+    "Keep means adapt the useful behavior; Extract means retain a subset or concept; Retire means remove from active consolidation, not delete archived work.",
+    "Assessment acceptance closes the review task, not the proposed implementation work.",
+    "Published source was compared at fixed commits; dirty Hekate work and local branches were excluded and preserved.",
+    "The failed model run is not delivered cross-model review; its cost counters remain unverified."
+  ]
+}
