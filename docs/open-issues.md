@@ -77,6 +77,8 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-037 | Observer rejects valid null empty event history | defect | recovery observation | closed | codex-chatagent / supervised Hermes worker |
 
+| CA-ISSUE-038 | Checkpoint turn budgets lack an auditable counter | defect | checkpoint management | open | codex-chatagent / checkpoint execution task |
+
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
 - **Observed problem and impact:** a delivery field backed by a detached
@@ -194,6 +196,17 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   `role-observation-001/`. This is manual recovery, not closure of idle-lead
   detection or unattended continuation. Monitoring must lead to explicit dispatch,
   independent review and the next eligible task within the authorized session.
+
+The first bounded assessment phase is now accepted and integrated from `34aa761`:
+read-only reconciliation/recommendations and a finite CLI preserve current attempt,
+content and artifact fences without mutating task state. Independent checks include
+150 focused cases, four controlled regression negatives and 3,037 passing tests with
+ten worktree capability skips. Actual retained-store CLI and paired UI readback verify
+exact accepted artifacts, wrong-epoch refusal, untouched null history and explicit
+unobserved availability failure at a controlled closed port. Evidence:
+`recovery-assessment-001/live-cli-proof.json`, `live-closed-port.json`, and
+`accepted-ui-proof.json`. No delivered escalation, wake, resumption or persistent
+unattended service is established, so the original issue remains open.
 
 ### CA-ISSUE-008 — No provider-authoritative quota reconciliation
 
@@ -1199,3 +1212,28 @@ proof of complete history or worker startup. Numeric/type, sequence, cross-page
 metadata stability, total byte/page/deadline and privacy checks remain intact.
 Evidence: external recovery-planning-001/backlog-schema-diagnostic.json and
 empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-proof.json.
+
+### CA-ISSUE-038 — Checkpoint turn budgets lack an auditable counter
+
+- **Observed / priority:** P1 checkpoint-management audit defect. The supervised
+  recovery CLI was configured with `--max-turns 60`; its successful result reports
+  `num_turns: 97`. The planning CLI configured at 24 reports 22. Streaming assistant
+  record counts and distinct message IDs also differ. These observations do not
+  establish whether the provider limit failed or uses another unit, but a management
+  layer cannot treat these numbers as interchangeable verified hard-budget evidence.
+- **Expected:** define the counter and source for each expected/hard budget, enforce
+  the selected tripwire against attributable current execution, and emit a typed
+  receipt with the exact attempt, budget unit and consumed count. Missing counters
+  remain unavailable; wall time, messages, tool calls and model turns are distinct.
+- **Reproduce / evidence:** compare retained `recovery-assessment-001/launch.json`
+  and result metadata (no worker text) against `exit.json`; metadata-only extraction
+  is retained in `executive-mvp-001/turn-counter-assessment.json`.
+- **Owner / task:** codex-chatagent; real Hekate checkpoint execution task
+  `94438651-ed00-5656-803d-d6097d4a4e40`, gated after live executive MVP delivery.
+  It must produce maintained enforcement/observability, not only a private script.
+- **Current mitigation / closure:** current runs also have independently enforced
+  finite wall-clock and private-output limits, and configured provider cost limits.
+  The first executive view explicitly reports budget evidence unavailable. Close
+  only after defined counters, enforced breach/escalation, attributable gate evidence
+  and meaningful independent tests are demonstrated. Do not weaken current caps or
+  infer good/bad performance from the mismatch alone.

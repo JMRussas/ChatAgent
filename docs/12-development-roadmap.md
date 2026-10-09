@@ -46,39 +46,86 @@ The actual UI has restored the genuine reliability backlog against the retained
 store. Evidence: `rehearsal-rework-001/final-reload.json` and
 `post-native-backlog-ui-launch.json`.
 
-**Next delivery order:**
+**Next delivery order — executive observability MVP first (2026-10-09):**
 
-1. Delivery verification and the controlled backlog handoff are complete. Athena
-   planning task `badfd10d-e3a0-570a-a569-d493c1460847` is accepted at epoch 1
-   and integrated from `d13050c`. Its actual CLI worker and real Active card were
-   observed; independent lead corrections are retained. The reviewed contract is
-   [document 17](implementation/17-bounded-recovery-execution.md). Planning acceptance
-   does not mark the recovery implementation complete. Actual blocking repair
-   CA-ISSUE-037 supports valid null history for untouched backlog tasks; its exact
-   accepted source `9522ea8` is integrated; actual paired UI reads untouched
-   backlog task e5a948bc without mutation or invented history/attempt.
-2. Execute and independently verify the existing recovery task
-   `af690ee2-4e2e-5043-a71a-c0d126030971`, with a frozen acceptance contract that
-   distinguishes observation/verification outages from model/source failures.
-   It is now claimed as `recovery-assessment-001-r1`, epoch 1, under a real bounded
-   Hermes CLI worker, and the real Active card agrees with PlanStore. This is
-   lead-supervised API/CLI execution with external input/check evidence, not a
-   prepared native TaskSpec run; native trace capture and automatic verification
-   are not claimed. The planned native profile remains a future execution path.
-   The native backlog dispatcher correctly yielded on `inflight`; a separate
-   bounded LocalStore API owner holds the same retained database's exclusive
-   advisory lock while manual review proceeds. No duplicate dispatcher is running.
-   Do not spend another model retry on an unavailable external verifier. Preserve
-   uncertainty, exact-owner fencing and the original attempts/evidence.
-3. Follow with recovery fencing and handoff evidence, then persistent role
+1. The first bounded CA-ISSUE-004 recovery assessment is accepted at epoch 1,
+   attempt `recovery-assessment-001-r1`, exact artifact
+   `34aa761667ceeca311a3b0a1910c948b713847eb`, integrated at `e73fce7`.
+   Independent checks include 150 focused cases, four controlled regression
+   negatives, and 3,037 passing tests with ten explicit worktree capability skips.
+   Actual live CLI observations recognize the original and recovery accepted
+   artifacts, refuse a wrong epoch, and preserve untouched null history. Evidence
+   is `recovery-assessment-001/live-cli-proof.json`; the recovery task has partial
+   observation evidence and unknown worker liveness. This is supervised API/CLI
+   execution with independent external checks, not a native TaskSpec or captured
+   native attempt trace. CA-ISSUE-004 remains open: no wake, escalation delivery,
+   persistent recovery service or unattended operation is implemented. The
+   independently accepted planning contract is
+   [document 17](implementation/17-bounded-recovery-execution.md). CA-ISSUE-037's
+   null-history repair is integrated and verified through the real paired UI.
+2. Deliver a shared, read-only executive overview API and its first ChatAgent
+   presentation. Show configured outcomes, recorded work, review needs,
+   dependencies, stale inputs and unavailable evidence. Drill down in place from
+   initiative to task to current attempt and evidence; retain the overview context.
+   Presentation can move to another client without changing the underlying facts.
+   PlanStore acceptance does not establish source integration or deployment; host
+   heartbeat does not establish worker liveness. Do not fabricate completion
+   percentages, worker progress, performance thresholds or delivery predictions.
+3. Build checkpoint management into execution and observability: one coherent,
+   independently verifiable change per checkpoint, with expected budgets, enforced
+   hard limits, gate evidence and explicit escalation. Workers execute autonomously
+   within the checkpoint. Management observes budget/process/ownership tripwires
+   between gates, rather than reviewing every tool call. Preserve failed evidence;
+   distinguish source failures from unavailable external verification before
+   choosing a retry. Automatic retry, uncertain-owner restart and unattended
+   recovery require their separately reviewed authority and fences.
+4. Continue recovery fencing and handoff evidence, then persistent role
    assignment/review/recovery. Optional LangChain/LangGraph primitives already
    exist; an unattended role/recovery service remains unfinished.
-4. Integrate measurements before setting execution-time thresholds: equivalent
+5. Integrate measurements before setting execution-time thresholds: equivalent
    task/model/host/verification cohorts, phase durations, ready-to-acceptance,
    acceptance-to-integration, review backlog age, rework and attributed cost per
    accepted feature. Include failures. Timeouts are bounds, not performance SLOs.
 
-The genuine eight-task reliability backlog is retained in Hekate under root
+**Checkpoint milestones and forecast.** These are planning ranges for focused
+execution, not a measured throughput baseline or promises of unattended work. The
+first useful executive slice is targeted for **2026-10-09, within 2–4 focused
+hours**. Re-estimate at its implementation gate. A polished MVP and unattended
+recovery are separate scopes; do not delay the useful first slice for either.
+
+| Checkpoint    | External acceptance gate                                                                                             | Hekate task                            | Provisional focused time |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------ |
+| Contract      | Independently reviewed bounded data/UI contract, source seams and meaningful acceptance cases                        | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | 15–30 minutes            |
+| Working slice | Shared API and inline UI artifact passes schema, authentication, projection and browser checks                       | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | 60–120 minutes           |
+| Live delivery | Exact accepted source integrated and real paired UI verified against current PlanStore; roadmap and forecast updated | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | 30–60 minutes            |
+
+These real tasks are stored under management root
+`29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Athena's
+contract task is accepted at epoch 1 as `executive-mvp-001-r1`, exact artifact
+`a57df9a`, integrated at `a9d8258`. Its worker finished in about two minutes; lead
+review verified source seams and corrected current gate, budget uncertainty, readiness
+and drill-down content fences. Formatting, lint and documentation checks passed.
+Hermes implementation task `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` is claimed at epoch
+1 as `executive-mvp-implementation-001-r1`; its actual bounded CLI is running, and
+the real Hekate Active card matches the claim. Expected budget: 30 turns; hard caps:
+60 turns, USD 5, fifteen minutes and 8 MiB private output. Management evaluates the
+artifact at its external gate; model self-report is insufficient. Evidence remains
+external under `executive-mvp-001` and `executive-mvp-implementation-001`.
+
+Checkpoint execution follow-on task `94438651-ed00-5656-803d-d6097d4a4e40` is real TODO work
+in Hekate, gated on live MVP delivery. It must ship maintained budget-tripwire
+enforcement and auditable gate evidence; private launch envelopes and roadmap prose
+do not establish that product capability. The first overview reports current recorded
+gates and explicitly unavailable budget measurement, not an implemented management service.
+
+The retained database currently has one finite API-only LocalStore owner for
+supervised tasks, with a four-hour bound and no native dispatch or model execution.
+The prior API owner shut down cleanly before replacement. The previous native
+backlog dispatcher exited on `inflight`; its conservative blocked-state relaunch
+fence remains intact. Runtime ownership is separate from active task execution.
+
+The genuine eight-task reliability backlog has one accepted bounded phase and
+seven TODO tasks, retained in Hekate under root
 `d6450921-6673-5535-b495-07cc165ada2d`. Dependency-ready tasks with `spec_pending`
 are unprepared, not actively running workers. Use a work-in-progress limit of one
 feature and its immediate blocking repair. Deferred metrics task
