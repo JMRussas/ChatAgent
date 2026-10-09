@@ -107,18 +107,18 @@ single delivery does not establish a measured throughput baseline. Forecast the 
 coherent increment at its accepted contract gate; unattended recovery and polish
 remain separate work rather than delaying the useful first slice.
 
-| Checkpoint                  | External acceptance gate                                                            | Hekate task                            | Current result                                                                            |
-| --------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Contract                    | Independently reviewed bounded API/UI contract and acceptance cases                 | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                                                  |
-| Working slice               | Shared API/inline UI artifact, schema/auth/projection/browser/full checks           | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                                                  |
-| Live delivery               | Maintained paired UI, exact source integration and retained-store evidence          | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                                                        |
-| Execution contract          | Freeze bounded enforcement, counter units and objective gates                       | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Accepted `0e75f03`, integrated `6524c7f`                                                  |
-| Enforcement                 | Maintained budget tripwires, owned cleanup and bounded typed checkpoint evidence    | `94438651-ed00-5656-803d-d6097d4a4e40` | Accepted `ff9230d`, integrated `6f9f288`                                                  |
-| Enforcement delivery        | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`                             |
-| Recovery contract           | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract, implementation pending                           |
-| Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof |
-| Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Athena running `checkpoint-queue-contract-001-r1`, epoch 1, bounded maintained runner     |
-| Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | TODO; gated on accepted queue contract                                                    |
+| Checkpoint                  | External acceptance gate                                                            | Hekate task                            | Current result                                                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Contract                    | Independently reviewed bounded API/UI contract and acceptance cases                 | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                                                       |
+| Working slice               | Shared API/inline UI artifact, schema/auth/projection/browser/full checks           | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                                                       |
+| Live delivery               | Maintained paired UI, exact source integration and retained-store evidence          | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                                                             |
+| Execution contract          | Freeze bounded enforcement, counter units and objective gates                       | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Accepted `0e75f03`, integrated `6524c7f`                                                       |
+| Enforcement                 | Maintained budget tripwires, owned cleanup and bounded typed checkpoint evidence    | `94438651-ed00-5656-803d-d6097d4a4e40` | Accepted `ff9230d`, integrated `6f9f288`                                                       |
+| Enforcement delivery        | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`                                  |
+| Recovery contract           | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract, implementation pending                                |
+| Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof      |
+| Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                       |
+| Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Hermes claimed `checkpoint-review-ledger-001-r1`, epoch 1/content 2; bounded maintained runner |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -194,15 +194,25 @@ Evidence: `checkpoint-recovery-implementation-001/reviewed-bundle.json`,
 `maintained-ui-proof.json` and `handoff-live-proof.json`.
 
 The lead advanced the accepted gate into the next actual model checkpoint rather
-than ending with only queued work. Athena task `ac55a6f7-0502-54f7-bdc1-654057c8cc92`
-is claimed at `checkpoint-queue-contract-001-r1`, epoch 1, through the maintained
-runner (30 expected/60 hard IDs, five minutes, 4 MiB, USD2 provider cap). It freezes
-one bounded durable review/queue increment with visible idle/review reasons and
-explicit dispatch authority. Implementation task
-`2d9e65de-80d8-5de3-a853-6f407240732b` is TODO behind planning acceptance.
-`checkpoint-queue-contract-001` retains the actual claim/run record. Persistent
-queue advancement, independent AI wake and unattended supervision remain open;
-a running finite worker or a local handoff file is not that service. Evidence is retained at
+than ending with only queued work. Athena contract task
+`ac55a6f7-0502-54f7-bdc1-654057c8cc92` is accepted at `0535a4e`, integrated at
+`8df3130` ([document 21](implementation/21-checkpoint-review-queue.md)). Its real
+maintained run ended within bounds: seven message IDs in 128.579 seconds,
+391,985 output bytes and USD0.473135 provider-reported, unverified cost. Independent
+lead review selected the smaller read-only durable ledger boundary, correcting
+invented ready-task claim inputs, incompatible pass/worker budgets and unsupported
+atomic-CAS/authentication claims. It makes current review/idle reasons durable;
+it does not automatically claim/dispatch, accept/integrate, notify or wake.
+
+Hermes implementation task `2d9e65de-80d8-5de3-a853-6f407240732b` is now claimed
+at `checkpoint-review-ledger-001-r1`, epoch 1/content 2, executing through the
+maintained fixed-profile runner in an isolated worktree. Its hard bounds are
+60 message IDs, 15 minutes, 8 MiB output and a configured USD5 provider cap;
+expected 30 IDs is a heuristic, not an SLO. Evidence is
+`checkpoint-review-ledger-001/start-readback.json` and the exact runner record.
+The runtime budget monitor continues independently until that worker ends;
+independent lead gates still determine acceptance. Persistent queue advancement,
+AI wake and unattended supervision remain unfinished (CA-ISSUE-004). Evidence is retained at
 `checkpoint-recovery-next-001/reviewed-bundle.json`, `active-ui-proof.json` and
 `active-state-proof.json`. This builds on the read-only recovery assessment and
 explicitly leaves actual wake/notification delivery, acknowledgment, persistent
@@ -211,7 +221,10 @@ remains open. Do not claim a stored local handoff is a delivered human notificat
 
 The retained database currently has one finite API-only LocalStore owner for
 supervised tasks, with a four-hour bound and no native dispatch or model execution.
-The prior API owner shut down cleanly before replacement. The previous native
+The prior API owner shut down cleanly before replacement. The latest same-store
+renewal is `checkpoint-queue-api-owner-001`, retaining project/database identities;
+its predecessor is `executive-api-owner-001`. API liveness does not mean a worker
+is running. The previous native
 backlog dispatcher exited on `inflight`; its conservative blocked-state relaunch
 fence remains intact. Runtime ownership is separate from active task execution.
 
