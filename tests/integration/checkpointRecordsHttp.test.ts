@@ -205,7 +205,6 @@ describe("checkpoint records over the executive overview route", () => {
         runId: runs[i],
         identity,
         baseRef: BASE_REF,
-        phase: "running",
         reason: "in_progress",
         startedAt: STAMP,
         updatedAt: STAMP,

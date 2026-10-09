@@ -443,6 +443,13 @@ describe("exact matching", () => {
     });
   });
 
+  it("refuses a continuation with a contradictory source base for the same run", async () => {
+    expect((await run({ record: { baseRef: OTHER_REF } })).view).toEqual({
+      state: "unavailable",
+      reason: "stale_source"
+    });
+  });
+
   it("matches the candidate source for source-bearing phases", async () => {
     for (const phase of ["verifying", "review_pending", "needs_operator"]) {
       const spec = PHASES[phase];

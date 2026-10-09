@@ -564,10 +564,15 @@ describe("collectExecutiveOverview with continuation records", () => {
         "registeredRecordsUnavailable"
       ].sort()
     );
-    // Nothing private from the records or the files enters the body.
+    // Existing budget records expose baseRef by contract; the new continuation
+    // projection must not copy it or the private check-output hashes.
     const text = JSON.stringify(overview);
     expect(text).not.toContain("e".repeat(64));
-    expect(text).not.toContain(BASE_REF);
+    const continuationText = JSON.stringify({
+      summary: overview.continuation,
+      tasks: overview.roots.flatMap((root) => root.tasks.map((task) => task.continuation))
+    });
+    expect(continuationText).not.toContain(BASE_REF);
     // JSON-escaped form, so a Windows path would be caught as well.
     expect(text).not.toContain(JSON.stringify(dirs[0]).slice(1, -1));
   });

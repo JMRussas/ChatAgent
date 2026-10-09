@@ -215,9 +215,11 @@ const unavailable = (reason: ContinuationUnavailableReason): ContinuationView =>
 function runMatches(
   record: ContinuationRecord,
   budget: CheckpointBudgetView | undefined
-): "ok" | "run_mismatch" | "run_unverified" {
-  if (budget?.state === "reported")
-    return budget.record.runId === record.runId ? "ok" : "run_mismatch";
+): "ok" | "run_mismatch" | "run_unverified" | "stale_source" {
+  if (budget?.state === "reported") {
+    if (budget.record.runId !== record.runId) return "run_mismatch";
+    return budget.record.baseRef === record.baseRef ? "ok" : "stale_source";
+  }
   return budget?.state === "unavailable" &&
     budget.reason === "missing" &&
     record.phase === "reserved"

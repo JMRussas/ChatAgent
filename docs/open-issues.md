@@ -91,6 +91,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-044 | Checkpoint ledger deadline and ownership publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 | CA-ISSUE-046 | Continuation authority and publication checks are incomplete | defect | acceptance blocker | closed | Hermes / scoped repair |
+| CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | open | codex-chatagent / operator repair |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1480,3 +1481,27 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
 - **Resolution:** open.
 - **Evidence:** Verify run on `3b0d160` (ubuntu job, `handoffCliPublish`), and
   the same failure reproduced in a `node:24.21.0` container on 2026-10-09.
+
+### CA-ISSUE-047 — Phase visibility fixtures and contract claims fail independent gates
+
+- **Observed:** finite continuation candidate `becf03a` finished its exact Hekate
+  attempt, then independently failed Prettier, TypeScript and focused Vitest.
+  Its durable phase is `needs_operator`; clean worker exit is not acceptance.
+- **Attribution:** type failure TS2783 is a duplicate `phase` fixture property;
+  the one focused assertion failure checks the entire overview for a base SHA
+  that the existing budget contract intentionally exposes. The new continuation
+  privacy boundary needs its own assertion, preserving whole-response path and
+  output-hash checks. Doc24 also contradicts its reserved/missing-budget case
+  and overstates closed validation of legacy overview fields.
+- **Repair:** explicit operator task corrects those fixtures/claims. Formatting
+  stays in its own commit. Production execution semantics stay unchanged;
+  record readers and UI behavior still require focused/full/browser checks.
+- **Independent source recurrence:** a same-run continuation with a contradictory
+  `baseRef` was still presented as current. The external negative reproduces this
+  in `independent-base-negative`; the reader now requires source-base agreement
+  with its matched budget record and reports `stale_source` otherwise.
+- **Acceptance:** the original epoch 1 remains rejected with its raw commit,
+  budget and automatic gate. Only a new explicit delivery attempt can accept the
+  repaired artifact after external checks and real paired same-page UI proof.
+- **Evidence:** `checkpoint-phase-implementation-001/candidate-defects.json`,
+  original continuation/gate records, `rejected-readback.json` and repair receipts.

@@ -48,6 +48,9 @@ A record is shown as current only when all of these hold; otherwise it is
 - The record's run equals the run in the configured file name, and equals the
   registered budget record's run when that record is available, else
   `run_mismatch`.
+- Its source base agrees with the matching budget record's source base, else
+  `stale_source`; matching a run ID alone cannot reconcile contradictory source
+  evidence.
 - When no budget record can confirm the run, the run is ambiguous and refused as
   `run_unverified`; only a `reserved` record may precede a missing budget file.
 - A source-bearing record (`verifying`, `review_pending` or a confirmed finish)
@@ -90,9 +93,10 @@ and the existing budget and attention schemas are unchanged. v4 is v3 plus:
 
 ## 5. Browser behavior
 
-The page validates v1–v4 against closed schemas and rejects unknown fields,
-unknown enum values, inconsistent counts or attention, and a continuation field
-under a schema that does not define it. All values are written with
+The page retains existing v1–v3 validation and validates new continuation fields
+against closed schemas. It rejects unknown continuation fields and enum values,
+inconsistent counts or attention, and a continuation field under a schema that
+does not define it. All values are written with
 `textContent`. The phase panel precedes the roots; each open task summary shows
 its phase; "Open phase detail" re-checks the item against the displayed task
 (run, phase, reason, update time, task state, row listed) and then opens the
@@ -104,8 +108,9 @@ Nothing else is requested, mutated or navigated to, and nothing polls.
 - Records are supplied and unauthenticated. A phase is the last recorded phase,
   not proof the writer is alive. `running` does not mean a process is running,
   and no staleness inference is made from time.
-- `reserved` and `running` records whose budget record is missing or from another
-  attempt are `run_unverified`, not guessed.
+- A `reserved` record can precede a missing budget file when its file-name run
+  and exact task fence match. Later phases need a matching reported budget run;
+  missing or unavailable budget evidence makes them `run_unverified`.
 - A confirmed finish is read from the record and the task artifact only; this
   view never calls PlanStore itself beyond the existing overview read.
 - The view does not decide, retry, claim, release, accept, integrate, notify or
