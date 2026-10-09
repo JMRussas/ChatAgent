@@ -73,7 +73,7 @@ holder remains unidentified. Initial fixture failure and a wrong-repository arti
 reference were preserved; the incorrect reference was explicitly rejected and a
 new attempt reviewed against the exact ChatAgent commit.
 
-Owned dispatch task `3764990e-b4ba-530f-91ad-6d107c4571e0` is in final review,
+Owned dispatch task `3764990e-b4ba-530f-91ad-6d107c4571e0` is accepted at
 attempt `owned-dispatch-002-r1`, with source integrated at Hekate `24404af`. The first candidate was rejected before live use.
 The host reuses native PlanStore/runner ownership and makes process identity,
 heartbeat, blocked preparation/review, failure and ready-but-idle states explicit.
@@ -99,10 +99,18 @@ authority or altering frozen verification. Corrected live launch acknowledgement
 PIDs and launch ID. The four-hour owned host is waiting explicitly on
 `plan-status-ui/spec_pending`, with a five-second heartbeat. It dispatches only
 prepared work and leaves planning, failed-budget recovery and integration to
-explicitly attributed operator/role tasks. Source review acceptance is being recorded.
+explicitly attributed operator/role tasks. Source review is accepted; a duplicate launch was refused `owner_running` before
+spawn. ChatAgent integration `1def1a2` passes all 2,450 tests plus format/lint/docs.
+UI planning under application resumption is reviewed and linked from
+`D:/hekate-coordinator/runs/application-ui-planning-001/review.txt`; its frozen
+implementation package remains unprepared. The host stays explicitly blocked on
+that gate while preserving a live owner heartbeat. No model worker is currently
+running, and no continuous autonomous AI supervision is claimed.
 
-**Active:** application resumption `47f98ae5-c0ec-5be1-919b-7ea615f07952`,
-attempt `application-resume-001-r1`. Supervision rehearsal
+**Current:** application resumption `47f98ae5-c0ec-5be1-919b-7ea615f07952`,
+attempt `application-resume-001-r1`, is accepted. Original UI task
+`6bbefda0-cc3b-510d-ab02-f1fbc5b5ba61` remains todo awaiting its frozen spec;
+formatter capability task `db59fb7b-d963-537a-853a-8883601ab757` is queued. Supervision rehearsal
 `5544af83-8716-528b-aabf-2ceb21719bde` is accepted at epoch 3 after the
 prior finish correctly refused `stale_prerequisites`: adding the historical repair
 gate required releasing the old attempt and revalidating the exact bundle under
