@@ -126,7 +126,7 @@ remain separate work rather than delaying the useful first slice.
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
 | Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |
 | Continuation contract       | Freeze generation-to-external-verification continuation without a user message      | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Operator contract `1031fd7` accepted, integrated `ec0714a`; original failed run retained  |
-| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Initial candidate `66d7d0e` rejected; CA-ISSUE-046 repair running                         |
+| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Initial candidate rejected; repair `7aa55f5` accepted, live delivery running              |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -291,8 +291,13 @@ message IDs, below the 30-message/five-minute hard bounds and slightly above its
 cap are retained; provider usage remains unverified metadata. Independent regression source is committed at `630f679`.
 The original task is completed and rejected at its exact candidate, keeping the
 old model run separate. Repair candidate `7aa55f5` passes all 38 focused cases and format/type/docs
-checks; its full suite is running. Real continuation delivery, acceptance and
-integration remain pending. Evidence is retained under
+checks; its corrected full suite passes 3,301 with ten existing skips. The prior
+full failure was caused by the lead launcher omitting PowerShell from PATH; the
+failed gate and harness diagnosis are retained. Exact scoped repair `7aa55f5`
+is accepted. Real continuation delivery is now running through the finite
+coordinator in a separate toy worktree; whole-feature acceptance and integration
+remain pending. Its real Hekate task and independently prepared failing baseline
+are retained under `checkpoint-continuation-live-001`. Evidence is retained under
 `checkpoint-continuation-implementation-001` and
 `checkpoint-continuation-repair-001`.
 
