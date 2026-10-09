@@ -67,6 +67,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-027 | Launch adapter omits the trusted observer trace root               | gap    | conversation observation | open     | codex-chatagent / Athena controls worker     |
 | CA-ISSUE-028 | Generated observer helper shadows Python stdlib queue              | defect | supervision tooling      | closed   | codex-chatagent                              |
 | CA-ISSUE-029 | Controls compare a native plan key with a canonical task ID        | gap    | conversation correlation | open     | codex-chatagent / Athena controls worker     |
+| CA-ISSUE-030 | Attempt-progress preparation cannot parse                          | defect | preparation verification | open     | codex-chatagent / Athena correction worker   |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -960,3 +961,31 @@ not current attempt/epoch freshness. Require the native controls/progress task a
 real conversation observation before closure. Evidence: external
 `conversation-controls-prepare-001/lead-correlation-review.txt`,
 `native-metadata.log`, `node-identity-negative.json` and `corrected-browser.log`.
+
+Progress preparation additionally used only `scheme:token` artifact fixtures,
+withholding native Git SHA40 identifiers. Its first UI candidate also missed
+immediate user/conversation input cleanup and displayed attempt/epoch changes.
+These are unaccepted preparation gaps under the same correlation task, not a
+regression claim against integrated controls. Require native-shaped artifact
+fixtures and held-response input/attempt-change negative controls before freeze.
+
+### CA-ISSUE-030 — Attempt-progress preparation cannot parse
+
+Status: open; blocks freezing the original progress-view task. Hekate preparation
+`b0be34f0-1932-5c20-bfad-9d9d9406885c` epoch1 is rejected; correction epoch2
+`attempt-progress-prepare-002-r2` is Active with an actual CLI worker and observer.
+The first worker reached its 600-second bound without finishing the browser helper
+or behavioral contract. Independent formatting/lint refused an unterminated regular
+expression containing literal Unicode line separators. Focused verification had
+two import failures and an incorrect synthetic operator principal in its route-policy
+test: three test files failed, with six individual cases passing and one failing.
+The generated UI syntax test passed; the earlier lead description of that failure
+was mistaken. Auth policy remains unchanged.
+
+Expected: supported source and emitted scripts parse, meaningful unit/HTTP/browser
+checks pass, and the reference package is independently verified before native
+execution. Preserve exact failed source bundle
+`preparation:sha256:823c074443a40087d88bbff8572180c2b59402d4c231679fd3b534fd3ca11406`,
+worker exit, checks and review findings under external
+`attempt-progress-prepare-001`. No accepted product source was changed by this
+failure. The 600-second timeout is an operational bound, not a model-speed SLO.

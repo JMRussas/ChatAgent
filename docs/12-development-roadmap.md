@@ -32,7 +32,11 @@ with a four-hour/three-dispatch bound and five-second host heartbeat. It has
 completed two dispatches and is waiting at `attempt-progress-view/spec_pending`.
 An alive host is not an active worker. Preparation task
 `b0be34f0-1932-5c20-bfad-9d9d9406885c` is now `in_progress` at
-`attempt-progress-prepare-001-r1`, assigned to the actual hidden CLI worker.
+`attempt-progress-prepare-002-r2` at epoch2, assigned to the actual hidden CLI worker.
+Epoch1 reached its 600-second bound and was independently rejected after source
+parse failures and a faulty auth test fixture. Exact failed bytes and checks are retained;
+CA-ISSUE-030 records the defect. The correction also requires native artifact-hash
+visibility and immediate input/attempt-change cleanup before freezing the oracle.
 The observer records native process identity, PlanStore state and observation time;
 useful progress remains unknown until inspected and verified. No continuous AI
 supervision or automatic source integration is claimed.
