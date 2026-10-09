@@ -184,7 +184,8 @@ export const REFUSAL_CODES = [
   "pin_mismatch",
   "worktree_invalid",
   "authority_mismatch",
-  "authority_unavailable"
+  "authority_unavailable",
+  "claim_already_owned"
 ] as const;
 export const TRIPWIRE_CODES = [
   "hard_units",

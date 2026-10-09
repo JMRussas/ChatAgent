@@ -1,7 +1,7 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, open, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -51,6 +51,14 @@ export function profileArgs(
     "--output-format",
     "stream-json",
     "--verbose",
+    "--restricted",
+    "--permission-mode",
+    "acceptEdits",
+    "--strict-mcp-config",
+    "--mcp-config",
+    '{"mcpServers":{}}',
+    "--no-session-persistence",
+    "--disable-slash-commands",
     "--model",
     model,
     "--tools",
@@ -171,7 +179,9 @@ export class StreamCounter {
 export function bindProcessSignals(
   controller: AbortController,
   proc: Pick<NodeJS.Process, "on" | "off"> = process,
-  signals: readonly NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGBREAK"]
+  signals: readonly NodeJS.Signals[] = process.platform === "win32"
+    ? ["SIGINT", "SIGTERM", "SIGBREAK"]
+    : ["SIGINT", "SIGTERM"]
 ): () => void {
   const handler = () => controller.abort();
   for (const signal of signals) proc.on(signal, handler);
@@ -196,6 +206,28 @@ function sha256OfFile(path: string): Promise<string> {
       .on("error", reject)
       .on("end", () => resolveHash(hash.digest("hex")));
   });
+}
+
+async function readPinnedPrompt(path: string): Promise<Buffer> {
+  const max = CHECKPOINT_LIMITS.maxPromptBytes;
+  const info = await lstat(path);
+  if (!info.isFile() || info.isSymbolicLink() || info.size > max) throw new Error("PROMPT_INVALID");
+  const handle = await open(path, "r");
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > max) throw new Error("PROMPT_INVALID");
+    const buffer = Buffer.alloc(max + 1);
+    let size = 0;
+    while (size < buffer.length) {
+      const result = await handle.read(buffer, size, buffer.length - size, size);
+      if (result.bytesRead === 0) break;
+      size += result.bytesRead;
+    }
+    if (size > max) throw new Error("PROMPT_INVALID");
+    return buffer.subarray(0, size);
+  } finally {
+    await handle.close();
+  }
 }
 
 async function pinnedFile(pin: { path: string; sha256: string }): Promise<boolean> {
@@ -294,6 +326,7 @@ export interface CheckpointDeps {
   tickMs?: number;
   closeGraceMs?: number;
   now?: () => number;
+  monotonicNow?: () => number;
 }
 
 export const exitCodeOf = (stop: StopRecord): RunResult["exitCode"] => {
@@ -321,7 +354,10 @@ export async function runCheckpoint(
   const closeGraceMs = deps.closeGraceMs ?? RUNNER_LIMITS.closeGraceMs;
   const terminator = deps.terminator ?? processTreeTerminator;
   const fetchStatus = deps.fetchStatus ?? fetchCoordinationStatus;
-  const startMs = now();
+  let startMs = now();
+  const monotonicNow = deps.monotonicNow ?? (() => performance.now());
+  let elapsedStart = monotonicNow();
+  const elapsed = () => Math.max(0, Math.floor(monotonicNow() - elapsedStart));
   const iso = (ms: number) => new Date(ms).toISOString();
 
   const baseRecord = (): BudgetRecord => ({
@@ -399,7 +435,7 @@ export async function runCheckpoint(
   // ----- preflight: nothing is spawned until every check passes -----
   let promptBytes: Buffer;
   try {
-    const bytes = await readFile(input.promptFile);
+    const bytes = await readPinnedPrompt(input.promptFile);
     if (
       bytes.length > CHECKPOINT_LIMITS.maxPromptBytes ||
       createHash("sha256").update(bytes).digest("hex") !== input.promptSha256
@@ -445,7 +481,33 @@ export async function runCheckpoint(
       return refuse("profile_unsupported");
   }
 
-  // ----- exclusive reservation, then the only spawn -----
+  // Worker budget excludes preparation; reserve its record before any worker can start.
+  startMs = now();
+  elapsedStart = monotonicNow();
+  // A new run ID must not bypass an already-owned attempt in this fixed record namespace.
+  const claimKey = createHash("sha256")
+    .update(
+      JSON.stringify([
+        input.identity.rootId,
+        input.identity.nodeId,
+        input.identity.attemptId,
+        input.identity.attemptEpoch,
+        input.identity.contentRevision
+      ])
+    )
+    .digest("hex");
+  let lease;
+  try {
+    lease = await open(join(input.recordDir, `.claim-${claimKey}.lease`), "wx");
+    await lease.writeFile(JSON.stringify({ schema: "checkpoint-claim/v1", runId: input.runId }));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") return refuse("claim_already_owned");
+    return { exitCode: 4, record: null };
+  } finally {
+    await lease?.close();
+  }
+  // The attempt lease is retained even on exit: rework needs a newly fenced attempt.
+  // ----- exclusive reservation, then the only worker spawn -----
   try {
     await reserveBudgetRecord(input.recordDir, baseRecord());
   } catch (error) {
@@ -482,7 +544,7 @@ export async function runCheckpoint(
       state: end ? "ended" : "running",
       consumed: {
         units: counter.ids.size,
-        wallMs: Math.max(0, t - startMs),
+        wallMs: elapsed(),
         outputBytes,
         counterState: counter.uncertain ? "lower_bound" : "exact_observed"
       },
@@ -500,6 +562,7 @@ export async function runCheckpoint(
     };
   };
 
+  let termination: Promise<void> | undefined;
   const terminate = async () => {
     const target = child;
     if (!target || closedFlag) return;
@@ -512,6 +575,7 @@ export async function runCheckpoint(
       } catch {
         /* the root may already be gone */
       }
+      await Promise.race([closedPromise, delay(closeGraceMs)]);
       wake();
       return;
     }
@@ -530,7 +594,7 @@ export async function runCheckpoint(
   const trip = (stop: StopRecord) => {
     if (decision) return;
     decision = stop;
-    void terminate();
+    termination ??= terminate();
   };
 
   // Writes are serialized so a late periodic write can never replace the final record.
@@ -574,11 +638,10 @@ export async function runCheckpoint(
   deps.signal?.addEventListener("abort", stopOnAbort, { once: true });
   const wallTimer = setTimeout(
     () => trip({ kind: "tripwire", code: "hard_wall" }),
-    input.hard.wallMs
+    Math.max(0, input.hard.wallMs - elapsed())
   );
   const ticker = setInterval(() => {
-    if (!decision && now() - startMs >= input.hard.wallMs)
-      trip({ kind: "tripwire", code: "hard_wall" });
+    if (!decision && elapsed() >= input.hard.wallMs) trip({ kind: "tripwire", code: "hard_wall" });
     void checkAuthority();
     if (dirty && !decision && now() - lastWrite >= tickMs) void flush();
   }, tickMs);
@@ -653,6 +716,7 @@ export async function runCheckpoint(
   }
   cleanupTimers();
   await inflight;
+  if (termination) await termination;
 
   // Closure-assigned state is re-read through casts so flow analysis cannot narrow it away.
   const tripped = decision as StopRecord | undefined;

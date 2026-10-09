@@ -143,7 +143,10 @@ describe("checkpoint budget in the executive overview UI", () => {
     mixed.schema = "executive-overview/v1";
     await refresh(mixed);
     expect(doc.el("execNote").textContent).toContain("not recognized");
-    expect(view.kids).toHaveLength(0);
+    expect(view.textContent).toContain("Delivery");
+    expect(doc.el("execStale").hidden).toBe(false);
+    expect(view.getAttribute("data-stale")).toBe("true");
+    expect(view.textContent).not.toContain("Provider reported");
   });
 
   it("refuses closed-schema violations in a v2 budget record", async () => {

@@ -75,7 +75,7 @@ export function executiveOverviewScript(): string {
   var BUDGET_REASONS = ['missing', 'unreadable', 'too_large', 'invalid', 'unsupported_schema', 'stale_identity', 'timeout'];
   var STOP_CODES = {
     none: ['none'],
-    refused: ['profile_unsupported', 'pin_mismatch', 'worktree_invalid', 'authority_mismatch', 'authority_unavailable'],
+    refused: ['profile_unsupported', 'pin_mismatch', 'worktree_invalid', 'authority_mismatch', 'authority_unavailable', 'claim_already_owned'],
     tripwire: ['hard_units', 'hard_wall', 'hard_output', 'counter_uncertain', 'authority_changed'],
     cancelled: ['cancelled'],
     exited: ['exited'],

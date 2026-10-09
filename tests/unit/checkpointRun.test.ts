@@ -36,13 +36,15 @@ beforeAll(() => {
 const dirs: string[] = [];
 const pidsToReap: number[] = [];
 afterEach(async () => {
-  for (const pid of pidsToReap.splice(0)) {
+  const reaped = pidsToReap.splice(0);
+  for (const pid of reaped) {
     try {
       process.kill(pid, "SIGKILL");
     } catch {
       /* already gone */
     }
   }
+  await expectGone(reaped);
   for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
 });
 
@@ -470,7 +472,15 @@ describe("no autorun, retry, mutation or leaked content", () => {
     );
     await delay(300);
     expect(await env.spawns()).toBe(1);
-    expect(await readdir(env.recordDir)).toEqual([`${env.input.runId}.budget.json`]);
+    const ownedFiles = await readdir(env.recordDir);
+    expect(ownedFiles).toHaveLength(2);
+    expect(ownedFiles).toContain(`${env.input.runId}.budget.json`);
+    const lease = ownedFiles.find((name) => /^\.claim-[0-9a-f]{64}\.lease$/.test(name));
+    expect(lease).toBeDefined();
+    expect(JSON.parse(await readFile(join(env.recordDir, lease!), "utf8"))).toEqual({
+      schema: "checkpoint-claim/v1",
+      runId: env.input.runId
+    });
     expect(fetches).toBeGreaterThan(0);
     await env.pids();
   }, 30_000);
@@ -507,6 +517,14 @@ describe("profile constants", () => {
         "--output-format",
         "stream-json",
         "--verbose",
+        "--restricted",
+        "--permission-mode",
+        "acceptEdits",
+        "--strict-mcp-config",
+        "--mcp-config",
+        '{"mcpServers":{}}',
+        "--no-session-persistence",
+        "--disable-slash-commands",
         "--model",
         "claude-sonnet-5-5",
         "--tools",
@@ -514,7 +532,7 @@ describe("profile constants", () => {
         "--allowedTools",
         PROFILE_TOOLS[profile]
       ]);
-      expect(args.join(" ")).not.toMatch(/Bash|--max-turns|dangerously|bypass|mcp/i);
+      expect(args.join(" ")).not.toMatch(/Bash|--max-turns|dangerously|bypass/i);
     }
     expect(profileArgs("coding", "m", 2.5).slice(-2)).toEqual(["--max-budget-usd", "2.5"]);
   });
@@ -541,4 +559,40 @@ describe("record shape on disk", () => {
     controller.abort();
     await running;
   }, 30_000);
+});
+
+// Independent profile gate: ambient permissions/MCP must not escape this worker profile.
+it("uses the frozen restricted noninteractive profile with empty MCP configuration", () => {
+  for (const profile of ["coding", "readonly_smoke"] as const) {
+    const args = profileArgs(profile, "sonnet", 5);
+    for (const flag of [
+      "--restricted",
+      "--strict-mcp-config",
+      "--no-session-persistence",
+      "--disable-slash-commands"
+    ])
+      expect(args).toContain(flag);
+    expect(args[args.indexOf("--permission-mode") + 1]).toBe("acceptEdits");
+    expect(JSON.parse(args[args.indexOf("--mcp-config") + 1])).toEqual({ mcpServers: {} });
+    expect(args[args.indexOf("--tools") + 1]).toBe(PROFILE_TOOLS[profile]);
+    expect(args).not.toContain("--max-turns");
+  }
+});
+
+it("refuses an oversized prompt before any worker starts", async () => {
+  const env = await setup();
+  await writeFile(env.input.promptFile, Buffer.alloc(256 * 1024 + 1));
+  const result = await runCheckpoint(env.input, env.deps("wait"));
+  expect(result.record?.stop).toEqual({ kind: "refused", code: "pin_mismatch" });
+  expect(await env.spawns()).toBe(0);
+});
+
+it("refuses a second run ID for the same claimed attempt in its record namespace", async () => {
+  const env = await setup();
+  const first = await runCheckpoint(env.input, env.deps("ids_repeat"));
+  expect(first.exitCode).toBe(0);
+  const second = await runCheckpoint({ ...env.input, runId: randomUUID() }, env.deps("ids_repeat"));
+  expect(second.exitCode).toBe(2);
+  expect(second.record?.stop.code).toBe("claim_already_owned");
+  expect(await env.spawns()).toBe(1);
 });
