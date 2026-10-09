@@ -232,7 +232,8 @@ describe("overview wiring", () => {
       fetchStatus: fetchWith(leaves()),
       checkpointRecords: entries
     });
-    expect(overview.schema).toBe("executive-overview/v2");
+    expect(overview.schema).toBe("executive-overview/v3");
+    expect(overview.attention?.basis).toBe("supplied_records");
     const byNode = new Map(overview.roots[0].tasks.map((t) => [t.nodeId, t]));
     for (const node of [nodes.current, nodes.accepted]) {
       const task = byNode.get(node)!;
@@ -264,7 +265,8 @@ describe("overview wiring", () => {
         { rootId: guid(9), nodeId: nodes.current, recordPath: ws.entry.recordPath }
       ]
     });
-    expect(unmatched.schema).toBe("executive-overview/v2");
+    expect(unmatched.schema).toBe("executive-overview/v3");
+    expect(unmatched.attention).toMatchObject({ items: [], registeredRecordsUnavailable: 1 });
     expect(unmatched.roots[0].tasks.every((t) => t.budgetEvidence === "not_reported")).toBe(true);
   });
 });

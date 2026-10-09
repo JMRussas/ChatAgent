@@ -5,6 +5,7 @@ import {
   type CheckpointBudgetView,
   type ReadBudgetOptions
 } from "./checkpointBudget";
+import { finalizeAttention, projectAttention, type Attention } from "./checkpointAttention";
 import {
   DevCoordinationError,
   fetchCoordinationStatus,
@@ -26,6 +27,8 @@ import {
 export const EXECUTIVE_OVERVIEW_SCHEMA = "executive-overview/v1";
 /** Used only when a trusted checkpoint record registry is configured. */
 export const EXECUTIVE_OVERVIEW_SCHEMA_V2 = "executive-overview/v2";
+/** Used when a registry is configured: v2 plus the closed, bounded `attention` field. */
+export const EXECUTIVE_OVERVIEW_SCHEMA_V3 = "executive-overview/v3";
 
 /** Named bounds shared with the UI and the tests. */
 export const EXECUTIVE_LIMITS = {
@@ -107,11 +110,16 @@ export interface ExecutiveRootView {
 }
 
 export interface ExecutiveOverview {
-  schema: typeof EXECUTIVE_OVERVIEW_SCHEMA | typeof EXECUTIVE_OVERVIEW_SCHEMA_V2;
+  schema:
+    | typeof EXECUTIVE_OVERVIEW_SCHEMA
+    | typeof EXECUTIVE_OVERVIEW_SCHEMA_V2
+    | typeof EXECUTIVE_OVERVIEW_SCHEMA_V3;
   generatedAt: string;
   /** Roots are read independently; their timestamps are not one snapshot. */
   atomic: false;
   roots: ExecutiveRootView[];
+  /** v3 only (registry configured): exceptions derived from supplied records. */
+  attention?: Attention;
 }
 
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
@@ -428,17 +436,20 @@ export async function collectExecutiveOverview(
         }
       })
     );
-    return capOverviewBytes(
+    const maxBytes = options.maxResponseBytes ?? EXECUTIVE_LIMITS.maxResponseBytes;
+    const registry = options.checkpointRecords;
+    // Attention is derived from the full views, before the cap can omit any task row.
+    const capped = capOverviewBytes(
       {
-        schema: options.checkpointRecords
-          ? EXECUTIVE_OVERVIEW_SCHEMA_V2
-          : EXECUTIVE_OVERVIEW_SCHEMA,
+        schema: registry ? EXECUTIVE_OVERVIEW_SCHEMA_V3 : EXECUTIVE_OVERVIEW_SCHEMA,
         generatedAt: now().toISOString(),
         atomic: false,
-        roots: views
+        roots: views,
+        ...(registry ? { attention: projectAttention(views, registry) } : {})
       },
-      options.maxResponseBytes
+      maxBytes
     );
+    return registry ? finalizeAttention(capped, maxBytes) : capped;
   } finally {
     clearTimeout(timer);
   }

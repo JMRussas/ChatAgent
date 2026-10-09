@@ -101,7 +101,8 @@ describe("checkpoint records over the executive overview route", () => {
     const response = await fetch(base + OVERVIEW);
     const text = await response.text();
     const body = JSON.parse(text);
-    expect(body.schema).toBe("executive-overview/v2");
+    expect(body.schema).toBe("executive-overview/v3");
+    expect(body.attention).toMatchObject({ items: [], registeredRecordsUnavailable: 2 });
     const byNode = new Map(
       (
         body.roots[0].tasks as {

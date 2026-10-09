@@ -83,6 +83,31 @@ export function executiveOverviewScript(): string {
   };
   var GATE_OUTCOMES = ['checks_passed', 'source_failed', 'partial', 'verifier_unavailable'];
   var CHECK_RESULTS = ['pass', 'fail', 'unavailable'];
+  var ATTENTION_KINDS = ['cleanup_unconfirmed', 'overdue_unreported', 'stopped_tripwire', 'stopped_failed', 'refused_start', 'verification_unavailable'];
+  var ATTENTION_ACTIONS = {
+    cleanup_unconfirmed: 'inspect_owned_process_manually',
+    overdue_unreported: 'confirm_owner_before_any_action',
+    stopped_tripwire: 'decide_new_attempt_or_discard',
+    stopped_failed: 'decide_new_attempt_or_discard',
+    refused_start: 'fix_start_precondition',
+    verification_unavailable: 'rerun_independent_checks_outside_worker'
+  };
+  var KIND_LABELS = {
+    cleanup_unconfirmed: 'Cleanup not confirmed in the supplied record',
+    overdue_unreported: 'No end recorded past the hard wall limit plus grace',
+    stopped_tripwire: 'Supplied record shows a tripwire stop',
+    stopped_failed: 'Supplied record shows a failed stop',
+    refused_start: 'Supplied record shows a refused start',
+    verification_unavailable: 'Verification unavailable (unattributed)'
+  };
+  var ACTION_LABELS = {
+    inspect_owned_process_manually: 'Inspect the owned process manually; a recorded PID is a descriptor, not authority.',
+    confirm_owner_before_any_action: 'Confirm the owner before any action.',
+    decide_new_attempt_or_discard: 'Decide on a new attempt or discard.',
+    fix_start_precondition: 'Fix the start precondition.',
+    rerun_independent_checks_outside_worker: 'Rerun independent checks outside the worker.'
+  };
+  var MAX_ATTENTION = 32;
   var allowBudget = false;
   var STATE_LABELS = {
     review_pending: 'Awaiting review',
@@ -114,6 +139,8 @@ export function executiveOverviewScript(): string {
   var last = null;
   var drills = {};
   var openRoots = {};
+  var rootRefs = {};
+  var taskRefs = {};
 
   function scopeNow() {
     return JSON.stringify([String(userInput.value || '').trim(), String(conversationInput.value || '').trim()]);
@@ -224,12 +251,39 @@ export function executiveOverviewScript(): string {
     if (r.status === 'unavailable' && r.reason === null) return false;
     return true;
   }
+  function validAttentionItem(i, rootIds) {
+    if (!isObject(i) || !keysAre(i, ['kind', 'rootId', 'nodeId', 'fence', 'runId', 'stop', 'recordState', 'recordUpdatedAt', 'rootPid', 'gateSourceRef', 'taskState', 'taskListed', 'attribution', 'action', 'trust', 'writerLiveness'])) return false;
+    if (!oneOf(i.kind, ATTENTION_KINDS) || !GUID.test(i.rootId) || !GUID.test(i.nodeId) || !GUID.test(i.runId) || rootIds.indexOf(i.rootId) < 0) return false;
+    var f = i.fence;
+    if (!isObject(f) || !keysAre(f, ['attemptId', 'attemptEpoch', 'contentRevision']) || typeof f.attemptId !== 'string' || !TOKEN.test(f.attemptId) || !isInt(f.attemptEpoch) || !isInt(f.contentRevision)) return false;
+    var s = i.stop;
+    if (!isObject(s) || !keysAre(s, ['kind', 'code']) || !STOP_CODES.hasOwnProperty(s.kind) || !oneOf(s.code, STOP_CODES[s.kind])) return false;
+    if (!oneOf(i.recordState, ['running', 'ended']) || typeof i.recordUpdatedAt !== 'string' || !STAMP.test(i.recordUpdatedAt) || !oneOf(i.taskState, STATES) || typeof i.taskListed !== 'boolean') return false;
+    if (i.attribution !== 'unattributed' || i.trust !== 'supplied_not_authenticated' || i.writerLiveness !== 'unknown' || i.action !== ATTENTION_ACTIONS[i.kind]) return false;
+    if (!(i.rootPid === null || isInt(i.rootPid)) || (i.rootPid !== null && i.kind !== 'cleanup_unconfirmed')) return false;
+    if (i.kind === 'cleanup_unconfirmed' && s.code !== 'cleanup_failed') return false;
+    if ((i.kind === 'verification_unavailable') !== (i.gateSourceRef !== null) || (i.gateSourceRef !== null && !(typeof i.gateSourceRef === 'string' && GIT_REF.test(i.gateSourceRef)))) return false;
+    if (i.kind === 'overdue_unreported' && (i.recordState !== 'running' || s.kind !== 'none')) return false;
+    if (i.kind === 'stopped_tripwire' && s.kind !== 'tripwire') return false;
+    if (i.kind === 'stopped_failed' && (s.kind !== 'failed' || s.code === 'cleanup_failed')) return false;
+    if (i.kind === 'refused_start' && s.kind !== 'refused') return false;
+    return true;
+  }
+  function validAttention(a, roots) {
+    if (!isObject(a) || !keysAre(a, ['items', 'omitted', 'registeredRecordsUnavailable', 'basis', 'automaticAllowed', 'forbidden'])) return false;
+    if (a.basis !== 'supplied_records' || a.automaticAllowed !== false || !isInt(a.omitted) || !isInt(a.registeredRecordsUnavailable)) return false;
+    if (!Array.isArray(a.forbidden) || a.forbidden.length > 16 || !a.forbidden.every(function (x) { return isStr(x, 64); })) return false;
+    if (!Array.isArray(a.items) || a.items.length > MAX_ATTENTION) return false;
+    var rootIds = roots.map(function (r) { return r.rootId; });
+    return a.items.every(function (i) { return validAttentionItem(i, rootIds); });
+  }
   function parseOverview(raw) {
     var d;
     try { d = JSON.parse(raw); } catch (e) { return null; }
-    if (!isObject(d) || (d.schema !== 'executive-overview/v1' && d.schema !== 'executive-overview/v2') || d.atomic !== false || !isStr(d.generatedAt, 64)) return null;
-    allowBudget = d.schema === 'executive-overview/v2';
+    if (!isObject(d) || (d.schema !== 'executive-overview/v1' && d.schema !== 'executive-overview/v2' && d.schema !== 'executive-overview/v3') || d.atomic !== false || !isStr(d.generatedAt, 64)) return null;
+    allowBudget = d.schema !== 'executive-overview/v1';
     if (!Array.isArray(d.roots) || d.roots.length > MAX_ROOTS || !d.roots.every(validRoot)) return null;
+    if (d.schema === 'executive-overview/v3' ? !validAttention(d.attention, d.roots) : d.attention !== undefined) return null;
     var seen = {};
     for (var i = 0; i < d.roots.length; i++) {
       if (seen[d.roots[i].rootId]) return null;
@@ -541,6 +595,7 @@ export function executiveOverviewScript(): string {
       if (details.open) { stopDrill(key); box.replaceChildren(); }
       else expand(details, box, rootId, task);
     });
+    taskRefs[key] = { details: details, box: box, task: task };
     return details;
   }
   function renderRoot(parent, root) {
@@ -548,6 +603,7 @@ export function executiveOverviewScript(): string {
     details.setAttribute('data-root', root.rootId);
     details.setAttribute('data-status', root.status);
     if (openRoots[root.rootId]) details.open = true;
+    rootRefs[root.rootId] = details;
     var summary = add(details, 'summary');
     add(summary, 'strong', text(root.label));
     var bits = [];
@@ -581,16 +637,83 @@ export function executiveOverviewScript(): string {
     }
     return details;
   }
+  // The item must still describe the exact attempt, run and state of the task the page shows.
+  function attentionStatus(item, overview) {
+    if (!item.taskListed) return { state: 'omitted' };
+    for (var r = 0; r < overview.roots.length; r++) {
+      if (overview.roots[r].rootId !== item.rootId) continue;
+      for (var k = 0; k < overview.roots[r].tasks.length; k++) {
+        var t = overview.roots[r].tasks[k];
+        if (t.nodeId !== item.nodeId) continue;
+        var b = t.checkpointBudget;
+        var same = t.state === item.taskState && t.attemptId === item.fence.attemptId && t.attemptEpoch === item.fence.attemptEpoch && t.contentRevision === item.fence.contentRevision && b !== undefined && b.state === 'reported' && b.record.runId === item.runId && b.record.identity.attemptId === item.fence.attemptId && b.record.identity.attemptEpoch === item.fence.attemptEpoch && b.record.identity.contentRevision === item.fence.contentRevision;
+        same = same && b.record.identity.rootId === item.rootId && b.record.identity.nodeId === item.nodeId && b.record.state === item.recordState && b.record.stop.kind === item.stop.kind && b.record.stop.code === item.stop.code;
+        if (same && item.kind === 'cleanup_unconfirmed') same = item.rootPid === b.record.rootPid;
+        if (same && item.kind === 'overdue_unreported') same = b.overdueUnreported === true;
+        if (same && item.kind === 'verification_unavailable') same = b.gate.state === 'current' && b.gate.gate.outcome === 'verifier_unavailable' && b.gate.gate.sourceRef === item.gateSourceRef && t.artifactRef === item.gateSourceRef;
+        return same ? { state: 'ok' } : { state: 'changed' };
+      }
+    }
+    return { state: 'changed' };
+  }
+  function openDetail(item) {
+    // Re-checked against the overview currently shown, so a refresh that moved the fence cannot be opened.
+    return last !== null && attentionStatus(item, last.overview).state === 'ok';
+  }
+  function showDetail(item, row) {
+    var key = item.rootId + '|' + item.nodeId;
+    var rootEl = rootRefs[item.rootId];
+    var ref = taskRefs[key];
+    if (!openDetail(item) || !rootEl || !ref) {
+      row.replaceChildren();
+      add(row, 'span', 'This item changed since it was read (changed, refresh).');
+      return;
+    }
+    openRoots[item.rootId] = true;
+    rootEl.open = true;
+    if (!ref.details.open) {
+      ref.details.open = true;
+      expand(ref.details, ref.box, item.rootId, ref.task);
+    }
+    if (typeof ref.details.scrollIntoView === 'function') ref.details.scrollIntoView();
+  }
+  function renderAttention(parent, overview) {
+    var a = overview.attention;
+    var panel = add(parent, 'div');
+    panel.setAttribute('data-attention', '');
+    add(panel, 'strong', 'Attention (derived from supplied, unauthenticated records; advice only)');
+    if (a.items.length === 0) add(panel, 'p', 'No attention items from registered records (not a health statement).');
+    add(panel, 'p', 'Registered records unavailable: ' + a.registeredRecordsUnavailable + '. Items omitted: ' + a.omitted + '.');
+    var list = add(panel, 'ul');
+    a.items.forEach(function (item) {
+      var row = add(list, 'li');
+      row.setAttribute('data-attention-kind', item.kind);
+      var label = '';
+      for (var r = 0; r < overview.roots.length; r++) if (overview.roots[r].rootId === item.rootId) label = text(overview.roots[r].label);
+      var status = attentionStatus(item, overview);
+      add(row, 'span', label + ' — ' + KIND_LABELS[item.kind] + ' (' + item.stop.kind + ' / ' + item.stop.code + ', task ' + item.nodeId + '). ' + ACTION_LABELS[item.action] + ' ');
+      if (status.state === 'omitted') { add(row, 'span', 'Task row omitted by the size cap; refresh or reduce scope.'); return; }
+      if (status.state === 'changed') { add(row, 'span', 'This item changed (changed, refresh).'); return; }
+      var open = add(row, 'button', 'Open detail');
+      open.setAttribute('type', 'button');
+      open.addEventListener('click', function () { showDetail(item, row); });
+    });
+  }
   function render(overview) {
     // Evidence nodes survive a re-render only when the task binding is unchanged.
     for (var key in drills) if (drills[key].box) drills[key].nodes = Array.prototype.slice.call(drills[key].box.childNodes || []);
+    rootRefs = {};
+    taskRefs = {};
     var box = document.createElement('div');
     add(box, 'p', 'Generated ' + clip(overview.generatedAt, 64) + ' (ChatAgent server clock). Roots are read independently; their times are not one snapshot.');
+    var attentionSlot = overview.attention !== undefined ? add(box, 'div') : null;
     var alive = {};
     for (var i = 0; i < overview.roots.length; i++) {
       renderRoot(box, overview.roots[i]);
       for (var k = 0; k < overview.roots[i].tasks.length; k++) alive[overview.roots[i].rootId + '|' + overview.roots[i].tasks[k].nodeId] = true;
     }
+    // The last overview is set before render, so the panel checks the same overview it displays.
+    if (attentionSlot !== null) renderAttention(attentionSlot, overview);
     view.replaceChildren(box);
     for (var gone in drills) if (!alive[gone]) stopDrill(gone);
   }
