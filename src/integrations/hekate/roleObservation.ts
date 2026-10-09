@@ -168,7 +168,8 @@ export interface RoleObservation {
     items: ObservedEvent[];
     pages: number;
     truncated: boolean;
-    historyStartsAtSeq: number;
+    /** First recorded event seq; null when nothing is recorded (earlier history is unknown). */
+    historyStartsAtSeq: number | null;
     historyBackfilled: boolean;
     metadataStable: boolean;
   };
@@ -271,7 +272,8 @@ const eventsPageSchema = z.object({
   contractVersion: z.string(),
   events: z.array(eventSchema).max(10_000),
   nextAfterSeq: seq.nullable(),
-  historyStartsAtSeq: seq,
+  // Null is a valid page for a node with no recorded history; it never means "starts at zero".
+  historyStartsAtSeq: seq.nullable(),
   historyBackfilled: z.boolean()
 });
 const recordSchema = z

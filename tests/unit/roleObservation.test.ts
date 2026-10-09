@@ -177,6 +177,59 @@ describe("observation sequence", () => {
     expect(calls.map((c) => c.path)).toEqual([planPath, eventsPath(READY, 0), planPath]);
   });
 
+  it("preserves a null history marker for an untouched task without inventing history", async () => {
+    const { o, calls } = observer((path) => {
+      if (path === planPath) return plan();
+      if (path === eventsPath(READY, 0)) {
+        return eventsBody([], null, { historyStartsAtSeq: null });
+      }
+      throw new Error(path);
+    });
+    const s = await o.observe(ROOT, READY);
+    expect(s.consistency).toBe("current");
+    expect(s.task.work).toBe("todo");
+    expect(s.events).toMatchObject({
+      items: [],
+      pages: 1,
+      truncated: false,
+      historyStartsAtSeq: null,
+      historyBackfilled: false,
+      metadataStable: true
+    });
+    expect(s.selectedAttempt).toBeNull();
+    expect(s.trace).toBeNull();
+    expect(calls.map((c) => c.path)).toEqual([planPath, eventsPath(READY, 0), planPath]);
+    expect(calls.every((c) => c.method === "GET")).toBe(true);
+  });
+
+  it("still refuses a non-numeric or negative history marker", async () => {
+    for (const [bad, reason] of [
+      ["1", "INVALID_RESPONSE"],
+      [-1, "INVALID_RESPONSE"],
+      [1.5, "INVALID_NUMBER"],
+      [{}, "INVALID_RESPONSE"],
+      [true, "INVALID_RESPONSE"]
+    ]) {
+      const { o } = observer((path) =>
+        path === planPath ? plan() : eventsBody([], null, { historyStartsAtSeq: bad })
+      );
+      expect(await code(() => o.observe(ROOT, READY))).toBe(reason);
+    }
+  });
+
+  it("is stale when the history marker changes between null and numeric across pages", async () => {
+    const { o } = observer((p, n) =>
+      p === eventsPath(RUNNING, 0)
+        ? eventsBody([ev(2)], 2, { historyStartsAtSeq: null })
+        : p === eventsPath(RUNNING, 2)
+          ? eventsBody([ev(3)], null)
+          : standard(p, n)
+    );
+    const s = await o.observe(ROOT, RUNNING);
+    expect(s.consistency).toBe("stale");
+    expect(s.reasons).toContain("events_metadata_changed");
+  });
+
   it("follows cursors across pages", async () => {
     const { o, calls } = observer((path) => {
       if (path === planPath) return plan();
