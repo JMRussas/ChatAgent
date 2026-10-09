@@ -374,8 +374,11 @@ describe("unavailable files stay explicit", () => {
     });
     // An impossible combination: review_pending that never wrote its gate.
     expect(
-      (await run({ raw: raw({ phase: "review_pending", reason: "checks_passed", endedAt: STAMP }) }))
-        .view
+      (
+        await run({
+          raw: raw({ phase: "review_pending", reason: "checks_passed", endedAt: STAMP })
+        })
+      ).view
     ).toEqual({ state: "unavailable", reason: "invalid" });
   });
 
@@ -570,7 +573,11 @@ describe("summary projection", () => {
 
   it("counts a registered task that is not listed as unavailable coverage", async () => {
     const { root, registry } = await scene([{ phase: "running" }]);
-    const ghost = { ...registry[0], nodeId: guid(100, 99), continuationRecordPath: "/x/ghost.json" };
+    const ghost = {
+      ...registry[0],
+      nodeId: guid(100, 99),
+      continuationRecordPath: "/x/ghost.json"
+    };
     const summary = projectContinuation([root], [...registry, ghost]);
     expect(summary).toMatchObject({ configured: 2, unavailable: 1 });
     expect(summary.phases.running).toBe(1);

@@ -44,9 +44,7 @@ const entrySchema = z
     rootId: z.string().regex(GUID),
     nodeId: z.string().regex(GUID),
     recordPath: absolutePath,
-    continuationRecordPath: absolutePath
-      .refine((value) => CONTINUATION_FILE.test(value))
-      .optional()
+    continuationRecordPath: absolutePath.refine((value) => CONTINUATION_FILE.test(value)).optional()
   })
   .strict();
 const entriesSchema = z
