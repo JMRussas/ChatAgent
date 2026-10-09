@@ -407,7 +407,7 @@ describe("executive inventory configuration", () => {
     ["empty", []],
     ["nine", Array.from({ length: 9 }, (_, i) => ({ rootId: guid(i), label: "x" }))],
     ["duplicate", [valid[0], { ...valid[1], rootId: ROOT_A }]],
-    ["uppercase guid", [{ rootId: ROOT_A.toUpperCase(), label: "x" }]],
+    ["uppercase guid", [{ rootId: guid(0xab).toUpperCase(), label: "x" }]],
     ["extra key", [{ ...valid[0], url: "http://127.0.0.1:1" }]],
     ["long label", [{ rootId: ROOT_A, label: "x".repeat(61) }]],
     ["empty label", [{ rootId: ROOT_A, label: "" }]],

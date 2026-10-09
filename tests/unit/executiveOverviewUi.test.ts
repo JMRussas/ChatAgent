@@ -29,7 +29,10 @@ function mount() {
     userId: { value: "user-demo", tag: "input" },
     conversationId: { value: "conv-ui-demo", tag: "input" },
     execRefresh: { tag: "button" },
-    execNote: { tag: "p" },
+    execNote: {
+      tag: "p",
+      textContent: executiveOverviewHtml().match(/<p id="execNote"[^>]*>([^<]*)<\/p>/)![1]
+    },
     execStale: { hidden: true },
     execView: {}
   });

@@ -27,7 +27,7 @@ export interface ExecutiveRoot {
 }
 
 // C0/C1 controls, line/paragraph separators and bidi controls.
-const UNSAFE = /[\u0000-\u001f\u007f-\u009f  ‪-‮⁦-⁩]/;
+const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const bounded = (max: number) =>
   z

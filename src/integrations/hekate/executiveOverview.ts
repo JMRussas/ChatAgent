@@ -100,7 +100,7 @@ export interface ExecutiveOverview {
   roots: ExecutiveRootView[];
 }
 
-const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f  ‪-‮⁦-⁩]/g;
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
 function clip(value: string): string {
   const chars = Array.from(value.replace(UNSAFE_TEXT, " "));
   return chars.length > EXECUTIVE_LIMITS.maxTextChars
@@ -135,8 +135,6 @@ export function prodOf(leaf: Pick<LeafStatus, "state" | "attemptPins">): TaskPro
   if (leaf.state === "accepted" || leaf.state === "cancelled") return "none";
   if (leaf.state === "stale" || leaf.attemptPins === "stale") return "refresh_inputs";
   switch (leaf.state) {
-    case "stale":
-      return "refresh_inputs";
     case "review_pending":
       return "review_needed";
     case "rejected":
