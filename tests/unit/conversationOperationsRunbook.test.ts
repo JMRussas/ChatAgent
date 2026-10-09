@@ -95,3 +95,100 @@ describe("real rehearsal projection semantics", () => {
     }
   );
 });
+
+describe("conversation operations runbook", () => {
+  it("names the trusted startup settings and pins", () => {
+    for (const needle of [
+      "HEKATE_PLAN_API_URL",
+      "HEKATE_DISPATCH_CONFIG_PATH",
+      "traceRoot",
+      /pin/i,
+      /pairing/i
+    ]) {
+      expect(text).toMatch(needle instanceof RegExp ? needle : new RegExp(needle));
+    }
+    expect(text).toMatch(/never[^.]*(credential|code)[^.]*URL/i);
+  });
+
+  it("describes only explicit actions with a fresh operation id", () => {
+    expect(text).toMatch(/Load\/refresh/);
+    expect(text).toMatch(/Check host/);
+    expect(text).toMatch(/Start prepared plan/);
+    expect(text).toMatch(/operationId/);
+    expect(text).toMatch(/no automatic\s+execution/i);
+  });
+
+  it("keeps unknown outcomes, journal blocks and stop semantics distinct", () => {
+    expect(text).toMatch(/unknown/i);
+    expect(text).toMatch(/does\s+not\s+mean\s+failure/i);
+    expect(text).toMatch(/journal/i);
+    expect(text).toMatch(/stop_requested/);
+    expect(text).toMatch(/stopped/);
+    expect(text).toMatch(/OWNER_CHANGED/);
+    expect(text).toMatch(/expected-launch-id/);
+    expect(text).toMatch(/second\s+owner/i);
+  });
+
+  it("states the progress bounds and trust model", () => {
+    for (const bound of [
+      /6 reads/,
+      /5 s/,
+      /60 s/,
+      /8 GETs/,
+      /4 MiB/,
+      /10 s/,
+      /1 MiB/,
+      /not incremental/i,
+      /thinking/i,
+      /unverified/i,
+      /liveness/i,
+      /useful progress/i,
+      /aiSnapshot/,
+      /historical/i
+    ]) {
+      expect(text).toMatch(bound);
+    }
+    for (const tool of ["Read", "Glob", "Grep", "Edit", "Write"]) {
+      expect(text).toContain(tool);
+    }
+  });
+
+  it("separates acceptance from integration and admits remaining gaps", () => {
+    expect(text).toMatch(/Acceptance is not integration/i);
+    expect(text).toMatch(/exact Git SHA/i);
+    expect(text).toMatch(/process-local/i);
+    expect(text).toMatch(/plan_done/);
+    expect(text).toMatch(/sole API and\s+database lock/i);
+    expect(text).toMatch(/not implemented/i);
+    expect(text).toMatch(/no service-level objective/i);
+  });
+
+  it("claims no run result", () => {
+    expect(text).not.toMatch(/\b\d+\s+(tests?\s+)?passed\b/i);
+    expect(text).not.toMatch(/\ball checks (pass|passed)\b/i);
+  });
+
+  it("links to existing documents with relative paths", () => {
+    const links = [...text.matchAll(/\]\((?!https?:|#)([^)#\s]+)(#[^)\s]*)?\)/g)];
+    const targets = links.map((m) => m[1]);
+    expect(targets).toEqual(
+      expect.arrayContaining(["13-hekate-plan-node-integration.md", "14-local-authentication.md"])
+    );
+    for (const target of targets) {
+      expect(target.startsWith("/")).toBe(false);
+      expect(existsSync(resolve(dirname(DOC), target))).toBe(true);
+    }
+  });
+});
+
+describe("prepared task execution prerequisite", () => {
+  it("documents the approved cache and preclaim refusal without a default", () => {
+    expect(text).toContain("npmCacheDir");
+    expect(text).toContain("npm_config_cache");
+    expect(text).toMatch(/before claim/i);
+    expect(text).toMatch(/offline/i);
+    expect(text).toMatch(/missing cache/i);
+    expect(text).toMatch(/does not start a worker/i);
+    expect(text).toMatch(/default/i);
+  });
+});
