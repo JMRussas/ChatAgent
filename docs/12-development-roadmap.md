@@ -107,16 +107,16 @@ single delivery does not establish a measured throughput baseline. Forecast the 
 coherent increment at its accepted contract gate; unattended recovery and polish
 remain separate work rather than delaying the useful first slice.
 
-| Checkpoint           | External acceptance gate                                                            | Hekate task                            | Current result                                                                                                                                 |
-| -------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contract             | Independently reviewed bounded API/UI contract and acceptance cases                 | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                                                                                                       |
-| Working slice        | Shared API/inline UI artifact, schema/auth/projection/browser/full checks           | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                                                                                                       |
-| Live delivery        | Maintained paired UI, exact source integration and retained-store evidence          | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                                                                                                             |
-| Execution contract   | Freeze bounded enforcement, counter units and objective gates                       | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Accepted `0e75f03`, integrated `6524c7f`                                                                                                       |
-| Enforcement          | Maintained budget tripwires, owned cleanup and bounded typed checkpoint evidence    | `94438651-ed00-5656-803d-d6097d4a4e40` | Accepted `ff9230d`, integrated `6f9f288`                                                                                                       |
-| Enforcement delivery | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`                                                                                  |
-| Recovery contract    | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Athena claimed `checkpoint-recovery-next-001-r1`, epoch 1; maintained runner, 30 expected/60 hard distinct message IDs, five-minute wall bound |
-| Recovery handoff     | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | TODO; gated on accepted recovery contract                                                                                                      |
+| Checkpoint           | External acceptance gate                                                            | Hekate task                            | Current result                                                  |
+| -------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| Contract             | Independently reviewed bounded API/UI contract and acceptance cases                 | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                        |
+| Working slice        | Shared API/inline UI artifact, schema/auth/projection/browser/full checks           | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                        |
+| Live delivery        | Maintained paired UI, exact source integration and retained-store evidence          | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                              |
+| Execution contract   | Freeze bounded enforcement, counter units and objective gates                       | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Accepted `0e75f03`, integrated `6524c7f`                        |
+| Enforcement          | Maintained budget tripwires, owned cleanup and bounded typed checkpoint evidence    | `94438651-ed00-5656-803d-d6097d4a4e40` | Accepted `ff9230d`, integrated `6f9f288`                        |
+| Enforcement delivery | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`   |
+| Recovery contract    | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract, implementation pending |
+| Recovery handoff     | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | TODO; gated on accepted recovery contract                       |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -160,8 +160,16 @@ CA-ISSUE-038 is closed for the defined/enforced counter; provider `num_turns` an
 
 **Next bounded priority:** expose registered checkpoint exceptions at the executive
 attention level and freeze a durable, fenced local operator handoff. The Athena
-contract task is running through the maintained runner; the Hermes implementation
-is queued behind acceptance. This builds on the read-only recovery assessment and
+contract task is accepted at `f4a7bee` ([document 20](implementation/20-checkpoint-recovery-handoff.md)).
+Its real maintained run consumed eight distinct message IDs in 199.019 seconds,
+462,089 output bytes and approximately USD 0.629877 provider-reported cost, all
+within its declared bounds. Actual UI evidence shows the running record under the
+Active claim, then the ended record while independent review was pending. Lead
+review corrected no-overwrite publication, registry coverage, schema/bounds and
+observational fence semantics before acceptance. The Hermes implementation is
+queued next; it has not been claimed or executed. Evidence is retained at
+`checkpoint-recovery-next-001/reviewed-bundle.json`, `active-ui-proof.json` and
+`active-state-proof.json`. This builds on the read-only recovery assessment and
 explicitly leaves actual wake/notification delivery, acknowledgment, persistent
 supervision and unattended recovery for separately verified increments. CA-ISSUE-004
 remains open. Do not claim a stored local handoff is a delivered human notification.
