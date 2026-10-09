@@ -63,6 +63,30 @@ describe("home page plan status panel", () => {
     expect(form).not.toContain("planStatusPanel");
   });
 
+  it("keeps the previous page unless both plan status and the run controls are enabled", () => {
+    const previous = renderHomePageHtml({ mode: "unknown" }, false, true);
+    expect(renderHomePageHtml({ mode: "unknown" }, false, true, false)).toBe(previous);
+    expect(renderHomePageHtml({ mode: "unknown" }, false, false, true)).toBe(
+      renderHomePageHtml({ mode: "unknown" }, false, false)
+    );
+    expect(renderHomePageHtml()).toBe(renderHomePageHtml(undefined, false, false, false));
+    expect(previous).not.toContain("planRunControls");
+    expect(previous).not.toContain("/dispatch");
+  });
+
+  it("adds the run controls and one script after the unchanged status script", () => {
+    const status = renderHomePageHtml({ mode: "unknown" }, false, true);
+    const on = renderHomePageHtml({ mode: "unknown" }, false, true, true);
+    for (const label of ["Check host", "Start prepared plan", "Request stop"])
+      expect(on).toContain(label);
+    expect(scripts(on)).toHaveLength(scripts(status).length + 1);
+    for (let i = 0; i < scripts(status).length; i++)
+      expect(scripts(on)[i]).toBe(scripts(status)[i]);
+    for (const script of scripts(on)) expect(() => new Function(script)).not.toThrow();
+    const form = on.slice(on.indexOf("<form"), on.indexOf("</form>"));
+    expect(form).not.toContain("planRunControls");
+  });
+
   it("can be combined with documentation tasks", () => {
     const html = renderHomePageHtml(undefined, true, true);
     expect(html).toContain('id="documentTaskStart"');
@@ -80,5 +104,20 @@ describe("home page conversation expiry", () => {
     expect(script).toContain('addEventListener("conversation-expired"');
     expect(script).toContain("res.status === 410");
     expect(script).toContain("CONVERSATION_HISTORY_CAPACITY");
+  });
+});
+
+describe("pinned formatting for conversation controls task outputs", () => {
+  it("keeps each allowlisted module byte-identical to pinned Prettier", async () => {
+    const { readFileSync } = await import("node:fs");
+    const prettier = await import("prettier");
+    const config = JSON.parse(readFileSync(".prettierrc.json", "utf8"));
+    for (const file of [
+      "src/ui/planRunControls.ts",
+      "src/integrations/hekate/dispatchHostConfig.ts"
+    ]) {
+      const raw = readFileSync(file, "utf8");
+      expect(raw, file).toBe(await prettier.format(raw, { ...config, filepath: file }));
+    }
   });
 });
