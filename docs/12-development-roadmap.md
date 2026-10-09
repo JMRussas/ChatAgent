@@ -118,7 +118,9 @@ remain separate work rather than delaying the useful first slice.
 | Recovery contract           | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract, implementation pending                           |
 | Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof |
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
-| Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Independently repaired and verified: 3,263 full-suite passes, real CLI/UI proof           |
+| Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |
+| Continuation contract       | Freeze actual generation-to-independent-review resume without a user message        | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Athena claimed `checkpoint-continuation-contract-001-r1`, epoch 1/content 1               |
+| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | TODO behind contract acceptance                                                           |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -221,6 +223,24 @@ The completed model artifact cannot be amended through PlanStore: final repaired
 source completion uses an explicit operator attempt, preserving the original
 model proposal, run, fence and failed gates. This is not a model retry. Evidence
 is retained under `checkpoint-review-ledger-001`.
+The repair and implementation are accepted at `cd609ba`, integrated at `93d72a1`.
+Final completion is operator attempt `checkpoint-review-ledger-001-finalize-r2`,
+epoch 2/content 2. The original model budget remains fenced to epoch 1; it is not
+presented as a current operator-run budget. `accepted-readback.json` and
+`reviewed-bundle.json` preserve the distinction. No model retry was spent.
+
+Next actual planning task `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` is claimed at
+`checkpoint-continuation-contract-001-r1`, epoch 1/content 1, through the maintained
+fixed-profile Claude CLI on source `93d72a1`. It must define a finite manager that
+starts deterministic verification and a separate independent review after generation
+without a user message; a ledger or this chat's process-local history is not a wake.
+Implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` remains gated by planning
+acceptance. Hard bounds are 60 message IDs, five minutes, 4 MiB output and USD2
+provider cap; expected 30 IDs remains a heuristic. An initial missing record-directory
+preparation refused before spawning any model; the refusal is retained, the directory
+precondition was fixed, and the same unopened run then started. This is not a model
+retry. Evidence is retained under `checkpoint-continuation-contract-001`.
+
 The runtime budget monitor continued independently until the model worker ended;
 independent lead gates still determine acceptance. Persistent queue advancement,
 AI wake and unattended supervision remain unfinished (CA-ISSUE-004). Evidence is retained at
