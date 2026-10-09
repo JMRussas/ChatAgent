@@ -8,7 +8,7 @@ import {
 } from "../../checkpoint/checkpointRecord";
 import type { CheckpointRecordEntry } from "../../config/checkpointRecordsConfig";
 import type { ExecutiveOverview, ExecutiveRootView } from "./executiveOverview";
-import type { LeafState } from "./devCoordination";
+import { DevCoordinationError, type LeafState } from "./devCoordination";
 import { FORBIDDEN_ACTIONS } from "./recoveryAssessment";
 
 /**
@@ -247,6 +247,7 @@ export function finalizeAttention(
     omitted++;
     result = build();
   }
+  if (bytes(result) > maxBytes) throw new DevCoordinationError("RESPONSE_TOO_LARGE");
   return result;
 }
 
@@ -299,7 +300,7 @@ const handoffItemSchema = z
   })
   .strict()
   .refine((i) => i.action === ACTION_OF[i.kind])
-  .refine((i) => (i.kind === "cleanup_unconfirmed") === (i.stop.code === "cleanup_failed"))
+  .refine((i) => i.kind !== "cleanup_unconfirmed" || i.stop.code === "cleanup_failed")
   .refine((i) => i.rootPid === null || i.kind === "cleanup_unconfirmed")
   .refine((i) => (i.kind === "verification_unavailable") === (i.gateSourceRef !== null))
   .refine(

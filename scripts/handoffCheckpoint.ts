@@ -89,7 +89,8 @@ export async function publishHandoff(
   outDir: string,
   handoffId: string,
   text: string,
-  io: PublishIo = REAL_IO
+  io: PublishIo = REAL_IO,
+  beforePublish: () => void = () => undefined
 ): Promise<string> {
   if (!isAbsolute(outDir) || resolve(outDir) !== outDir) throw new PublishError("OUT_DIR_INVALID");
   try {
@@ -111,9 +112,11 @@ export async function publishHandoff(
     } finally {
       await handle.close();
     }
+    beforePublish();
     await io.link(temp, target);
     return target;
   } catch (error) {
+    if (error instanceof Refusal) throw error;
     throw new PublishError(
       (error as NodeJS.ErrnoException).code === "EEXIST" && created
         ? "TARGET_EXISTS"
@@ -290,7 +293,12 @@ async function write(
   }
   // Every collection, deadline and size check completes before anything is created.
   if (remaining() <= 0) throw new Refusal("DEADLINE");
-  const path = await publishHandoff(outDir, handoffId, text, deps.io);
+  const path = await within(
+    publishHandoff(outDir, handoffId, text, deps.io, () => {
+      if (remaining() <= 0) throw new Refusal("DEADLINE");
+    }),
+    remaining()
+  );
   out.push(`handoff written locally; not sent: ${path}`);
   out.push(
     `items ${record.items.length}, omitted ${record.omitted}, itemsSha256 ${record.itemsSha256}`
@@ -313,7 +321,10 @@ export async function runHandoffCli(
     return done(2);
   }
   try {
-    if (argv[0] === "--show") stdout.push(...(await show(argv[1], deps.io ?? REAL_IO)));
+    if (argv[0] === "--show")
+      stdout.push(
+        ...(await within(show(argv[1], deps.io ?? REAL_IO), deps.deadlineMs ?? HANDOFF_DEADLINE_MS))
+      );
     else await write(argv[1], env, deps, stdout);
     return done(0);
   } catch (error) {

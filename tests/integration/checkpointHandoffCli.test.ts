@@ -271,3 +271,38 @@ describe("handoffCheckpoint CLI", () => {
     expect(result.stderr.join()).toContain("NOT_CONFIGURED");
   });
 });
+
+describe("independent late publication regression", () => {
+  it("refuses a publication that expires while syncing the temporary file", async () => {
+    const out = await tmp();
+    let clock = 0;
+    const delayed: PublishIo = {
+      lstat,
+      realpath,
+      link: realLink,
+      unlink,
+      open: async (...args) => {
+        const h = await open(...args);
+        return new Proxy(h, {
+          get(target, key) {
+            if (key === "sync")
+              return async () => {
+                await target.sync();
+                clock = 30000;
+              };
+            const v = Reflect.get(target, key, target);
+            return typeof v === "function" ? v.bind(target) : v;
+          }
+        });
+      }
+    };
+    const result = await runHandoffCli(
+      ["--out-dir", out],
+      {},
+      deps([overview([item()])], { io: delayed, monotonicMs: () => clock }).handoff
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join()).toContain("DEADLINE");
+    expect(await ls(out)).toEqual([]);
+  });
+});

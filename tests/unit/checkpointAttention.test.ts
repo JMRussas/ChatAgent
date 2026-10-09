@@ -335,3 +335,12 @@ describe("overview integration and caps", () => {
     expect(Buffer.byteLength(JSON.stringify(trimmed), "utf8")).toBeLessThanOrEqual(size - 600);
   });
 });
+
+describe("independent impossible response cap regression", () => {
+  it("refuses a cap smaller than the required envelope instead of returning oversized JSON", () => {
+    const body = overviewOf(rootView(ROOT_A, "Delivery", []));
+    body.schema = "executive-overview/v3";
+    body.attention = projectAttention(body.roots, []);
+    expect(() => finalizeAttention(body, 1)).toThrow();
+  });
+});

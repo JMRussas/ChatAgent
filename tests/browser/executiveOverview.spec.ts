@@ -1,3 +1,5 @@
+import { projectAttention } from "../../src/integrations/hekate/checkpointAttention";
+import { makeRecord } from "../helpers/checkpointFixtures";
 import type { Page, Route } from "@playwright/test";
 import { test, expect } from "./fixture";
 import {
@@ -110,6 +112,50 @@ test.describe("executive overview", () => {
     await page.reload();
     await expect(page.locator("#execNote")).toContainText("Press Refresh");
     expect(dev).toHaveLength(2);
+  });
+
+  test("opens a checkpoint exception from the top summary without changing views", async ({
+    page,
+    app
+  }) => {
+    const overview = standard({ contentRevision: 3 });
+    const t = taskOf(overview);
+    const record = makeRecord({
+      stop: { kind: "tripwire", code: "hard_units" },
+      expected: { units: 2, basis: "provisional_heuristic" },
+      hard: { units: 3, wallMs: 20000, outputBytes: 1048576 },
+      consumed: { units: 4, wallMs: 1234, outputBytes: 1024, counterState: "exact_observed" },
+      providerReported: { numTurns: null, costUsd: null, status: "unverified" }
+    });
+    t.budgetEvidence = "reported";
+    t.checkpointBudget = {
+      state: "reported",
+      record,
+      gate: { state: "unavailable", reason: "missing" },
+      overdueUnreported: false
+    };
+    overview.schema = "executive-overview/v3";
+    overview.attention = projectAttention(overview.roots, [
+      { rootId: ROOT_A, nodeId: NODE, recordPath: "/controlled-record.json" }
+    ]);
+    const { seen } = await stub(page, {
+      overview: { status: 200, body: overview },
+      progress: () => ({ status: 200, body: progressBody(ROOT_A, t) })
+    });
+    await app.pair(page);
+    expect(seen).toEqual([]);
+    const before = page.url();
+    await refresh(page);
+    const attention = view(page).locator("[data-attention]");
+    await expect(attention).toContainText("Supplied record shows a tripwire stop");
+    await expect(root(page)).not.toHaveAttribute("open", "");
+    await attention.getByRole("button", { name: "Open detail", exact: true }).click();
+    await expect(root(page)).toHaveAttribute("open", "");
+    await expect(task(page)).toHaveAttribute("open", "");
+    await expect(task(page)).toContainText("tripwire / hard_units");
+    await expect(task(page).locator("[data-evidence]")).toContainText("Evidence read at");
+    expect(page.url()).toBe(before);
+    expect(seen.map((r) => r.method)).toEqual(["GET", "GET"]);
   });
 
   test("renders hostile configured and upstream text inertly", async ({ page, app }) => {

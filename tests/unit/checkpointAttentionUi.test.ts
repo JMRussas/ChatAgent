@@ -187,3 +187,53 @@ describe("attention panel in the executive overview", () => {
     expect(view.textContent).toContain("Delivery");
   });
 });
+
+describe("independent attention evidence regressions", () => {
+  it("does not offer detail for a stale stop or record state", async () => {
+    for (const mismatch of [
+      cleanupItem({ recordState: "running" }),
+      cleanupItem({ rootPid: 9999 })
+    ]) {
+      const { refresh, view } = mount();
+      await refresh(v3([mismatch]));
+      expect(buttons(view)).toHaveLength(0);
+      expect(view.textContent).toContain("changed, refresh");
+    }
+  });
+  it("accepts cleanup and unavailable-verifier items for the same actual record", async () => {
+    const { refresh, view } = mount();
+    const source = makeGate().sourceRef;
+    const verification = item({
+      kind: "verification_unavailable",
+      stop: { kind: "failed", code: "cleanup_failed" },
+      gateSourceRef: source,
+      action: "rerun_independent_checks_outside_worker"
+    });
+    await refresh(
+      v3([cleanupItem(), verification], (o) => {
+        const task = o.roots[0].tasks.find((t) => t.state === "in_progress")!;
+        task.artifactRef = source;
+        if (task.checkpointBudget?.state === "reported")
+          task.checkpointBudget.gate = {
+            state: "current",
+            gate: makeGate({
+              checks: [{ name: "tests", result: "unavailable" }],
+              outcome: "verifier_unavailable"
+            })
+          };
+      })
+    );
+    expect(buttons(view)).toHaveLength(2);
+  });
+  it("never offers a current verifier item for a history or passed gate", async () => {
+    const { refresh, view } = mount();
+    const verification = item({
+      kind: "verification_unavailable",
+      gateSourceRef: makeGate().sourceRef,
+      action: "rerun_independent_checks_outside_worker",
+      stop: { kind: "exited", code: "exited" }
+    });
+    await refresh(v3([verification]));
+    expect(buttons(view)).toHaveLength(0);
+  });
+});

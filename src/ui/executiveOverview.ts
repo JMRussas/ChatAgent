@@ -261,7 +261,7 @@ export function executiveOverviewScript(): string {
     if (!oneOf(i.recordState, ['running', 'ended']) || typeof i.recordUpdatedAt !== 'string' || !STAMP.test(i.recordUpdatedAt) || !oneOf(i.taskState, STATES) || typeof i.taskListed !== 'boolean') return false;
     if (i.attribution !== 'unattributed' || i.trust !== 'supplied_not_authenticated' || i.writerLiveness !== 'unknown' || i.action !== ATTENTION_ACTIONS[i.kind]) return false;
     if (!(i.rootPid === null || isInt(i.rootPid)) || (i.rootPid !== null && i.kind !== 'cleanup_unconfirmed')) return false;
-    if ((i.kind === 'cleanup_unconfirmed') !== (s.code === 'cleanup_failed')) return false;
+    if (i.kind === 'cleanup_unconfirmed' && s.code !== 'cleanup_failed') return false;
     if ((i.kind === 'verification_unavailable') !== (i.gateSourceRef !== null) || (i.gateSourceRef !== null && !(typeof i.gateSourceRef === 'string' && GIT_REF.test(i.gateSourceRef)))) return false;
     if (i.kind === 'overdue_unreported' && (i.recordState !== 'running' || s.kind !== 'none')) return false;
     if (i.kind === 'stopped_tripwire' && s.kind !== 'tripwire') return false;
@@ -647,6 +647,10 @@ export function executiveOverviewScript(): string {
         if (t.nodeId !== item.nodeId) continue;
         var b = t.checkpointBudget;
         var same = t.state === item.taskState && t.attemptId === item.fence.attemptId && t.attemptEpoch === item.fence.attemptEpoch && t.contentRevision === item.fence.contentRevision && b !== undefined && b.state === 'reported' && b.record.runId === item.runId && b.record.identity.attemptId === item.fence.attemptId && b.record.identity.attemptEpoch === item.fence.attemptEpoch && b.record.identity.contentRevision === item.fence.contentRevision;
+        same = same && b.record.identity.rootId === item.rootId && b.record.identity.nodeId === item.nodeId && b.record.state === item.recordState && b.record.stop.kind === item.stop.kind && b.record.stop.code === item.stop.code;
+        if (same && item.kind === 'cleanup_unconfirmed') same = item.rootPid === b.record.rootPid;
+        if (same && item.kind === 'overdue_unreported') same = b.overdueUnreported === true;
+        if (same && item.kind === 'verification_unavailable') same = b.gate.state === 'current' && b.gate.gate.outcome === 'verifier_unavailable' && b.gate.gate.sourceRef === item.gateSourceRef && t.artifactRef === item.gateSourceRef;
         return same ? { state: 'ok' } : { state: 'changed' };
       }
     }
