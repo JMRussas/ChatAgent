@@ -89,6 +89,8 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-043 | Checkpoint attention evidence and publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 
+| CA-ISSUE-044 | Checkpoint ledger deadline and ownership publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
+
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
 - **Observed problem and impact:** a delivery field backed by a detached
@@ -1386,3 +1388,30 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
   `gate-focused-exit.json`; `checkpoint-attention-repair-001/negative-evidence-deadline-cap-exit.json`,
   `reviewed-bundle.json`; `checkpoint-attention-live-001/candidate-ui-proof.json`,
   `handoff-live-proof.json`. Failed source and gates are retained.
+
+### CA-ISSUE-044 — Checkpoint ledger deadline and ownership publication gates are incomplete
+
+- **Observed / priority:** P1 acceptance blocker in generated candidate `5a5f8ec`.
+  Four independent negative cases show a pending manifest read has no wait bound,
+  elapsed manifest loading receives a fresh evaluation budget, a replaced lock
+  still publishes over the original ledger, and a ready projection with unmet
+  gates is reported ready. The original failing history fixture advanced a
+  heartbeat-free running record by two hours: overdue was correct; the fixture
+  now uses times within its declared wall bound.
+- **Expected:** share the CLI deadline across manifest loading and observation;
+  refuse observed loss of lock ownership before publication and preserve original
+  bytes; show unmet dependency gates as blocked. Late I/O cleanup remains bounded
+  by settlement; no automatic takeover, dispatch, retry or acceptance.
+- **Owner / task:** explicit operator repair recorded in
+  `7b61f2c8-1291-5eed-93de-400ee8a126f0`, recorded in
+  `checkpoint-review-ledger-001/repair-start-readback.json`.
+- **Resolution:** four independent negatives now pass; 62 focused cases, full
+  suite 3,263 passes with ten explicit skips, pinned format/lint/docs checks,
+  actual retained-store CLI evaluation and fresh-process show, and real paired
+  review-state/fence proof pass. Acceptance receipts remain external. Completed
+  PlanStore artifacts cannot be amended: final source completion uses a separate
+  explicit operator attempt, preserving the model proposal and its old fence.
+  No model retry was run.
+- **Evidence:** retained raw candidate, `gate-focused-exit.json`,
+  `negative-independent-exit.json` (four failures, 28 passes) and separate
+  formatting-only commit `1a3f1f4` under `checkpoint-review-ledger-001`.
