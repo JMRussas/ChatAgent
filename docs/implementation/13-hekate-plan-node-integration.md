@@ -936,7 +936,10 @@ and fake-worker experiments do not resolve them.
      ledger link. A mismatching finish is a stale attempt.
    - The existing opt-in API adds plan/node event reads with stable plan-sequence
      cursors and bounded pages. `historyStartsAtSeq` identifies only the first
-     recorded event, not the earliest work; `historyBackfilled` remains false.
+     recorded event, not the earliest work; `historyBackfilled` remains false. It is
+     nullable: null means no event is recorded for the node and earlier history is
+     unknown. Consumers preserve null verbatim and must not read it as sequence 0,
+     complete history, or a started worker.
    - Append-only guards reject event updates, deletes and truncation even with
      the store flag set. Sequence guarantees cover store-written transactions;
      full database credentials can bypass guards. This is integrity protection,

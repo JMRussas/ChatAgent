@@ -391,6 +391,34 @@ describe("allowlisted progress projection", () => {
     expect(progress.acceptance).toMatchObject({ decision: null, taskArtifact: { state: "none" } });
   });
 
+  it("serves a never-attempted task whose event history marker is null", async () => {
+    const f = fakeFetch((path) => {
+      if (path === `/api/plan-contract/v1/plans/${ROOT}`) return planBody();
+      if (path === `/api/plan-contract/v1/nodes/${READY}/events?afterSeq=0`)
+        return JSON.stringify({
+          contractVersion: "plan-contract/v1",
+          events: [],
+          nextAfterSeq: null,
+          historyStartsAtSeq: null,
+          historyBackfilled: false
+        });
+      return undefined;
+    });
+    const result = await createAttemptProgressService(BASE, {
+      createObserver: () => createRoleObserver(BASE, { fetch: f.impl })
+    }).read(ROOT, READY);
+    expect(result.status).toBe(200);
+    const body = (result as { body: AttemptProgress }).body;
+    expect(body.consistency).toBe("current");
+    expect(body.task).toMatchObject({ work: "todo", attemptId: null });
+    expect(body.selectedAttempt).toBeNull();
+    expect(body.trace).toBeNull();
+    expect(body.activity).toBeNull();
+    expect(body.assessment).toMatchObject({ workerLiveness: "unknown", usefulProgress: "unknown" });
+    expect(JSON.stringify(body)).not.toMatch(/SECRET_/);
+    expect(f.calls.map((c) => c.method)).toEqual(["GET", "GET", "GET"]);
+  });
+
   it("caps the copied AI event list and counts the omitted events", async () => {
     const { observation } = await observe({ records: traceRecords([]) });
     const events = Array.from({ length: 120 }, (_, i) => ({
