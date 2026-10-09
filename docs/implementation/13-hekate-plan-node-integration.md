@@ -1061,6 +1061,17 @@ task view; an AI gets structured records with stable identities and cursors.
 Model-generated summaries link to those records and label inference separately.
 Treat task descriptions, tool output and traces as untrusted content, not monitor
 instructions. Observation credentials cannot launch, finish, review or edit work.
+
+Trace size contract. Hekate's `AttemptTrace.ResponseBudgetBytes` (4 MiB of serialized
+UTF-8 per trace response, prompt included) bounds serialized trace responses; it
+does not impose a 64 KiB cap on individual record text. The role observer therefore bounds each record `text` and prompt
+`text` by `DEFAULT_OBSERVATION_BYTES` (4 MiB) and lets the total transport budget
+(4 MiB across all responses, 10 s, page limits) dominate. The raw restricted
+observation keeps the complete valid text, hashed as received, and is never clipped
+before integrity or JSON parsing. Downstream projections apply their own, much
+smaller limits (public text clipped to 400 chars, 20 items) and withhold tool
+inputs/results, thinking, prompts, user text and stderr; those limits are not a
+validity rule for the upstream response. A 64 KiB cap must not return as a schema rule.
 Recommendations and any authorized control action have separate recorded actors
 and operations; observer disagreement cannot silently change task state.
 

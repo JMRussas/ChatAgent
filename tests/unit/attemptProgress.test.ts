@@ -576,4 +576,63 @@ describe("attempt progress service", () => {
     const body = result.body as AttemptProgress;
     expect(JSON.stringify(body).length).toBeLessThan(1024 * 1024);
   });
+
+  it("accepts a retained record above 65536 chars and still projects only public text", async () => {
+    // The shape of the real failure: a large user tool_result next to assistant public text.
+    const marker = "SECRET_LARGE_TOOL_RESULT";
+    const largeResult = `${marker}:${"BULK_PRIVATE_LINE ".repeat(8_000)}`;
+    expect(largeResult.length).toBeGreaterThan(125_000);
+    const records = [
+      { text: claude.assistant([claude.text("Reading the file."), claude.tool("Read")]) },
+      {
+        text: JSON.stringify({
+          type: "user",
+          message: {
+            role: "user",
+            content: [{ type: "tool_result", tool_use_id: "toolu_1", content: largeResult }]
+          }
+        })
+      },
+      { text: claude.assistant([claude.text("The file is read.")]) }
+    ];
+    const service = createAttemptProgressService(BASE, {
+      createObserver: () =>
+        createRoleObserver(BASE, {
+          ...ATTEMPT_PROGRESS_LIMITS.observer,
+          fetch: fakeFetch(upstreamBodies({ records: traceRecords(records) })).impl,
+          now: () => new Date("2026-10-08T12:00:00.000Z")
+        })
+    });
+    const result = await service.read(ROOT, RUNNING);
+    expect(result.status).toBe(200);
+    const progress = result.body as AttemptProgress;
+    const body = JSON.stringify(progress);
+    expect(body).not.toContain(marker);
+    expect(body).not.toContain("BULK_PRIVATE_LINE");
+    expect(JSON.stringify(progress.aiSnapshot)).not.toContain("BULK_PRIVATE_LINE");
+    expect(body.length).toBeLessThan(64 * 1024);
+    expect(progress.activity!.items).toEqual([
+      { traceSeq: 0, index: 0, kind: "text", text: "Reading the file.", textClipped: false },
+      { traceSeq: 0, index: 1, kind: "tool_use", tool: "Read" },
+      { traceSeq: 2, index: 0, kind: "text", text: "The file is read.", textClipped: false }
+    ]);
+    expect(progress).toMatchObject({
+      consistency: "current",
+      trace: {
+        integrity: "verified",
+        claimLinkage: "matched",
+        recordCount: 3,
+        firstSeq: 0,
+        lastSeq: 2,
+        capped: false,
+        truncated: false,
+        metadataStable: true
+      }
+    });
+    expect(progress.activity!.counts).toMatchObject({ stdoutRecords: 3, assistantRecords: 2 });
+    expect(progress.aiSnapshot.facts.trace).toMatchObject({
+      claimKey: null,
+      claimLinkage: "matched"
+    });
+  });
 });

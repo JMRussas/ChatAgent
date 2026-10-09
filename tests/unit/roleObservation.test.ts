@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_OBSERVATION_BYTES,
   createRoleObserver,
   RoleObservationError,
   type RoleObserverOptions
@@ -414,6 +415,69 @@ describe("bounds", () => {
     expect(await code(() => o.observe(ROOT, RUNNING))).toBe("RESPONSE_TOO_LARGE");
     const roomy = observer(standard, { maxBytes: planBytes * 2 + 4000 });
     expect(await code(() => roomy.o.observe(ROOT, RUNNING))).toBe("OK");
+  });
+
+  it("accepts record and prompt text above 65536 chars as raw restricted evidence", async () => {
+    // The size of the real retained tool result that the old 64 KiB schema cap refused.
+    const bigText = `${"é".repeat(60_000)}${"x".repeat(65_334)}`;
+    const bigPrompt = "p".repeat(70_000);
+    const { o } = observer((path, n) =>
+      path.includes("/trace")
+        ? traceBody([rec(0, "small"), rec(1, bigText)], null, {
+            prompt: { text: bigPrompt, bytes: Buffer.byteLength(bigPrompt) }
+          })
+        : standard(path, n)
+    );
+    const s = await o.observe(ROOT, RUNNING);
+    expect(bigText.length).toBe(125_334);
+    expect(s.trace?.records[1].text).toBe(bigText);
+    expect(s.trace?.records[1].cut).toBe(false);
+    expect(s.trace?.prompt?.text).toBe(bigPrompt);
+    expect(s.consistency).toBe("current");
+    const traceEvidence = s.evidence.find((e) => e.rawText.includes(bigPrompt))!;
+    expect(traceEvidence.rawText).toContain(JSON.stringify(bigText));
+    expect(traceEvidence.sha256).toBe(
+      createHash("sha256").update(traceEvidence.rawText, "utf8").digest("hex")
+    );
+  });
+
+  it("still refuses a response above the whole-response budget, however it is split", async () => {
+    const huge = "x".repeat(DEFAULT_OBSERVATION_BYTES + 1);
+    const overBudget = observer((path, n) =>
+      path.includes("/trace") ? traceBody([rec(0, huge)]) : standard(path, n)
+    );
+    expect(await code(() => overBudget.o.observe(ROOT, RUNNING))).toBe("RESPONSE_TOO_LARGE");
+    const overPrompt = observer((path, n) =>
+      path.includes("/trace")
+        ? traceBody([rec(0)], null, { prompt: { text: huge, bytes: huge.length } })
+        : standard(path, n)
+    );
+    expect(await code(() => overPrompt.o.observe(ROOT, RUNNING))).toBe("RESPONSE_TOO_LARGE");
+    // A large field must still fit inside the shared budget with the other responses.
+    const big = "x".repeat(100_000);
+    const tight = observer(
+      (path, n) => (path.includes("/trace") ? traceBody([rec(0, big)]) : standard(path, n)),
+      { maxBytes: 100_000 + Buffer.byteLength(plan()) }
+    );
+    expect(await code(() => tight.o.observe(ROOT, RUNNING))).toBe("RESPONSE_TOO_LARGE");
+  });
+
+  it("still refuses a large record or prompt of the wrong type or shape", async () => {
+    const big = "x".repeat(70_000);
+    const run = (records: unknown[], extra: Record<string, unknown> = {}) =>
+      code(() =>
+        observer((path, n) =>
+          path.includes("/trace")
+            ? traceBody(records as Record<string, unknown>[], null, extra)
+            : standard(path, n)
+        ).o.observe(ROOT, RUNNING)
+      );
+    expect(await run([{ ...rec(0, big), text: [big] }])).toBe("INVALID_RESPONSE");
+    expect(await run([{ ...rec(0, big), cut: "no" }])).toBe("INVALID_RESPONSE");
+    expect(await run([{ ...rec(0, big), extra: 1 }])).toBe("INVALID_RESPONSE");
+    expect(await run([rec(0)], { prompt: { text: big } })).toBe("INVALID_RESPONSE");
+    expect(await run([rec(0)], { prompt: { text: 5, bytes: 1 } })).toBe("INVALID_RESPONSE");
+    expect(await run([rec(0, big), rec(0, big)])).toBe("INVALID_SEQUENCE");
   });
 
   it("enforces the byte budget on a streamed body with no content length", async () => {

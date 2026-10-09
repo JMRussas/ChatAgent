@@ -280,7 +280,9 @@ const recordSchema = z
     seq,
     tMs: seq,
     stream: z.enum(TRACE_STREAMS),
-    text: z.string().max(65_536),
+    // Hekate documents no per-record cap, only the 4 MiB serialized response budget, which the
+    // transport byte budget below already enforces. UTF-16 length never exceeds UTF-8 bytes.
+    text: z.string().max(DEFAULT_OBSERVATION_BYTES),
     cut: z.boolean(),
     redacted: z.boolean()
   })
@@ -291,7 +293,9 @@ const exitSchema = z
     killReason: z.string().max(256).nullable()
   })
   .strict();
-const promptSchema = z.object({ text: z.string().max(65_536), bytes: seq }).strict();
+const promptSchema = z
+  .object({ text: z.string().max(DEFAULT_OBSERVATION_BYTES), bytes: seq })
+  .strict();
 const tracePageSchema = z.object({
   contractVersion: z.string(),
   nodeId: z.string(),
