@@ -98,6 +98,33 @@ export async function loadDispatchHost(
   env: NodeJS.ProcessEnv = process.env,
   options: DispatchHostOptions = {}
 ): Promise<DispatchHost | undefined> {
-  if (env[DISPATCH_CONFIG_ENV] === undefined) return undefined;
-  throw new DispatchStartupError("CONFIG_INVALID");
+  const file = env[DISPATCH_CONFIG_ENV];
+  if (file === undefined) return undefined;
+  if (
+    typeof file !== "string" ||
+    file.length === 0 ||
+    file.length > MAX_PATH_CHARS ||
+    file.includes("\0") ||
+    !path.isAbsolute(file)
+  )
+    throw new DispatchStartupError("INVALID_CONFIG_PATH");
+  const text = await readConfigFile(file);
+  let config: unknown;
+  try {
+    config = parseStrictJson(text);
+  } catch {
+    throw new DispatchStartupError("CONFIG_NOT_JSON");
+  }
+  if (typeof config !== "object" || config === null || Array.isArray(config))
+    throw new DispatchStartupError("CONFIG_INVALID");
+  if (typeof (config as { traceRoot?: unknown }).traceRoot !== "string")
+    throw new DispatchStartupError("TRACE_ROOT_REQUIRED");
+  try {
+    return new DispatchHost(config, options);
+  } catch (error) {
+    throw new DispatchStartupError(
+      "CONFIG_INVALID",
+      error instanceof DispatchHostConfigError ? error.fields : []
+    );
+  }
 }
