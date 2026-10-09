@@ -94,7 +94,8 @@ async function runtime(
   documentationTasks = false,
   planStatus = false,
   planRunControls = false,
-  attemptProgress = false
+  attemptProgress = false,
+  executiveOverview = false
 ) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
@@ -329,7 +330,18 @@ async function runtime(
       : {}),
     // Enables the panel and route only; specs stub the browser's plan requests with
     // page.route, so no Hekate is contacted. The discard port is never listening.
-    ...(planStatus ? { planApiUrl: "http://127.0.0.1:9" } : {}),
+    ...(planStatus || executiveOverview ? { planApiUrl: "http://127.0.0.1:9" } : {}),
+    // Opt-in executive overview over three fixed roots; specs stub its requests with page.route.
+    ...(executiveOverview
+      ? {
+          executiveOverview: {
+            roots: [1, 2, 3].map((n) => ({
+              rootId: `0000000${n}-0000-4000-8000-000000000000`,
+              label: `Root ${n}`
+            }))
+          }
+        }
+      : {}),
     ...(planRunControls ? { dispatchHost: inertDispatchHost() } : {}),
     // Opt-in progress route and panel; specs stub the browser's requests with page.route and
     // the server's own observer can only reach the never-listening discard port.
@@ -420,6 +432,7 @@ export const test = base.extend<{
   planStatus: boolean;
   planRunControls: boolean;
   attemptProgress: boolean;
+  executiveOverview: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
@@ -427,8 +440,16 @@ export const test = base.extend<{
   planStatus: [false, { option: true }],
   planRunControls: [false, { option: true }],
   attemptProgress: [false, { option: true }],
+  executiveOverview: [false, { option: true }],
   app: async (
-    { streamCap, documentationTasks, planStatus, planRunControls, attemptProgress },
+    {
+      streamCap,
+      documentationTasks,
+      planStatus,
+      planRunControls,
+      attemptProgress,
+      executiveOverview
+    },
     use
   ) => {
     const app = await runtime(
@@ -436,7 +457,8 @@ export const test = base.extend<{
       documentationTasks,
       planStatus,
       planRunControls,
-      attemptProgress
+      attemptProgress,
+      executiveOverview
     );
     try {
       await use(app);

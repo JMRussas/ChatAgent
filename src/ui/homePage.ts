@@ -3,6 +3,7 @@ import { documentTaskScript } from "./documentTaskPanel";
 import { planStatusPanelHtml, planStatusScript } from "./planStatusPanel";
 import { planRunControlsHtml, planRunControlsScript } from "./planRunControls";
 import { attemptProgressHtml, attemptProgressScript } from "./attemptProgress";
+import { executiveOverviewHtml, executiveOverviewScript } from "./executiveOverview";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -17,7 +18,8 @@ export function renderHomePageHtml(
   documentTasks = false,
   planStatus = false,
   planRunControls = false,
-  attemptProgress = false
+  attemptProgress = false,
+  executiveOverview = false
 ): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
@@ -410,7 +412,7 @@ export function renderHomePageHtml(
 </head>
 <body>
   <main class="app">
-    <section class="panel chat-shell" aria-label="chat">
+    <section class="panel chat-shell" aria-label="chat">${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
       <header class="panel-header">
         <h1>ChatAgent Fast + Deep Thread</h1>
         <div class="sub">Watch provisional replies upgrade to refined replies as deep processing completes.</div>
@@ -1237,7 +1239,7 @@ export function renderHomePageHtml(
     });
   </script>
 ${documentTasks ? documentTaskScript() : ""}
-${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}
+${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}
 </body>
 </html>`;
 }

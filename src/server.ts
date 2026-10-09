@@ -5,6 +5,13 @@ import {
   planApiBase
 } from "./integrations/hekate/devCoordination";
 import { createAttemptProgressService } from "./integrations/hekate/attemptProgress";
+import { collectExecutiveOverview } from "./integrations/hekate/executiveOverview";
+import {
+  ExecutiveConfigError,
+  loadExecutiveOverviewConfig,
+  parseExecutiveRoots,
+  type ExecutiveRoot
+} from "./config/executiveOverviewConfig";
 import type { RoleObserver } from "./integrations/hekate/roleObservation";
 import { DispatchHost } from "./integrations/hekate/dispatchHost";
 import { loadDispatchHost } from "./integrations/hekate/dispatchHostConfig";
@@ -234,6 +241,12 @@ interface ServerOptions {
    * ATTEMPT_PROGRESS_DISABLED and the home page is byte-identical to before.
    */
   attemptProgress?: boolean | { createObserver: () => RoleObserver };
+  /**
+   * Trusted, startup-validated inventory (1..8 roots) for the read-only executive overview;
+   * needs `planApiUrl`. Absent: the route answers 404 EXECUTIVE_OVERVIEW_DISABLED and the home
+   * page is byte-identical to before. A browser can never supply a root, URL or label.
+   */
+  executiveOverview?: { roots: ExecutiveRoot[] };
   /**
    * Trusted, already validated dispatch host for prepared plan roots. Absent: the
    * development dispatch routes answer 404 DISPATCH_HOST_DISABLED.
@@ -559,6 +572,12 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             : {}
         )
       : undefined;
+  if (options.executiveOverview !== undefined && planApiUrl === undefined)
+    throw new ExecutiveConfigError();
+  const executiveRoots =
+    options.executiveOverview === undefined
+      ? undefined
+      : parseExecutiveRoots(options.executiveOverview.roots);
   if (options.dispatchHost !== undefined && !(options.dispatchHost instanceof DispatchHost))
     throw new Error("INVALID_DISPATCH_HOST");
   const dispatchHost = options.dispatchHost;
@@ -762,6 +781,24 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         }
       }
 
+      if (method === "GET" && url.pathname === "/development/executive/overview") {
+        res.setHeader("Cache-Control", "no-store");
+        if (executiveRoots === undefined || planApiUrl === undefined)
+          return json(res, 404, {
+            code: "EXECUTIVE_OVERVIEW_DISABLED",
+            error: "The executive overview is not configured"
+          });
+        if ((req.url ?? "").includes("?"))
+          return json(res, 400, {
+            code: "INVALID_QUERY",
+            error: "No query parameters are accepted"
+          });
+        try {
+          return json(res, 200, await collectExecutiveOverview(planApiUrl, executiveRoots));
+        } catch {
+          return json(res, 503, { code: "EXECUTIVE_OVERVIEW_UNAVAILABLE" });
+        }
+      }
       const planStatus = /^\/development\/plans\/([^/]+)\/status$/.exec(url.pathname);
       if (method === "GET" && planStatus) {
         res.setHeader("Cache-Control", "no-store");
@@ -848,7 +885,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             Boolean(options.documentTasks),
             planApiUrl !== undefined,
             planApiUrl !== undefined && dispatchHost !== undefined,
-            attemptProgress !== undefined
+            attemptProgress !== undefined,
+            executiveRoots !== undefined
           )
         );
         return;
@@ -1689,6 +1727,8 @@ export async function startServer(
   const boundary = loadHttpBoundaryConfig();
   const turnAdmission = loadTurnAdmissionConfig();
   const streamAdmission = loadStreamAdmissionConfig();
+  // Fails startup with a stable code, before anything is allocated, and never echoes the value.
+  const executiveOverview = loadExecutiveOverviewConfig(process.env);
   // Trusted startup configuration only; a malformed file stops startup before anything runs.
   const dispatchHost = await loadDispatchHost(process.env);
   const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
@@ -2043,6 +2083,7 @@ export async function startServer(
     documentTaskControl: documentTasks,
     planApiUrl: process.env.HEKATE_PLAN_API_URL,
     attemptProgress: process.env.HEKATE_PLAN_API_URL !== undefined,
+    ...(executiveOverview ? { executiveOverview } : {}),
     ...(dispatchHost ? { dispatchHost } : {}),
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,

@@ -580,6 +580,28 @@ conversation ownership by `userId` is a label check, not per-user authorization.
 Shared deployment requires separate user identities and per-user ownership, and
 is refused at startup.
 
+### Executive overview (Hekate, opt-in)
+
+An operator-only, read-only overview of recorded Hekate plan state for a fixed inventory of
+roots (`docs/implementation/18-executive-observability-mvp.md`). It is off unless explicitly
+enabled and never discovers roots; a browser cannot supply a root, URL or label.
+
+| Variable                      | Meaning                                                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HEKATE_EXECUTIVE_OVERVIEW`   | `1` enables the overview. Unset or empty leaves it off; any other value fails startup.                                                                              |
+| `HEKATE_EXECUTIVE_ROOTS_JSON` | JSON array of 1 to 8 `{ "rootId": lowercase GUID, "label": 1..60 chars, "goal"?: 1..200 chars }`. Unknown keys, duplicate roots and control characters are refused. |
+| `HEKATE_PLAN_API_URL`         | Required with enablement; the loopback plan API already used by plan status.                                                                                        |
+
+Invalid enablement fails startup with the stable code `INVALID_EXECUTIVE_ROOTS` and never echoes
+the configured value. Goals are operator-written configuration, not verified results.
+`GET /development/executive/overview` answers `200` whenever the overview is well-formed, with
+per-root `ok`, `invalid` or `unavailable` entries (a code only, never an upstream body, message
+or URL); `503` is reserved for the collector failing as a whole. Bounds: 5 s per root, 8 s overall,
+2 MiB upstream per root, 100 tasks per root and 1 MiB serialized (trailing tasks are dropped with
+an accurate `tasksOmitted`; JSON is never truncated). The page loads empty; only the Refresh
+button and expanding a task issue requests, both `GET`. It reports PlanStore acceptance only:
+source integration, deployment, worker liveness and budget are not established by it.
+
 ## Provider configuration
 
 The validated inventory lives in [data/model-catalog.json](../data/model-catalog.json).
