@@ -6,6 +6,12 @@ projects. Merged branch cleanup preserves worktree files and an external Git
 bundle; active and unmerged work stays available. Publication checks and remote
 readbacks are retained under `chatagent-publish-001`.
 
+License recognition repair: both root `LICENSE` files now contain GitHub’s standard
+AGPL-3.0 text. The existing copyright and AGPL-3.0-or-later grant are preserved
+verbatim in `NOTICE`, linked from each README; package metadata remains unchanged.
+The standard body’s words are unchanged. Remote detection is verified separately
+in `license-recognition-001`; it must report `agpl-3.0` before task acceptance.
+
 ## Current plan — executive observability and checkpoint delivery (2026-10-09)
 
 This section is the authoritative execution order. Earlier dated entries below are
