@@ -69,27 +69,61 @@ Assessment evidence: `D:/hekate-coordinator/runs/state-assessment-20261008/`
 contains timestamped PlanStore responses and hashes plus the focused metrics check.
 This assessment reads the existing plans; it does not claim new task acceptance.
 
-Execution has resumed under the user's instruction. Native stop-fence task
-`93a81ce6-a7c2-5acb-a135-e2eca3195353` is accepted with source
+Execution has resumed under the user's instruction. **Four of seven application
+nodes are now accepted.** Native bounded-launch attempt `pilot-52bf717c4465-r1`
+passed all five frozen steps in its first round: 19 HTTP cases, typecheck, 2,753
+full-suite cases with nine existing opt-in skips, docs and format. Exact artifact
+`dc5c5018ce764c6b2059909cbe1295a18532104e` is integrated at ChatAgent
+`8ed9e868b9fb36173e1dca0249099476fa8beef0`. Its CLI reported 263,725 ms, 14 turns
+and `0.8692538` USD; those are attributed provider claims. The pinned formatter
+changed its source, retained exact pre/post bytes and passed a second idempotence
+run. A headless live Hekate check showed the same active attempt (18 GETs, no page
+errors). The owner is now waiting for the conversation-controls specification.
+
+Native stop-fence task `93a81ce6-a7c2-5acb-a135-e2eca3195353` is accepted with source
 `f5a7a6b40b347e787bbf583720cf2f58c4ba004c` and integrated into Hekate. The old
 host exited cleanly; the new hidden host acknowledged launch
 `60fb5b65f24c4cdf8df30b7eef102408`, runtime PID 62896. A real foreign-target
-request was ignored and retained while the owner's heartbeat advanced. This is
-live gate evidence, not a real replacement-process race. Adapter correction worker
-`launch-adapter-prepare-003` finished; 228 unit cases and the focused HTTP/auth
-selection pass, lint passes, and a real pinned native status/duplicate-launch check
-returned `OWNER_PRESENT` without a second launch. An unfenced adapter mutation
-fails the stop assertion and is restored. The original bounded-launch package passed all five reference steps: 19 frozen
-HTTP cases, typecheck, 2,753 full-suite cases with nine existing opt-in skips, docs
-and format. Preparation is accepted at epoch 2; package SHA-256
-`6720b9cd123f8dd6bb2e68e47c3c9df74ff623d131503896e675557f8596c289` is
-pinned to the existing node. The native owner claimed attempt
-`pilot-52bf717c4465-r1` at epoch 1. Feature acceptance remains pending; the
-reference artifact is feasibility evidence only. Measurements task
-`ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released to `todo`, with its
-candidate hashes and 46-test proof retained, pending the bounded follow-up described
-above. Evidence: external `stop-fence-001/handoff`, `launch-adapter-prepare-003`,
-`dispatch-native-observation-001` and `execution-metrics-003` directories.
+request was ignored and retained while its heartbeat advanced. This is live gate
+evidence, not a real replacement-process race. Adapter preparation is accepted
+at epoch 2; package SHA-256 is
+`6720b9cd123f8dd6bb2e68e47c3c9df74ff623d131503896e675557f8596c289`.
+
+Conversation-controls preparation `2ef9442c-3425-5a2b-953c-fc6a18e73207` remains Active
+at `conversation-controls-prepare-001-r1`; its actual CLI worker has exited and lead
+verification is underway. Corrected reference passes 43 unit cases (one explicit
+Windows link-capability skip), 32 headless browser cases and lint. Negative controls
+reject duplicate config keys, a plan-key/task-ID substitution and unsafe HTML
+rendering. The source will freeze on the accepted Windows refusal repair ancestry. CA-ISSUE-027 records the reviewed trace-root handoff
+gap: the maintained C# observer needs an explicitly configured root, while the
+adapter strips ambient environment and has no approved forwarding input. The
+controls slice must repair that dependency before a product launch. CA-ISSUE-028
+records a generated observer-helper module-name collision; the original failure
+is retained and the corrected observer confirms the same worker's native birth
+identity. No worker was relaunched. Measurements task
+`ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released to `todo`, with
+candidate hashes and its 46-case proof retained for the bounded follow-up above.
+
+Combined main verification exposed a Windows rotation classification recurrence:
+2,761 tests passed and one concurrent-rotation case received raw `EPERM/rename`.
+Managed repair `identity-rename-refusal-001` is accepted and integrated at
+`ca688d04988ddc5c5706f5a75e6e4167fb234204`. The rotation boundary now normalizes
+only the exact owned Windows rename refusal to `LocalIdentityError`, preserving
+native cause; helper retry/error semantics and uncertainty retention remain intact.
+Twenty focused cases and a real permanent-holder old-source negative control pass;
+full repair worktree passed 2,753 cases with nine existing opt-in skips, plus lint
+and docs. The integrated main environment passed all 2,762 tests, including its opt-in
+Windows cases; lint and docs pass.
+This repairs classification, not an unidentified field holder; CA-ISSUE-014 remains
+open. CA-ISSUE-029 records the controls correlation gap, with candidate repair and
+separate native-name/GUID tests before freeze.
+
+Evidence: external `stop-fence-001/handoff`, `launch-adapter-prepare-003`,
+`dispatch-native-observation-001`, `conversation-controls-prepare-001` and
+`execution-metrics-003` directories. Clock distinction: isolated task-runner/pilot
+fixtures use a simulated journal clock; the persistent `LocalStore` uses a sampled
+UTC `LiveClockJournal`. Neither should be silently substituted for missing stage
+or decision timestamps; the audit/projector must identify the actual clock source.
 
 ### Roadmap review and application execution plan (2026-10-08)
 
@@ -397,7 +431,7 @@ in the Hekate Tasks/Plans browser at `http://localhost:5193/`; refresh is explic
 | `attempt-progress-view`     | Expose Hekate attempt conversations and tool events in ChatAgent, with bounded incremental refresh and cancellation on view disposal. Keep verifier decisions separate from worker claims. Test truncation, unavailable trace, attempt changes and refresh cleanup.                                                                                                                       | `conversation-run-controls` |
 | `integrated-rehearsal`      | Run one useful bounded change from ChatAgent, watch worker and verifier evidence, review the exact accepted artifact, integrate it separately and reload the conversation. Retain commands, revisions, test results, trace identities and observed limitations. Demonstrate a refused or failed launch without a duplicate worker.                                                        | `attempt-progress-view`     |
 
-The first three nodes are accepted. The four remaining nodes stay
+The first four nodes are accepted. The three remaining nodes stay
 `spec_pending` until their predecessor artifact is reviewed and their own frozen
 acceptance and satisfiability proof exist. The existing adapter refuses package,
 lock and dot-configuration edits; the first node therefore documents the existing
