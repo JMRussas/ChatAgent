@@ -39,6 +39,7 @@ const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
   ["POST", "/v1/conversations/c1/messages/m1/cancel", "client"],
   ["POST", "/pair/reissue", "operator"],
   ["GET", "/telemetry/evaluation", "operator"],
+  ["GET", "/development/executive/overview", "operator"],
   ["GET", "/development/plans/00000000-0000-4000-8000-000000000001/status", "operator"],
   [
     "GET",
@@ -70,9 +71,9 @@ const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
 ];
 
 describe("route policy", () => {
-  it("classifies exactly the 51 inventoried routes, each once", () => {
-    expect(ROUTES).toHaveLength(51);
-    expect(INVENTORY).toHaveLength(51);
+  it("classifies exactly the 52 inventoried routes, each once", () => {
+    expect(ROUTES).toHaveLength(52);
+    expect(INVENTORY).toHaveLength(52);
     const used = new Set<string>();
     for (const [method, path, access] of INVENTORY) {
       const rule = classifyRoute(method, path);

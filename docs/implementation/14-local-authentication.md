@@ -166,6 +166,13 @@ client credential is `403 OPERATOR_REQUIRED`, and neither reaches Hekate. The
 Host/Origin boundary applies as for every route. Without a configured URL it answers
 `404 PLAN_STATUS_DISABLED`. See `13-hekate-plan-node-integration.md`.
 
+`GET /development/executive/overview` is a further operator route: a fixed, read-only
+overview of the startup-configured plan roots (`18-executive-observability-mvp.md`). Guest and
+expired sessions are `401`, a client credential is `403 OPERATOR_REQUIRED`, and neither reaches
+the plan API. It accepts no query, `POST`/`DELETE` and sibling paths are default-deny `404`, and
+without `HEKATE_EXECUTIVE_OVERVIEW=1` it answers `404 EXECUTIVE_OVERVIEW_DISABLED`. The strict
+route inventory in `tests/unit/authPrimitives.test.ts` lists it (52 routes).
+
 Three of today's handlers match more loosely than this table, using `startsWith`
 and `endsWith` checks:
 

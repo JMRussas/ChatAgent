@@ -206,6 +206,26 @@ interface ExecutiveRootView {
 12. **Scope reset:** changing user or conversation clears overview, last-good and open evidence.
 13. **Unchanged chat:** with the option absent, the home page bytes and chat flows are unchanged.
 
+## Implementation clarifications
+
+These record behavior the first slice fixed where the contract above left room. They add
+no capability.
+
+- `ExecutiveTask` also carries `blockersOmitted` (blockers beyond the 10 shown, counted
+  exactly) so a clipped list is never silent.
+- A `stale` state or `attemptPins: stale` yields `refresh_inputs` for every task that is not
+  accepted or cancelled, taking priority over the other state prod.
+- The UI validates the overview and every progress response against a closed schema before
+  rendering; a body that only borrows the schema name is rejected. A task read must also
+  match the overview's `(rootId, nodeId, attemptId, attemptEpoch, contentRevision,
+stateRevision)`; otherwise the evidence is replaced by an "unavailable / changed" line.
+- Collapsing a task aborts its read and clears its evidence; expanding always issues a fresh
+  read. At most 3 reads are in flight; a fourth shows a "too many" line without a request.
+- A failed refresh keeps the last good view and any open evidence under the stale banner. A
+  successful refresh keeps evidence only for tasks whose binding is unchanged.
+- Executable ready/prepared status, worker liveness and budget are never inferred. `ready`
+  reads "Ready to claim; execution preparation unverified".
+
 ## Tests and verification
 
 - Unit: `tests/unit/executiveOverview.test.ts` (projection, prods, bounds, config parsing),
