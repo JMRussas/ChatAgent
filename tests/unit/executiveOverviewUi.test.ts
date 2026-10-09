@@ -495,3 +495,49 @@ describe("in-place task evidence", () => {
     expect(net.calls.every((c) => c.url === OVERVIEW)).toBe(true);
   });
 });
+
+// Independent lead acceptance cases: current selection and decision linkage are separate.
+it("does not display another selected attempt as current evidence", async () => {
+  const { refresh, expand, net, evidence } = mount();
+  const overview = standard();
+  const node = guid(100, 1);
+  await refresh(overview);
+  await expand(node);
+  const response = progressBody(ROOT_A, taskOf(overview, node));
+  response.selectedAttempt = {
+    ...response.selectedAttempt!,
+    attemptId: "other-current",
+    scope: "current" as const
+  };
+  net.calls.at(-1)!.respond(response);
+  await settle();
+  expect(evidence(node).textContent).toContain("Evidence unavailable");
+  expect(evidence(node).textContent).not.toContain("other-current");
+});
+
+it.each([
+  [1, "historical_or_unmatched"],
+  [2, "current"]
+])("labels decision linkage at decision epoch %i", async (decisionEpoch, linkage) => {
+  const { refresh, expand, net, evidence } = mount();
+  const task = leaf(1, "accepted", { attemptId: "at-1", attemptEpoch: 2, stateRevision: 4 });
+  const overview = overviewOf(rootView(ROOT_A, "A", [task]));
+  const node = task.nodeId;
+  await refresh(overview);
+  await expand(node);
+  const base = progressBody(ROOT_A, taskOf(overview as never, node));
+  const response = {
+    ...base,
+    task: { ...base.task, work: "done", effectiveAcceptance: "accepted" },
+    acceptance: {
+      ...base.acceptance,
+      decision: "accepted",
+      attemptId: "at-1",
+      attemptEpoch: decisionEpoch,
+      contentRevision: task.contentRevision
+    }
+  };
+  net.calls.at(-1)!.respond(response);
+  await settle();
+  expect(evidence(node).textContent).toContain("Decision linkage: " + linkage);
+});

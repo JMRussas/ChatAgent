@@ -230,10 +230,12 @@ export function executiveOverviewScript(): string {
     if (!isObject(t) || !oneOf(t.work, WORK) || !isInt(t.stateRevision) || !isInt(t.contentRevision) || !isNullStr(t.attemptId, 200) || !isInt(t.attemptEpoch) || !oneOf(t.effectiveAcceptance, EFFECTIVE)) return null;
     var sel = d.selectedAttempt;
     if (sel !== null && !(isObject(sel) && isStr(sel.attemptId, 200) && isInt(sel.attemptEpoch) && oneOf(sel.scope, ['current', 'historical']) && oneOf(sel.contentPins, ['current', 'stale', 'unknown']))) return null;
+    if (sel !== null && sel.scope === 'current' && (sel.attemptId !== t.attemptId || sel.attemptEpoch !== t.attemptEpoch)) return null;
+    if (sel !== null && sel.scope === 'historical' && t.attemptId !== null) return null;
     var tr = d.trace;
     if (tr !== null && !(isObject(tr) && oneOf(tr.status, TRACE_STATUS) && oneOf(tr.integrity, INTEGRITY) && isInt(tr.recordCount))) return null;
     var a = d.acceptance;
-    if (!isObject(a) || !(a.decision === null || oneOf(a.decision, ['accepted', 'rejected'])) || !validRef(a.taskArtifact) || !validRef(a.decisionArtifact) || !validRef(a.evidence)) return null;
+    if (!isObject(a) || a.source !== 'plan_store_recorded_decision' || !(a.contentRevision === null || isInt(a.contentRevision)) || !(a.attemptEpoch === null || isInt(a.attemptEpoch)) || !isNullStr(a.attemptId, 200) || !(a.decision === null || oneOf(a.decision, ['accepted', 'rejected'])) || !validRef(a.taskArtifact) || !validRef(a.decisionArtifact) || !validRef(a.evidence)) return null;
     if (!Array.isArray(d.evidence) || d.evidence.length > 1000) return null;
     var evidence = [];
     for (var i = 0; i < d.evidence.length && i < MAX_EVIDENCE; i++) {
@@ -256,8 +258,10 @@ export function executiveOverviewScript(): string {
     }
     // The fence: the read must describe the exact task and attempt the overview showed.
     var fenced = t.stateRevision === task.stateRevision && t.contentRevision === task.contentRevision && t.attemptEpoch === task.attemptEpoch && t.attemptId === task.attemptId;
+    var artifactsMatch = (a.taskArtifact.state === 'none' && a.decisionArtifact.state === 'none') || (a.taskArtifact.state === 'shown' && a.decisionArtifact.state === 'shown' && a.taskArtifact.ref === a.decisionArtifact.ref);
+    var decisionLinkage = a.decision === null ? 'none' : (sel !== null && sel.scope === 'current' && t.work === 'done' && t.effectiveAcceptance === a.decision && a.attemptId === t.attemptId && a.attemptEpoch === t.attemptEpoch && a.contentRevision === t.contentRevision && artifactsMatch ? 'current' : 'historical_or_unmatched');
     var reasons = d.reasons.filter(function (r) { return typeof r === 'string' && REASON.test(r); });
-    return { fenced: fenced, observedAt: d.observedAt, consistency: d.consistency, reasons: reasons, task: t, selected: sel, trace: tr, acceptance: a, evidence: evidence, evidenceTotal: d.evidence.length, statements: statements.slice(-MAX_STATEMENTS), statementTotal: statements.length, tools: tools };
+    return { fenced: fenced, observedAt: d.observedAt, consistency: d.consistency, reasons: reasons, task: t, selected: sel, trace: tr, acceptance: a, decisionLinkage: decisionLinkage, evidence: evidence, evidenceTotal: d.evidence.length, statements: statements.slice(-MAX_STATEMENTS), statementTotal: statements.length, tools: tools };
   }
   function renderEvidence(box, p) {
     box.replaceChildren();
@@ -269,7 +273,7 @@ export function executiveOverviewScript(): string {
     line(box, 'Task attempt', p.task.attemptId);
     line(box, 'Task attempt epoch', p.task.attemptEpoch);
     if (!p.selected) {
-      add(box, 'p', 'No attempt is recorded for this task.');
+      add(box, 'p', p.task.attemptId === null ? 'No attempt is recorded for this task.' : 'Selected attempt evidence is unavailable; the recorded task claim remains shown.');
     } else {
       add(box, 'p', p.selected.scope === 'current' ? 'Selected attempt is the current attempt.' : 'Selected attempt is historical: the task has no current attempt.');
       line(box, 'Selected attempt', p.selected.attemptId);
@@ -286,6 +290,10 @@ export function executiveOverviewScript(): string {
     add(box, 'p', 'Worker liveness: unknown. Useful progress: unknown. An open task or a host heartbeat is not evidence of useful progress.');
     var a = p.acceptance;
     line(box, 'Recorded decision (PlanStore)', a.decision);
+    line(box, 'Decision linkage', p.decisionLinkage);
+    line(box, 'Decision attempt', a.attemptId);
+    line(box, 'Decision attempt epoch', a.attemptEpoch);
+    line(box, 'Decision content revision', a.contentRevision);
     add(box, 'p', 'Task artifact: ' + (a.taskArtifact.state === 'shown' ? a.taskArtifact.ref : a.taskArtifact.state === 'none' ? 'none' : 'present but withheld'));
     add(box, 'p', 'Decision artifact: ' + (a.decisionArtifact.state === 'shown' ? a.decisionArtifact.ref : a.decisionArtifact.state === 'none' ? 'none' : 'present but withheld'));
     add(box, 'p', 'Decision evidence: ' + (a.evidence.state === 'shown' ? a.evidence.ref : a.evidence.state === 'none' ? 'none' : 'present but withheld'));

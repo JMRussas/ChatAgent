@@ -174,6 +174,7 @@ interface ExecutiveRootView {
   overview. A later refresh that changes the binding, or any drill-down failure, replaces the
   evidence with an explicit "unavailable / changed, re-expand" line. Old attempt evidence is never
   left looking current. A late response for a superseded request is dropped.
+- The evidence subset validates current selected-attempt identity separately from the task fence. Recorded decision linkage is current only for done/current effective acceptance and matching attempt/epoch/content/artifact metadata; prior or unprovable decisions stay historical or unmatched. Missing selected evidence never erases a recorded task claim.
 - The server clock (`generatedAt`, `observedAt`) and the browser clock are labelled separately.
   The cross-root timestamp is explicitly non-atomic.
 
