@@ -6,55 +6,51 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
-### Current assessment and next delivery gate (2026-10-08, 23:14 Eastern)
+### Current assessment and next delivery gate (2026-10-09, 00:57 Eastern)
 
-Execution is underway under the user's instruction. **Five of seven application
+Execution is underway under the user's instruction. **Six of seven application
 nodes are accepted and their exact artifacts are integrated**: monitor runbook,
-plan-status API, plan-status UI, bounded-plan launch and conversation run controls.
-This is a milestone count, not a percentage of effort. ChatAgent `49bab0c`
-integrates controls artifact `5c0ccb5a5190ffe323aa5ca7e593b6c549406092`.
-Combined main validation passed **2,816 tests**, with one explicit Windows link
-capability skip, plus lint and docs. An initial npm invocation selected unsupported
-Windows Node24.15 and refused before running tests; its log is retained. The
-successful run used the pinned Node24.21 runtime.
+plan-status API, plan-status UI, bounded-plan launch, conversation run controls and
+public attempt progress. ChatAgent `cc84238` integrates progress artifact
+`15528e5ac76634220ad4de69bb504350b6f82a8d`. Combined main verification passed
+**2,858 tests**, with one explicit Windows link-capability skip, plus lint and docs.
+This milestone count is not a percentage of effort.
 
-| Area                         | Evidence-backed state                                                                                                                                                                                                   | Remaining delivery gate                                                                                        |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Task authority and execution | Original application nodes use native claims, prerequisite pins, bounded CLI workers, immutable checks, retained attempts and independent decisions.                                                                    | Preparation and lead review/integration still need supervision.                                                |
-| Conversation controls        | Manual operator check/start/stop, scoped unknown-operation metadata, trusted startup config and approved trace-root forwarding are integrated. Native first round passed all five checks and 32 headless browser cases. | Actual product launch, trace readback and graceful stop in the integrated rehearsal.                           |
-| Human/AI observation         | Shared read-only task/attempt metadata and live Hekate Active-card proofs exist. The controls proof matched its exact native attempt, with 18 GETs and no page errors.                                                  | Deliver the public attempt-progress view, then prove real conversation correlation and review/reload.          |
-| Stop fencing                 | Hekate source `f5a7a6b` is accepted, integrated and adopted by the hidden owned host. Foreign-target requests are refused or retained without stopping the current owner.                                               | End-to-end adapter delivery and replacement-owner/graceful-stop rehearsal evidence; CA-ISSUE-026 remains open. |
-| Roles                        | Optional LangChain/LangGraph planning-role and managed-attempt primitives have an actual CLI rehearsal.                                                                                                                 | Persistent role assignment, independent review and recovery service remains unfinished.                        |
-| Execution metrics            | Deferred candidate and its 46 focused proofs are preserved.                                                                                                                                                             | Actual dispatcher/verifier hook coverage, review, integration and measured cohorts. No baseline or SLO exists. |
+The actual paired product rehearsal has read the accepted native progress artifact,
+refused duplicate starts, delivered a correctly fenced graceful stop to owner A,
+launched owner B and proved that a delayed exact A request packet is retained and
+ignored while B's heartbeat advances. Evidence is retained outside Git under
+`conversation-rehearsal-001`; this controlled handoff does not claim an arbitrary
+filesystem mutation race or global Windows foreground-focus proof.
 
-The bounded owner is launch `60fb5b65f24c4cdf8df30b7eef102408`, PID62896,
-with a four-hour/three-dispatch bound and five-second host heartbeat. It has
-completed two dispatches and is waiting at `attempt-progress-view/spec_pending`.
-An alive host is not an active worker. Preparation task
-`b0be34f0-1932-5c20-bfad-9d9d9406885c` is now `in_progress` at
-`attempt-progress-prepare-002-r2` at epoch2, assigned to the actual hidden CLI worker.
-Epoch1 reached its 600-second bound and was independently rejected after source
-parse failures and a faulty auth test fixture. Exact failed bytes and checks are retained;
-CA-ISSUE-030 records the defect. The correction also requires native artifact-hash
-visibility and immediate input/attempt-change cleanup before freezing the oracle.
-The observer records native process identity, PlanStore state and observation time;
-useful progress remains unknown until inspected and verified. No continuous AI
-supervision or automatic source integration is claimed.
+That rehearsal exposed CA-ISSUE-032: an unconfirmed launch omitted its ID, leaving
+the safety journal unable to reconcile after the owner exited. A supported,
+evidence-linked operator inspection resolved only that historical uncertain record;
+the original uncertain outcome remains intact. An actual CLI repair task now
+implements native ID retention and exact exited-owner reconciliation tests.
+
+Owner B is launch `c180df039c11480da739c273ca84901e`, PID27872, with a
+four-hour/three-dispatch bound and five-second heartbeat. It is waiting for the
+final rehearsal specification; an alive host is not an active worker. Final
+preparation `284d53fd-9058-55a6-ac12-0c5dce635407` epoch1 has finished its CLI
+work and is in lead review, pending meaningful checks and immutable packaging.
+Original rehearsal `21dcea12-cb65-54cf-8581-e2f896490139` remains TODO.
 
 **Remaining delivery order:**
 
-1. Independently verify public attempt-progress preparation, including privacy,
-   exact correlation, bounded requests/watch and cleanup negative controls. Freeze
-   meaningful tests and execute original node
-   `9bc28ff4-829f-5eb6-8b8e-4932f9f960cf`; integrate only its verified native artifact.
-2. Complete original `integrated-rehearsal` node
-   `21dcea12-cb65-54cf-8581-e2f896490139`: start useful prepared work from the
-   conversation, observe it, prove duplicate refusal and correctly targeted stop,
-   independently verify/integrate the result and reload. Controlled owner handoff
-   is required when the current dispatch quota is consumed; never start a second
-   API owner against the same store.
-3. Use this end-to-end evidence to prioritize unattended recovery and broader role
-   orchestration. Keep general framework expansion off this delivery path.
+1. Independently verify and integrate the immediate launch-ID repair, preserving
+   single-owner locking, stop fencing and conservative handling of unknown IDs.
+2. Freeze the verified operator runbook and real-product read-only verifier, then
+   execute original `integrated-rehearsal`; independently inspect its exact native
+   artifact, integrate it and prove the accepted decisions survive a UI reload.
+3. Use retained end-to-end evidence to prioritize unattended recovery and broader
+   role orchestration. Optional LangChain/LangGraph primitives exist; persistent
+   role assignment/review/recovery service is unfinished. Metrics integration is
+   deferred: no measured cohort baseline or execution-time SLO exists.
+
+No continuous AI supervision or automatic source integration is claimed. Finite
+host/process observations, PlanStore attempts and independent review evidence are
+separate from unverified public worker activity.
 
 Use a work-in-progress limit of one application feature plus its immediate blocking
 repair. Metrics task `ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released

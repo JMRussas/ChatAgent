@@ -1011,3 +1011,27 @@ Its correction adds the new operator-only GET to that strict inventory and check
 all 51 routes exactly once, including client/operator authorization; it does not
 relax or skip the assertion. Preserve authoring `attempt-progress-view-001` and
 prepare a new immutable package before execution.
+
+### CA-ISSUE-032 — Unconfirmed launch loses recovery identity
+
+Status: open; reproduced in the actual paired conversation rehearsal. Native owner
+A started after the confirmation window, but the native unconfirmed response omitted
+its allocated launch ID and the adapter discarded IDs on that outcome. After an
+exactly fenced clean stop, a replacement was refused with
+`PREVIOUS_LAUNCH_UNCERTAIN`. The conservative refusal is correct; the lost
+identity prevents the existing exact-exited-owner recovery path.
+
+The historical uncertain record was resolved through the supported
+`operator_inspected` journal field only after inspecting the retained single UI
+launch, observed owner birth/launch, exact stop packet/receipt, clean exited status
+and absent process. Its original uncertain result is unchanged, with before/after
+hashes and inspection evidence retained outside Git. The real UI then launched B;
+duplicate start was refused and a delayed exact A packet was ignored and retained
+while B's heartbeat advanced. This does not establish an arbitrary filesystem race.
+
+An actual Hekate repair task now requires the native unconfirmed response to include
+its allocated launch ID and the adapter to validate and retain it without claiming
+successful startup. Automatic reconciliation must remain limited to the exact
+matching exited native owner. Missing, malformed or foreign IDs remain blocked.
+Evidence: external `conversation-rehearsal-001/operator-inspection.json`,
+`rehearsal-preflight.json` and `launch-identity-repair-001`.
