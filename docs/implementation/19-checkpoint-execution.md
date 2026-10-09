@@ -1,6 +1,13 @@
 # 19 — Checkpoint execution and budget record (planning contract)
 
-Status: **lead-reviewed implementation contract; implementation remains unverified.** Planning task `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` prepares implementation task `94438651-ed00-5656-803d-d6097d4a4e40` under management
+Status: **lead-reviewed implementation contract; an implementation exists in the isolated
+worktree but its tests, lint and live checks have not been run or verified by the author.**
+Implementation notes: the argument list is `--print --output-format stream-json --verbose --model <m>
+--tools <list> --allowedTools <list>` (plus `--max-budget-usd` only with a configured provider
+cap), confirmed against the installed `--help` before the only spawn; the planning artifact below is
+otherwise unchanged. Record `rootPid` is set only for `cleanup_failed`. Tripwire code
+`authority_changed` and failure code `record_write_failed` are added to the closed enums; the
+runner additionally refuses `run_exists` and `record_dir_invalid` without writing a record. Planning task `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` prepares implementation task `94438651-ed00-5656-803d-d6097d4a4e40` under management
 root `29141a72-9c9a-54f8-a357-fb6db74d84d9`, ready after accepted live delivery `77aca710`.
 
 ## Purpose and unit of management
@@ -257,3 +264,9 @@ polling, hierarchy, native `task_runner`/`task_spec` adoption (not read here, no
 any measured SLO. Revisit expected budgets only after several recorded checkpoints exist.
 
 Generic nonzero verifier exit has unattributed cause: classify partial/unavailable as appropriate rather than infer source failure. A lead-supplied source-failure attribution needs explicit evidence; no automatic causal retry or reset is authorized.
+
+Lead gate correction: the fixed profile includes restricted mode, acceptEdits, strict empty MCP, no session persistence and no slash commands. Pinned prompts are regular files read within 256 KiB before allocation. Worker elapsed consumption uses a monotonic clock and excludes preparation, while UTC record timestamps use the process wall clock. Final termination verdict waits for the owned cleanup operation; uncertainty is retained. A persistent exclusive lease keyed by root/node/attempt/epoch/content prevents a different run ID from starting a second worker for the same claim in its declared record namespace. That namespace stays fixed for the project; moving/deleting leases or migrating it is an explicit operator recovery outside this increment. A new run ID alone is never a retry fence.
+
+Gate records carry `failureAttribution` (`unattributed` by default, or `source`). A generic failed check remains `partial`; `source_failed` requires an explicit lead source attribution, at least one failed check, no unavailable checks, and retained evidence references. These supplied references do not authenticate the lead or prove cause by themselves. The inline view validates this same outcome contract. This does not automate retries or acceptance.
+
+The feature-local record parser permits finite integral decimal representations only for `providerReported.costUsd` and `providerUsdCap`. Integer identity and budget fields retain strict token checks; the shared PlanStore parser remains unchanged.

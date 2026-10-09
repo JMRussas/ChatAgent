@@ -1,4 +1,10 @@
+import type { CheckpointRecordEntry } from "../../config/checkpointRecordsConfig";
 import type { ExecutiveRoot } from "../../config/executiveOverviewConfig";
+import {
+  readCheckpointBudget,
+  type CheckpointBudgetView,
+  type ReadBudgetOptions
+} from "./checkpointBudget";
 import {
   DevCoordinationError,
   fetchCoordinationStatus,
@@ -18,6 +24,8 @@ import {
  */
 
 export const EXECUTIVE_OVERVIEW_SCHEMA = "executive-overview/v1";
+/** Used only when a trusted checkpoint record registry is configured. */
+export const EXECUTIVE_OVERVIEW_SCHEMA_V2 = "executive-overview/v2";
 
 /** Named bounds shared with the UI and the tests. */
 export const EXECUTIVE_LIMITS = {
@@ -71,8 +79,14 @@ export interface ExecutiveTask {
   prod: TaskProd;
   /** Derived only from the current projected state; a historical decision is never a gate. */
   checkpointGate: CheckpointGate;
-  /** No consumed or expected budget is inferred from anything the runtime reports. */
-  budgetEvidence: "not_reported";
+  /**
+   * No consumed or expected budget is inferred from anything the runtime reports. Only a
+   * registered, fence-matched runner record (supplied, unauthenticated) changes this, and only
+   * in the registry-enabled v2 response.
+   */
+  budgetEvidence: "not_reported" | "reported" | "unavailable";
+  /** v2 only, and only for a task explicitly in the registry. */
+  checkpointBudget?: CheckpointBudgetView;
 }
 
 export interface ExecutiveRootView {
@@ -93,7 +107,7 @@ export interface ExecutiveRootView {
 }
 
 export interface ExecutiveOverview {
-  schema: typeof EXECUTIVE_OVERVIEW_SCHEMA;
+  schema: typeof EXECUTIVE_OVERVIEW_SCHEMA | typeof EXECUTIVE_OVERVIEW_SCHEMA_V2;
   generatedAt: string;
   /** Roots are read independently; their timestamps are not one snapshot. */
   atomic: false;
@@ -320,6 +334,34 @@ export interface CollectOptions {
   overallDeadlineMs?: number;
   rootMaxBytes?: number;
   maxResponseBytes?: number;
+  /**
+   * Trusted startup registry of runner records. Absent: the response is the unchanged v1
+   * contract. Present (even if no task matches): v2, with one bounded read per registered task.
+   */
+  checkpointRecords?: readonly CheckpointRecordEntry[];
+  budgetRead?: ReadBudgetOptions;
+}
+
+/** Looks up only explicitly registered tasks, accepted ones included; nothing is crawled. */
+async function attachBudgets(
+  view: ExecutiveRootView,
+  entries: readonly CheckpointRecordEntry[],
+  budgetRead: ReadBudgetOptions
+): Promise<void> {
+  await Promise.all(
+    view.tasks.map(async (task) => {
+      const entry = entries.find((e) => e.rootId === view.rootId && e.nodeId === task.nodeId);
+      if (!entry) return;
+      let budget: CheckpointBudgetView;
+      try {
+        budget = await readCheckpointBudget(entry, task, budgetRead);
+      } catch {
+        budget = { state: "unavailable", reason: "unreadable" };
+      }
+      task.checkpointBudget = budget;
+      task.budgetEvidence = budget.state === "reported" ? "reported" : "unavailable";
+    })
+  );
 }
 
 const ERROR_CODES = new Set<string>([
@@ -377,7 +419,10 @@ export async function collectExecutiveOverview(
             }),
             deadline
           ]);
-          return projectRoot(status, config, now().toISOString());
+          const view = projectRoot(status, config, now().toISOString());
+          if (options.checkpointRecords)
+            await attachBudgets(view, options.checkpointRecords, options.budgetRead ?? {});
+          return view;
         } catch (error) {
           return unavailableRoot(config, reasonOf(error), now().toISOString());
         }
@@ -385,7 +430,9 @@ export async function collectExecutiveOverview(
     );
     return capOverviewBytes(
       {
-        schema: EXECUTIVE_OVERVIEW_SCHEMA,
+        schema: options.checkpointRecords
+          ? EXECUTIVE_OVERVIEW_SCHEMA_V2
+          : EXECUTIVE_OVERVIEW_SCHEMA,
         generatedAt: now().toISOString(),
         atomic: false,
         roots: views
