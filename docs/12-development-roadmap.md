@@ -88,7 +88,7 @@ launcher/interpreter PID indirection left the first acknowledgement `unconfirmed
 launch-ID correlation is corrected and its test passes. The two authorized model
 rounds both failed the formatting oracle, and the owner stopped as `failed` with
 `node_not_accepted/max_rounds`. Both rejected artifacts and the native journal remain
-retained. Operator attempt `operator-format-review-001-r1` is Active: a trusted
+retained. Operator attempt `operator-format-review-001-r1` is accepted: a trusted
 formatting-only derivative has identical TypeScript token streams and passes all 26
 frozen oracle cases; the unchanged full verifier passed (26 frozen cases, 2,437 full-suite cases,
 9 existing skips, typecheck/docs and clean tree). The original API task is
@@ -96,21 +96,66 @@ accepted at epoch 3 with artifact `d0fea19a1cfdc6350706c2fe3ae35368ebb4d630`. No
 was launched. CA-ISSUE-016 follow-up `db59fb7b-d963-537a-853a-8883601ab757`
 requires a versioned pinned formatter capability rather than broadening shell
 authority or altering frozen verification. Corrected live launch acknowledgement succeeded with distinct launcher/runtime
-PIDs and launch ID. The four-hour owned host is waiting explicitly on
-`plan-status-ui/spec_pending`, with a five-second heartbeat. It dispatches only
+PIDs and launch ID. The four-hour owned host completed `plan-status-ui` and waits on `bounded-plan-launch/spec_pending`, with a five-second heartbeat. It dispatches only
 prepared work and leaves planning, failed-budget recovery and integration to
 explicitly attributed operator/role tasks. Source review is accepted; a duplicate launch was refused `owner_running` before
 spawn. ChatAgent integration `1def1a2` passes all 2,450 tests plus format/lint/docs.
 UI planning under application resumption is reviewed and linked from
-`D:/hekate-coordinator/runs/application-ui-planning-001/review.txt`; its frozen
-implementation package remains unprepared. The host stays explicitly blocked on
-that gate while preserving a live owner heartbeat. No model worker is currently
-running, and no continuous autonomous AI supervision is claimed.
+`D:/hekate-coordinator/runs/application-ui-planning-001/review.txt`. UI preparation
+`a1b71572-a9a4-5de2-b6c8-fb53ab1d3292` is accepted at epoch 3 after correcting
+its mislabeled target ID and revalidating the exact package. Formatter capability
+`db59fb7b-d963-537a-853a-8883601ab757` is accepted at epoch 2, source `c200ef7`.
+Its 44 formatter cases and real Node 24.21.0 / Prettier 3.9.9 pre/post/idempotence
+proof pass; old v0 evidence retains its shape. Initial rejected candidates and
+fixture failures remain retained. UI package `plan-status-ui-002`, SHA-256
+`ab3ad832448ead0b669f7049b04f0e603922872ea4ba2c819e35427a037bf35d`,
+passes 68 frozen oracle cases, typecheck, 2,506 full-suite cases (nine existing
+skips), docs and 12 headless browser checks. An independent XSS mutation fails.
+The first browser proof was refused for an ignored generated output directory;
+its immutable verifier helper now retains each round's evidence beside its owned
+worktree with exclusive creation. CA-ISSUE-023 records the earlier unchanged CLI
+case's timeout under concurrent verification; bounded two-worker full checks pass.
+The dispatcher gracefully handed off to the accepted formatter source, with a
+confirmed launch ID and distinct native launcher/runtime identities. It has now
+completed the original UI task as `pilot-f5ea665af140-r2`, accepted at epoch 2. A real native
+worker trace exists, and the headless UI shows In progress with the exact attempt
+(18 read-only API calls, no page errors). The first candidate passed 67/68 cases and was rejected by a literal URL-variable
+assertion (CA-ISSUE-025); the second passes all 68 cases and all remaining checks.
+Exact accepted artifact `9659c7fcf45bb3df5a44a12b5fa9298a747a1616` awaits lead
+integration. Both native rounds ran the pinned formatter twice with unchanged
+output bytes and successful idempotence checks. Native CLI-reported costs are
+`0.5148252` and `0.526193` USD; their sum is reported usage, not metered spend. The five-second owner heartbeat and separately recorded task state keep
+worker liveness/useful progress explicitly unknown until observed evidence permits
+stronger conclusions.
+Athena planning `e2876010-1741-5d6f-8aa0-edd00a52d674` is accepted with lead
+corrections; adapter preparation `3221839c-1b48-55b8-bb36-c9e425f13d9f` is Active
+at epoch 2 with a real correction worker. Its initial candidate passed 189
+focused checks and lint, but independent review rejected workspace-selection and
+journal validation gaps (CA-ISSUE-024). Initial files/tests/rejection remain retained. Measurement task
+`ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` is Active; its read-only audit proposes comparable
+ready-to-acceptance delivery time, phase durations, throughput, rework and model
+cost. The provisional current-run sample records worker durations of 407.558s,
+328.837s and 114.996s for formatter/UI preparation/adapter planning respectively;
+provider-reported costs remain attributed claims. Queue/phase/acceptance timestamps
+are missing from that sample and remain unknown. Overlapping worker durations
+cannot be summed into delivery time. No performance baseline or SLO is established;
+hard limits are execution bounds. The audit found the pilot journal uses a logical
+clock (`now=1000`, fixed tick increments), so that field cannot supply execution
+durations. Readiness intervals must use actual observation gaps, acceptance must
+match artifact as well as epoch/content, and UTC/local dates are explicitly qualified.
+Instrumentation/projector implementation remains pending. Evidence lives under the external
+`task-formatter-001`, `ui-prepare-001`, `ui-native-observation-001`,
+`launch-adapter-planning-001`, `launch-adapter-prepare-001` and
+`execution-metrics-001` directories. Continuous autonomous AI supervision beyond
+the active session is not claimed.
 
 **Current:** application resumption `47f98ae5-c0ec-5be1-919b-7ea615f07952`,
 attempt `application-resume-001-r1`, is accepted. Original UI task
-`6bbefda0-cc3b-510d-ab02-f1fbc5b5ba61` remains todo awaiting its frozen spec;
-formatter capability task `db59fb7b-d963-537a-853a-8883601ab757` is queued. Supervision rehearsal
+`7d8f5bcc-9c77-5a58-b18a-dde27e4b37be` is accepted at epoch 2 under the native dispatcher.
+The import mapping and live PlanStore agree: `6bbefda0-cc3b-510d-ab02-f1fbc5b5ba61`
+is the later bounded-plan-launch node. The earlier roadmap/preparation note mislabeled
+that ID; the correction is explicit and original evidence is preserved. Formatter
+capability task `db59fb7b-d963-537a-853a-8883601ab757` is accepted at epoch 2. Supervision rehearsal
 `5544af83-8716-528b-aabf-2ceb21719bde` is accepted at epoch 3 after the
 prior finish correctly refused `stale_prerequisites`: adding the historical repair
 gate required releasing the old attempt and revalidating the exact bundle under

@@ -39,27 +39,30 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                              | Kind   | Gate                 | Status   | Owner / assignee                             |
-| ------------ | ------------------------------------------------------------------ | ------ | -------------------- | -------- | -------------------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError      | defect | deferred             | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-002 | No handoff composition after delivery verification                 | gap    | pilot blocker        | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-003 | No host slot for the consumer view                                 | gap    | pilot blocker        | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker                    | gap    | unattended blocker   | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                     | gap    | deferred             | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted                | gap    | deferred             | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale       | gap    | deferred             | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use            | gap    | pilot blocker        | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-012 | Role catalog changes need a restart                                | gap    | deferred             | closed   | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-013 | Missing review identity fields pass TS verification                | defect | deferred             | closed   | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM                   | defect | verification blocker | reopened | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-015 | Background launches interrupt desktop focus                        | defect | deferred             | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-016 | Task verifier omits formatting acceptance                          | defect | acceptance gap       | open     | codex-chatagent / unassigned                 |
-| CA-ISSUE-017 | Role observer candidate loses native trace and exposes raw AI text | defect | acceptance blocker   | closed   | codex-chatagent / supervised Odin worker     |
-| CA-ISSUE-018 | Review worker cannot read required source and evidence             | defect | review blocker       | closed   | codex-chatagent / supervised Mimir worker    |
-| CA-ISSUE-019 | Observer does not compare current event and trace claim keys       | gap    | audit acceptance     | closed   | codex-chatagent / Codex lead                 |
-| CA-ISSUE-020 | Cancelled tasks lose historical traces in shared observation       | defect | audit acceptance     | closed   | codex-chatagent / supervised Hermes worker   |
-| CA-ISSUE-021 | Operator exporter selected the wrong repository artifact           | defect | audit evidence       | closed   | codex-chatagent                              |
-| CA-ISSUE-022 | Hidden launch acknowledgement selected launcher PID                | defect | dispatch observation | closed   | codex-chatagent                              |
+| ID           | Title                                                              | Kind   | Gate                   | Status   | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------------ | ------ | ---------------------- | -------- | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError      | defect | deferred               | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification                 | gap    | pilot blocker          | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                                 | gap    | pilot blocker          | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker                    | gap    | unattended blocker     | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                     | gap    | deferred               | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted                | gap    | deferred               | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale       | gap    | deferred               | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use            | gap    | pilot blocker          | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                                | gap    | deferred               | closed   | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-013 | Missing review identity fields pass TS verification                | defect | deferred               | closed   | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM                   | defect | verification blocker   | reopened | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-015 | Background launches interrupt desktop focus                        | defect | deferred               | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-016 | Task verifier omits formatting acceptance                          | defect | acceptance gap         | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-017 | Role observer candidate loses native trace and exposes raw AI text | defect | acceptance blocker     | closed   | codex-chatagent / supervised Odin worker     |
+| CA-ISSUE-018 | Review worker cannot read required source and evidence             | defect | review blocker         | closed   | codex-chatagent / supervised Mimir worker    |
+| CA-ISSUE-019 | Observer does not compare current event and trace claim keys       | gap    | audit acceptance       | closed   | codex-chatagent / Codex lead                 |
+| CA-ISSUE-020 | Cancelled tasks lose historical traces in shared observation       | defect | audit acceptance       | closed   | codex-chatagent / supervised Hermes worker   |
+| CA-ISSUE-021 | Operator exporter selected the wrong repository artifact           | defect | audit evidence         | closed   | codex-chatagent                              |
+| CA-ISSUE-022 | Hidden launch acknowledgement selected launcher PID                | defect | dispatch observation   | closed   | codex-chatagent                              |
+| CA-ISSUE-023 | Full-suite CLI deadline under concurrent verification              | defect | verification resources | open     | codex-chatagent                              |
+| CA-ISSUE-024 | Adapter workspace selection and journal validation gaps            | defect | host adapter           | open     | codex-chatagent                              |
+| CA-ISSUE-025 | UI oracle constrains variable spelling                             | defect | test design            | open     | codex-chatagent                              |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -619,6 +622,15 @@ from defects.
   candidate bytes and runs the existing required checks. Update profile contracts
   and relevant tests; verify a real task. The one-task oracle is not a global fix.
 
+The versioned pinned supervisor formatter follow-up is now accepted in Hekate
+(task `db59fb7b-d963-537a-853a-8883601ab757`, epoch 2, source `c200ef7`).
+All 44 formatter cases pass. A separate real Node24/Prettier3.9.9 proof retains
+pre/post bytes and hashes, reproduces the reviewed UI reference and is byte-idempotent.
+V0 history/evidence, worker shell restriction and independent verifier remain
+unchanged. The original UI task is now running natively with its frozen v1 package;
+its live native run is accepted at epoch 2 after both rounds ran pinned formatting/idempotence checks. Historical v0 behavior remains unchanged; future profile adoption is explicit. Evidence: external
+`task-formatter-001` and `task-formatter-real-prettier-001` directories.
+
 ### UI observation — Active state and refresh
 
 The 2026-10-08 focused browser run passed 48 existing task/plan/trace cases,
@@ -816,3 +828,38 @@ Corrected native launch reported `launched:true`, runtime PID 76996, launcher PI
 shared launcher log path was reused; its `unconfirmed` result is reconstructed from
 the preserved tool result in `first-launch-result.json`, and native append-only
 dispatch events and rejected worker journals remain the execution evidence.
+
+### CA-ISSUE-023 — Full-suite CLI deadline under concurrent verification
+
+Status: open. Hekate task `4187c30e-86f7-5fc5-8ceb-1acb168a4e3f`.
+The unchanged saved-delivery CLI test in `tests/unit/evidenceComparison.test.ts`
+exceeded its 5-second deadline during the UI reference full suite with concurrent
+Python harness verification: 2,504 pass, one timeout, nine existing skips.
+Evidence: `D:/hekate-coordinator/runs/ui-prepare-001/reference-full.log`.
+The unchanged full suite passes with two workers (2,506 cases, nine existing skips).
+The timeout and assertions remain unchanged.
+Determine the maintained verification resource/parallelism contract before closing.
+
+### CA-ISSUE-024 — Adapter workspace selection and journal validation gaps
+
+Status: open. Hekate defect `dde302a4-5b05-5663-a050-8d3081f47760`;
+preparation `3221839c-1b48-55b8-bb36-c9e425f13d9f` rejected at epoch 1,
+correction Active at epoch 2. The candidate passed 189 cases and lint, but sanitized
+child environment discarded the explicit trusted workspace selector needed by an
+isolated source worktree targeting the existing container label. Canonical matching
+source can use its default; this is a configured-worktree binding gap. Journal
+validation/replay also accepted incompletely checked task/result fields and loaded
+whole files before checking size. Require bounded strict identity/projection/pin
+checks and meaningful real-boundary tests. Evidence is retained under external
+`launch-adapter-prepare-001` and `002`.
+
+### CA-ISSUE-025 — UI oracle constrains variable spelling
+
+Status: open. Hekate defect `b90a0bbc-c6b3-5977-8334-3f887419bd4c`.
+Native UI attempt 1 passed 67 of 68 cases; a static source assertion demanded
+literal URL concatenation with a variable named `value`. Attempt 2 repaired that
+and passed all checks. Frozen tests remained unchanged during execution. Retain
+artifact `7d154a5e54b5e0eb68dfe6efc227824168720b77` and native evidence; verify
+the intended URL/method/count property through semantic tests and negative controls
+before changing a future oracle. First candidate was never fully verified. Record
+this rework separately from product defects and preserve the rejected attempt.
