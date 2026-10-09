@@ -659,6 +659,50 @@ observed at capture and are not current state, and nothing re-reads it except
 `scripts/handoffCheckpoint.ts --show <file>` (strict bounded parse). It adds no daemon, request
 beyond the existing loopback GETs, notification or process control.
 
+### Durable checkpoint review ledger
+
+`npx tsx scripts/checkpointQueue.ts --manifest <file> --evaluate` and `--show` implement the
+read-only ledger of [doc 21](implementation/21-checkpoint-review-queue.md). The trusted manifest
+(`checkpoint-queue-manifest/v1`, at most 32 KiB, closed schema, no duplicate or unknown keys)
+names a lowercase-GUID `queueId`, a loopback `planApiUrl`, a canonical existing non-symlink
+`ledgerDir` and 1-8 entries (`entryId`, `rootId`, `nodeId`, printable-ASCII `label`, `expected`
+`{attemptId|null, attemptEpoch, contentRevision}`, `recordPath` canonical absolute or `null` for a
+ready, unclaimed task). It is operator-declared scope, not authenticated authority, and supplies no
+command, executable or model. Configuration refusals print a closed code only.
+
+`--evaluate` fetches each distinct root once (loopback GET only) inside one shared 20-second
+monotonic deadline, reads each registered record through the existing bounded reader, classifies
+every entry by the first matching rule (`unobservable`, `needs_operator`, `accepted`, `blocked`,
+`ready_unclaimed`, `gate_recorded`, `review_pending`, `running_recorded`, `claimed_unobserved`,
+each with a fixed reason and action key) and publishes `<queueId>.queue.json`
+(`checkpoint-queue/v1`, at most 64 KiB, newline-terminated). Outcomes are `all_accepted`,
+`review_required`, `operator_required`, `ready_requires_claim`, `blocked`, `running_recorded` and
+`unobservable`; an unobservable or claimed-unobserved entry outranks an operator-required one. A
+moved fence quarantines the prior record and gate values, only a gate on the exact fence and
+artifact is current, and a source artifact is shown only as a hex Git SHA or `withheld`. The
+ledger keeps `firstSeenAt` and `stateSince` as display metadata (an unchanged observation
+preserves `stateSince`; a changed fence, state or reason resets it), `workerLiveness: "unknown"`,
+`taskMutationAllowed: false` and `delivery`, `notification`, `wake`, `acknowledgment` of
+not-sent/`none`.
+
+Before writing, the process exclusively creates `<queueId>.lock` holding a random instance token.
+An existing lock is `LOCK_BUSY` and is never taken over by PID or age; a crash leaves it for a
+separate operator recovery. A malformed, oversized, wrong-schema, symlinked or other-queue prior
+ledger is refused and left untouched, and a changed manifest hash needs a new `queueId`. The new
+generation is written to an exclusive temp file and synced; the prior bytes are re-read, the deadline
+is checked immediately before publication, and the first ledger is created with a no-overwrite hard
+link (a replacement uses rename). Replacement is serialized only among writers that respect the
+lock; it is not an atomic compare-and-swap against arbitrary external writers, and directory sync
+or power-loss safety is not promised. Only this process's temp file and a lock whose token is still
+its own are removed; a changed lock is retained and reported (`CLEANUP_INCOMPLETE`). After a deadline
+refusal nothing is published and the abandoned work cleans up when it settles.
+
+`--show` reads only the manifest and ledger, checks schema, queue id, manifest hash and entries,
+and prints the retained observation (not current state) with no API request, lock or write. Exit
+codes: 0 only for `all_accepted`; 1 for any other stored outcome; 2 usage or configuration refusal;
+4 ownership, ledger or publication failure. No gate outcome mutates PlanStore or retries a model,
+and the tool adds no claim, dispatch, notification, wake, route or UI. CA-ISSUE-004 stays open.
+
 ## Provider configuration
 
 The validated inventory lives in [data/model-catalog.json](../data/model-catalog.json).
