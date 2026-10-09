@@ -140,9 +140,12 @@ if (command === "status") {
       log: join(stateDir, "dispatch", "dispatcher.log")
     });
   } else if (launch.mode === "unconfirmed") {
+    // The legacy producer sent no ID; one is echoed only when the scenario supplies it
+    // (any value, so malformed IDs can be scripted).
     print({
       launched: "unconfirmed",
       pid: 4242,
+      ...(launch.launchId !== undefined ? { launchId: launch.launchId } : {}),
       note: "no matching status yet",
       log: join(stateDir, "x.log")
     });
