@@ -87,6 +87,8 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-042 | Generic gate failures imply source cause and valid monetary tokens are rejected | defect | audit attribution | closed | codex-chatagent / operator repair |
 
+| CA-ISSUE-043 | Checkpoint attention evidence and publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
+
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
 - **Observed problem and impact:** a delivery field backed by a detached
@@ -625,6 +627,17 @@ These findings are recorded as work proceeds. Their Hekate node references below
 own live execution state. A workaround is not closure; closure requires the named
 verification. Feature backlog and intentionally deferred limitations stay distinct
 from defects.
+
+**2026-10-09 checkpoint-attention recurrence:** source `17ebec2` full gate
+passed 3,229 cases and skipped ten explicit capabilities, but
+`tests/unit/localIdentityRecurrence.test.ts` / "still rotates once the lock can be
+created" failed with native `EPERM` at rename. Identity source and its test are
+unchanged from the prior integrated baseline. The holder/cause is unknown; no
+model retry or source-failure attribution was made. Retain
+`checkpoint-recovery-implementation-001/final-full-exit.json`,
+`identity-recurrence-assessment.json` and the isolated recheck. The isolated recheck passed, followed by a fresh serial full gate with 3,230
+passing cases and ten explicit capability skips. The failed original proof is
+retained; the holder remains unidentified and this issue remains reopened.
 
 ### CA-ISSUE-015 — Background coordinator launches can interrupt desktop focus
 
@@ -1347,3 +1360,29 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
 - **Evidence:** `checkpoint-causality-repair-001/negative-causality-source-exit.json`,
   `reviewed-bundle.json`, `accepted-readback.json` and maintained delivery evidence
   under `checkpoint-maintained-smoke-001`.
+
+### CA-ISSUE-043 — Checkpoint attention evidence and publication gates are incomplete
+
+- **Observed / priority:** P1 acceptance blocker in candidate `4d3d65f`. A raw
+  backtick in a generated script comment prevents parsing. After the syntax fix
+  and separate pinned formatting (`229fe4b`, `2bb03bc`), five independent cases
+  fail: stale stop/state/PID linkage still offers detail, cleanup plus unavailable
+  verification is rejected, passed/historical gates can offer verification detail,
+  late temporary-file sync can still publish, and an impossible response cap can
+  return oversized JSON.
+- **Expected:** in-place controls must match current record and gate evidence;
+  cleanup and verifier outage can coexist without cause attribution. Refuse an
+  envelope that cannot fit. Recheck the monotonic deadline immediately before
+  atomic no-overwrite publication and retain late-I/O cleanup limitations.
+- **Owner / real task:** explicit non-model operator repair
+  `118fbf75-04e0-50fd-9dcf-e5170f618109`; no whole-feature model retry.
+- **Resolution / scope:** accepted repair `17ebec2`; all five regression cases now
+  pass, with 136 focused cases, nine browser cases, format/lint/docs checks and real
+  candidate attention drill-down/local handoff proof. Whole feature `17ebec2` is accepted and integrated at `2b4289e` after a fresh
+  full gate passed 3,230 with ten explicit capability skips. The prior CA-ISSUE-014
+  host failure remains preserved and open; maintained paired UI and local handoff
+  delivery are independently accepted.
+- **Evidence:** `checkpoint-recovery-implementation-001/gate-lint-exit.json`,
+  `gate-focused-exit.json`; `checkpoint-attention-repair-001/negative-evidence-deadline-cap-exit.json`,
+  `reviewed-bundle.json`; `checkpoint-attention-live-001/candidate-ui-proof.json`,
+  `handoff-live-proof.json`. Failed source and gates are retained.
