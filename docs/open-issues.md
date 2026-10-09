@@ -44,7 +44,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError      | defect | deferred                   | closed   | codex-chatagent / claude-chatagent           |
 | CA-ISSUE-002 | No handoff composition after delivery verification                 | gap    | pilot blocker              | closed   | codex-chatagent / claude-chatagent           |
 | CA-ISSUE-003 | No host slot for the consumer view                                 | gap    | pilot blocker              | closed   | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker                    | gap    | unattended blocker         | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker                    | gap    | unattended blocker         | open     | codex-chatagent / continuation task          |
 | CA-ISSUE-008 | No provider-authoritative quota reconciliation                     | gap    | deferred                   | open     | codex-chatagent / unassigned                 |
 | CA-ISSUE-009 | Runtime quota-window declarations are not persisted                | gap    | deferred                   | open     | codex-chatagent / unassigned                 |
 | CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale       | gap    | deferred                   | closed   | codex-chatagent / claude-chatagent           |
@@ -235,7 +235,11 @@ unattended service is established, so the original issue remains open.
   `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` stopped at its five-minute hard wall
   without a contract artifact (11 observed message IDs). The lead recorded the
   budget stop and rejected the absent proposal; cause remains unattributed and
-  no model retry was spent. The manager implementation is still blocked.
+  no model retry was spent. The subsequent operator recovery is accepted at
+  `1031fd7`, integrated at `ec0714a`; the finite external-verification coordinator
+  is now running as implementation task `ffe5f5c6-c656-5761-a724-f13c5586059e`.
+  Semantic AI review, acceptance/integration and next-task claiming remain
+  separate; this does not close the persistent supervision gap.
   `checkpoint-continuation-contract-001/no-artifact-review.json` and
   `rejected-readback.json` retain the actual decision.
 

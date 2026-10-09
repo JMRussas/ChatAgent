@@ -125,8 +125,8 @@ remain separate work rather than delaying the useful first slice.
 | Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof |
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
 | Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |
-| Continuation contract       | Freeze actual generation-to-independent-review resume without a user message        | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Stopped at hard wall; no artifact; proposal rejected; implementation blocked              |
-| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | TODO behind contract acceptance                                                           |
+| Continuation contract       | Freeze generation-to-external-verification continuation without a user message      | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Operator contract `1031fd7` accepted, integrated `ec0714a`; original failed run retained  |
+| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Hermes running `checkpoint-continuation-implementation-001-r1`, epoch 1/content 2         |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -248,8 +248,24 @@ precondition was fixed, and the same unopened run then started. This is not a mo
 retry. The model then reached its hard wall at 300.297 seconds with 11 message
 IDs and produced no contract artifact. The tripwire stopped the owned run; the
 proposal is explicitly rejected without attributing a source defect or spending
-a model retry. Implementation remains blocked, and CA-ISSUE-004 remains open.
-Repository publication work is now the active priority. Evidence includes
+a model retry. Implementation was blocked at that point; CA-ISSUE-004 remains open.
+Repository publication is complete. The lead/operator contract recovery is accepted
+at `1031fd7`, integrated at `ec0714a`
+([document 22](implementation/22-checkpoint-continuation-manager.md)). Planning
+completion is a separate operator attempt, epoch 2/content 2; the original failed
+model run remains on its old identity. The smaller increment snapshots declared
+coding output into an isolated candidate, finishes only the current claimed
+attempt and automatically starts fixed external checks. It ends at a supplied
+review gate; semantic AI review, acceptance, integration and next-task claiming
+remain separate. CA-ISSUE-004 is still open.
+
+Hermes implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` is claimed at
+`checkpoint-continuation-implementation-001-r1`, epoch 1/content 2, through the
+maintained fixed-profile runner on the integrated source. Its bounds are 30
+expected/60 hard message IDs, 15 minutes, 8 MiB and a configured USD5 provider
+cap. This is a distinct implementation task after operator recovery, not a retry
+of the failed planning model. Current claim, executable/prompt/source pins and
+actual budget record are retained under `checkpoint-continuation-implementation-001`. Evidence includes
 `no-artifact-review.json` and `rejected-readback.json` under
 `checkpoint-continuation-contract-001`.
 
