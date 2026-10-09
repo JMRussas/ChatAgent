@@ -998,6 +998,69 @@ describe("DispatchHost launch", () => {
     expect(journal(env, OP1).resolution).toBeUndefined();
   });
 
+  it("persists a valid unconfirmed launch ID and resolves it only by that exited owner", async () => {
+    const env = makeEnv();
+    scenario(env, { launch: { mode: "unconfirmed", launchId: LID } });
+    const { host: h } = host(env);
+    const first = await h.launch(ROOT, OP1);
+    expect(first).toEqual({
+      status: 202,
+      body: { operationId: OP1, outcome: "uncertain", code: "UNCONFIRMED", childStatus: "unknown" }
+    });
+    expect(journal(env, OP1)).toMatchObject({ outcome: "uncertain", launchId: LID });
+    expect(await h.launch(ROOT, OP2)).toMatchObject({
+      status: 409,
+      body: { code: "PREVIOUS_LAUNCH_UNCERTAIN" }
+    });
+    setStatus(
+      env,
+      report(env, { liveness: "exited", phase: "exited", state: "stopped" }, { launchId: LID })
+    );
+    scenario(env, launchedScenario(env, LID2));
+    expect(await h.launch(ROOT, OP2)).toMatchObject({ status: 200, body: { launchId: LID2 } });
+    expect(journal(env, OP1)).toMatchObject({
+      outcome: "uncertain",
+      launchId: LID,
+      resolution: "status_exited_matching_launch_id"
+    });
+    expect(journal(env, OP1).result).toMatchObject({
+      status: 202,
+      body: { code: "UNCONFIRMED", childStatus: "unknown" }
+    });
+  });
+
+  it.each([
+    ["another owner", LID2],
+    ["a missing ID", undefined],
+    ["an uppercase ID", "A".repeat(32)],
+    ["a short ID", "a".repeat(31)],
+    ["a trailing newline", LID + "\n"],
+    ["a non-hex ID", "g".repeat(32)],
+    ["an empty ID", ""],
+    ["a non-string ID", 12345]
+  ])("never reconciles an unconfirmed launch with %s", async (_n, sent) => {
+    const env = makeEnv();
+    scenario(env, {
+      launch: { mode: "unconfirmed", ...(sent === undefined ? {} : { launchId: sent }) }
+    });
+    const { host: h } = host(env);
+    const first = await h.launch(ROOT, OP1);
+    expect(first).toMatchObject({ status: 202, body: { code: "UNCONFIRMED" } });
+    if (sent === LID2) expect(journal(env, OP1).launchId).toBe(LID2);
+    else expect(journal(env, OP1).launchId).toBeUndefined();
+    // The exited owner is the original LID, which a different or unusable ID cannot match.
+    setStatus(
+      env,
+      report(env, { liveness: "exited", phase: "exited", state: "stopped" }, { launchId: LID })
+    );
+    expect(await h.launch(ROOT, OP2)).toMatchObject({
+      status: 409,
+      body: { code: "PREVIOUS_LAUNCH_UNCERTAIN" }
+    });
+    expect(journal(env, OP1).resolution).toBeUndefined();
+    expect(calls(env, "launch")).toHaveLength(1);
+  });
+
   it("reconciles an uncertain launch only by the exact native launch ID", async () => {
     const env = makeEnv();
     scenario(env, { launch: { mode: "launched", launchId: LID } });

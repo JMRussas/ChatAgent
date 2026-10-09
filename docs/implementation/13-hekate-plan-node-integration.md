@@ -1288,6 +1288,17 @@ or reclaimed by age or by the adapter. An uncertain launch is cleared only by a
 later status whose exited owner carries that record's exact `launchId`, never by
 timing.
 
+An unconfirmed launch (native exit 1, `launched: "unconfirmed"`) still answers
+`202 UNCONFIRMED` with `childStatus: "unknown"`; it is never a successful launch.
+The native JSON now carries the `launchId` it allocated and passed to the child
+(`--launch-id`). The adapter keeps it on the uncertain journal record only if it is
+32 lowercase hex digits; the public body does not echo it. An older producer that
+sends no ID, or a missing, non-string, uppercase or wrong-length one, leaves the
+record without an ID, so it stays unresolvable by status and blocks later launches
+until an operator inspects it. A record's ID resolves only against an exited
+status carrying that same ID, never by time, PID or another owner, and the
+original uncertain result is kept alongside the `resolution`.
+
 | Native state                                   | Launch                              | Stop     |
 | ---------------------------------------------- | ----------------------------------- | -------- |
 | no status, or exited `stopped`/`ready_idle`    | allowed                             | no owner |

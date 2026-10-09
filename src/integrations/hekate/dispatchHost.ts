@@ -771,7 +771,16 @@ export class DispatchHost {
       }
       return uncertain(202, "UNCONFIRMED", launchId);
     }
-    if (outcome.code === 1 && out.launched === "unconfirmed") return uncertain(202, "UNCONFIRMED");
+    if (outcome.code === 1 && out.launched === "unconfirmed") {
+      // An older producer sends no ID; a missing or malformed one stays unresolvable by status.
+      const unconfirmedId =
+        typeof out.launchId === "string" &&
+        out.launchId.length === 32 &&
+        LAUNCH_ID.test(out.launchId)
+          ? out.launchId
+          : undefined;
+      return uncertain(202, "UNCONFIRMED", unconfirmedId);
+    }
     if (outcome.code === 1 && out.launched === false)
       return this.complete(root, intent, "failed", 502, { code: "LAUNCH_FAILED" });
     if (outcome.code === 2 && typeof out.refused === "string")
