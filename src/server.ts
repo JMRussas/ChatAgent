@@ -762,7 +762,13 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       if (method === "GET" && url.pathname === "/") {
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.end(renderHomePageHtml(options.runtimeMode, Boolean(options.documentTasks)));
+        res.end(
+          renderHomePageHtml(
+            options.runtimeMode,
+            Boolean(options.documentTasks),
+            planApiUrl !== undefined
+          )
+        );
         return;
       }
 

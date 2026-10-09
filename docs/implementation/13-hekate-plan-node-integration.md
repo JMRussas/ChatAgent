@@ -258,6 +258,47 @@ projection as `scripts/devcoord.ts status --json`, through the unchanged
 
 Tests: `tests/integration/planStatusHttp.test.ts`.
 
+#### Plan status panel
+
+`src/ui/planStatusPanel.ts` renders a collapsed, read-only `<details id="planStatusPanel">`
+in the chat shell. It exists only when the server has `planApiUrl`
+(`renderHomePageHtml(mode, documentTasks, planStatus)`); otherwise the markup, script and
+the `/development/plans` URL are absent.
+
+- **Access.** The paired browser session carries both roles, so the panel relies on the
+  same-origin cookie. It sends no `Authorization` header and reads, stores or
+  places no token, root or response in a URL, `localStorage` or cookie. A client-only
+  caller never reaches the data.
+- **Root selection.** One text field for a lowercase GUID, checked with the server's
+  `PLAN_ROOT` pattern before any request. There is no discovery, path, URL or query.
+  The valid GUID alone is kept in `sessionStorage` under a key naming the user and
+  conversation; it is restored into the field on reload without a request.
+- **Requests.** GET only, `no-store`, one at a time, manual (button or Enter), no timer.
+  A 10 second deadline covers the body, which is read with a 1 MiB byte bound.
+  A conversation or user change aborts the read, clears the view and discards any
+  late result for the old scope.
+- **Rendering.** Every field uses `textContent`, is cut at 200 characters, and at most
+  200 leaves are shown with "N more not shown". The panel builds no link or control from
+  data. Unknown states, pins and progress values read "unrecognized", and a body that is
+  not the documented projection for the requested root is refused.
+- **Labels.** "Plan complete" appears only for `progress.state === "complete"`. A
+  leaf shows "Accepted" only when accepted with no `acceptanceHistorical`; an older
+  attempt's decision reads as historical. An allocated leaf shows "Worker start: unknown"
+  and "Liveness and useful progress: not reported". Dependencies are the current
+  `blockers` only, not the full plan graph.
+- **Failures.** 403, 404, 400 and 503 have fixed messages; a 503 reason is named only if
+  it is a `DevCoordinationErrorCode`. A failed refresh keeps the last good view under a
+  "Last successful read at <time> (browser clock, not Hekate's) — now unavailable" banner.
+  The projection carries no Hekate observation time, so only the browser time is shown.
+- **Human and AI.** The panel shows the same identifiers (`rootId`, `nodeId`, `attemptId`,
+  `attemptEpoch`, `executorRef`, `artifactRef`, revisions) that the role observer's AI
+  snapshot and `devcoord.ts status --json` cite. The snapshots are distinct schemas with
+  their own timestamps; the panel adds no ledger or summary.
+
+Tests: `tests/unit/planStatusPanel.test.ts` (script run against a fake DOM),
+`tests/unit/homePage.test.ts`, and `tests/browser/planStatus.spec.ts` (real browser with
+the plan route stubbed through the fixture's `planStatus` option).
+
 ## Task authoring profile (hekate-task-profile.v0)
 
 Status (2026-10-08): implemented and verified, for the software-development adapter

@@ -25,7 +25,7 @@ import {
   type GenerationResult
 } from "../../src/domain/generation";
 
-async function runtime(maxEventStreams?: number, documentationTasks = false) {
+async function runtime(maxEventStreams?: number, documentationTasks = false, planStatus = false) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
     worker: boolean;
@@ -257,6 +257,9 @@ async function runtime(maxEventStreams?: number, documentationTasks = false) {
           }
         }
       : {}),
+    // Enables the panel and route only; specs stub the browser's plan requests with
+    // page.route, so no Hekate is contacted. The discard port is never listening.
+    ...(planStatus ? { planApiUrl: "http://127.0.0.1:9" } : {}),
     briefings: sports.http,
     maxEventStreams,
     auth: ephemeral.auth,
@@ -340,12 +343,14 @@ async function runtime(maxEventStreams?: number, documentationTasks = false) {
 export const test = base.extend<{
   streamCap: number | undefined;
   documentationTasks: boolean;
+  planStatus: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
   documentationTasks: [false, { option: true }],
-  app: async ({ streamCap, documentationTasks }, use) => {
-    const app = await runtime(streamCap, documentationTasks);
+  planStatus: [false, { option: true }],
+  app: async ({ streamCap, documentationTasks, planStatus }, use) => {
+    const app = await runtime(streamCap, documentationTasks, planStatus);
     try {
       await use(app);
     } finally {
