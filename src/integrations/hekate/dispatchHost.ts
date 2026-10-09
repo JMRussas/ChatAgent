@@ -547,14 +547,744 @@ export class DispatchHost {
     return this.roots.has(rootId);
   }
 
-  /** Prepared interface: feature implementation is the supervised task. */
-  async status(_rootId: string): Promise<DispatchResult> {
-    return fail(503, "DISPATCH_UNIMPLEMENTED");
+  /** Read-only: pins, native status and the journal, projected through an allowlist. */
+  async status(rootId: string): Promise<DispatchResult> {
+    const root = this.roots.get(rootId);
+    if (!root) return fail(404, "DISPATCH_NOT_PREPARED");
+    try {
+      const pin = await this.pins(root);
+      if (pin) return pin;
+      const read = await this.readStatus(root);
+      if ("error" in read) return read.error;
+      const journal = await this.readJournal(root);
+      return { status: 200, body: this.project(root, read, journal) };
+    } catch {
+      return fail(500, "DISPATCH_ERROR");
+    }
   }
-  async launch(_rootId: string, _operationId: string): Promise<DispatchResult> {
-    return fail(503, "DISPATCH_UNIMPLEMENTED");
+
+  async launch(rootId: string, operationId: string): Promise<DispatchResult> {
+    return this.mutation(rootId, operationId, "launch", (root, op, journal) =>
+      this.doLaunch(root, op, journal)
+    );
   }
-  async stop(_rootId: string, _operationId: string): Promise<DispatchResult> {
-    return fail(503, "DISPATCH_UNIMPLEMENTED");
+
+  async stop(rootId: string, operationId: string): Promise<DispatchResult> {
+    return this.mutation(rootId, operationId, "stop", (root, op) => this.doStop(root, op));
   }
+
+  // ---- mutation scaffolding ------------------------------------------------------------
+
+  private async mutation(
+    rootId: string,
+    rawOperation: string,
+    kind: Kind,
+    effect: (root: RootConfig, operationId: string, journal: Journal) => Promise<DispatchResult>
+  ): Promise<DispatchResult> {
+    const root = this.roots.get(rootId);
+    if (!root) return fail(404, "DISPATCH_NOT_PREPARED");
+    if (typeof rawOperation !== "string" || !GUID.test(rawOperation.toLowerCase()))
+      return fail(400, "INVALID_OPERATION_ID");
+    const operationId = rawOperation.toLowerCase();
+    const previous = this.chains.get(rootId) ?? Promise.resolve();
+    const run = previous.then(async (): Promise<DispatchResult> => {
+      try {
+        const pin = await this.pins(root);
+        if (pin) return pin;
+        const lock = await this.acquire(root);
+        if ("result" in lock) return lock.result;
+        try {
+          const journal = await this.readJournal(root);
+          if (!journal) return fail(503, "JOURNAL_UNAVAILABLE");
+          const existing = journal.records.get(operationId);
+          if (existing) {
+            if (existing.malformed || existing.state === "intent" || !existing.result)
+              return fail(409, "INTENT_UNRESOLVED", { operationId });
+            if (existing.kind !== kind) return fail(409, "OPERATION_ID_REUSED");
+            return {
+              status: existing.result.status,
+              body: { ...existing.result.body, replayed: true }
+            };
+          }
+          if (blocking(journal)) return fail(409, "INTENT_UNRESOLVED");
+          return await effect(root, operationId, journal);
+        } finally {
+          await lock.release();
+        }
+      } catch {
+        return fail(500, "DISPATCH_ERROR");
+      }
+    });
+    this.chains.set(
+      rootId,
+      run.then(
+        () => undefined,
+        () => undefined
+      )
+    );
+    return run;
+  }
+
+  private async doLaunch(
+    root: RootConfig,
+    operationId: string,
+    journal: Journal
+  ): Promise<DispatchResult> {
+    const read = await this.readStatus(root);
+    if ("error" in read) return read.error;
+    let report: Report | undefined;
+    if (read.kind === "report") {
+      if (!read.matches) return fail(409, "HOST_MISMATCH");
+      report = read.report;
+      const refusal = launchGate(report);
+      if (refusal) return fail(409, refusal);
+    }
+    // An uncertain launch clears only when the native host exited with that exact launch ID
+    // (or an operator recorded an inspection); never by time or by another ID.
+    const resolvable: JournalRecord[] = [];
+    for (const record of journal.records.values()) {
+      if (!isUncertain(record, "launch")) continue;
+      if (report && exitedWith(report, record.launchId)) resolvable.push(record);
+      else return fail(409, "PREVIOUS_LAUNCH_UNCERTAIN");
+    }
+    for (const record of resolvable) {
+      try {
+        await this.writeRecord(root, { ...record, resolution: RESOLUTIONS[0] }, false);
+      } catch {
+        return fail(503, "JOURNAL_UNAVAILABLE");
+      }
+    }
+    const intent: JournalRecord = {
+      schema: "dispatch-journal.v0",
+      operationId,
+      kind: "launch",
+      rootId: root.rootId,
+      taskId: root.taskId,
+      state: "intent",
+      createdAt: new Date().toISOString()
+    };
+    try {
+      await this.writeRecord(root, intent, true);
+    } catch {
+      return fail(503, "JOURNAL_UNAVAILABLE");
+    }
+    const limits = root.limits;
+    const args = [
+      "launch",
+      "--state-dir",
+      root.stateDir,
+      "--plan",
+      root.planFile,
+      "--plan-sha256",
+      root.planSha256,
+      "--run-root",
+      root.runRoot,
+      "--exe",
+      root.executable,
+      "--exe-sha256",
+      root.executableSha256,
+      "--launch-real-model",
+      "--root-go",
+      root.rootGo,
+      "--worker",
+      root.worker,
+      "--actor",
+      root.actor,
+      "--max-duration-s",
+      String(limits.maxDurationS),
+      "--poll-s",
+      String(limits.pollS),
+      "--max-poll-s",
+      String(limits.maxPollS),
+      "--heartbeat-s",
+      String(limits.heartbeatS),
+      "--max-nodes",
+      String(limits.maxNodes),
+      "--wait-s",
+      String(this.config.bounds.waitS),
+      ...(root.workerModel !== undefined ? ["--worker-model", root.workerModel] : [])
+    ];
+    const outcome = await this.run(
+      [...PYTHON_ENTRY_PREFIX, ...args],
+      this.config.bounds.launchDeadlineMs
+    );
+    const uncertain = (status: number, code: string, launchId?: string) =>
+      this.complete(
+        root,
+        intent,
+        "uncertain",
+        status,
+        { code, childStatus: "unknown" },
+        launchId ? { launchId } : {}
+      );
+    if (outcome.kind === "timeout") return uncertain(504, "LAUNCH_UNCERTAIN");
+    if (outcome.kind !== "exit") return uncertain(502, "LAUNCH_UNCERTAIN");
+    const out = parseJson(outcome.stdout);
+    if (!out) return uncertain(502, "LAUNCH_UNCERTAIN");
+    if (outcome.code === 0 && out.launched === true) {
+      const launchId =
+        typeof out.launchId === "string" && LAUNCH_ID.test(out.launchId) ? out.launchId : undefined;
+      if (!launchId) return uncertain(502, "LAUNCH_UNCERTAIN");
+      const after = await this.readStatus(root);
+      if (
+        !("error" in after) &&
+        after.kind === "report" &&
+        after.matches &&
+        after.report.liveness === "running" &&
+        isObject(after.report.owner) &&
+        after.report.owner.launchId === launchId
+      ) {
+        const birth = (after.report.owner as Report).processBirth;
+        const processBirth =
+          typeof birth === "string" && PROCESS_BIRTH.test(birth) ? birth : undefined;
+        return this.complete(
+          root,
+          intent,
+          "launched",
+          200,
+          { code: "LAUNCHED", launchId, host: "attached" },
+          processBirth ? { launchId, processBirth } : { launchId }
+        );
+      }
+      return uncertain(202, "UNCONFIRMED", launchId);
+    }
+    if (outcome.code === 1 && out.launched === "unconfirmed") return uncertain(202, "UNCONFIRMED");
+    if (outcome.code === 1 && out.launched === false)
+      return this.complete(root, intent, "failed", 502, { code: "LAUNCH_FAILED" });
+    if (outcome.code === 2 && typeof out.refused === "string")
+      return this.complete(root, intent, "refused", 409, {
+        code: "LAUNCH_REFUSED",
+        reason: word(out.refused)
+      });
+    return uncertain(502, "LAUNCH_UNCERTAIN");
+  }
+
+  private async doStop(root: RootConfig, operationId: string): Promise<DispatchResult> {
+    const read = await this.readStatus(root);
+    if ("error" in read) return read.error;
+    if (read.kind !== "report") return fail(409, "NO_LIVE_OWNER");
+    if (!read.matches) return fail(409, "HOST_MISMATCH");
+    if (read.report.liveness !== "running") return fail(409, "NO_LIVE_OWNER");
+    const owner = read.report.owner;
+    const target = isObject(owner) ? owner.launchId : undefined;
+    if (typeof target !== "string" || !LAUNCH_ID.test(target)) return fail(409, "OWNER_UNVERIFIED");
+    const intent: JournalRecord = {
+      schema: "dispatch-journal.v0",
+      operationId,
+      kind: "stop",
+      rootId: root.rootId,
+      taskId: root.taskId,
+      state: "intent",
+      createdAt: new Date().toISOString(),
+      targetLaunchId: target
+    };
+    try {
+      await this.writeRecord(root, intent, true);
+    } catch {
+      return fail(503, "JOURNAL_UNAVAILABLE");
+    }
+    const outcome = await this.run(
+      [
+        ...PYTHON_ENTRY_PREFIX,
+        "stop",
+        "--state-dir",
+        root.stateDir,
+        "--actor",
+        root.actor,
+        "--expected-launch-id",
+        target
+      ],
+      this.config.bounds.commandDeadlineMs
+    );
+    const out = outcome.kind === "exit" ? parseJson(outcome.stdout) : undefined;
+    if (outcome.kind === "exit" && out) {
+      if (outcome.code === 0 && out.stopRequested === true && out.targetLaunchId === target)
+        return this.complete(root, intent, "stop_requested", 202, {
+          code: "STOP_REQUESTED",
+          state: "stop_requested",
+          exited: false,
+          graceful: true
+        });
+      if (outcome.code === 2) {
+        const typed: Record<string, string> = {
+          stop_already_requested: "STOP_ALREADY_REQUESTED",
+          no_live_owner: "NO_LIVE_OWNER"
+        };
+        if (out.refused === "owner_changed" && out.expectedLaunchId === target)
+          return this.complete(root, intent, "refused", 409, { code: "OWNER_CHANGED" });
+        const code = typeof out.refused === "string" ? typed[out.refused] : undefined;
+        if (code) return this.complete(root, intent, "refused", 409, { code });
+      }
+    }
+    return this.complete(root, intent, "uncertain", 502, { code: "STOP_UNCERTAIN" });
+  }
+
+  // ---- pins ----------------------------------------------------------------------------
+
+  /** Hashes every pinned input within one deadline; a failure means no native call. */
+  private async pins(root: RootConfig): Promise<DispatchResult | undefined> {
+    const deadline = Date.now() + this.config.bounds.pinDeadlineMs;
+    const mismatch = (check: string) => fail(409, "PIN_MISMATCH", { check });
+    const timeout = fail(504, "PIN_TIMEOUT");
+    const verify = async (
+      file: string,
+      max: number,
+      expected: string,
+      check: string
+    ): Promise<DispatchResult | undefined> => {
+      const hashed = await boundedSha256(file, max, deadline);
+      if (hashed && "timeout" in hashed) return timeout;
+      return hashed && hashed.hash === expected ? undefined : mismatch(check);
+    };
+    const { python, source, bounds } = this.config;
+    const interpreter = await verify(
+      python.executable,
+      bounds.toolMaxBytes,
+      python.sha256,
+      "python"
+    );
+    if (interpreter) return interpreter;
+    const version = await this.run(["--version"], bounds.commandDeadlineMs);
+    if (version.kind !== "exit" || version.code !== 0 || version.stdout.trim() !== python.version)
+      return mismatch("python_version");
+    for (const file of source.files) {
+      const failed = await verify(
+        path.join(source.e1Root, ...file.path.split(/[\\/]/)),
+        SOURCE_MAX_BYTES,
+        file.sha256,
+        "source"
+      );
+      if (failed) return failed;
+    }
+    const lock = await verify(
+      path.join(source.e1Root, ...source.uvLock.path.split(/[\\/]/)),
+      SOURCE_MAX_BYTES,
+      source.uvLock.sha256,
+      "uv_lock"
+    );
+    if (lock) return lock;
+    const model = await verify(
+      root.executable,
+      bounds.toolMaxBytes,
+      root.executableSha256,
+      "executable"
+    );
+    if (model) return model;
+    const plan = await verify(root.planFile, PLAN_MAX_BYTES, root.planSha256, "plan");
+    if (plan) return plan;
+    // A run root that does not exist yet is the unprepared state; an existing one must bind.
+    let info;
+    try {
+      info = await stat(root.runRoot);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      return mismatch("binding");
+    }
+    if (!info.isDirectory()) return mismatch("binding");
+    try {
+      const binding = bindingSchema.parse(
+        JSON.parse(
+          await readBounded(path.join(root.runRoot, "plan.binding.json"), MAX_BINDING_BYTES)
+        )
+      );
+      if (binding.planRoot !== root.rootId || binding.importSha256 !== root.planSha256)
+        return mismatch("binding");
+    } catch {
+      return mismatch("binding");
+    }
+    const bound = await boundedSha256(
+      path.join(root.runRoot, "plan.import.json"),
+      PLAN_MAX_BYTES,
+      deadline
+    );
+    if (bound && "timeout" in bound) return timeout;
+    return bound && bound.hash === root.planSha256 ? undefined : mismatch("binding");
+  }
+
+  // ---- native commands -----------------------------------------------------------------
+
+  private childEnv(): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = {};
+    for (const [key, value] of Object.entries(this.env))
+      if (value !== undefined && ENV_ALLOW.has(key.toUpperCase())) env[key] = value;
+    env.PYTHONUTF8 = "1";
+    env[CONTAINER_WORKSPACE_ENV] = this.config.containerWorkspace;
+    return env;
+  }
+
+  /**
+   * One bounded, hidden, shell-less command. Only this command's own process is ended on a
+   * deadline or an output cap; a detached native child is never touched.
+   */
+  private run(args: string[], deadlineMs: number): Promise<Outcome> {
+    const { stdoutBytes, stderrBytes } = this.config.bounds;
+    return new Promise((resolve) => {
+      let done = false;
+      let child: ChildProcess | undefined;
+      const chunks: Buffer[] = [];
+      let out = 0;
+      let err = 0;
+      const finish = (outcome: Outcome, kill: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (kill && child) {
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // already gone
+          }
+        }
+        resolve(outcome);
+      };
+      const timer = setTimeout(() => finish({ kind: "timeout" }, true), deadlineMs);
+      try {
+        child = this.spawnFn(this.config.python.executable, args, {
+          cwd: this.config.source.e1Root,
+          env: this.childEnv(),
+          shell: false,
+          windowsHide: true,
+          stdio: ["ignore", "pipe", "pipe"]
+        });
+      } catch {
+        finish({ kind: "spawn_error" }, false);
+        return;
+      }
+      child.on("error", () => finish({ kind: "spawn_error" }, true));
+      child.stdout?.on("data", (data: Buffer) => {
+        if (done) return;
+        out += data.length;
+        if (out > stdoutBytes) finish({ kind: "overflow" }, true);
+        else chunks.push(data);
+      });
+      child.stderr?.on("data", (data: Buffer) => {
+        if (done) return;
+        err += data.length;
+        if (err > stderrBytes) finish({ kind: "overflow" }, true);
+      });
+      child.on("close", (code) =>
+        finish({ kind: "exit", code, stdout: Buffer.concat(chunks).toString("utf8") }, false)
+      );
+    });
+  }
+
+  private async readStatus(root: RootConfig): Promise<StatusRead> {
+    const outcome = await this.run(
+      [...PYTHON_ENTRY_PREFIX, "status", "--state-dir", root.stateDir],
+      this.config.bounds.commandDeadlineMs
+    );
+    if (outcome.kind === "timeout") return { error: fail(504, "STATUS_TIMEOUT") };
+    if (outcome.kind === "overflow") return { error: fail(502, "OUTPUT_TOO_LARGE") };
+    if (outcome.kind !== "exit") return { error: fail(502, "STATUS_UNAVAILABLE") };
+    const report = parseJson(outcome.stdout);
+    if (!report) return { error: fail(502, "STATUS_UNAVAILABLE") };
+    if (outcome.code === 2 && report.state === "no_status" && report.liveness === null)
+      return { kind: "none" };
+    if (outcome.code !== 0) return { error: fail(502, "STATUS_UNAVAILABLE") };
+    if (
+      report.schema !== "owned-dispatch-status.v0" ||
+      !(LIVENESS as readonly unknown[]).includes(report.liveness)
+    )
+      return { error: fail(502, "STATUS_MALFORMED") };
+    return { kind: "report", report, matches: hostMatches(root, report) };
+  }
+
+  // ---- journal -------------------------------------------------------------------------
+
+  private dir(root: RootConfig) {
+    return path.join(this.config.journalDir, root.rootId);
+  }
+
+  /** Bounded read of the whole journal; undefined when it cannot be trusted to be small. */
+  private async readJournal(root: RootConfig): Promise<Journal | undefined> {
+    const dir = this.dir(root);
+    const names: string[] = [];
+    try {
+      const handle = await opendir(dir);
+      try {
+        for await (const entry of handle) {
+          names.push(entry.name);
+          if (names.length > MAX_JOURNAL_ENTRIES) return undefined;
+        }
+      } finally {
+        await handle.close().catch(() => undefined);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+        return { records: new Map(), malformed: 0 };
+      return undefined;
+    }
+    const files = names.filter((name) => name !== "lock" && !name.endsWith(".tmp"));
+    if (files.length > MAX_JOURNAL_FILES) return undefined;
+    const records = new Map<string, JournalRecord>();
+    let malformed = 0;
+    for (const name of files) {
+      if (!JOURNAL_FILE.test(name)) {
+        malformed++;
+        continue;
+      }
+      const operationId = name.slice(0, -".json".length);
+      let record: JournalRecord | undefined;
+      try {
+        record = parseRecord(
+          JSON.parse(await readBounded(path.join(dir, name), MAX_RECORD_BYTES)),
+          root,
+          operationId
+        );
+      } catch {
+        record = undefined;
+      }
+      if (!record) {
+        malformed++;
+        record = malformedRecord(root, operationId);
+      }
+      records.set(operationId, record);
+    }
+    return { records, malformed };
+  }
+
+  /** An exclusive lock file, never reclaimed by age or by this adapter. */
+  private async acquire(
+    root: RootConfig
+  ): Promise<{ result: DispatchResult } | { release: () => Promise<void> }> {
+    const dir = this.dir(root);
+    try {
+      await mkdir(dir, { recursive: true });
+    } catch {
+      return { result: fail(503, "JOURNAL_UNAVAILABLE") };
+    }
+    const file = path.join(dir, "lock");
+    let handle;
+    try {
+      handle = await open(file, "wx");
+    } catch (error) {
+      return {
+        result: fail(
+          503,
+          (error as NodeJS.ErrnoException).code === "EEXIST"
+            ? "JOURNAL_LOCKED"
+            : "JOURNAL_UNAVAILABLE"
+        )
+      };
+    }
+    try {
+      await handle.writeFile(JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
+    } catch {
+      // The lock exists either way and is released below.
+    } finally {
+      await handle.close().catch(() => undefined);
+    }
+    return { release: () => unlink(file).catch(() => undefined) };
+  }
+
+  /** An intent is created exclusively; a completion replaces its record atomically. */
+  private async writeRecord(root: RootConfig, record: JournalRecord, exclusive: boolean) {
+    const file = path.join(this.dir(root), `${record.operationId}.json`);
+    const { malformed: _ignored, ...clean } = record;
+    const text = JSON.stringify(clean);
+    if (exclusive) {
+      const handle = await open(file, "wx");
+      try {
+        await handle.writeFile(text);
+        await handle.sync();
+      } finally {
+        await handle.close().catch(() => undefined);
+      }
+      return;
+    }
+    const tmp = `${file}.tmp`;
+    await writeFile(tmp, text);
+    await rename(tmp, file);
+  }
+
+  private async complete(
+    root: RootConfig,
+    intent: JournalRecord,
+    outcome: NonNullable<JournalRecord["outcome"]>,
+    status: number,
+    body: Record<string, unknown>,
+    extra: { launchId?: string; processBirth?: string } = {}
+  ): Promise<DispatchResult> {
+    const result: DispatchResult = {
+      status,
+      body: { ...body, operationId: intent.operationId, outcome }
+    };
+    const record: JournalRecord = {
+      ...intent,
+      state: "complete",
+      outcome,
+      result,
+      ...extra,
+      completedAt: new Date().toISOString()
+    };
+    // Only a record this adapter could later replay is written.
+    if (!parseRecord(JSON.parse(JSON.stringify(record)), root, intent.operationId))
+      return fail(503, "JOURNAL_UNAVAILABLE");
+    try {
+      await this.writeRecord(root, record, false);
+    } catch {
+      return fail(503, "JOURNAL_UNAVAILABLE");
+    }
+    return result;
+  }
+
+  // ---- projection ----------------------------------------------------------------------
+
+  private project(root: RootConfig, read: StatusOk, journal: Journal | undefined): Report {
+    const report = read.kind === "report" ? read.report : undefined;
+    const attached = report !== undefined && read.kind === "report" && read.matches;
+    const liveness = attached ? (report.liveness as Liveness) : null;
+    const owner: Report = attached && isObject(report.owner) ? report.owner : {};
+    const launchId =
+      typeof owner.launchId === "string" && LAUNCH_ID.test(owner.launchId) ? owner.launchId : null;
+    const records = journal ? [...journal.records.values()] : [];
+    const stopRequested =
+      liveness === "running" &&
+      launchId !== null &&
+      records.some(
+        (r) =>
+          r.kind === "stop" &&
+          r.state === "complete" &&
+          r.outcome === "stop_requested" &&
+          !r.malformed &&
+          r.targetLaunchId === launchId
+      );
+    const hostActive =
+      read.kind === "report" &&
+      (!read.matches || ["running", "unresponsive", "owner_unverified"].includes(String(liveness)));
+    const summary = journal
+      ? {
+          unresolvedIntent: blocking(journal),
+          uncertainLaunch: records.some(
+            (r) => isUncertain(r, "launch") && !(attached && exitedWith(report, r.launchId))
+          ),
+          uncertainStop: hostActive && records.some((r) => isUncertain(r, "stop")),
+          malformedRecords: journal.malformed
+        }
+      : null;
+    const base = { rootId: root.rootId, journal: summary };
+    const empty = {
+      ...base,
+      host: "none",
+      lifecycle: "no_host",
+      liveness: null,
+      phase: null,
+      state: null,
+      stopReason: null,
+      launchId: null,
+      startedAt: null,
+      heartbeatAt: null,
+      exitedAt: null,
+      current: null,
+      counters: null,
+      stopRequested: false
+    };
+    if (!report) return empty;
+    if (!attached) return { ...empty, host: "host_mismatch", lifecycle: "host_mismatch" };
+    const state = word(report.state);
+    let lifecycle: string;
+    if (liveness === "running")
+      lifecycle = stopRequested
+        ? "stop_requested"
+        : report.current != null
+          ? "dispatching"
+          : "running";
+    else if (liveness === "unresponsive" || liveness === "owner_unverified")
+      lifecycle = "unverified";
+    else if (liveness === "owner_gone") lifecycle = "owner_gone";
+    else lifecycle = state === "stopped" ? "stopped" : state === "failed" ? "failed" : "exited";
+    const counters = isObject(report.counters)
+      ? Object.fromEntries(
+          Object.entries(report.counters)
+            .filter(([key, value]) => SAFE_WORD.test(key) && count(value) !== null)
+            .slice(0, 16)
+        )
+      : null;
+    const heartbeat: Report = isObject(report.heartbeat) ? report.heartbeat : {};
+    return {
+      ...base,
+      host: "attached",
+      lifecycle,
+      liveness,
+      phase: word(report.phase),
+      state,
+      stopReason: word(report.stopReason),
+      launchId,
+      startedAt: stamp(owner.startedAt),
+      heartbeatAt: stamp(heartbeat.at),
+      exitedAt: stamp(report.exitedAt),
+      current: isObject(report.current)
+        ? { node: word(report.current.node), workerLiveness: "unknown" }
+        : null,
+      counters,
+      stopRequested
+    };
+  }
+}
+
+interface Journal {
+  records: Map<string, JournalRecord>;
+  malformed: number;
+}
+type StatusOk = { kind: "none" } | { kind: "report"; report: Report; matches: boolean };
+type StatusRead = { error: DispatchResult } | StatusOk;
+
+const parseJson = (text: string): Report | undefined => {
+  try {
+    const value: unknown = JSON.parse(text.trim());
+    return isObject(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Any intent or unreadable record blocks every mutation until an operator inspects it. */
+const blocking = (journal: Journal) =>
+  journal.malformed > 0 ||
+  [...journal.records.values()].some((r) => r.malformed || r.state === "intent");
+
+const isUncertain = (record: JournalRecord, kind: Kind) =>
+  record.kind === kind &&
+  record.state === "complete" &&
+  record.outcome === "uncertain" &&
+  record.resolution === undefined &&
+  !record.malformed;
+
+/** The one correlation allowed for an uncertain launch: an exited owner with its exact ID. */
+const exitedWith = (report: Report | undefined, launchId: string | undefined) =>
+  report !== undefined &&
+  launchId !== undefined &&
+  report.liveness === "exited" &&
+  isObject(report.owner) &&
+  report.owner.launchId === launchId;
+
+/** The native status must describe this root's plan, import, run root, tool and limits. */
+function hostMatches(root: RootConfig, report: Report): boolean {
+  if (report.planFileSha256 !== root.planSha256 || report.importSha256 !== root.importSha256)
+    return false;
+  if (typeof report.runRoot !== "string" || !samePath(report.runRoot, root.runRoot)) return false;
+  if (!isObject(report.owner) || report.owner.exeSha256 !== root.executableSha256) return false;
+  const limits = report.limits;
+  if (!isObject(limits)) return false;
+  const names = Object.values(NATIVE_LIMITS);
+  if (Object.keys(limits).sort().join() !== [...names].sort().join()) return false;
+  return (Object.keys(NATIVE_LIMITS) as (keyof typeof NATIVE_LIMITS)[]).every(
+    (key) => limits[NATIVE_LIMITS[key]] === root.limits[key]
+  );
+}
+
+const IDLE_LAST_STATES = new Set(["blocked", ...RELAUNCH_STATES]);
+/** The refusal code for a native host that must not be replaced, or undefined if it may be. */
+function launchGate(report: Report): string | undefined {
+  const liveness = report.liveness as Liveness;
+  if (liveness === "running") return "OWNER_PRESENT";
+  if (liveness === "unresponsive" || liveness === "owner_unverified") return "OWNER_UNVERIFIED";
+  if (liveness === "owner_gone") {
+    const idle =
+      (report.current === null || report.current === undefined) &&
+      typeof report.lastState === "string" &&
+      IDLE_LAST_STATES.has(report.lastState);
+    return idle ? undefined : "PREVIOUS_OWNER_UNCERTAIN";
+  }
+  return RELAUNCH_STATES.has(String(report.state)) ? undefined : "PREVIOUS_OWNER_UNCERTAIN";
 }
