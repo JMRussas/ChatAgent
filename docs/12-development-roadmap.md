@@ -38,14 +38,36 @@ correctly refused an already attempted task, but a lead wrapper failed to propag
 its child failure. The accepted run used package 003. CA-ISSUE-036 records that
 orchestration defect; evidence is retained rather than relabelled.
 
+Combined main verification passes **2,896 tests**, with one explicit Windows
+link-capability skip, plus formatting, lint and documentation checks. The exact
+accepted task 7 trace/claim and decision match across real paired UI reload on
+integrated source `a54ca65`; reload issues no development request or mutation.
+The actual UI has restored the genuine reliability backlog against the retained
+store. Evidence: `rehearsal-rework-001/final-reload.json` and
+`post-native-backlog-ui-launch.json`.
+
 **Next delivery order:**
 
-1. Complete combined main verification and real accepted-result UI/reload proof.
-   Restore the genuine reliability backlog against the same retained store through
-   an explicit product UI launch after the completed application owner has exited.
-2. Prepare and execute the existing recovery task
+1. Delivery verification and the controlled backlog handoff are complete. Athena
+   planning task `badfd10d-e3a0-570a-a569-d493c1460847` is accepted at epoch 1
+   and integrated from `d13050c`. Its actual CLI worker and real Active card were
+   observed; independent lead corrections are retained. The reviewed contract is
+   [document 17](implementation/17-bounded-recovery-execution.md). Planning acceptance
+   does not mark the recovery implementation complete. Actual blocking repair
+   CA-ISSUE-037 supports valid null history for untouched backlog tasks; its exact
+   accepted source `9522ea8` is integrated; actual paired UI reads untouched
+   backlog task e5a948bc without mutation or invented history/attempt.
+2. Execute and independently verify the existing recovery task
    `af690ee2-4e2e-5043-a71a-c0d126030971`, with a frozen acceptance contract that
    distinguishes observation/verification outages from model/source failures.
+   It is now claimed as `recovery-assessment-001-r1`, epoch 1, under a real bounded
+   Hermes CLI worker, and the real Active card agrees with PlanStore. This is
+   lead-supervised API/CLI execution with external input/check evidence, not a
+   prepared native TaskSpec run; native trace capture and automatic verification
+   are not claimed. The planned native profile remains a future execution path.
+   The native backlog dispatcher correctly yielded on `inflight`; a separate
+   bounded LocalStore API owner holds the same retained database's exclusive
+   advisory lock while manual review proceeds. No duplicate dispatcher is running.
    Do not spend another model retry on an unavailable external verifier. Preserve
    uncertainty, exact-owner fencing and the original attempts/evidence.
 3. Follow with recovery fencing and handoff evidence, then persistent role

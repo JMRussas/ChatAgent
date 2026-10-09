@@ -602,7 +602,24 @@ CA-ISSUE-004's unattended recovery requirement.
 12. Record the task, attempt, source SHA, checks, decision, integration and reload
     identifiers as in section 10. Only then consider the next backlog task.
 
-## 14. Limitations
+## 14. Execution mode and evidence boundary
+
+The lead has selected supervised API/CLI execution for the first implementation:
+one explicit PlanStore claim for the existing task, a finite CLI worker in an
+isolated source worktree, and independent lead checks/review before any recorded
+acceptance or exact merge. The retained input manifest pins the reviewed planning
+artifact, source base and prompt hash. The proposed prepared TaskSpec path in
+sections 9 and 13 remains a future automation path; it was not executed for this
+implementation. Do not substitute manual checks for a claimed native verifier pass.
+
+The native dispatcher yields on an independently in-flight task; a separate finite
+LocalStore API owner keeps the retained store available under its existing exclusive
+advisory lock. The native dispatcher's exited status and the API owner's heartbeat
+remain separate evidence. The supervised CLI has local retained output and process
+identity evidence, but no native captured attempt trace is claimed. A missing trace
+must remain unknown/partial in the product, never inferred from the external PID.
+
+## 15. Limitations
 
 - One-shot and on demand. Nothing detects a stall by itself, wakes anyone, or acts.
 - The assessment has no time thresholds. "Idle" is not decided; only recorded states
