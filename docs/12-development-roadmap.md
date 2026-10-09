@@ -83,7 +83,7 @@ store. Evidence: `rehearsal-rework-001/final-reload.json` and
    `native-inline-proof.json` and `maintained-inline-proof.json`. Delivery task
    `77aca710-3f0d-51c9-a8d5-91380fde2cd8` is accepted against integrated `a52c1d5`.
 
-3. Build checkpoint management into execution and observability: one coherent,
+3. Checkpoint management is delivered within its supervised scope below: one coherent,
    independently verifiable change per checkpoint, with expected budgets, enforced
    hard limits, gate evidence and explicit escalation. Workers execute autonomously
    within the checkpoint. Management observes budget/process/ownership tripwires
@@ -107,26 +107,64 @@ single delivery does not establish a measured throughput baseline. Forecast the 
 coherent increment at its accepted contract gate; unattended recovery and polish
 remain separate work rather than delaying the useful first slice.
 
-| Checkpoint         | External acceptance gate                                                               | Hekate task                            | Current result                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Contract           | Independently reviewed bounded API/UI contract and acceptance cases                    | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                                                            |
-| Working slice      | Shared API/inline UI artifact, schema/auth/projection/browser/full checks              | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                                                            |
-| Live delivery      | Maintained paired UI, exact source integration and retained-store evidence             | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                                                                  |
-| Execution contract | Freeze one bounded maintained enforcement increment, counter units and objective gates | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Athena claimed `checkpoint-execution-planning-001-r1`, epoch 1; actual CLI and Active card observed |
-| Enforcement        | Maintained budget tripwires and typed auditable checkpoint evidence                    | `94438651-ed00-5656-803d-d6097d4a4e40` | TODO, gated on accepted execution contract                                                          |
+| Checkpoint           | External acceptance gate                                                            | Hekate task                            | Current result                                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contract             | Independently reviewed bounded API/UI contract and acceptance cases                 | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                                                                                                       |
+| Working slice        | Shared API/inline UI artifact, schema/auth/projection/browser/full checks           | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                                                                                                       |
+| Live delivery        | Maintained paired UI, exact source integration and retained-store evidence          | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                                                                                                             |
+| Execution contract   | Freeze bounded enforcement, counter units and objective gates                       | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Accepted `0e75f03`, integrated `6524c7f`                                                                                                       |
+| Enforcement          | Maintained budget tripwires, owned cleanup and bounded typed checkpoint evidence    | `94438651-ed00-5656-803d-d6097d4a4e40` | Accepted `ff9230d`, integrated `6f9f288`                                                                                                       |
+| Enforcement delivery | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`                                                                                  |
+| Recovery contract    | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Athena claimed `checkpoint-recovery-next-001-r1`, epoch 1; maintained runner, 30 expected/60 hard distinct message IDs, five-minute wall bound |
+| Recovery handoff     | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | TODO; gated on accepted recovery contract                                                                                                      |
 
 These real tasks are stored under management root
-`29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Current
-practice uses isolated artifacts, external gates, bounded CLI cost/time/output and
-no per-tool semantic supervision. Configured `--max-turns` and provider-reported
-`num_turns` do not establish equivalent independently enforced counters: CA-ISSUE-038
-records observed 60-versus-97/94 mismatches and missing public help semantics. Do not
-certify those values as a verified hard turn budget. The maintained enforcement
-increment must define its observable counter and emit attributable tripwire and gate
-receipts; private wrappers and roadmap prose do not establish that product capability.
-The current overview exposes recorded current gates and explicitly unreported budget
-measurement. Model self-report is never an acceptance gate. Planning acceptance is
-separate from implementation acceptance, integration and live delivery.
+`29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
+not individual tool calls, are the management unit. Model self-report is never an
+acceptance gate; generation, independent acceptance, integration and live delivery
+remain separate facts.
+
+**Maintained enforcement is delivered.** [Document 19](implementation/19-checkpoint-execution.md)
+and `scripts/runCheckpoint.ts` define one operator-triggered, already-claimed worker
+run. Pin the executable, Git, linked worktree HEAD, prompt and current claim; use a
+fixed restricted tool profile and empty MCP configuration. Expected and hard budgets
+use `assistant_message_ids_distinct/v1`, distinct assistant message IDs observed in
+complete validated stream records. Hard units, monotonic wall time, combined output,
+uncertain counters and readable claim supersession stop only the owned process tree.
+A retained exclusive attempt lease prevents another run ID bypassing the same claim
+in the fixed record namespace. Rework needs a newly fenced attempt; namespace
+migration is explicit operator recovery, not a global cross-namespace lock.
+
+CA-ISSUE-041/042 repairs are separately accepted (`015fae3`, `ff9230d`), retaining
+failed proposals and four independent regression negatives across profile/duplicate
+start and gate attribution/monetary parsing. Generic failed checks remain unattributed;
+`source_failed` requires explicit lead attribution and evidence, and unavailable
+verification does not become a model retry. Budget/gate files are supplied,
+unauthenticated observations with unknown writer liveness. Optional registered
+records enrich shared `executive-overview/v2` and same-page detail; unregistered
+clients retain the v1 contract. Gates match exact source/attempt/content fences.
+
+Final source checks: **3,183 passing tests**, ten explicit worktree capability skips,
+146 focused cases, eight browser cases, formatting, lint and documentation checks.
+A real maintained read-only Claude checkpoint consumed **two distinct message IDs,
+17.924 seconds and 52,740 output bytes**, below its 60-unit/120-second/1-MiB hard
+bounds; provider-reported cost was approximately USD 0.047704, labelled unverified.
+The clean pinned worktree and actual paired product UI prove current budget and
+lead-supplied gate visibility without navigation, mutations or automatic reload
+reads. Evidence: `checkpoint-execution-001/reviewed-bundle.json`,
+`checkpoint-maintained-smoke-001/reviewed-bundle.json` and `maintained-ui-proof.json`.
+The implementation-generation run consumed 19 distinct IDs in about 11¾ minutes;
+its private wrapper evidence is not retroactively a maintained runner record.
+CA-ISSUE-038 is closed for the defined/enforced counter; provider `num_turns` and
+`--max-turns` semantics remain unverified and are not treated as equivalent units.
+
+**Next bounded priority:** expose registered checkpoint exceptions at the executive
+attention level and freeze a durable, fenced local operator handoff. The Athena
+contract task is running through the maintained runner; the Hermes implementation
+is queued behind acceptance. This builds on the read-only recovery assessment and
+explicitly leaves actual wake/notification delivery, acknowledgment, persistent
+supervision and unattended recovery for separately verified increments. CA-ISSUE-004
+remains open. Do not claim a stored local handoff is a delivered human notification.
 
 The retained database currently has one finite API-only LocalStore owner for
 supervised tasks, with a four-hour bound and no native dispatch or model execution.

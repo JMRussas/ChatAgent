@@ -77,11 +77,15 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-037 | Observer rejects valid null empty event history | defect | recovery observation | closed | codex-chatagent / supervised Hermes worker |
 
-| CA-ISSUE-038 | Checkpoint turn budgets lack an auditable counter | defect | checkpoint management | open | codex-chatagent / checkpoint execution task |
+| CA-ISSUE-038 | Checkpoint turn budgets lack an auditable counter | defect | checkpoint management | closed | codex-chatagent / checkpoint execution task |
 
 | CA-ISSUE-039 | Generated executive source fails syntax/type gate | defect | MVP acceptance | closed | codex-chatagent / operator source repair |
 
 | CA-ISSUE-040 | Executive evidence selection and decision linkage are insufficiently fenced | defect | audit acceptance | closed | codex-chatagent / operator audit repair |
+
+| CA-ISSUE-041 | Checkpoint launch profile, duplicate-start fence and cleanup gate gaps | defect | checkpoint enforcement | closed | codex-chatagent / operator repair |
+
+| CA-ISSUE-042 | Generic gate failures imply source cause and valid monetary tokens are rejected | defect | audit attribution | closed | codex-chatagent / operator repair |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1235,12 +1239,20 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
 - **Owner / task:** codex-chatagent; real Hekate checkpoint execution task
   `94438651-ed00-5656-803d-d6097d4a4e40`, gated after live executive MVP delivery.
   It must produce maintained enforcement/observability, not only a private script.
-- **Current mitigation / closure:** current runs also have independently enforced
-  finite wall-clock and private-output limits, and configured provider cost limits.
-  The first executive view explicitly reports budget evidence unavailable. Close
-  only after defined counters, enforced breach/escalation, attributable gate evidence
-  and meaningful independent tests are demonstrated. Do not weaken current caps or
-  infer good/bad performance from the mismatch alone.
+- **Resolution / scoped closure:** accepted maintained enforcement `ff9230d`,
+  integrated at `6f9f288`, defines `assistant_message_ids_distinct/v1` and enforces
+  unit, monotonic wall, combined output and uncertain-counter tripwires against its
+  owned worker. Meaningful tests stop actual fixture trees, deduplicate IDs and
+  retain typed exact-claim receipts; unavailable authority never implies source
+  failure. A real CLI run records two IDs and a clean exit in 17.924 seconds;
+  paired maintained UI shows current budget and lead-supplied exact gate inline.
+  Evidence: `checkpoint-execution-001/reviewed-bundle.json`,
+  `checkpoint-maintained-smoke-001/maintained-run-proof.json` and
+  `maintained-ui-proof.json`. 3,183 full cases pass with ten explicit capability
+  skips. This closes the undefined/unverified management-counter defect, not the
+  provider's undocumented turn semantics, authenticated telemetry, automatic
+  escalation delivery, unattended supervision or CA-ISSUE-004. Provider counters
+  and costs remain labelled unverified. Bounds are not performance SLOs.
 
 ### CA-ISSUE-039 — Generated executive source fails syntax/type gate
 
@@ -1285,3 +1297,42 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
 - **Evidence:** `executive-evidence-repair-001/negative-current-evidence-exit.json`,
   `reviewed-bundle.json`; `executive-mvp-live-001/native-inline-proof.json`,
   `maintained-inline-proof.json` and `delivery-bundle.json`.
+
+### CA-ISSUE-041 — Checkpoint launch profile, duplicate-start fence and cleanup gate gaps
+
+- **Observed / priority:** P1 acceptance blocker in candidate `ff00e94`. The fixed
+  profile omitted confirmed restricted/noninteractive/empty-MCP/no-session/no-slash
+  flags; prompt reads allocated an unbounded file; final cleanup could precede owned
+  termination. A different run ID could start another worker against the same claim.
+  Two meaningful fixtures also failed (last-good stale display and Windows teardown).
+- **Expected:** confirmed fixed tool scope, bounded regular prompt, monotonic worker
+  wall clock, awaited owned cleanup with uncertainty retained, exclusive attempt
+  lease in the configured namespace, and tests aligned with actual stale behavior.
+- **Owner / real task:** explicit non-model operator repair
+  `9354466c-f0bc-5a10-aba3-4440abc7d94c`. No whole-feature model retry.
+- **Resolution:** accepted `015fae3`; independent old-source profile and duplicate
+  run negatives now pass, with 132 focused checks plus format/lint/docs. Rework needs
+  a new fenced attempt; changing/deleting the fixed namespace is operator recovery,
+  not a cross-namespace global lock. Final source `ff9230d` is integrated at `6f9f288`.
+- **Evidence:** `checkpoint-gate-repair-001/negative-profile-exit.json`,
+  `negative-second-run-exit.json`, `reviewed-bundle.json`, `accepted-readback.json`.
+
+### CA-ISSUE-042 — Generic gate failures imply source cause and valid monetary tokens are rejected
+
+- **Observed / priority:** P1 audit defect in `015fae3`. Any failed check without an
+  unavailable check derived `source_failed`, without establishing cause. The local
+  parser also refused valid integral decimals in provider cost/cap fields (1.0/5.0).
+- **Expected:** failures remain `partial`/unattributed until explicit lead source
+  attribution plus retained evidence; unavailable verification cannot be a clean
+  source verdict. Admit finite monetary representations without relaxing strict
+  integer identity/budget tokens or the shared PlanStore parser.
+- **Owner / real task:** explicit non-model operator repair
+  `78d510d4-911f-52cc-aa7f-6c671dbe516d`.
+- **Resolution:** accepted `ff9230d`, integrated `6f9f288`. Two independent old-source
+  regression cases now pass; closed schema and inline validator use the same outcome
+  contract. Supplied evidence remains unauthenticated, with no automated retry or
+  acceptance. 146 focused cases, eight browser cases and 3,183 full cases pass,
+  with ten explicit capability skips; format/lint/docs pass.
+- **Evidence:** `checkpoint-causality-repair-001/negative-causality-source-exit.json`,
+  `reviewed-bundle.json`, `accepted-readback.json` and maintained delivery evidence
+  under `checkpoint-maintained-smoke-001`.
