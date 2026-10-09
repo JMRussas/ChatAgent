@@ -1164,3 +1164,187 @@ implementation token streams and passed the same independent verifier before
 acceptance. CA-ISSUE-016 tracks the missing versioned formatter capability; the
 workaround does not widen the worker shell or change its frozen oracle. The next
 UI spec is still an explicit preparation gate.
+
+### Operator dispatch adapter (bounded-plan-launch)
+
+`src/integrations/hekate/dispatchHost.ts` lets an operator observe, launch and
+gracefully stop the existing `e1.owned_dispatch` host for a prepared plan root. It
+is a thin caller, not a scheduler: it never opens LocalStore, claims, retries,
+reclaims or kills a process tree, and the native host stays the single owner and
+final authority. It is enabled only by the trusted `serverOptions.dispatchHost`
+instance; without it the routes answer `404 DISPATCH_HOST_DISABLED`. Loading that
+configuration from an environment file is a later task.
+
+| Route                                             | Access   | Effect                                |
+| ------------------------------------------------- | -------- | ------------------------------------- |
+| `GET /development/plans/:rootId/dispatch`         | operator | native `status`, public projection    |
+| `POST /development/plans/:rootId/dispatch/launch` | operator | native `launch` for the prepared root |
+| `POST /development/plans/:rootId/dispatch/stop`   | operator | native `stop` (graceful request only) |
+
+A POST body is exactly `{"operationId":"<uuid>"}`; queries, extra fields and
+non-GUID roots are refused before any native call. No request supplies a path,
+flag or limit.
+
+**Closed configuration.** The trusted `DispatchHostConfig` is a strict schema; an
+unknown key anywhere (including `entryArgs` or `exeArg`) is refused. Top level:
+`journalDir`, `containerWorkspace`, `python`, `source`, `bounds` and `roots`.
+
+- `containerWorkspace` (required, absolute): the fixed value of
+  `HEKATE_E1_CONTAINER_WORKSPACE`. The maintained `e1.harness` accepts only the
+  original workspace `D:\Git\Hekate` or the repository that holds the e1 tree
+  (three directories above `source.e1Root`), and the maintained `launch` path
+  raises without it on Windows. The host validates the value against exactly those
+  two (case and slash insensitive) when constructed and always forwards it to every
+  native child. It is never taken from a request or inherited from the parent
+  process. The maintained e1 code reads no `HEKATE_TRACE_ROOT`, so none is assigned
+  and none is inherited.
+- `python`: the interpreter path, its sha256 and the exact `--version` text. The
+  entry is the frozen constant `["-m", "e1.owned_dispatch"]`; the host runs
+  `python -m e1.owned_dispatch <command>` with `cwd` set to `source.e1Root`.
+- `source`: `e1Root`, a manifest of `{path, sha256}` files and `uvLock`. The
+  manifest must cover `pyproject.toml` and the 29 modules in
+  `REQUIRED_E1_MODULES`: the entry `owned_dispatch`, `plan_cli`, `plan_import`,
+  `plan_run`, `local_store`, `operator_acts`, `wire`, `exact`, `harness`,
+  `cli_worker`, `pilot`, `pilot_real`, `pilot_export`, `export`, `h1_bridge`,
+  `acts`, `acts_durable`, `durable`, `evidence`, `handoff`, `handoff_durable`,
+  `consumer`, `consumer_durable`, `task_spec`, `task_runner`, `task_format`,
+  `successor`, `provenance` and `__init__`. That list is curated from the import
+  graph, including lazy imports on the launch path; a test checks it is closed
+  under the imports of each pinned module against the maintained tree when that
+  tree is present. `uvLock` must be `uv.lock`. A missing or duplicate path is
+  refused at construction.
+- `bounds`: `stdoutBytes` (at most 64 KiB), `stderrBytes` (16 KiB),
+  `commandDeadlineMs` and `launchDeadlineMs` (45 s), `waitS` (40 s),
+  `toolMaxBytes` (largest interpreter or model executable hashed, at most
+  512 MiB) and `pinDeadlineMs` (one budget for all hashing of one operation, at
+  most 120 s).
+- `roots` (1 to 8): root and task GUIDs, state directory, plan file and hash,
+  import hash, run root, model executable and hash, worker (`claude` or `codex`;
+  `workerModel` only with `codex`), root-go text, actor and finite native limits.
+  `journalDir`, `source.e1Root`, each state directory and each run root must be
+  distinct and not nested in one another.
+
+Malformed configuration is refused when the host is constructed, before the
+server allocates anything, naming only field paths.
+
+**Pins and bounded IO.** Every call, before any native command, hashes the
+interpreter, every manifest file, `uv.lock`, the model executable and the plan,
+then checks the run-root binding. Hashing opens a regular file only (a directory
+or other non-file is a mismatch), refuses one above its cap
+(source and lock 4 MiB, plan 8 MiB, tools `toolMaxBytes`), streams in 256 KiB
+chunks and stops at the shared `pinDeadlineMs` (`504 PIN_TIMEOUT`). The run-root
+binding must be exactly `{marker, projectId, planRoot, importSha256}` (at most
+16 KiB) with `planRoot` equal to the root ID and `importSha256` equal to the plan
+hash, and its `plan.import.json` must hash to the plan hash. Any mismatch is
+`409 PIN_MISMATCH` with only the failed check name.
+
+**Spawn policy.** Literal argv, `shell: false`, `windowsHide: true`, ignored stdin
+and an allowlisted environment (plus the fixed workspace value), so provider
+credentials are not inherited. The only seam is the injected `spawn` function of
+`DispatchHostOptions`, which tests use to turn the validated native argv into a
+fake program; production passes no options. On deadline or output cap only the
+launcher is ended, never a process tree, and the result is `childStatus:
+"unknown"`: the adapter makes no rollback claim.
+
+**Native authority and the journal.** Process birth and the native `launchId` are
+the only identities. A journal record (operation, task, root and launch IDs; no
+secrets) is created exclusively before every spawn (intent before spawn) and
+completed afterwards. The same operation ID replays its recorded result and never
+spawns again.
+
+Records are read with bounded IO: at most 1000 records, each a regular file of at
+most 16 KiB whose size is checked before any buffer is allocated. A record is
+trusted only if it parses to an exact schema (`dispatch-journal.v0`; this root's
+GUID and this task's GUID; operation ID equal to its file name; `kind` and
+`outcome` in their enums; `launchId` as 32 hex digits, `processBirth` as digits,
+`resolution` in a closed set; no other field), and a completed record's public
+result is exactly the status, code and body fields the adapter itself writes for
+that kind and outcome, with the body's operation ID and outcome equal to the
+record's. Anything else (another task or root, an altered outcome, status or
+launch ID, an extra field, an oversized, non-regular, unreadable or foreign
+`*.json` file) is a malformed record: it blocks as an unresolved intent, is never
+replayed, is never reflected, and shows in status as `journal.malformedRecords`.
+More than 1000 records, or an oversized directory, is `503 JOURNAL_UNAVAILABLE`.
+There is no integrity MAC: a record edited into another valid, consistent one is
+not detectable.
+
+Mutations are serialized per root in process and by an exclusive lock file. A
+leftover lock, an unresolved or malformed record, or an uncertain launch refuses
+automatically until an operator inspects it; no lock or intent is ever cleaned up
+or reclaimed by age or by the adapter. An uncertain launch is cleared only by a
+later status whose exited owner carries that record's exact `launchId`, never by
+timing.
+
+| Native state                                   | Launch                              | Stop     |
+| ---------------------------------------------- | ----------------------------------- | -------- |
+| no status, or exited `stopped`/`ready_idle`    | allowed                             | no owner |
+| `running`, matching                            | `409 OWNER_PRESENT`, no launch call | allowed  |
+| `unresponsive`, `owner_unverified`             | `409 OWNER_UNVERIFIED`              | no owner |
+| `owner_gone` mid-node or after failure         | `409 PREVIOUS_OWNER_UNCERTAIN`      | no owner |
+| exited `failed` or `blocked`                   | `409 PREVIOUS_OWNER_UNCERTAIN`      | no owner |
+| any plan, import, run root, limits or exe diff | `409 HOST_MISMATCH`                 | refused  |
+
+A stop is a request: the label stays `stop_requested` while the host is running
+and becomes `stopped` only after the native status is exited with that reason.
+
+**Fenced stop.** The adapter stops only the owner it observed. If that owner's
+`launchId` is missing or not 32 lowercase hex digits, the stop is refused with
+`409 OWNER_UNVERIFIED` before any journal write or native call. Otherwise the intent
+records `targetLaunchId` and the native command is run with the literal
+`--expected-launch-id <observed launchId>`. The result is mapped strictly:
+
+- exit 0, `stopRequested: true` and `targetLaunchId` equal to the target:
+  `202 STOP_REQUESTED`.
+- exit 2, `refused: owner_changed` with `expectedLaunchId` equal to the target:
+  `409 OWNER_CHANGED`, a durable `refused` outcome.
+- exit 2, `stop_already_requested` or `no_live_owner`: `409` with the same typed
+  code, also `refused`.
+- A missing or different echo, any other exit code, timeout, overflow, malformed
+  or any other output: `502 STOP_UNCERTAIN`.
+
+`OWNER_CHANGED` is never retried against the new owner; an operator must observe
+status and ask again with a new operation ID. A request is a recorded request, not
+proof the owner saw or obeyed it. Journal replay allows exactly the stop codes
+`STOP_REQUESTED`, `STOP_ALREADY_REQUESTED`, `NO_LIVE_OWNER`, `OWNER_CHANGED` and
+`STOP_UNCERTAIN`, each with its fixed status and body shape.
+
+**Handoff, stop uncertainty and restart.** The adapter hands authority to the
+native host at `launch`: afterwards only the native status says what runs, and the
+journal is a record of what this adapter asked. A stop whose native result is
+unknown is recorded as `uncertain`; status then shows `journal.uncertainStop: true`
+for as long as the host is running (a different launch ID cannot prove the earlier
+request was delivered), and `stopRequested` stays false. Both survive a restart because status
+re-reads the journal. A crash between intent and completion leaves an intent that
+blocks every later launch and stop and appears as `journal.unresolvedIntent`; so
+does an uncertain launch as `journal.uncertainLaunch`. Restarting the adapter
+never launches, stops or resolves anything.
+
+**Evidence and what it does not prove.** The unit and HTTP tests run the adapter
+against a scripted fake of `e1.owned_dispatch`. The fake enforces what the
+maintained `plan_cli.check_run_inputs` and `harness.container_workspace_label`
+require of a real launch (the required flags and hashes, the absence of
+`--exe-arg` and `--launch-id`, and the workspace selector); tests control that the
+fake refuses without them, so a passing launch shows the adapter supplies them. For
+stop, the fake enforces the accepted native fence contract (`--expected-launch-id`
+required and well-formed, running owner, matching launch ID, target echo) and can
+script an owner swap before the command, a missing or different echo and odd exit
+codes; this is a model of the contract, not proof of a real process, of delivery or
+of the owner obeying. A
+manifest test compares the module list and these contracts with the maintained
+source when it is on the machine (it is skipped, not passed, otherwise). No real
+Hekate process, model or LocalStore was run: this is not native evidence.
+
+**Limitations.**
+
+- Installed third-party packages in the interpreter's environment are trusted, not
+  hash-pinned and not OS-isolated; `pyproject.toml` and `uv.lock` are pinned, but
+  the installed result is not re-verified.
+- File hashing reads synchronously within the deadline between reads; a single read
+  that hangs in the file system is not interrupted.
+- The journal and lock are files under a trusted, operator-owned directory; there
+  is no signature, and the adapter cannot tell a hand-edited consistent record from
+  its own.
+- The adapter cannot see or end a launcher's detached child after a timeout; only
+  the native status, never the journal, decides what is running.
+- The root-go text, actor and limits are fixed per root by trusted configuration;
+  loading that configuration from an environment file is a later task.
