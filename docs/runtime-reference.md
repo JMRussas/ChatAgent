@@ -697,6 +697,65 @@ or power-loss safety is not promised. Only this process's temp file and a lock w
 its own are removed; a changed lock is retained and reported (`CLEANUP_INCOMPLETE`). After a deadline
 refusal nothing is published and the abandoned work cleans up when it settles.
 
+### Finite checkpoint verification continuation
+
+`npx tsx scripts/continueCheckpoint.ts --manifest <file>` implements
+[doc 22](implementation/22-checkpoint-continuation-manager.md) for one already claimed `coding`
+checkpoint. The trusted manifest (`checkpoint-continuation-run/v1`, at most 32 KiB, closed schema,
+duplicate/unsafe keys and integral decimals in identity fields refused) holds the unchanged
+`checkpoint-run/v1` object as `run`, 1-24 declared `files` under `src/`, `scripts/`, `tests/` or
+`docs/`, 1-8 `focusedTests`, a pinned absolute `nodeExecutable`, SHA-256 pins for the fixed Prettier,
+TypeScript and Vitest entry scripts, and `limits` (`wallMs` at most 1,800,000 and greater than the
+worker wall plus `verifierWallMs` plus 30 s; `verifierWallMs` at most 600,000; `verifierOutputBytes`
+at most 4 MiB). It has no command, script, argv, environment or model field. A real-valued
+`run.providerUsdCap` must be written non-integral or as a plain integer (`2.5` or `2`, not `2.0`).
+
+One process, under one monotonic deadline that starts at CLI entry, runs this sequence and ends
+at a stored `review_pending` or `needs_operator`:
+
+1. Preflight (pins, linked worktree at the exact clean base with no staged change, declared paths
+   free of symlinks, current `in_progress` claim whose gates hold, no existing run, gate or
+   instance/runner lease), then the exclusive `<runId>.continuation.json` and
+   `.continuation-<claim-hash>.lease` reservation in `run.recordDir`, all before any worker.
+2. `runCheckpoint` once. Anything but a clean zero exit stops with no candidate, finish or check.
+3. Bounded NUL-separated Git status/diff paths (renames off). Only declared regular files may be
+   modified, added or deleted. One candidate commit is made with fixed identity and message and
+   command-local settings (no hooks, fsmonitor or signing); the result is re-verified.
+4. One finish-only `POST /api/plan-contract/v1/nodes/<nodeId>/transition` (`to: done`, exact
+   attempt/epoch, candidate SHA, the current state revision as CAS, a fixed actor and an operation
+   key bound to run and candidate). `finish: attempted` is durable first; a conflict, outage or
+   unconfirmed response stops and is never replayed. A bounded GET must show the exact
+   `review_pending` artifact before verification.
+5. `node <Prettier|TypeScript|Vitest entry>` with fixed arguments in the worktree (`--check` on
+   declared existing changed files only; `--project tsconfig.json --noEmit`; `run --maxWorkers=1`
+   on the focused tests), `shell: false`, `windowsHide`, an allowlisted environment, shared
+   verifier wall/output bounds and output hashed while streamed, then discarded. A launch error,
+   timeout or output cap is `unavailable` and keeps later checks unavailable; a nonzero exit is
+   `fail`. The checks run in the same awaited process as the worker; no user message is involved.
+6. A final task/artifact, candidate HEAD, clean-tree and lease recheck, then the existing
+   `checkpoint-gate/v1` for the worker's original run and fence with `failureAttribution:
+   unattributed`. Only all-pass yields `review_pending`.
+
+`checkpoint-continuation/v1` (at most 16 KiB, newline-terminated) exposes `phase`
+(`reserved`, `running`, `snapshotting`, `verifying`, `review_pending`, `needs_operator`), a typed
+`reason`, `sourceRef`, worker stop/exit and unverified counters, `finish`, per-check results with
+exit/timeout/byte metadata and output hashes, and fixed `leadAcceptance: pending`,
+`semanticReview: not_performed`, `delivery: not_sent`, `wake: none`, `acknowledgment: none`,
+`recordTrust: supplied_not_authenticated`, `writerLiveness: unknown`. The gate's evidence
+references carry an independent reason, source and fence. `checkRole: mimir_external_checks` names
+deterministic external checks only; the gate states `suppliedBy: lead` because that is the existing
+schema's only value, not because a lead reviewed anything. Exit codes: 0 only for stored
+`review_pending`, 1 stored operator outcome, 2 input or preflight refusal, 4 persistence or cleanup
+failure. Zero is never acceptance.
+
+Limits: the lease is cooperative and a crash retains it (recovery is a separate operator step);
+a fresh invocation never resumes. In-flight filesystem and process operations can settle after a
+deadline and are then not followed by a later phase. A terminal `needs_operator` record is the one
+write allowed after the deadline, and still requires the owned lease token. Node and Git entry pins
+do not authenticate dependencies, and running repository code is host-owned, not sandboxed. A
+child that exits normally is not tree-swept afterwards. Nothing claims, releases, revises,
+decides, accepts, integrates, retries, notifies or calls a model, and no semantic review is done.
+
 `--show` reads only the manifest and ledger, checks schema, queue id, manifest hash and entries,
 and prints the retained observation (not current state) with no API request, lock or write. Exit
 codes: 0 only for `all_accepted`; 1 for any other stored outcome; 2 usage or configuration refusal;
