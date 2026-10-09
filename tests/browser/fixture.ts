@@ -2,6 +2,13 @@ import { toolResultSchema } from "../../src/app/toolResult";
 import { RoleCatalog } from "../../src/app/roleCatalog";
 import { createLiveBriefing } from "../../src/sports/liveBriefing";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import {
+  DispatchHost,
+  ORIGINAL_CONTAINER_WORKSPACE,
+  REQUIRED_SOURCE_PATHS
+} from "../../src/integrations/hekate/dispatchHost";
 const sportsConfig = JSON.parse(readFileSync("data/sports/nfl-live-briefing.example.json", "utf8"));
 import { CapabilityChat } from "../../src/app/capabilityChat";
 import { ContextManager } from "../../src/app/contextManager";
@@ -25,7 +32,69 @@ import {
   type GenerationResult
 } from "../../src/domain/generation";
 
-async function runtime(maxEventStreams?: number, documentationTasks = false, planStatus = false) {
+/**
+ * A real DispatchHost over paths that do not exist, with a spawn that always throws: a pin
+ * check fails before any native call, so no Python, Hekate or model can ever run. Specs stub
+ * the browser's dispatch requests with page.route; only the auth boundary tests reach it.
+ */
+function inertDispatchHost() {
+  const base = path.join(tmpdir(), `chatagent-inert-dispatch-${process.pid}`);
+  const zero = "0".repeat(64);
+  const guid = (n: string) =>
+    `${n.repeat(8)}-${n.repeat(4)}-4${n.repeat(3)}-8${n.repeat(3)}-${n.repeat(12)}`;
+  return new DispatchHost(
+    {
+      journalDir: path.join(base, "journal"),
+      containerWorkspace: ORIGINAL_CONTAINER_WORKSPACE,
+      traceRoot: path.join(base, "trace"),
+      python: { executable: path.join(base, "python"), sha256: zero, version: "inert" },
+      source: {
+        e1Root: path.join(base, "e1"),
+        files: REQUIRED_SOURCE_PATHS.map((rel) => ({ path: rel, sha256: zero })),
+        uvLock: { path: "uv.lock", sha256: zero }
+      },
+      bounds: {
+        stdoutBytes: 1024,
+        stderrBytes: 1024,
+        commandDeadlineMs: 1000,
+        launchDeadlineMs: 2000,
+        waitS: 1,
+        toolMaxBytes: 1024,
+        pinDeadlineMs: 1000
+      },
+      roots: [
+        {
+          rootId: "11111111-2222-4333-8444-555555555555",
+          taskId: guid("a"),
+          stateDir: path.join(base, "state"),
+          planFile: path.join(base, "plan.json"),
+          planSha256: zero,
+          importSha256: zero,
+          runRoot: path.join(base, "trace", "run"),
+          executable: path.join(base, "model"),
+          executableSha256: zero,
+          worker: "claude",
+          rootGo: "inert",
+          actor: "inert",
+          limits: { maxDurationS: 60, pollS: 5, maxPollS: 5, heartbeatS: 5, maxNodes: 1 }
+        }
+      ]
+    },
+    {
+      spawn: () => {
+        throw new Error("browser fixtures never start a process");
+      },
+      env: {}
+    }
+  );
+}
+
+async function runtime(
+  maxEventStreams?: number,
+  documentationTasks = false,
+  planStatus = false,
+  planRunControls = false
+) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
     worker: boolean;
@@ -260,6 +329,7 @@ async function runtime(maxEventStreams?: number, documentationTasks = false, pla
     // Enables the panel and route only; specs stub the browser's plan requests with
     // page.route, so no Hekate is contacted. The discard port is never listening.
     ...(planStatus ? { planApiUrl: "http://127.0.0.1:9" } : {}),
+    ...(planRunControls ? { dispatchHost: inertDispatchHost() } : {}),
     briefings: sports.http,
     maxEventStreams,
     auth: ephemeral.auth,
@@ -344,13 +414,15 @@ export const test = base.extend<{
   streamCap: number | undefined;
   documentationTasks: boolean;
   planStatus: boolean;
+  planRunControls: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
   documentationTasks: [false, { option: true }],
   planStatus: [false, { option: true }],
-  app: async ({ streamCap, documentationTasks, planStatus }, use) => {
-    const app = await runtime(streamCap, documentationTasks, planStatus);
+  planRunControls: [false, { option: true }],
+  app: async ({ streamCap, documentationTasks, planStatus, planRunControls }, use) => {
+    const app = await runtime(streamCap, documentationTasks, planStatus, planRunControls);
     try {
       await use(app);
     } finally {

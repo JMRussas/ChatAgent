@@ -43,6 +43,12 @@ export const PYTHON_ENTRY_PREFIX: readonly string[] = Object.freeze(["-m", "e1.o
 export const ORIGINAL_CONTAINER_WORKSPACE = "D:\\Git\\Hekate";
 export const CONTAINER_WORKSPACE_ENV = "HEKATE_E1_CONTAINER_WORKSPACE";
 /**
+ * The variable Hekate's attempt-trace viewer confines its reads under. It is never
+ * inherited: only the operator-approved `traceRoot` of the trusted configuration reaches
+ * a child.
+ */
+export const TRACE_ROOT_ENV = "HEKATE_TRACE_ROOT";
+/**
  * Every maintained module the `status`, `launch`, `stop` and detached `run` commands can
  * import, directly or lazily (curated from the import graph of `owned_dispatch`,
  * `plan_cli`, `plan_run`, `local_store` and their dependencies). The source manifest must
@@ -194,6 +200,8 @@ const configSchema = z
     journalDir: absolute,
     /** The fixed value the maintained launch path requires; never taken from a request. */
     containerWorkspace: workspaceLabel,
+    /** Optional approved root for the attempt-trace viewer; checked against the paths below. */
+    traceRoot: absolute.optional(),
     python: z
       .object({
         executable: absolute,
@@ -525,6 +533,21 @@ export class DispatchHost {
         for (let j = i + 1; j < places.length; j++)
           if (nested(places[i], places[j]) || nested(places[j], places[i]))
             throw new DispatchHostConfigError(["roots.paths"]);
+    }
+    const approved = data.traceRoot;
+    if (approved !== undefined) {
+      const resolved = path.resolve(approved);
+      const protectedPaths = [
+        data.source.e1Root,
+        data.journalDir,
+        ...data.roots.map((root) => root.stateDir)
+      ];
+      if (
+        resolved === path.parse(resolved).root ||
+        data.roots.some((root) => !nested(approved, root.runRoot)) ||
+        protectedPaths.some((place) => nested(approved, place))
+      )
+        throw new DispatchHostConfigError(["traceRoot"]);
     }
     // The maintained launch path accepts only the original workspace or its own repository.
     const repository = path.resolve(data.source.e1Root, "..", "..", "..");
@@ -909,6 +932,7 @@ export class DispatchHost {
       if (value !== undefined && ENV_ALLOW.has(key.toUpperCase())) env[key] = value;
     env.PYTHONUTF8 = "1";
     env[CONTAINER_WORKSPACE_ENV] = this.config.containerWorkspace;
+    if (this.config.traceRoot !== undefined) env[TRACE_ROOT_ENV] = this.config.traceRoot;
     return env;
   }
 
@@ -1214,7 +1238,13 @@ export class DispatchHost {
       heartbeatAt: stamp(heartbeat.at),
       exitedAt: stamp(report.exitedAt),
       current: isObject(report.current)
-        ? { node: word(report.current.node), workerLiveness: "unknown" }
+        ? {
+            node: word(report.current.node),
+            ...(typeof report.current.nodeId === "string" && GUID.test(report.current.nodeId)
+              ? { nodeId: report.current.nodeId }
+              : {}),
+            workerLiveness: "unknown"
+          }
         : null,
       counters,
       stopRequested
