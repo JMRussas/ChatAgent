@@ -157,6 +157,12 @@ describe("checkpoint budget in the executive overview UI", () => {
       reported({ record: makeRecord({ writerLiveness: "alive" as never }) }),
       reported({ record: makeRecord({ stop: { kind: "tripwire", code: "exited" as never } }) }),
       reported({ gate: { state: "current", gate: { ...makeGate(), suppliedBy: "bot" } } }),
+      reported({
+        gate: {
+          state: "current",
+          gate: makeGate({ checks: [{ name: "tests", result: "fail" }], outcome: "source_failed" })
+        }
+      }),
       reported({ gate: { state: "bogus" } }),
       { state: "unavailable", reason: "<b>x</b>" },
       { state: "reported" }

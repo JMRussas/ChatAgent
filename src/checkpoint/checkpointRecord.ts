@@ -45,7 +45,7 @@ export interface BoundedJsonOptions {
   maxDepth?: number;
   /**
    * `record`: an integer token must be a safe integer and a decimal token must not have an
-   * integral value, so "1.0" can never pass as an identity or counter.
+   * integral value outside the two provider monetary fields, so "1.0" cannot pass as a counter.
    * `stream`: any finite number (provider metadata); schemas still validate what they use.
    */
   numbers?: "record" | "stream";
@@ -82,7 +82,7 @@ export function parseBoundedJson(text: string, options: BoundedJsonOptions = {})
       return fail("SYNTAX");
     }
   };
-  const number = (): number => {
+  const number = (path: string[]): number => {
     NUMBER.lastIndex = at;
     const match = NUMBER.exec(text);
     if (!match) return fail("SYNTAX");
@@ -94,11 +94,14 @@ export function parseBoundedJson(text: string, options: BoundedJsonOptions = {})
       const decimal = /[.eE]/.test(token);
       if (Object.is(value, -0)) fail("INVALID_NUMBER");
       if (!decimal && !Number.isSafeInteger(value)) fail("INVALID_NUMBER");
-      if (decimal && Number.isInteger(value)) fail("INVALID_NUMBER");
+      const monetary =
+        (path.length === 1 && path[0] === "providerUsdCap") ||
+        (path.length === 2 && path[0] === "providerReported" && path[1] === "costUsd");
+      if (decimal && Number.isInteger(value) && !monetary) fail("INVALID_NUMBER");
     }
     return value;
   };
-  const value = (depth: number): unknown => {
+  const value = (depth: number, path: string[] = []): unknown => {
     space();
     const c = text[at];
     if (c === "{") {
@@ -119,7 +122,7 @@ export function parseBoundedJson(text: string, options: BoundedJsonOptions = {})
         seen.add(key);
         space();
         if (text[at++] !== ":") fail("SYNTAX");
-        out[key] = value(depth + 1);
+        out[key] = value(depth + 1, [...path, key]);
         space();
         const next = text[at++];
         if (next === "}") return out;
@@ -136,7 +139,7 @@ export function parseBoundedJson(text: string, options: BoundedJsonOptions = {})
         return out;
       }
       for (;;) {
-        out.push(value(depth + 1));
+        out.push(value(depth + 1, [...path, "[]"]));
         space();
         const next = text[at++];
         if (next === "]") return out;
@@ -153,7 +156,7 @@ export function parseBoundedJson(text: string, options: BoundedJsonOptions = {})
         at += literal.length;
         return result;
       }
-    return number();
+    return number(path);
   };
   const result = value(0);
   space();
@@ -301,16 +304,21 @@ export const GATE_OUTCOMES = [
 export type GateOutcome = (typeof GATE_OUTCOMES)[number];
 
 /**
- * Outcome implied by the checks. An outage is never a failure: only an explicit `fail` check
- * can lead to `source_failed`, and any `unavailable` check stops it from being a clean verdict.
+ * Check results do not establish cause. A source verdict needs explicit lead attribution;
+ * unavailable checks prevent a clean verdict and an unattributed failure remains partial.
  */
 export function deriveGateOutcome(
-  checks: readonly { result: (typeof GATE_CHECK_RESULTS)[number] }[]
+  checks: readonly { result: (typeof GATE_CHECK_RESULTS)[number] }[],
+  failureAttribution: "source" | "unattributed" = "unattributed"
 ): GateOutcome {
   if (checks.length === 0 || checks.every((c) => c.result === "unavailable"))
     return "verifier_unavailable";
   if (checks.every((c) => c.result === "pass")) return "checks_passed";
-  if (checks.some((c) => c.result === "fail") && checks.every((c) => c.result !== "unavailable"))
+  if (
+    failureAttribution === "source" &&
+    checks.some((c) => c.result === "fail") &&
+    checks.every((c) => c.result !== "unavailable")
+  )
     return "source_failed";
   return "partial";
 }
@@ -336,10 +344,11 @@ export const gateRecordSchema = z
           .strict()
       )
       .max(CHECKPOINT_LIMITS.maxChecks),
+    failureAttribution: z.enum(["source", "unattributed"]).default("unattributed"),
     outcome: z.enum(GATE_OUTCOMES)
   })
   .strict()
-  .refine((g) => g.outcome === deriveGateOutcome(g.checks))
+  .refine((g) => g.outcome === deriveGateOutcome(g.checks, g.failureAttribution))
   .refine((g) => g.outcome !== "source_failed" || g.evidenceRefs.length > 0);
 export type GateRecord = z.infer<typeof gateRecordSchema>;
 
@@ -391,7 +400,7 @@ export type RecordParseFailure = "invalid" | "unsupported_schema";
 function parseFile<T>(
   bytes: Uint8Array,
   schemaName: string,
-  schema: z.ZodType<T>
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>
 ): { ok: true; value: T } | { ok: false; reason: RecordParseFailure } {
   let parsed: unknown;
   try {

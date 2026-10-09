@@ -181,11 +181,16 @@ export function executiveOverviewScript(): string {
     return (r.state === 'running') === (s.kind === 'none') && (r.state === 'running') === (r.endedAt === null);
   }
   function validGate(g) {
-    if (!isObject(g) || !keysAre(g, ['schema', 'runId', 'identity', 'sourceRef', 'suppliedBy', 'recordedAt', 'evidenceRefs', 'checks', 'outcome'])) return false;
+    if (!isObject(g) || !keysAre(g, ['schema', 'runId', 'identity', 'sourceRef', 'suppliedBy', 'recordedAt', 'evidenceRefs', 'checks', 'failureAttribution', 'outcome'])) return false;
     if (g.schema !== 'checkpoint-gate/v1' || !GUID.test(g.runId) || !isObject(g.identity) || !keysAre(g.identity, ['rootId', 'nodeId', 'attemptId', 'attemptEpoch', 'contentRevision']) || !validFence(g.identity)) return false;
     if (typeof g.sourceRef !== 'string' || !GIT_REF.test(g.sourceRef) || g.suppliedBy !== 'lead' || typeof g.recordedAt !== 'string' || !STAMP.test(g.recordedAt) || !oneOf(g.outcome, GATE_OUTCOMES)) return false;
     if (!Array.isArray(g.evidenceRefs) || g.evidenceRefs.length > 8 || !g.evidenceRefs.every(function (x) { return isStr(x, 128); })) return false;
-    return Array.isArray(g.checks) && g.checks.length <= 16 && g.checks.every(function (x) { return isObject(x) && keysAre(x, ['name', 'result']) && isStr(x.name, 64) && oneOf(x.result, CHECK_RESULTS); });
+    if (!oneOf(g.failureAttribution, ['source', 'unattributed']) || !Array.isArray(g.checks) || g.checks.length > 16 || !g.checks.every(function (x) { return isObject(x) && keysAre(x, ['name', 'result']) && isStr(x.name, 64) && oneOf(x.result, CHECK_RESULTS); })) return false;
+    var inferred = 'partial';
+    if (g.checks.length === 0 || g.checks.every(function (x) { return x.result === 'unavailable'; })) inferred = 'verifier_unavailable';
+    else if (g.checks.every(function (x) { return x.result === 'pass'; })) inferred = 'checks_passed';
+    else if (g.failureAttribution === 'source' && g.checks.some(function (x) { return x.result === 'fail'; }) && g.checks.every(function (x) { return x.result !== 'unavailable'; })) inferred = 'source_failed';
+    return g.outcome === inferred && (inferred !== 'source_failed' || g.evidenceRefs.length > 0);
   }
   function validGateView(v) {
     if (!isObject(v)) return false;
@@ -480,6 +485,7 @@ export function executiveOverviewScript(): string {
     }
     add(box, 'p', 'Gate evidence (' + (g.state === 'current' ? 'current' : 'history, not for the current artifact') + '; supplied by the lead, not verified by ChatAgent): ' + g.gate.outcome);
     line(box, 'Gate source', g.gate.sourceRef);
+    line(box, 'Failure attribution (lead supplied)', g.gate.failureAttribution);
     for (var k = 0; k < g.gate.checks.length; k++) add(box, 'p', 'Check ' + text(g.gate.checks[k].name) + ': ' + g.gate.checks[k].result);
   }
   function renderTask(parent, rootId, task) {

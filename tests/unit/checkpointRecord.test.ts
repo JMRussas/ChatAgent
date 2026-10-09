@@ -161,7 +161,10 @@ describe("gate evidence schema", () => {
     expect(deriveGateOutcome([])).toBe("verifier_unavailable");
     expect(deriveGateOutcome([{ result: "pass" }, { result: "unavailable" }])).toBe("partial");
     expect(deriveGateOutcome([{ result: "fail" }, { result: "unavailable" }])).toBe("partial");
-    expect(deriveGateOutcome([{ result: "fail" }, { result: "pass" }])).toBe("source_failed");
+    expect(deriveGateOutcome([{ result: "fail" }, { result: "pass" }])).toBe("partial");
+    expect(deriveGateOutcome([{ result: "fail" }, { result: "pass" }], "source")).toBe(
+      "source_failed"
+    );
     expect(deriveGateOutcome([{ result: "pass" }])).toBe("checks_passed");
   });
 
@@ -174,6 +177,7 @@ describe("gate evidence schema", () => {
     expect(parseGateRecord(bytes(outage)).ok).toBe(true);
     expect(parseGateRecord(bytes({ ...outage, outcome: "source_failed" })).ok).toBe(false);
     const failed = makeGate({
+      failureAttribution: "source",
       checks: [{ name: "tests", result: "fail" }],
       outcome: "source_failed"
     });
@@ -298,5 +302,27 @@ describe("checkpoint record registry config", () => {
       expect((error as Error).message).toBe("INVALID_CHECKPOINT_RECORDS");
       expect(JSON.stringify(error)).not.toContain(secret);
     }
+  });
+});
+
+describe("independent causality and monetary contract regressions", () => {
+  it("keeps a failed check unattributed without an explicit source verdict", () => {
+    expect(deriveGateOutcome([{ result: "fail" }])).toBe("partial");
+    expect(
+      parseGateRecord(
+        bytes(makeGate({ checks: [{ name: "tests", result: "fail" }], outcome: "partial" }))
+      ).ok
+    ).toBe(true);
+    expect(
+      parseGateRecord(
+        bytes(makeGate({ checks: [{ name: "tests", result: "fail" }], outcome: "source_failed" }))
+      ).ok
+    ).toBe(false);
+  });
+  it("admits integral decimal monetary metadata while preserving integer fences", () => {
+    const cost = JSON.stringify(makeRecord()).replace('"costUsd":0.0123', '"costUsd":1.0');
+    expect(parseBudgetRecord(Buffer.from(cost)).ok).toBe(true);
+    expect(parseBoundedJson('{"providerUsdCap":5.0}')).toEqual({ providerUsdCap: 5 });
+    expect(() => parseBoundedJson('{"consumed":{"units":5.0}}')).toThrow();
   });
 });

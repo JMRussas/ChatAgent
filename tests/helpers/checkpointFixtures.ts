@@ -64,6 +64,7 @@ export function makeGate(over: Partial<GateRecord> = {}): GateRecord {
       { name: "unit tests", result: "pass" },
       { name: "lint", result: "pass" }
     ],
+    failureAttribution: "unattributed",
     outcome: "checks_passed",
     ...over
   };
