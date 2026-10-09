@@ -195,6 +195,8 @@ interface Call {
   env: string[];
   workspace: string | null;
   traceRootSet: boolean;
+  npmCache: string | null;
+  npmKeys: string[];
   pid: number;
 }
 function calls(env: Env, command?: string): Call[] {
@@ -1770,6 +1772,51 @@ describe("operator-approved trace root", () => {
     expect(() => new DispatchHost(env.config)).not.toThrow();
     const config = { ...traced().config, traceRootPath: "x" } as unknown;
     expect(() => new DispatchHost(config)).toThrow(DispatchHostConfigError);
+  });
+});
+
+describe("operator-approved npm cache (CA-ISSUE-033)", () => {
+  const ambient = {
+    ...process.env,
+    npm_config_cache: "D:\\ambient\\lower-cache",
+    NPM_CONFIG_CACHE: "D:\\ambient\\upper-cache",
+    npm_config_userconfig: "D:\\ambient\\user.npmrc",
+    npm_config_globalconfig: "D:\\ambient\\global.npmrc",
+    npm_config_registry: "https://registry.example",
+    npm_config_proxy: "http://proxy.example",
+    NPM_TOKEN: "sentinel-token"
+  };
+
+  it("forwards only the approved value, lowercase, to every native child", async () => {
+    const env = makeEnv();
+    env.config.npmCacheDir = path.join(env.dir, "warm-cache");
+    scenario(env, launchedScenario(env));
+    const { host: h, seen } = host(env, { env: ambient });
+    await h.status(ROOT);
+    await h.launch(ROOT, OP1);
+    await h.stop(ROOT, OP2);
+    const all = calls(env);
+    expect(all.length).toBeGreaterThanOrEqual(5);
+    for (const call of all) {
+      expect(call.npmCache).toBe(env.config.npmCacheDir);
+      expect(call.npmKeys).toEqual(["npm_config_cache"]);
+    }
+    for (const s of seen) {
+      const keys = Object.keys(s.options.env ?? {}).filter((k) =>
+        k.toLowerCase().startsWith("npm_")
+      );
+      expect(keys).toEqual(["npm_config_cache"]);
+    }
+  });
+
+  it("does not inherit an ambient cache or any npm setting when unconfigured", async () => {
+    const env = makeEnv();
+    const { host: h } = host(env, { env: ambient });
+    await h.status(ROOT);
+    for (const call of calls(env)) {
+      expect(call.npmCache).toBeNull();
+      expect(call.npmKeys).toEqual([]);
+    }
   });
 });
 

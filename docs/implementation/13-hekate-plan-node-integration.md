@@ -1188,7 +1188,8 @@ flag or limit.
 
 **Closed configuration.** The trusted `DispatchHostConfig` is a strict schema; an
 unknown key anywhere (including `entryArgs` or `exeArg`) is refused. Top level:
-`journalDir`, `containerWorkspace`, `python`, `source`, `bounds` and `roots`.
+`journalDir`, `containerWorkspace`, `python`, `source`, `bounds` and `roots`, plus the
+optional `traceRoot` and `npmCacheDir`.
 
 - `containerWorkspace` (required, absolute): the fixed value of
   `HEKATE_E1_CONTAINER_WORKSPACE`. The maintained `e1.harness` accepts only the
@@ -1211,6 +1212,19 @@ unknown key anywhere (including `entryArgs` or `exeArg`) is refused. Top level:
   the children the adapter starts. The viewer reads its own process environment, which
   the adapter does not configure, so the Hekate API process must be started with the same
   approved value (CA-ISSUE-027); nothing here proves the viewer is configured.
+- `npmCacheDir` (optional, absolute, native path; CA-ISSUE-033): the operator's warm npm
+  cache that the maintained `task_runner` requires as `npm_config_cache` for npm-ci
+  prepared tasks (absent -> `npm_cache_required`, invalid -> `npm_cache_invalid`, both
+  before any claim). When set, the host adds exactly that configured string as lowercase
+  `npm_config_cache` to every native child. Ambient `npm_config_cache` or
+  `NPM_CONFIG_CACHE`, and every other npm, registry, proxy, auth or token variable, are
+  still stripped by the allowlist and never forwarded. There is no default cache, no
+  download, no shell or environment source and no request override; the public launch and
+  stop payload stays `operationId` only. The host does not duplicate native cache validation. The task runner checks
+  the directory before claim and records cache provenance; offline npm-ci checks
+  dependency availability, with failed preflight evidence retained. A config without it remains valid for read, status, stop and tasks that do not
+  need npm-ci, but a launch of an npm-ci prepared task is refused by the native host
+  until the operator supplies a warm cache value.
 - `python`: the interpreter path, its sha256 and the exact `--version` text. The
   entry is the frozen constant `["-m", "e1.owned_dispatch"]`; the host runs
   `python -m e1.owned_dispatch <command>` with `cwd` set to `source.e1Root`.
