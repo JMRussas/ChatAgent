@@ -97,8 +97,8 @@ store. Evidence: `rehearsal-rework-001/final-reload.json` and
    distinguish source failures from unavailable external verification before
    choosing a retry. Automatic retry, uncertain-owner restart and unattended
    recovery require their separately reviewed authority and fences.
-4. Deliver the P1 checkpoint phase/attention projection in the accepted archived
-   assessment below, then continue recovery fencing and handoff evidence and persistent role
+4. The P1 checkpoint phase/attention projection below is accepted. Continue
+   recovery fencing and handoff evidence, then persistent role
    assignment/review/recovery. Optional LangChain/LangGraph primitives already
    exist; an unattended role/recovery service remains unfinished.
 5. Integrate measurements before setting execution-time thresholds: equivalent
@@ -288,29 +288,56 @@ contains all eight exact tips, subchange decisions and narrow acceptance gates.
 The verified local bundle, PR records, local branches and dirty source remain preserved.
 No remote branch is restored.
 
-Only three implementation follow-ups are queued, all still unstarted:
+All three implementation follow-ups are accepted against tested source artifacts:
 
 - **P1 ChatAgent checkpoint phase/attention visibility**, task
-  `84290f4f-29bd-527a-a1e6-a6c36037ee13`: project the finite continuation's actual
-  reserved/running/snapshotting/verifying/review_pending/needs_operator states into
-  the executive overview and existing inline detail, with exact attempt/content
-  fences, bounded metadata and unknown/stale evidence handling. This is the next
-  observability increment; it does not add per-step AI supervision or automatic retry.
-  Source implementation is in the working tree and specified in
-  [document 24](implementation/24-checkpoint-phase-visibility.md): an optional trusted
-  `continuationRecordPath` per registry entry and a closed `executive-overview/v4`
-  opened only when one is configured. Limits: records are supplied and unauthenticated,
-  a phase is the last recorded one (writer liveness unknown), checks passing is not
-  acceptance, and stale or unmatched records show as unavailable. External checks,
-  review, acceptance, integration and live proof are not yet recorded.
+  `84290f4f-29bd-527a-a1e6-a6c36037ee13`: accepted operator delivery epoch 2,
+  content revision 3, source `94e2488d8cfc122fbb527805ea3455509c7b0d62`.
+  [Document 24](implementation/24-checkpoint-phase-visibility.md) defines the
+  optional trusted continuation path and closed shared `executive-overview/v4`:
+  all six recorded phases, bounded summary/attention and existing inline detail,
+  exact task/run/content/source fences, and explicit unavailable coverage.
+  Current source-base agreement is required; liveness stays unknown and checks
+  passing is not acceptance. Raw Claude candidate `becf03a` remains rejected.
+  The finite coordinator actually finished the worker and ran three external
+  checks without a new user message, then stopped at `needs_operator` when they
+  failed. CA-ISSUE-047 records fixture/claim/source-currency repairs; a later
+  eight-case integration timeout was reproduced and split into independent test
+  budgets with all assertions retained. No production or global timeout increased.
+  Final gate: **3,376 tests passed, ten capability skips**, **ten browser cases**,
+  lint/docs and paired same-page UI proof of the real rejected phase/checks/source.
+  The initial 3,368-pass/one-timeout full gate is retained. Evidence:
+  `checkpoint-phase-implementation-001/reviewed-bundle.json`, automatic records,
+  `full-gate-timeout-diagnosis.json`, `feature-accepted-readback.json` and paired UI proofs.
 - **P2 Hekate Gods task-list dependencies/tools**, task
-  `f9bd68e5-40d9-594f-b5f6-2840b3ce0efe`: fix the confirmed legacy Gods API/consumer
-  omission with validated arrays, filter isolation and bounded queries. Managed
-  PlanStore is a separate ledger; this is not a claimed executive-view defect.
+  `f9bd68e5-40d9-594f-b5f6-2840b3ce0efe`: accepted Claude artifact
+  `d25e7cd5a7a4ea8de9e382161cc8ec22a5d8c086`. Sorted dependency IDs use bulk queries
+  capped at 500 task-ID parameters, restricted to returned tasks; tools are
+  validated string arrays. Raw output/error remain excluded. **31 API tests** and
+  an independent tools probe pass, and two old-source negatives detect the missing
+  fields. The existing SQLite fixture leak was repaired: baseline printed 11
+  passes but hit its owned timeout; candidate closes the DB and exits cleanly.
+  Managed PlanStore is a separate ledger. Evidence: `gods-task-projection-001`.
 - **P2 Hekate C# partial round-trip**, task
-  `58d1d46d-17bf-52f2-a7f0-521bc970bba2`: preserve partial modifiers and declaration
-  semantics with compiler regressions; retain evolved shared finalization/outbox
-  code and exclude archived personal seed scripts.
+  `58d1d46d-17bf-52f2-a7f0-521bc970bba2`: accepted source
+  `1309ec2b227eea1593dddd193c7f8898e7e71c56`, retaining raw Claude commit `8fbf511`
+  plus separately attributed documentation correction/formatting. Partial
+  class/struct/method modifiers and bodyless declarations survive round-trip;
+  implicit access, static type/method flags and void expression bodies generate
+  valid code. **203 .NET tests** (193 existing plus ten new compiler fixtures)
+  and API build pass; a compiler-only old-source negative reproduces invalid
+  output. The six-method repository interface enables tests without changing
+  persistence. CodeService, Schema, AGE/outbox and dirty local work are unchanged.
+  General generator limits and absence of project-wide partial aggregation stay
+  explicit. Evidence: `csharp-partial-001`.
+
+Both Hekate fixes are integrated and pushed at
+`baf032d3b6143361c32ca2d923bd869b78f7d73f`; all nine integrated file blobs match the
+accepted artifacts. GitHub retains only `main`. Native Windows/NSSM services were
+not redeployed; these receipts establish source delivery and tests. ChatAgent's
+accepted phase-view source is delivered through the maintained operator product;
+old epoch-1 records stay quarantined after operator recovery rather than becoming
+new budgets or current phases. Unattended supervision remains CA-ISSUE-004.
 
 Rate/budget references are attached to existing CA-ISSUE-008/009 tasks rather than
 creating duplicate quota work. Canvas graph/layout ideas are retained as reference;

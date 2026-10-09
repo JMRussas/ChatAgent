@@ -91,7 +91,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-044 | Checkpoint ledger deadline and ownership publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 | CA-ISSUE-046 | Continuation authority and publication checks are incomplete | defect | acceptance blocker | closed | Hermes / scoped repair |
-| CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | open | codex-chatagent / operator repair |
+| CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1510,3 +1510,11 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
   repaired artifact after external checks and real paired same-page UI proof.
 - **Evidence:** `checkpoint-phase-implementation-001/candidate-defects.json`,
   original continuation/gate records, `rejected-readback.json` and repair receipts.
+
+Status: closed for this phase-view increment. Actual operator repair and original
+feature delivery epoch 2 are accepted at `94e2488`. Final source requires matched
+budget/continuation bases; all eight refusal cases have separate test budgets.
+External checks pass **3,376 full cases** with ten capability skips, ten browser
+cases, lint/docs and real paired same-page phase proof. Original Claude epoch 1,
+its automatic failed checks, source negative and first full timeout remain history.
+CA-ISSUE-004 unattended supervision is separate and remains open.
