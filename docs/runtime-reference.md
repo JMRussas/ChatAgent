@@ -734,7 +734,7 @@ at a stored `review_pending` or `needs_operator`:
    `fail`. The checks run in the same awaited process as the worker; no user message is involved.
 6. A final task/artifact, candidate HEAD, clean-tree and lease recheck, then the existing
    `checkpoint-gate/v1` for the worker's original run and fence with `failureAttribution:
-   unattributed`. Only all-pass yields `review_pending`.
+unattributed`. Only all-pass yields `review_pending`.
 
 `checkpoint-continuation/v1` (at most 16 KiB, newline-terminated) exposes `phase`
 (`reserved`, `running`, `snapshotting`, `verifying`, `review_pending`, `needs_operator`), a typed

@@ -30,9 +30,7 @@ const fixture = (scenario = "edit") => {
 };
 
 const stored = async (f: Fixture): Promise<ContinuationRecord> => {
-  const parsed = parseContinuationRecord(
-    await readFile(continuationRecordPath(f.rec, RUN_ID))
-  );
+  const parsed = parseContinuationRecord(await readFile(continuationRecordPath(f.rec, RUN_ID)));
   if (!parsed.ok) throw new Error("stored record invalid");
   return parsed.value;
 };
@@ -94,7 +92,9 @@ describe("continuation lifecycle with real subprocesses", () => {
 
       // One finish-only transition; the plan is left at review_pending, never accepted.
       expect(f.plan.posts).toHaveLength(1);
-      expect(f.plan.posts[0].url).toMatch(/\/api\/plan-contract\/v1\/nodes\/[0-9a-f-]+\/transition$/);
+      expect(f.plan.posts[0].url).toMatch(
+        /\/api\/plan-contract\/v1\/nodes\/[0-9a-f-]+\/transition$/
+      );
       expect(f.plan.posts[0].body).toMatchObject({
         to: "done",
         attemptId: "at-1",
@@ -115,7 +115,9 @@ describe("continuation lifecycle with real subprocesses", () => {
       expect(log[2].argv).toEqual(["run", "--maxWorkers=1", "tests/a.test.ts"]);
       expect(Date.parse(record.checks[0].startedAt!)).toBeGreaterThanOrEqual(exitedAt);
 
-      const gate = gateRecordSchema.parse(JSON.parse(await readFile(gateRecordPath(f.rec, RUN_ID), "utf8")));
+      const gate = gateRecordSchema.parse(
+        JSON.parse(await readFile(gateRecordPath(f.rec, RUN_ID), "utf8"))
+      );
       expect(gate).toMatchObject({
         runId: RUN_ID,
         sourceRef: head,
@@ -359,7 +361,11 @@ describe("continuation refusals launch no worker", () => {
   };
 
   it("refuses an existing continuation record, budget record or gate", async () => {
-    for (const name of [`${RUN_ID}.continuation.json`, `${RUN_ID}.budget.json`, `${RUN_ID}.gate.json`]) {
+    for (const name of [
+      `${RUN_ID}.continuation.json`,
+      `${RUN_ID}.budget.json`,
+      `${RUN_ID}.gate.json`
+    ]) {
       const f = fixture();
       await writeFile(join(f.rec, name), "{}");
       await refusal(f, "run_exists");
@@ -446,7 +452,9 @@ describe("continueCheckpoint CLI", () => {
     expect((await runContinuationCli(["--manifest", big])).stderr).toEqual([
       "continueCheckpoint: INPUT_INVALID"
     ]);
-    expect((await runContinuationCli(["--manifest", join(f.root, "missing.json")])).exitCode).toBe(2);
+    expect((await runContinuationCli(["--manifest", join(f.root, "missing.json")])).exitCode).toBe(
+      2
+    );
   });
 
   it(
@@ -473,8 +481,14 @@ describe("continueCheckpoint CLI", () => {
       const file = join(f.root, "manifest.json");
       await writeFile(file, JSON.stringify(f.manifest));
       const expired = performance.now() - f.manifest.limits.wallMs - 1;
-      const result = await runContinuationCli(["--manifest", file], f.deps({ startMonotonic: expired }));
-      expect(result).toMatchObject({ exitCode: 2, stderr: ["continueCheckpoint: deadline_exceeded"] });
+      const result = await runContinuationCli(
+        ["--manifest", file],
+        f.deps({ startMonotonic: expired })
+      );
+      expect(result).toMatchObject({
+        exitCode: 2,
+        stderr: ["continueCheckpoint: deadline_exceeded"]
+      });
       expect(f.workerCalls).toBe(0);
     },
     T

@@ -72,7 +72,11 @@ export class PlanStub {
   fetchStatus = async (): Promise<CoordinationStatus> => {
     this.reads++;
     if (this.unavailable) throw new Error("UNAVAILABLE");
-    return { status: "ok", rootId: FENCE.rootId, leaves: [this.leaf] } as unknown as CoordinationStatus;
+    return {
+      status: "ok",
+      rootId: FENCE.rootId,
+      leaves: [this.leaf]
+    } as unknown as CoordinationStatus;
   };
 
   post = async ({ url, body }: { url: string; body: string }) => {

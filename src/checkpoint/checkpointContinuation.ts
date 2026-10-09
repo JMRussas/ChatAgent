@@ -110,7 +110,9 @@ export function validRelativePath(path: string): boolean {
 const sourcePath = z.string().refine(validRelativePath);
 const focusedPath = z
   .string()
-  .refine((path) => validRelativePath(path) && path.startsWith("tests/") && path.endsWith(".test.ts"));
+  .refine(
+    (path) => validRelativePath(path) && path.startsWith("tests/") && path.endsWith(".test.ts")
+  );
 const unique = (values: string[]) =>
   new Set(values.map((value) => value.toLowerCase())).size === values.length;
 
@@ -138,8 +140,7 @@ export const continuationManifestSchema = z
   .refine((m) => m.run.profile === "coding")
   .refine(
     (m) =>
-      m.limits.wallMs >
-      m.run.hard.wallMs + m.limits.verifierWallMs + CONTINUATION_LIMITS.reservedMs
+      m.limits.wallMs > m.run.hard.wallMs + m.limits.verifierWallMs + CONTINUATION_LIMITS.reservedMs
   );
 export type ContinuationManifest = z.infer<typeof continuationManifestSchema>;
 
@@ -174,7 +175,13 @@ export const CONTINUATION_REASONS = [
   "internal_error"
 ] as const;
 export type ContinuationReason = (typeof CONTINUATION_REASONS)[number];
-export const FINISH_STATES = ["not_attempted", "attempted", "confirmed", "conflict", "uncertain"] as const;
+export const FINISH_STATES = [
+  "not_attempted",
+  "attempted",
+  "confirmed",
+  "conflict",
+  "uncertain"
+] as const;
 
 const exitCodeSchema = z.number().int().min(-2147483648).max(2147483647).nullable();
 const signalSchema = z
@@ -202,7 +209,10 @@ export type CheckResult = z.infer<typeof checkSchema>;
 const workerSchema = z
   .object({
     stop: z
-      .object({ kind: z.string().regex(/^[a-z_]{1,16}$/), code: z.string().regex(/^[a-z_]{1,32}$/) })
+      .object({
+        kind: z.string().regex(/^[a-z_]{1,16}$/),
+        code: z.string().regex(/^[a-z_]{1,32}$/)
+      })
       .strict(),
     exit: z.object({ code: exitCodeSchema, signal: signalSchema }).strict().nullable(),
     consumed: z
@@ -260,7 +270,9 @@ export const continuationRecordSchema = z
     writerLiveness: z.literal("unknown")
   })
   .strict()
-  .refine((r) => (r.phase === "review_pending" || r.phase === "needs_operator") === (r.endedAt !== null))
+  .refine(
+    (r) => (r.phase === "review_pending" || r.phase === "needs_operator") === (r.endedAt !== null)
+  )
   .refine((r) => {
     if (r.phase === "review_pending")
       return (
@@ -282,7 +294,8 @@ export class ContinuationRecordError extends Error {
   }
 }
 
-type ParseOutcome<T> = { ok: true; value: T } | { ok: false; reason: "invalid" | "unsupported_schema" };
+type ParseOutcome<T> =
+  { ok: true; value: T } | { ok: false; reason: "invalid" | "unsupported_schema" };
 
 function parseClosed<T>(
   bytes: Uint8Array,
@@ -293,7 +306,9 @@ function parseClosed<T>(
   if (bytes.byteLength > maxBytes) return { ok: false, reason: "invalid" };
   let parsed: unknown;
   try {
-    parsed = parseBoundedJson(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes));
+    parsed = parseBoundedJson(
+      new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)
+    );
   } catch {
     return { ok: false, reason: "invalid" };
   }
@@ -889,7 +904,11 @@ export async function runContinuation(
   if (deps.signal?.aborted) abort.abort();
   const timer = setTimeout(() => abort.abort(), Math.max(0, remaining()));
   const stopReason = (): ContinuationReason | null =>
-    deps.signal?.aborted ? "cancelled" : remaining() <= 0 || abort.signal.aborted ? "deadline_exceeded" : null;
+    deps.signal?.aborted
+      ? "cancelled"
+      : remaining() <= 0 || abort.signal.aborted
+        ? "deadline_exceeded"
+        : null;
   const live = () => {
     const reason = stopReason();
     if (reason) throw new Stop(reason);
@@ -942,7 +961,10 @@ export async function runContinuation(
 
   const verifyLease = async () => {
     try {
-      const bytes = await readSmall(continuationLeasePath(recordDir, claimKey), CONTINUATION_LIMITS.leaseBytes);
+      const bytes = await readSmall(
+        continuationLeasePath(recordDir, claimKey),
+        CONTINUATION_LIMITS.leaseBytes
+      );
       const lease = JSON.parse(bytes.toString("utf8")) as { runId?: unknown; token?: unknown };
       if (lease.runId === input.runId && lease.token === leaseToken) return;
     } catch {
@@ -1078,7 +1100,8 @@ export async function runContinuation(
       if ((await entryState(cwd, path)) === "unsafe") throw new Refusal("source_invalid");
     live();
     try {
-      if ((await head()).toLowerCase() !== input.identity.baseRef) throw new Refusal("pin_mismatch");
+      if ((await head()).toLowerCase() !== input.identity.baseRef)
+        throw new Refusal("pin_mismatch");
       if ((await statusEntries()).length > 0) throw new Refusal("worktree_dirty");
     } catch (error) {
       if (error instanceof Refusal) throw error;
@@ -1104,7 +1127,11 @@ export async function runContinuation(
     try {
       lease = await open(continuationLeasePath(recordDir, claimKey), "wx");
       await lease.writeFile(
-        JSON.stringify({ schema: "checkpoint-continuation-lease/v1", runId: input.runId, token: leaseToken })
+        JSON.stringify({
+          schema: "checkpoint-continuation-lease/v1",
+          runId: input.runId,
+          token: leaseToken
+        })
       );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Refusal("lease_exists");
@@ -1188,7 +1215,8 @@ export async function runContinuation(
   };
 
   const sameSet = (paths: readonly string[], expected: readonly string[]) =>
-    paths.length === expected.length && [...paths].sort().join("\0") === [...expected].sort().join("\0");
+    paths.length === expected.length &&
+    [...paths].sort().join("\0") === [...expected].sort().join("\0");
 
   const snapshotStep = async () => {
     await publish({ phase: "snapshotting" });
@@ -1224,7 +1252,16 @@ export async function runContinuation(
     set({ sourceRef: sha });
     const parent = (await git(["rev-parse", "--verify", "HEAD^"])).toString("utf8").trim();
     const committed = parseRawDiffZ(
-      await git(["diff-tree", "--no-commit-id", "--raw", "-r", "-z", "--no-renames", "--no-abbrev", "HEAD"])
+      await git([
+        "diff-tree",
+        "--no-commit-id",
+        "--raw",
+        "-r",
+        "-z",
+        "--no-renames",
+        "--no-abbrev",
+        "HEAD"
+      ])
     );
     if (
       parent.toLowerCase() !== input.identity.baseRef ||
@@ -1418,10 +1455,12 @@ export async function runContinuation(
     return { exitCode: state.phase === "review_pending" ? 0 : 1, record: state };
   } catch (error) {
     if (error instanceof Refusal) return { exitCode: 2, record: null, refusal: error.code };
-    if (error instanceof PersistenceFailure) return { exitCode: 4, record: reserved ? state : null };
+    if (error instanceof PersistenceFailure)
+      return { exitCode: 4, record: reserved ? state : null };
     const reason: ContinuationReason = error instanceof Stop ? error.reason : "internal_error";
     if (!reserved) {
-      if (reason === "cleanup_failed") return { exitCode: 4, record: null, refusal: "cleanup_failed" };
+      if (reason === "cleanup_failed")
+        return { exitCode: 4, record: null, refusal: "cleanup_failed" };
       if (reason === "deadline_exceeded" || reason === "cancelled")
         return { exitCode: 2, record: null, refusal: reason };
       return { exitCode: 2, record: null, refusal: "worktree_invalid" };

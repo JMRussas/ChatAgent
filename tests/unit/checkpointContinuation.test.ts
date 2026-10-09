@@ -241,7 +241,10 @@ describe("Git output parsing and fixed profiles", () => {
     expect(() => parseStatusZ(Buffer.from([0x20, 0x4d, 0x20, 0xff, 0x0]))).toThrow();
     expect(() => parseStatusZ(Buffer.alloc(300 * 1024, 65))).toThrow();
     const raw = `:100644 100644 ${"a".repeat(40)} ${"b".repeat(40)} M\0src/a.ts\0`;
-    expect(parseRawDiffZ(Buffer.from(raw))[0]).toMatchObject({ newMode: "100644", path: "src/a.ts" });
+    expect(parseRawDiffZ(Buffer.from(raw))[0]).toMatchObject({
+      newMode: "100644",
+      path: "src/a.ts"
+    });
     expect(() => parseRawDiffZ(Buffer.from(raw.replace(" M", " R")))).toThrow();
     expect(() => parseRawDiffZ(Buffer.from(raw.slice(0, -1)))).toThrow();
   });
@@ -282,13 +285,18 @@ describe("Git output parsing and fixed profiles", () => {
       operationKey: expect.stringMatching(/^[0-9a-f]{64}$/)
     });
     expect(finishRequestBody(input, SOURCE_REF, 4)).toBe(finishRequestBody(input, SOURCE_REF, 4));
-    expect(finishRequestBody(input, "e".repeat(40), 4)).not.toBe(finishRequestBody(input, SOURCE_REF, 4));
+    expect(finishRequestBody(input, "e".repeat(40), 4)).not.toBe(
+      finishRequestBody(input, SOURCE_REF, 4)
+    );
     expect(claimKeyOf(input.identity)).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 
 describe("gate", () => {
-  const result = (name: "prettier" | "typescript" | "vitest", r: "pass" | "fail" | "unavailable") => ({
+  const result = (
+    name: "prettier" | "typescript" | "vitest",
+    r: "pass" | "fail" | "unavailable"
+  ) => ({
     ...passing[0],
     name,
     result: r
@@ -325,7 +333,9 @@ describe("gate", () => {
     expect(gateOf(["pass", "unavailable", "pass"]).evidenceRefs).toContain(
       "continuation:check_unavailable"
     );
-    expect(gateOf(["pass", "pass", "pass"]).evidenceRefs).toContain("semantic-review:not-performed");
+    expect(gateOf(["pass", "pass", "pass"]).evidenceRefs).toContain(
+      "semantic-review:not-performed"
+    );
   });
 });
 
