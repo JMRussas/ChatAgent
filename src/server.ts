@@ -1,4 +1,9 @@
 import { rolePlannerEngine } from "./app/rolePlanner";
+import {
+  DevCoordinationError,
+  fetchCoordinationStatus,
+  planApiBase
+} from "./integrations/hekate/devCoordination";
 import { loadRoleCatalog, reloadRoleCatalog } from "./app/roleCatalog";
 import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
@@ -213,7 +218,14 @@ interface ServerOptions {
   maxEventStreams?: number;
   /** A stream unable to accept writes for this long is disconnected. */
   streamStallTimeoutMs?: number;
+  /**
+   * Loopback base URL of the Hekate plan API, checked at construction. Absent: the
+   * development plan status route answers 404 PLAN_STATUS_DISABLED.
+   */
+  planApiUrl?: string;
 }
+
+const PLAN_ROOT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo {
   const mode = config.fast.provider === "mock" && config.deep.provider === "mock" ? "mock" : "live";
@@ -520,6 +532,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
   const maxConnections = assertMaxConnections(
     options.maxConnections === undefined ? DEFAULT_MAX_CONNECTIONS : options.maxConnections
   );
+  const planApiUrl = options.planApiUrl === undefined ? undefined : planApiBase(options.planApiUrl);
   service.resolveReferences = (selections, userId, conversationId) => {
     const store = options.briefings?.directory?.results;
     if (!store) throw Error("REFERENCES_UNAVAILABLE");
@@ -720,6 +733,30 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         }
       }
 
+      const planStatus = /^\/development\/plans\/([^/]+)\/status$/.exec(url.pathname);
+      if (method === "GET" && planStatus) {
+        res.setHeader("Cache-Control", "no-store");
+        if (planApiUrl === undefined)
+          return json(res, 404, {
+            code: "PLAN_STATUS_DISABLED",
+            error: "Plan status is not configured"
+          });
+        if ((req.url ?? "").includes("?"))
+          return json(res, 400, {
+            code: "INVALID_QUERY",
+            error: "No query parameters are accepted"
+          });
+        if (!PLAN_ROOT.test(planStatus[1]))
+          return json(res, 400, { code: "INVALID_ROOT", error: "The plan root is not a GUID" });
+        try {
+          return json(res, 200, await fetchCoordinationStatus(planApiUrl, planStatus[1]));
+        } catch (error) {
+          return json(res, 503, {
+            code: "PLAN_STATUS_UNAVAILABLE",
+            reason: error instanceof DevCoordinationError ? error.code : "UNAVAILABLE"
+          });
+        }
+      }
       if (method === "GET" && url.pathname === "/telemetry/evaluation")
         return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });
       if (method === "GET" && url.pathname === "/") {
@@ -1914,6 +1951,7 @@ export async function startServer(
       : {}),
     documentTasks,
     documentTaskControl: documentTasks,
+    planApiUrl: process.env.HEKATE_PLAN_API_URL,
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,
     dispatchTelemetry: () => dispatch?.telemetry() ?? { attempts: [], reservations: [] },

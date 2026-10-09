@@ -86,6 +86,8 @@ export const ROUTES: readonly RouteRule[] = [
   rule("POST", "/routing/quota-envelopes/declare", "operator"),
   rule("GET", "/routing/quota-envelopes", "operator"),
   rule("GET", "/conversations/retention", "operator"),
+  // Global, read-only view of a Hekate plan; not scoped to any principal's conversations.
+  rule("GET", "/development/plans/:rootId/status", "operator"),
   rule("DELETE", "/conversations/:conversationId/identity", "operator")
 ];
 
