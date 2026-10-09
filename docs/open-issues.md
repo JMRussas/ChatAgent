@@ -79,6 +79,10 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 | CA-ISSUE-038 | Checkpoint turn budgets lack an auditable counter | defect | checkpoint management | open | codex-chatagent / checkpoint execution task |
 
+| CA-ISSUE-039 | Generated executive source fails syntax/type gate | defect | MVP acceptance | closed | codex-chatagent / operator source repair |
+
+| CA-ISSUE-040 | Executive evidence selection and decision linkage are insufficiently fenced | defect | audit acceptance | closed | codex-chatagent / operator audit repair |
+
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
 - **Observed problem and impact:** a delivery field backed by a detached
@@ -1237,3 +1241,47 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
   only after defined counters, enforced breach/escalation, attributable gate evidence
   and meaningful independent tests are demonstrated. Do not weaken current caps or
   infer good/bad performance from the mismatch alone.
+
+### CA-ISSUE-039 — Generated executive source fails syntax/type gate
+
+- **Observed:** Hermes candidate `3811486` contains actual Unicode line separators
+  in two regex literals. Prettier and TypeScript transformation refuse them, so five
+  focused suites cannot load. After syntax repair, the compiler also finds an
+  unreachable `stale` branch; two test fixtures incorrectly use an all-numeric GUID
+  as an uppercase rejection case and omit the HTML's initial note from a fake DOM.
+- **Expected:** the source parses and type-checks; acceptance cases exercise real
+  uppercase hex letters and the actual initial markup without weakening assertions.
+- **Owner / real task:** codex-chatagent, non-model operator repair task
+  `07e83553-b777-5c47-b8bd-2a119410cb7d`. The original model proposal and failed gate
+  evidence are retained; there was no whole-feature model retry.
+- **Resolution:** accepted repair `61308a3` changes seven lines, preserving behavior
+  and correcting the fixtures. It passes 139 focused cases and lint; the browser gate
+  passes eight cases. The final MVP artifact `98acbb0` integrates at `a52c1d5` with
+  3,108 full cases passing and ten explicit worktree capability skips.
+- **Evidence:** `executive-mvp-implementation-001/gate-format-exit.json`,
+  `gate-focused-exit.json`; `executive-source-repair-001/reviewed-bundle.json` and
+  `accepted-readback.json`. Closure is for this specific generated candidate's source
+  and fixture repairs, not a claim that future generated source cannot fail a gate.
+
+### CA-ISSUE-040 — Executive evidence selection and decision linkage are insufficiently fenced
+
+- **Observed:** source `61308a3` passes the worker's focused/browser gates but three
+  independent behavioral cases fail. A conflicting selected attempt can be displayed
+  as current despite the task-envelope fence; the evidence pane does not label the
+  decision's linkage to the current attempt, epoch, content and artifact.
+- **Expected:** refuse contradictory current selection and historical selection
+  attached to a current task. Classify a current decision only when selected scope,
+  work/effective acceptance, attempt/epoch/content and artifact identities agree.
+  Historical or unmatched linkage is explicit; missing selected evidence cannot
+  erase a recorded task claim.
+- **Owner / real task:** codex-chatagent, non-model operator audit repair task
+  `8338ca01-6e69-5967-bac0-383bb826c01f`.
+- **Resolution:** accepted final source `98acbb0`, integrated at `a52c1d5`; three
+  retained old-source negative cases now pass. The focused gate passes 142 cases,
+  eight browser cases pass, and the full artifact gate passes 3,108 with ten explicit
+  worktree capability skips. Actual paired candidate and maintained product UI verify
+  the original native task's exact accepted artifact, current linkage and trace
+  integrity inline, with no navigation or development mutation/load-time execution.
+- **Evidence:** `executive-evidence-repair-001/negative-current-evidence-exit.json`,
+  `reviewed-bundle.json`; `executive-mvp-live-001/native-inline-proof.json`,
+  `maintained-inline-proof.json` and `delivery-bundle.json`.

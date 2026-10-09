@@ -1,6 +1,6 @@
 # Development roadmap
 
-## Current plan — visible happy path first (2026-10-08)
+## Current plan — executive observability and checkpoint delivery (2026-10-09)
 
 This section is the authoritative execution order. Earlier dated entries below are
 historical decisions, not competing instructions for the next step. The sports work
@@ -38,7 +38,7 @@ correctly refused an already attempted task, but a lead wrapper failed to propag
 its child failure. The accepted run used package 003. CA-ISSUE-036 records that
 orchestration defect; evidence is retained rather than relabelled.
 
-Combined main verification passes **2,896 tests**, with one explicit Windows
+The prior combined main baseline passed **2,896 tests**, with one explicit Windows
 link-capability skip, plus formatting, lint and documentation checks. The exact
 accepted task 7 trace/claim and decision match across real paired UI reload on
 integrated source `a54ca65`; reload issues no development request or mutation.
@@ -63,14 +63,26 @@ store. Evidence: `rehearsal-rework-001/final-reload.json` and
    independently accepted planning contract is
    [document 17](implementation/17-bounded-recovery-execution.md). CA-ISSUE-037's
    null-history repair is integrated and verified through the real paired UI.
-2. Deliver a shared, read-only executive overview API and its first ChatAgent
-   presentation. Show configured outcomes, recorded work, review needs,
-   dependencies, stale inputs and unavailable evidence. Drill down in place from
-   initiative to task to current attempt and evidence; retain the overview context.
-   Presentation can move to another client without changing the underlying facts.
-   PlanStore acceptance does not establish source integration or deployment; host
-   heartbeat does not establish worker liveness. Do not fabricate completion
-   percentages, worker progress, performance thresholds or delivery predictions.
+2. The executive observability first slice is delivered: accepted implementation
+   `98acbb0465e93f1fb2129014064ce12ba8729a37`, integrated at `a52c1d5` and running
+   on the maintained `localhost:5133` product. Shared operator-only
+   `GET /development/executive/overview` supplies three explicitly configured plans
+   to any authorized client. ChatAgent shows recorded state, accepted task counts,
+   attention reasons and in-place initiative → task → current attempt/evidence.
+   Manual Refresh and expansion perform bounded GETs; page load/reload launch no
+   work. Partial/unavailable roots, historical decisions and missing budgets remain
+   explicit. Accepted in PlanStore is not proven integration/deployment; host
+   heartbeat is not worker liveness. No fabricated effort percentage or ETA.
+   Independent repair tasks CA-ISSUE-039/040 corrected syntax/type/test-fixture and
+   current-evidence linkage defects, retaining failed proposals/gates and three
+   behavioral old-source negatives. Final checks: 142 focused cases, eight browser
+   cases, 3,108 full cases with ten explicit worktree capability skips, formatting,
+   lint and documentation checks. Candidate and maintained paired UI verify all
+   three real plans and the original native accepted artifact inline. Evidence:
+   `executive-mvp-live-001/delivery-bundle.json`, `live-proof.json`,
+   `native-inline-proof.json` and `maintained-inline-proof.json`. Delivery task
+   `77aca710-3f0d-51c9-a8d5-91380fde2cd8` is accepted against integrated `a52c1d5`.
+
 3. Build checkpoint management into execution and observability: one coherent,
    independently verifiable change per checkpoint, with expected budgets, enforced
    hard limits, gate evidence and explicit escalation. Workers execute autonomously
@@ -87,36 +99,34 @@ store. Evidence: `rehearsal-rework-001/final-reload.json` and
    acceptance-to-integration, review backlog age, rework and attributed cost per
    accepted feature. Include failures. Timeouts are bounds, not performance SLOs.
 
-**Checkpoint milestones and forecast.** These are planning ranges for focused
-execution, not a measured throughput baseline or promises of unattended work. The
-first useful executive slice is targeted for **2026-10-09, within 2–4 focused
-hours**. Re-estimate at its implementation gate. A polished MVP and unattended
-recovery are separate scopes; do not delay the useful first slice for either.
+**Checkpoint milestones and forecast.** The first useful executive slice shipped
+on **2026-10-09**, within the provisional 2–4 focused-hour window. The contract worker
+finished in about two minutes; implementation generation took about 11½ minutes,
+followed by independent review, two scoped repairs, checks and real UI proof. This
+single delivery does not establish a measured throughput baseline. Forecast the next
+coherent increment at its accepted contract gate; unattended recovery and polish
+remain separate work rather than delaying the useful first slice.
 
-| Checkpoint    | External acceptance gate                                                                                             | Hekate task                            | Provisional focused time |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------ |
-| Contract      | Independently reviewed bounded data/UI contract, source seams and meaningful acceptance cases                        | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | 15–30 minutes            |
-| Working slice | Shared API and inline UI artifact passes schema, authentication, projection and browser checks                       | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | 60–120 minutes           |
-| Live delivery | Exact accepted source integrated and real paired UI verified against current PlanStore; roadmap and forecast updated | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | 30–60 minutes            |
+| Checkpoint         | External acceptance gate                                                               | Hekate task                            | Current result                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Contract           | Independently reviewed bounded API/UI contract and acceptance cases                    | `5cbe16e7-2c84-5ffe-8f01-c1cd3ed4bade` | Accepted `a57df9a`, integrated `a9d8258`                                                            |
+| Working slice      | Shared API/inline UI artifact, schema/auth/projection/browser/full checks              | `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` | Accepted `98acbb0`, integrated `a52c1d5`                                                            |
+| Live delivery      | Maintained paired UI, exact source integration and retained-store evidence             | `77aca710-3f0d-51c9-a8d5-91380fde2cd8` | Accepted `a52c1d5`                                                                                  |
+| Execution contract | Freeze one bounded maintained enforcement increment, counter units and objective gates | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Athena claimed `checkpoint-execution-planning-001-r1`, epoch 1; actual CLI and Active card observed |
+| Enforcement        | Maintained budget tripwires and typed auditable checkpoint evidence                    | `94438651-ed00-5656-803d-d6097d4a4e40` | TODO, gated on accepted execution contract                                                          |
 
 These real tasks are stored under management root
-`29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Athena's
-contract task is accepted at epoch 1 as `executive-mvp-001-r1`, exact artifact
-`a57df9a`, integrated at `a9d8258`. Its worker finished in about two minutes; lead
-review verified source seams and corrected current gate, budget uncertainty, readiness
-and drill-down content fences. Formatting, lint and documentation checks passed.
-Hermes implementation task `4dea3423-c92b-55e0-8e2b-d5fe595df2e3` is claimed at epoch
-1 as `executive-mvp-implementation-001-r1`; its actual bounded CLI is running, and
-the real Hekate Active card matches the claim. Expected budget: 30 turns; hard caps:
-60 turns, USD 5, fifteen minutes and 8 MiB private output. Management evaluates the
-artifact at its external gate; model self-report is insufficient. Evidence remains
-external under `executive-mvp-001` and `executive-mvp-implementation-001`.
-
-Checkpoint execution follow-on task `94438651-ed00-5656-803d-d6097d4a4e40` is real TODO work
-in Hekate, gated on live MVP delivery. It must ship maintained budget-tripwire
-enforcement and auditable gate evidence; private launch envelopes and roadmap prose
-do not establish that product capability. The first overview reports current recorded
-gates and explicitly unavailable budget measurement, not an implemented management service.
+`29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Current
+practice uses isolated artifacts, external gates, bounded CLI cost/time/output and
+no per-tool semantic supervision. Configured `--max-turns` and provider-reported
+`num_turns` do not establish equivalent independently enforced counters: CA-ISSUE-038
+records observed 60-versus-97/94 mismatches and missing public help semantics. Do not
+certify those values as a verified hard turn budget. The maintained enforcement
+increment must define its observable counter and emit attributable tripwire and gate
+receipts; private wrappers and roadmap prose do not establish that product capability.
+The current overview exposes recorded current gates and explicitly unreported budget
+measurement. Model self-report is never an acceptance gate. Planning acceptance is
+separate from implementation acceptance, integration and live delivery.
 
 The retained database currently has one finite API-only LocalStore owner for
 supervised tasks, with a four-hour bound and no native dispatch or model execution.
