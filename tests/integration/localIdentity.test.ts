@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LocalAuthenticator } from "../../src/auth/authenticator";
 import { FilePrivacyError, makePrivate, verifyPrivate } from "../../src/auth/filePrivacy";
 import {
+  IdentityReplaceUncertain,
   LocalIdentityError,
   loadOrCreateIdentity,
   replaceIdentityFile,
@@ -229,7 +230,7 @@ describe.runIf(onWindows)("rotation while identity.json is held", () => {
   );
 
   it(
-    "fails with the real error after the last wait, leaving the old identity and no lock or temp",
+    "refuses with LocalIdentityError caused by the real error after the last wait, leaving the old identity and no lock or temp",
     async () => {
       const dir = join(await root(), "ChatAgent");
       await loadOrCreateIdentity(dir);
@@ -237,14 +238,23 @@ describe.runIf(onWindows)("rotation while identity.json is held", () => {
       const original = await readFile(path, "utf8");
       const release = await hold(path);
       const waits: number[] = [];
-      await expect(
-        rotateIdentity(dir, {
-          wait: async (ms) => {
-            expect(await readdir(dir)).toContain("rotate.lock");
-            waits.push(ms);
-          }
-        })
-      ).rejects.toMatchObject({ code: "EPERM", syscall: "rename", dest: path });
+      const failure = await rotateIdentity(dir, {
+        wait: async (ms) => {
+          expect(await readdir(dir)).toContain("rotate.lock");
+          waits.push(ms);
+        }
+      }).then(
+        () => undefined,
+        (error: unknown) => error
+      );
+      expect(failure).toBeInstanceOf(LocalIdentityError);
+      expect(failure).not.toBeInstanceOf(IdentityReplaceUncertain);
+      expect((failure as Error).cause).toMatchObject({
+        code: "EPERM",
+        syscall: "rename",
+        dest: path,
+        path: expect.stringMatching(/\.tmp$/)
+      });
       expect(waits).toEqual(WAITS);
       await release();
       expect(await readFile(path, "utf8")).toBe(original);

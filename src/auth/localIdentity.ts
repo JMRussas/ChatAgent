@@ -516,6 +516,24 @@ export async function rotateIdentity(
       });
     } catch (error) {
       keepTemp = keepLock = error instanceof IdentityReplaceUncertain;
+      // The helper preserves a native refusal after bounded waits. If its pre-read
+      // fails, no helper mutation is invoked; otherwise it verifies the files after
+      // the helper. Uncertain outcomes use IdentityReplaceUncertain. Normalize only
+      // this owned Windows rename refusal, preserving its cause; other errors pass
+      // through. External writers and cleanup errors remain separate failures.
+      const native = error as NodeJS.ErrnoException & { dest?: string };
+      if (
+        platform === "win32" &&
+        !(error instanceof LocalIdentityError) &&
+        native?.code === "EPERM" &&
+        native.syscall === "rename" &&
+        native.path === temp &&
+        native.dest === path
+      )
+        throw new LocalIdentityError(
+          `${path} could not be replaced, possibly because another process holds it open; the native refusal is preserved. Check file access before retrying.`,
+          { cause: error }
+        );
       throw error;
     } finally {
       if (!keepTemp) await rm(temp, { force: true });
