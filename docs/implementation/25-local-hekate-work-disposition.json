@@ -1,0 +1,156 @@
+{
+  "schema": "local-hekate-disposition/v1",
+  "sourceHead": "10163d97820cda2b739943981de662ea29d854b8",
+  "publishedHead": "4fa65283862ead9181cfb5530fa5b8861516a5f9",
+  "preservationStatus": {
+    "suppliedProof": ".review-inputs/cleanup-loop-001/proof.json",
+    "suppliedFields": {
+      "fileCount": 4357,
+      "totalBytes": 42139328,
+      "restoreFsckPassed": true,
+      "originalStatusUnchanged": true
+    },
+    "interpretation": "Operator-supplied, not independently verified by this assessment. Restore/fsck and source-hash verification remain separate acceptance gates; proof.json carries no per-file hash-verification result. This assessment recomputed no hashes and has no shell. Group counts sum to fileCount (1 + 4335 + 1 + 17 + 3 = 4357).",
+    "originalLocalWorkModified": false
+  },
+  "groups": [
+    {
+      "id": 1,
+      "name": "gitignore-checkpoint-pattern",
+      "paths": [".gitignore"],
+      "disposition": "Retire",
+      "reason": "The patch adds only `Odin/langgraph_engine/checkpoints.sqlite*`. It matters only if the prototype directory is committed; group 4 is not integrated, so the pattern has no consumer on published main. Published .gitignore has no such pattern. Retire from the active backlog; the patch stays in the preserved snapshot. If group 4 is ever adopted, restore this line in the same change.",
+      "usefulIdea": "Ignore generated LangGraph checkpoint SQLite files and their -wal/-shm sidecars.",
+      "testedBehavior": "None. This is a one-line ignore rule with no test.",
+      "evidence": [
+        ".review-inputs/cleanup-loop-001/unstaged.patch:1-13",
+        ".review-inputs/cleanup-loop-001/published/.gitignore:36-40",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/README.md:220-223",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/run.py:52"
+      ],
+      "implementationNeeded": false
+    },
+    {
+      "id": 2,
+      "name": "semantic-edge-endpoint-and-service",
+      "paths": ["context-store/Api/Program.cs", "context-store/Api/Services/CodeService.cs"],
+      "disposition": "Extract",
+      "reason": "The patch is a thin wrapper: POST /api/code/rebuild-edges/{projectId} calls CodeService.RebuildSemanticEdges, which instantiates SemanticEdgeResolver. Published main has no rebuild-edges route and no RebuildSemanticEdges method (Program.cs routes at 382-424 and 477 only; CodeService.cs has DecomposeFile, DecomposeSource, FinalizeDecomposition, MaterializeFile, MaterializeNode, ListFiles). The wrapper cannot stand alone without group 3. Its own design is not ready: the endpoint returns ex.Message through Results.Problem and writes the full exception to the console; it is one synchronous request over a whole project (the resolver comment cites about 10 minutes for an 8k-node project); and it bypasses the FinalizeDecomposition sequence that published CodeService uses (vertex sync, then seeding, then a count). Keep the endpoint shape as a reference only. The roadmap's archived-branch record already defers semantic-edge references with no active task; this assessment does not change that.",
+      "usefulIdea": "An explicit, operator-invoked project-wide edge rebuild separate from per-file decompose.",
+      "testedBehavior": "None found. The preserved set has no test for the endpoint or service, and no run evidence.",
+      "evidence": [
+        ".review-inputs/cleanup-loop-001/unstaged.patch:14-65",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Program.cs:382-424",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Program.cs:477-484",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Services/CodeService.cs:54-79",
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:22-24"
+      ],
+      "implementationNeeded": false
+    },
+    {
+      "id": 3,
+      "name": "semantic-edge-resolver",
+      "paths": ["context-store/Decomposer/SemanticEdgeResolver.cs"],
+      "disposition": "Extract",
+      "reason": "Roslyn symbol resolution across one CSharpCompilation addresses a real limit of published EdgeSeeder: EdgeSeeder matches sibling names by substring within one file (EdgeSeeder.cs:8-9, 60, 75, 89) and cannot see cross-file calls. The resolver is an untested 380-line first draft with source-visible defects, so it is not safe to integrate as is. (1) Overloads collide: member keys use name plus parameter count (SemanticEdgeResolver.cs:238, 295), so same-arity overloads overwrite each other in the lookup. (2) Lookup writes are plain assignments (295, 301, 308), so any duplicate key silently keeps the last node; partial types split across files would hit this, but that case is not tested. (3) Edge failures are swallowed and the result still reports Status ok (210-214, 198). (4) Dedup is per run only (120), so a rerun re-issues every edge and idempotency depends on AgeLayer.CreateEdge, which is not in the published source pack and cannot be assessed. (5) No stale-edge removal, no transaction, and no outbox or finalization convention: published Program.cs drains a graph-sync outbox every 3 seconds (203-207) and reports outbox_pending (145), while the resolver writes edges directly and never mentions the outbox. Whether CreateEdge enqueues to the outbox cannot be established from the pack. (6) Metadata references come from AppDomain assemblies (103-109), so resolution varies with the host process. (7) Re-materializing every file through CSharpGenerator makes the node tree the compilation source, which is consistent with the project premise but unproven for fidelity. Recommendation: keep it archived, outside the MVP. If semantic edges are later prioritized, open one bounded checkpoint with external compile-backed fixtures and a decision on how edges reach the graph. EdgeSeeder remains the published behavior.",
+      "usefulIdea": "Cross-file CALLS/REFERENCES edges via Roslyn SemanticModel over a single compilation, mapped back to node IDs by type-qualified member key.",
+      "testedBehavior": "None. No test, fixture or run record exists in the preserved set. The `ok` status is not evidence of correctness.",
+      "evidence": [
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:3-28",
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:103-109",
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:120",
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:198-214",
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:233-239",
+        ".review-inputs/cleanup-loop-001/local/context-store/Decomposer/SemanticEdgeResolver.cs:289-311",
+        ".review-inputs/cleanup-loop-001/published/context-store/Decomposer/EdgeSeeder.cs:8-9",
+        ".review-inputs/cleanup-loop-001/published/context-store/Decomposer/EdgeSeeder.cs:58-98",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Program.cs:145",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Program.cs:203-207"
+      ],
+      "implementationNeeded": false
+    },
+    {
+      "id": 4,
+      "name": "langgraph-engine-prototype",
+      "paths": [
+        "Odin/langgraph_engine/ (17 files: README.md, __init__.py, db.py, gates.py, graph.py, llm.py, requirements.txt, run.py, state.py, test_engine.py, tools.py, nodes/__init__.py, nodes/athena.py, nodes/hephaestus.py, nodes/hermes.py, nodes/mimir.py, nodes/odin.py)"
+      ],
+      "disposition": "Extract",
+      "reason": "Not safe to integrate wholesale. The README states it was never run end to end and its tests cover only pure logic (README.md:232-235; test_engine.py lists gate, reducer, ready-selection, routing and result-mapping cases). Findings: (a) Plan authority: db.py writes projects, plans, tasks and task_deps rows into the legacy orchestration.db (db.py:110-158), creating a second task ledger beside the managed PlanStore that published README describes with claim receipts, attempt identities and acceptance decisions (README.md:33-36). (b) Checkpoint versus domain state: LangGraph checkpoints live in a separate SQLite file (README.md:220-223) and domain writes are best-effort (db.py:14-18, 79-86), so the two can diverge silently and neither carries a claim fence. (c) Ownership: no claim, epoch, attempt fence or single-owner lock exists in the package (grep found none). Resume replays from a checkpoint, which does not prove an external effect is safe to repeat. (d) Retry: the retry edge re-runs the same executor in the same repo_path with the verifier's text folded into the prompt (mimir.py:87-100; hermes.py:68-75). The only limits are max_retries and a 50-round cap (odin.py:30); cost_usd is recorded but never enforced, so there is no hard cost or budget bound. (e) Verification: Mimir is a lenient LLM judge (mimir.py:24-26), and on verifier outage it returns `passed` at confidence 0.0 (mimir.py:66-75). That is automatic semantic acceptance without external checks, which contradicts the checkpoint contract's external tests and no-fictional-certification stance. (f) Execution safety: the CLI executor runs `--dangerously-skip-permissions` with `Bash(*)` in the caller's working directory, with no worktree isolation (hermes.py:145-152); timeout kills only the child process (hermes.py:167-169). The agent tool allowlist includes python, git, npm, node, dotnet and pip (tools.py:29-32), which can all run arbitrary code, so it is containment by name, not a sandbox. (g) Roles: it re-implements Athena, Odin, Mimir, Hermes and Hephaestus as graph nodes, overlapping the existing CLI roles and the current checkpoint design, where Hermes is the coding worker and Mimir names the external check role (docs/implementation/22 section 2). Parallel names with different semantics would cause confusion. Reusable ideas: replace-by-task_id reducer (state.py:70-81), the plan gate with cycle, unknown dependency and duplicate id rejection (test_engine.py:46-90), typed Plan/Verdict schemas, and a visible graph shape. The README is also honest about weaknesses: a barrier fan-out and weaker auditability (README.md:69-81). Keep the preserved tree as design reference only; adopt nothing without a bounded checkpoint that tests against the PlanStore API.",
+      "usefulIdea": "Declarative graph shape, structured Plan/Verdict schemas, replace-by-id reducer, and validate-then-retry plan gate.",
+      "testedBehavior": "Pure-logic unit tests exist in test_engine.py (gate, cycle detection, reducer, ready selection, dispatch routing, verdict routing, result mapping). They were not run by this assessment, and no end-to-end, executor, persistence or resume test exists.",
+      "evidence": [
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/README.md:1-11",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/README.md:56-81",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/README.md:218-235",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/db.py:14-19",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/db.py:79-86",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/db.py:130-160",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/state.py:70-81",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/graph.py:93-138",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/gates.py:32-72",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/odin.py:30",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/odin.py:52-69",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/mimir.py:24-26",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/mimir.py:66-75",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/mimir.py:87-100",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/hermes.py:68-75",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/nodes/hermes.py:145-169",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/tools.py:29-32",
+        ".review-inputs/cleanup-loop-001/local/Odin/langgraph_engine/tools.py:100-137",
+        ".review-inputs/cleanup-loop-001/published/README.md:33-45",
+        "docs/implementation/22-checkpoint-continuation-manager.md:24-40"
+      ],
+      "implementationNeeded": false
+    },
+    {
+      "id": 5,
+      "name": "local-planning-handoff",
+      "paths": ["LOCAL-PLANNING-HANDOFF.md"],
+      "disposition": "RetainEvidence",
+      "reason": "A dated (2026-10-06) proposal for on-demand local plan coordination. It states itself as an implementation plan and not a deployment record (handoff lines 3, 18-20, 28-29). Published main now documents a managed PlanStore with explicit dependencies, claim receipts, attempt identities and acceptance decisions, plus a read-only plan browser and a supervised local launcher (published README.md:33-36, 17, 57), and Program.cs registers PlanStoreSchema.Ensure and the plan-contract endpoints (Program.cs:45, 110). Several handoff requirements (stable identity, revision checks, separate status/readiness/acceptance, exclusive assignment ownership) correspond to that delivered workflow, but this assessment did not test the match, and the handoff's Increment 3 suggestion to adapt the LangGraph work is not what was delivered. Preserve as history; do not treat it as the current plan or current instructions.",
+      "usefulIdea": "Requirement list for plan nodes, ownership, stale-approval rejection and reconciliation before retry.",
+      "testedBehavior": "Not applicable. It is a planning document with no executable content.",
+      "evidence": [
+        ".review-inputs/cleanup-loop-001/local/LOCAL-PLANNING-HANDOFF.md:3-20",
+        ".review-inputs/cleanup-loop-001/local/LOCAL-PLANNING-HANDOFF.md:109-139",
+        ".review-inputs/cleanup-loop-001/published/README.md:17",
+        ".review-inputs/cleanup-loop-001/published/README.md:33-36",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Program.cs:45",
+        ".review-inputs/cleanup-loop-001/published/context-store/Api/Program.cs:110"
+      ],
+      "implementationNeeded": false
+    },
+    {
+      "id": 6,
+      "name": "review-tmp-fixtures",
+      "paths": [".review_tmp/ (4335 files per proof.json group count)"],
+      "disposition": "RetainEvidence",
+      "reason": "Copied review fixtures, source trees and tests, inventoried by path, size and SHA-256 but not opened. Hash preservation does not show they are disposable, and no content judgment is made here. The inventory shows at least local-configuration-style entries (for example `.mcp.json`, `.hekate.json` and a `scheduled_tasks.lock` under one copied tree), so treat contents as potentially sensitive and do not publish them. Classify as preserved review evidence needing later deduplication against the retained review runs and published source. It is not active product source and must not be merged. No deletion is recommended until a dedup checkpoint compares hashes to retained evidence.",
+      "usefulIdea": "Possible reference for earlier review cohorts; unassessed.",
+      "testedBehavior": "Not assessed. Copied tests inside the tree were not run.",
+      "evidence": [
+        ".review-inputs/cleanup-loop-001/proof.json:5-13",
+        ".review-inputs/cleanup-loop-001/inventory.json:1-5",
+        ".review-inputs/cleanup-loop-001/inventory.json:12-80"
+      ],
+      "implementationNeeded": false
+    }
+  ],
+  "blockers": [
+    "Preservation is operator-asserted. proof.json reports restoreFsckPassed and originalStatusUnchanged as true, but restore/fsck and source-hash verification are independent acceptance gates that this assessment did not run. No claim of successful preservation is made here.",
+    "The published source pack holds only selected files (6 files). AgeLayer, AgeGraphService, PlanStore sources and the C# decomposer are absent, so no absence claim is made about them and edge idempotency or outbox behavior of CreateEdge is unknown.",
+    "No test, build or runtime was executed for any group. Findings come from reading source only; there are no runtime, deployment, full-history or public-readiness claims.",
+    "Group 6 content was not opened. Its sensitivity and duplication are unknown until a bounded dedup pass runs."
+  ],
+  "nextCheckpoint": {
+    "title": "Verify preservation gates, then close local-work disposition",
+    "steps": [
+      "Operator completes independent restore/fsck and source-hash verification of the snapshot against inventory.json and source-manifest.json, and records the result in retained evidence.",
+      "Lead reviews this disposition. Acceptance is a separate decision and is not implied by writing this document.",
+      "Keep groups 3 and 4 archived and out of the MVP. Open no implementation task from this document.",
+      "Optional later checkpoint: deduplicate .review_tmp hashes against retained review evidence before any deletion decision."
+    ],
+    "implementationTasksOpened": 0
+  }
+}
