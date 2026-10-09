@@ -1423,3 +1423,22 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
 - **Evidence:** retained raw candidate, `gate-focused-exit.json`,
   `negative-independent-exit.json` (four failures, 28 passes) and separate
   formatting-only commit `1a3f1f4` under `checkpoint-review-ledger-001`.
+
+### CA-ISSUE-045 — Export file identity cannot detect a same-inode replacement on Linux
+
+- **Kind:** gap.
+- **Observed:** `readExport` records each listed file as device plus inode and
+  `readBounded` refuses an opened file whose identity differs. On the Linux CI
+  runner and in a Node 24.21.0 container, the unit case that unlinks and recreates
+  `policy.json` with identical bytes between listing and reading composes with
+  exit 0: ext4 and overlayfs hand the freed inode straight back, so the replacement
+  carries the listed identity. Windows assigns a new file identity and refuses it.
+- **Expected:** a file replaced after listing is refused on every platform, or the
+  window is removed by opening each listed file once and reading from that
+  descriptor, with no second lookup by path.
+- **Owner / task:** unassigned. The case runs on Windows only
+  (`tests/unit/handoffCliPublish.test.ts`) until the identity or the read path
+  changes; the skip names this issue.
+- **Resolution:** open.
+- **Evidence:** Verify run on `3b0d160` (ubuntu job, `handoffCliPublish`), and
+  the same failure reproduced in a `node:24.21.0` container on 2026-10-09.

@@ -76,6 +76,15 @@ async function collect(stream: AsyncIterable<CliGenerationEvent>) {
 }
 const limits = { timeoutMs: 5000, maxOutputBytes: 4096, maxConcurrency: 1, quotaMaxWaitMs: 1000 };
 
+function alive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("offline CLI runner", () => {
   it("validates positive limits", () => {
     expect(cliLimits({}).maxConcurrency).toBe(1);
@@ -213,7 +222,9 @@ describe("offline CLI runner", () => {
       expect(await outcome).toMatchObject({
         code: kind === "cancel" ? "CANCELLED" : "PROVIDER_TIMEOUT"
       });
-      for (const pid of pids) expect(() => process.kill(pid, 0)).toThrow();
+      // The rejection is raised before the kernel has reaped the group: a killed
+      // zombie still accepts signal 0, so each exit is awaited rather than assumed.
+      for (const pid of pids) await expect.poll(() => alive(pid), { timeout: 4000 }).toBe(false);
     },
     10000
   );

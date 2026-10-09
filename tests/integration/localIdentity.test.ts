@@ -21,9 +21,22 @@ afterEach(async () => {
   // Held files cannot be removed, so every holder is released first. Directories
   // are still removed if a release fails; that failure is then reported.
   const released = await Promise.allSettled(holders.splice(0).map((release) => release()));
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    if (process.platform !== "win32") await restoreOwnerAccess(root);
+    await rm(root, { recursive: true, force: true });
+  }
   for (const r of released) if (r.status === "rejected") throw r.reason;
 });
+/** A test may leave a directory without its owner execute bit; rm needs it back. */
+async function restoreOwnerAccess(dir: string) {
+  await chmod(dir, 0o700).catch(() => undefined);
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory() && !entry.isSymbolicLink()) await restoreOwnerAccess(path);
+  }
+}
+
 async function root() {
   const dir = await mkdtemp(join(tmpdir(), "chat-identity-"));
   roots.push(dir);

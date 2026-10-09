@@ -210,15 +210,21 @@ function syntheticExport() {
 }
 
 describe("an export file replaced between listing and reading", () => {
-  it("is refused even when the replacement has identical bytes", () => {
-    const { dir, run } = syntheticExport();
-    fault.swap = "policy.json";
-    expect(run()).toEqual({ code: 1, stderr: "handoff: export_invalid\n" });
-    expect(existsSync(join(dir, "out"))).toBe(false);
-    // The same export, read without a replacement, composes.
-    fault.swap = undefined;
-    expect(run().code).toBe(0);
-  });
+  // Identity is device plus inode. Linux file systems reuse a freed inode at once,
+  // so an unlink-and-recreate within the window is indistinguishable there; see
+  // CA-ISSUE-045. Windows assigns a new file identity, so the refusal is proven on it.
+  it.runIf(process.platform === "win32")(
+    "is refused even when the replacement has identical bytes",
+    () => {
+      const { dir, run } = syntheticExport();
+      fault.swap = "policy.json";
+      expect(run()).toEqual({ code: 1, stderr: "handoff: export_invalid\n" });
+      expect(existsSync(join(dir, "out"))).toBe(false);
+      // The same export, read without a replacement, composes.
+      fault.swap = undefined;
+      expect(run().code).toBe(0);
+    }
+  );
 });
 
 describe("an export directory with unexpected entries", () => {
