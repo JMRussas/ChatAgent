@@ -68,6 +68,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-028 | Generated observer helper shadows Python stdlib queue              | defect | supervision tooling      | closed   | codex-chatagent                              |
 | CA-ISSUE-029 | Controls compare a native plan key with a canonical task ID        | gap    | conversation correlation | open     | codex-chatagent / Athena controls worker     |
 | CA-ISSUE-030 | Attempt-progress preparation cannot parse                          | defect | preparation verification | open     | codex-chatagent / Athena correction worker   |
+| CA-ISSUE-031 | Maintained startup omits attempt progress                          | gap    | startup wiring           | open     | codex-chatagent / Athena correction worker   |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -989,3 +990,18 @@ execution. Preserve exact failed source bundle
 worker exit, checks and review findings under external
 `attempt-progress-prepare-001`. No accepted product source was changed by this
 failure. The 600-second timeout is an operational bound, not a model-speed SLO.
+
+### CA-ISSUE-031 — Maintained startup omits attempt progress
+
+Status: open within progress preparation task
+`b0be34f0-1932-5c20-bfad-9d9d9406885c` epoch2. Direct test-server fixtures enabled
+the new progress option, but maintained `startServer` did not forward it. The
+assembled-startup regression reproduced a missing panel before any progress request;
+the source remains unaccepted preparation, not a regression against integrated controls.
+
+Require trusted configured plan-API startup to expose the operator-only panel and
+real collector route, while an unconfigured startup stays disabled. The new tests
+use actual startup/auth/collector and only fixture loopback Hekate responses; no
+model or dispatcher runs. Evidence: external
+`attempt-progress-prepare-002/startup-unwired-negative.log`. Keep open until the
+corrected startup is verified, integrated and exercised with the live product API.
