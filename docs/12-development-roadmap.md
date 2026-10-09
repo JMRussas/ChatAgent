@@ -26,7 +26,7 @@ UI artifact; its combined validation passed all 2,515 tests, lint and docs check
 
 At observation time the owned dispatcher was alive, with a fresh five-second
 heartbeat, but **no application task was executing**. It was blocked at
-`bounded-plan-launch/spec_pending`. The three preparation/control/metrics tasks
+`bounded-plan-launch/spec_pending`. At that assessment, the three preparation/control/metrics tasks
 were still `in_progress` in PlanStore, while their recorded workers had exited.
 They require lead review or follow-up work; their open task state is not evidence
 of active model computation. The bounded host does not provide persistent AI
@@ -68,6 +68,28 @@ does not support claiming that model execution itself is too slow.
 Assessment evidence: `D:/hekate-coordinator/runs/state-assessment-20261008/`
 contains timestamped PlanStore responses and hashes plus the focused metrics check.
 This assessment reads the existing plans; it does not claim new task acceptance.
+
+Execution has resumed under the user's instruction. Native stop-fence task
+`93a81ce6-a7c2-5acb-a135-e2eca3195353` is accepted with source
+`f5a7a6b40b347e787bbf583720cf2f58c4ba004c` and integrated into Hekate. The old
+host exited cleanly; the new hidden host acknowledged launch
+`60fb5b65f24c4cdf8df30b7eef102408`, runtime PID 62896. A real foreign-target
+request was ignored and retained while the owner's heartbeat advanced. This is
+live gate evidence, not a real replacement-process race. Adapter correction worker
+`launch-adapter-prepare-003` finished; 228 unit cases and the focused HTTP/auth
+selection pass, lint passes, and a real pinned native status/duplicate-launch check
+returned `OWNER_PRESENT` without a second launch. An unfenced adapter mutation
+fails the stop assertion and is restored. The original bounded-launch package passed all five reference steps: 19 frozen
+HTTP cases, typecheck, 2,753 full-suite cases with nine existing opt-in skips, docs
+and format. Preparation is accepted at epoch 2; package SHA-256
+`6720b9cd123f8dd6bb2e68e47c3c9df74ff623d131503896e675557f8596c289` is
+pinned to the existing node. The native owner claimed attempt
+`pilot-52bf717c4465-r1` at epoch 1. Feature acceptance remains pending; the
+reference artifact is feasibility evidence only. Measurements task
+`ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` was explicitly released to `todo`, with its
+candidate hashes and 46-test proof retained, pending the bounded follow-up described
+above. Evidence: external `stop-fence-001/handoff`, `launch-adapter-prepare-003`,
+`dispatch-native-observation-001` and `execution-metrics-003` directories.
 
 ### Roadmap review and application execution plan (2026-10-08)
 

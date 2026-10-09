@@ -878,8 +878,11 @@ negative-control test. Expected: a request for A cannot stop B.
 Candidate native repair adds `--expected-launch-id`, a target-labelled request and
 an owner-side check. It passes 76 focused cases with one Windows symlink capability
 skip. A live wrong-owner request was refused `owner_changed` and left the stop file
-unchanged. These checks do not establish integrated adapter behavior: the candidate
-is unaccepted, the running host still uses `c200ef7`, and adapter adoption is pending.
+unchanged. Native source is accepted at `f5a7a6b` and the hidden host has adopted it. A real
+foreign-target request was ignored and retained while its heartbeat advanced. The
+corrected adapter passes 228 unit cases and the focused HTTP/auth selection; its
+unfenced mutation fails a stop assertion. The original application task and
+end-to-end adapter stop delivery remain unaccepted.
 Close only after reviewed native integration, adapter identity/response checks,
 replacement-owner and graceful-stop verification, and a controlled runtime handoff.
 Evidence: `D:/hekate-coordinator/runs/stop-fence-001/`; the candidate's behavior
