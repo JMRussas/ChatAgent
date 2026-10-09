@@ -4,6 +4,7 @@ import {
   fetchCoordinationStatus,
   planApiBase
 } from "./integrations/hekate/devCoordination";
+import { DispatchHost } from "./integrations/hekate/dispatchHost";
 import { loadRoleCatalog, reloadRoleCatalog } from "./app/roleCatalog";
 import { referenceSelectionsSchema, selectReferences } from "./app/referenceSelection";
 import { runControlsSchema } from "./app/runControls";
@@ -223,8 +224,14 @@ interface ServerOptions {
    * development plan status route answers 404 PLAN_STATUS_DISABLED.
    */
   planApiUrl?: string;
+  /**
+   * Trusted, already validated dispatch host for prepared plan roots. Absent: the
+   * development dispatch routes answer 404 DISPATCH_HOST_DISABLED.
+   */
+  dispatchHost?: DispatchHost;
 }
 
+const dispatchBodySchema = z.object({ operationId: z.string().uuid() }).strict();
 const PLAN_ROOT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function resolveRuntimeModeInfo(config: RuntimeProviderConfig): RuntimeModeInfo {
@@ -533,6 +540,9 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
     options.maxConnections === undefined ? DEFAULT_MAX_CONNECTIONS : options.maxConnections
   );
   const planApiUrl = options.planApiUrl === undefined ? undefined : planApiBase(options.planApiUrl);
+  if (options.dispatchHost !== undefined && !(options.dispatchHost instanceof DispatchHost))
+    throw new Error("INVALID_DISPATCH_HOST");
+  const dispatchHost = options.dispatchHost;
   service.resolveReferences = (selections, userId, conversationId) => {
     const store = options.briefings?.directory?.results;
     if (!store) throw Error("REFERENCES_UNAVAILABLE");
@@ -756,6 +766,35 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             reason: error instanceof DevCoordinationError ? error.code : "UNAVAILABLE"
           });
         }
+      }
+      const dispatchRoute = /^\/development\/plans\/([^/]+)\/dispatch(?:\/(launch|stop))?$/.exec(
+        url.pathname
+      );
+      if (dispatchRoute && method === (dispatchRoute[2] ? "POST" : "GET")) {
+        res.setHeader("Cache-Control", "no-store");
+        if (dispatchHost === undefined)
+          return json(res, 404, {
+            code: "DISPATCH_HOST_DISABLED",
+            error: "Plan dispatch is not configured"
+          });
+        if ((req.url ?? "").includes("?"))
+          return json(res, 400, {
+            code: "INVALID_QUERY",
+            error: "No query parameters are accepted"
+          });
+        if (!PLAN_ROOT.test(dispatchRoute[1]))
+          return json(res, 400, { code: "INVALID_ROOT", error: "The plan root is not a GUID" });
+        if (!dispatchRoute[2]) {
+          const result = await dispatchHost.status(dispatchRoute[1]);
+          return json(res, result.status, result.body);
+        }
+        // Only an operation ID is accepted: no path, flag or limit comes from a request.
+        const { operationId } = dispatchBodySchema.parse(requireObjectBody(await parseBody()));
+        const result =
+          dispatchRoute[2] === "launch"
+            ? await dispatchHost.launch(dispatchRoute[1], operationId)
+            : await dispatchHost.stop(dispatchRoute[1], operationId);
+        return json(res, result.status, result.body);
       }
       if (method === "GET" && url.pathname === "/telemetry/evaluation")
         return json(res, 200, options.evaluationStatus?.() ?? { enabled: false });

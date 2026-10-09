@@ -88,6 +88,10 @@ export const ROUTES: readonly RouteRule[] = [
   rule("GET", "/conversations/retention", "operator"),
   // Global, read-only view of a Hekate plan; not scoped to any principal's conversations.
   rule("GET", "/development/plans/:rootId/status", "operator"),
+  // Existing prepared-plan dispatch host only: observation, launch and graceful stop.
+  rule("GET", "/development/plans/:rootId/dispatch", "operator"),
+  rule("POST", "/development/plans/:rootId/dispatch/launch", "operator"),
+  rule("POST", "/development/plans/:rootId/dispatch/stop", "operator"),
   rule("DELETE", "/conversations/:conversationId/identity", "operator")
 ];
 
