@@ -221,20 +221,77 @@ export function projectPublicActivity(
   records: readonly ObservedTraceRecord[],
   traceComplete: boolean
 ): PublicActivity {
+  const counts = {
+    stdoutRecords: 0,
+    assistantRecords: 0,
+    otherRecords: 0,
+    unavailableRecords: 0,
+    withheldItems: 0
+  };
+  const all: ActivityItem[] = [];
+  let blockCapped = false;
+  for (const record of records) {
+    if (record.stream !== "stdout") continue;
+    counts.stdoutRecords++;
+    if (record.cut || record.redacted || typeof record.text !== "string") {
+      counts.unavailableRecords++;
+      continue;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(record.text);
+    } catch {
+      counts.unavailableRecords++;
+      continue;
+    }
+    const message = isObject(parsed) ? parsed.message : null;
+    if (
+      !isObject(parsed) ||
+      parsed.type !== "assistant" ||
+      !isObject(message) ||
+      message.role !== "assistant" ||
+      !Array.isArray(message.content)
+    ) {
+      counts.otherRecords++;
+      continue;
+    }
+    counts.assistantRecords++;
+    const content = message.content as unknown[];
+    const inspected = Math.min(content.length, ATTEMPT_PROGRESS_LIMITS.maxBlocksPerRecord);
+    if (content.length > inspected) blockCapped = true;
+    for (let index = 0; index < inspected; index++) {
+      const block = content[index];
+      if (!isObject(block)) continue;
+      if (block.type === "text") {
+        const clipped =
+          typeof block.text === "string"
+            ? clip(block.text, ATTEMPT_PROGRESS_LIMITS.maxTextChars)
+            : null;
+        if (clipped === null || clipped.text === "") counts.withheldItems++;
+        else
+          all.push({
+            traceSeq: record.seq,
+            index,
+            kind: "text",
+            text: clipped.text,
+            textClipped: clipped.clipped
+          });
+      } else if (block.type === "tool_use") {
+        if (typeof block.name === "string" && PUBLIC_TOOLS.includes(block.name))
+          all.push({ traceSeq: record.seq, index, kind: "tool_use", tool: block.name });
+        else counts.withheldItems++;
+      }
+    }
+  }
+  const items = all.slice(-ATTEMPT_PROGRESS_LIMITS.maxItems);
   return {
     trust: "untrusted_inert_unverified_worker_claims",
     source: "complete_stdout_claude_stream_json_assistant_records",
-    items: [],
-    totalItems: 0,
-    omittedItems: 0,
-    counts: {
-      stdoutRecords: 0,
-      assistantRecords: 0,
-      otherRecords: 0,
-      unavailableRecords: 0,
-      withheldItems: 0
-    },
-    complete: false
+    items,
+    totalItems: all.length,
+    omittedItems: all.length - items.length,
+    counts,
+    complete: traceComplete && counts.unavailableRecords === 0 && !blockCapped
   };
 }
 
