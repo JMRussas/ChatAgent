@@ -918,3 +918,182 @@ and fake-worker experiments do not resolve them.
 10. **Provider ownership.** ChatAgent's `src/providers/cli/hekateClaude.ts` with
     `bridges/hekate/claude_bridge.py`, Hekate's `Odin/gods/providers/` and its
     `llm-gateway` overlap. Which is canonical for each use is undecided.
+
+## Managed roles and shared supervision contract (2026-10-08)
+
+The user requested management, observation and improvement through visible tasks,
+with traceability that a human or AI can audit. The following is the acceptance
+contract for managed roles and shared observation. Implementation status is scoped
+below; its complete rehearsal matrix remains pending.
+Hekate hosts managed execution; ChatAgent selects work and presents evidence.
+PlanStore owns task, attempt and review state. LangChain provides model/tool
+adapters and LangGraph may express role steps; checkpoints cannot override
+PlanStore. Athena plans, Odin coordinates, Hermes executes, Mimir reviews and
+Hephaestus integrates. Deterministic dispatch and gates remain application code.
+
+| Role       | Input and permitted responsibility                                                                                 | Output and review boundary                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Athena     | Selected requirements, roadmap, source references and current plan snapshot; bounded read-only research            | Versioned plan/role contract, dependency order, findings and acceptance criteria; lead reviews before implementation |
+| Odin       | Authoritative readiness, accepted dependencies and pinned execution package; deterministic claim/dispatch controls | Correlated attempt and explicit stop reason; cannot manufacture review acceptance                                    |
+| Hermes     | One fenced assignment with workspace, tool and budget limits                                                       | Exact result/artifact, tool evidence and findings; cannot approve its own result                                     |
+| Mimir      | Exact artifact, frozen acceptance criteria and verifier evidence                                                   | Review decision with rationale and evidence; unavailable verification remains awaiting review                        |
+| Hephaestus | Accepted artifact, target revision and integration constraints                                                     | Integration revision and relevant check results; task acceptance and integration remain separately visible           |
+
+Each resolved role records a version/hash and permitted binding overrides. Runtime
+credentials enforce its capabilities; instructions alone do not enforce them.
+Implementation extends existing contracts deliberately where the current chat
+catalog cannot express these output types or limits.
+
+The optional Hekate Python role runtime and evidence primitives are integrated at
+`633e31a`; native claim/journal/trace/finish composition is integrated at `33feddc`.
+A host-injected Claude CLI model completed a real LangChain/LangGraph role attempt
+under this path. The API and browser read the same verified trace; the lead
+verified exact manifest bytes and recorded an independent review. Evidence is
+`D:/hekate-coordinator/runs/role-live-001/`. This proves that scoped path, not
+arbitrary task-type dispatch: persisted role assignments,
+review outage/recovery and the full failure rehearsal remain explicit work.
+
+### Evidence and identity
+
+Each attempt must correlate plan root, task, run, attempt ID/epoch, content/state
+revisions, prerequisite digest, operation/claim key, role version/hash, resolved
+provider/model binding, effective limits, source/workspace revision, prompt and
+result digests, and artifact/review references. Evidence records link to the
+operation that caused them. Record UTC occurrence time where known and observation
+time separately; a reader's timestamp cannot establish when an external action
+actually occurred. Preserve partial, capped, unavailable and conflicting evidence.
+
+Reuse Hekate's `PlanAuditEvents`, `AttemptTrace`, `AttemptTraceSources`, claim
+receipts and supervisor journal. Applied attempt/content/review operations already
+have audit events. Rejected/no-op, structural and dependency operations are not
+all covered by that derivation: retain their request identity, outcome and refusal
+in the appropriate operation journal without manufacturing applied state events.
+Audit completeness requires these gaps to be visible. Pagination and sequence
+gaps must be explicit; one response page is not the complete history.
+
+Record public decision rationale, alternatives when relevant, actor and exact
+evidence supporting the decision. Worker output, verifier outcome, lead acceptance
+and integration are separate records. An actor string is an assertion, not an
+authenticated principal in the current local profile. Store sanitized tool/event
+metadata and authorized evidence; private model reasoning is not an audit input.
+
+Hashes verify bytes against a retained reference. They do not prove authorship or
+protect against an administrator replacing both data and hashes. Stronger audit
+guarantees need a separately protected manifest/anchor, retention policy and access
+controls. Define those before describing evidence as tamper-proof. Retain original
+restricted evidence where authorized, label redacted exports, and hash each export's
+actual bytes. Sensitive inputs and tool results must not be exposed through a
+public monitoring view merely because a trace was captured.
+
+### Human and AI observation
+
+Both observers consume the same bounded, read-only state/event/trace projection.
+It exposes observed time, source, current attempt identity, progress markers,
+review status, blockers, findings and evidence links. A human gets a timeline and
+task view; an AI gets structured records with stable identities and cursors.
+Model-generated summaries link to those records and label inference separately.
+Treat task descriptions, tool output and traces as untrusted content, not monitor
+instructions. Observation credentials cannot launch, finish, review or edit work.
+Recommendations and any authorized control action have separate recorded actors
+and operations; observer disagreement cannot silently change task state.
+
+Show task state, process liveness and useful progress independently. `in_progress`
+is recorded state; a live PID alone is not progress. A heartbeat does not prove
+useful work. Missing, stale or conflicting observations remain unknown rather
+than implying success or death. Configure polling, payload and elapsed-time
+bounds; retain unavailable observations and avoid overlapping poll requests.
+
+During a supervised session the lead checks readiness, dispatches bounded work,
+observes it, records findings, reviews exact evidence and advances accepted
+dependencies. On rejection, stale inputs, contradictory identities, failed trace
+writes, exhausted bounds or uncertain external effects, stop advancement and
+record the reason and owner. Do not relaunch merely because an observation failed.
+Verifier unavailability leaves work awaiting review. Cancelling a process does
+not establish rollback. Unattended recovery and persistent AI monitoring remain
+separate backlog until proven.
+
+The bounded shared collector (with current event/trace claim cross-check at
+`4b00df6`) is implemented in
+`src/integrations/hekate/roleObservation.ts` at `2f3d6df` with
+`scripts/observeRole.ts`. It reads plan → node event pages → current attempt trace
+pages → plan, using one timeout, total byte/request budgets and an overlap guard.
+The first trace read has no cursor; subsequent reads retain the first prompt.
+Changed captured task fields or page metadata are stale; capped, truncated or
+unverified evidence is partial. Typed refusals mean an observation is unavailable,
+not that the task or worker succeeded or died. Raw response strings/hashes remain
+restricted-local evidence. `aiSnapshot` carries allowlisted metadata and evidence
+citations, excluding raw prompt/trace, names and arbitrary acceptance text; this
+is not a general secret sanitizer. Its liveness/useful-progress fields stay unknown.
+
+Invoke the existing pinned tsx runtime, for example:
+
+```sh
+node node_modules/tsx/dist/cli.mjs scripts/observeRole.ts --base http://127.0.0.1:5111 --root <plan-root> --node <task-id> --cycles 3 --interval-ms 1000
+```
+
+At `9d408b9`, the snapshot also records `selectedAttempt`: current when a current
+attempt ID exists, otherwise the latest loaded historical attempt from node events.
+Cancellation can clear the current ID; historical selection must not rewrite current
+task identity, work or review. It binds node/attempt/epoch and start-event claim keys.
+The historical content pin comes only from the matching start event; unknown pins
+stay unknown, and a pin differing from current task content is explicit partial
+`attempt_content_stale` evidence. Truncated pages mean latest loaded history, not
+necessarily the latest recorded attempt. Human and AI get the same selection.
+
+Cycles are bounded to 20 and run serially. The full CLI output includes restricted
+raw evidence; give AI consumers only `aiSnapshot`. No model or control operation
+is invoked. A state-transition-only coding attempt lacks a native journal entry,
+so its trace endpoint can refuse `ATTEMPT_NOT_FOUND`; the collector must not invent
+an equivalent trace. Tests are `roleObservation.test.ts` and
+`roleObservationReview.test.ts`; native live verification is retained under
+`D:/hekate-coordinator/runs/role-observation-001/` and `role-live-002/`.
+
+### First acceptance rehearsal
+
+One read-only planning role must produce a correlated prompt, result, trace,
+finding record and independently reviewed artifact through managed attempts.
+Prove that a human and AI read the same attempt and evidence. Verify success,
+model/verifier outage, stale content, duplicate submission, interrupted capture,
+trace truncation, API unavailability, missing evidence and explicit refresh.
+Neither observer may mistake unavailable evidence for completion. A verifier
+exception must never produce acceptance. Include a test where trace content asks
+the monitor to mutate state: the observer must remain read-only.
+
+The current manually supervised CLI planning tasks have PlanStore events and disk
+streams, but no managed claim receipt or native viewer trace link. Their artifact
+manifests and snapshots are provisional audit evidence, not completion of this
+rehearsal. Resolve that gap in the existing managed-wiring task before declaring
+end-to-end observability.
+
+## Owned local dispatch observation
+
+Hekate's `e1.owned_dispatch` wraps its maintained persistent runner; it does not
+introduce a task store or grant model review authority. The host owns the LocalStore
+advisory lock, validates plan/executable/spec pins, dispatches only ready prepared
+tasks, and polls explicit `spec_pending`/`review_pending` blocks. Inflight, rejected
+or uncertain work stops for operator handling. A default four-hour bound and node
+quota apply per authorized launch. An in-flight native task retains its own finite
+subprocess limits; graceful stop waits for that task and makes no new claim.
+
+From the maintained Hekate `scripts/local/supervisor_e1` environment:
+
+```sh
+uv run --frozen --python 3.13.13 --no-python-downloads python -m e1.owned_dispatch status --state-dir D:/hekate-coordinator/view-trace-001/state
+```
+
+The status file is `D:/hekate-coordinator/view-trace-001/state/dispatch/status.json`.
+Its owner liveness requires a matching native process creation identity and a fresh
+finite heartbeat. A launch ID correlates the Windows virtualenv launcher to its
+runtime interpreter, whose PID is reported separately. This is host-asserted local
+process evidence, not cryptographic authentication or proof of useful worker
+progress. Task/attempt IDs and native traces remain PlanStore observations; the
+full status file and per-attempt evidence remain local. Human and AI readers can
+distinguish running, blocked preparation/review, failed, stopped, ready-idle and
+owner-gone states without inferring worker progress from `in_progress`.
+
+The real API task ran two rejected formatting rounds within its frozen budget.
+A separately attributed operator review formatted only one line, proved unchanged
+implementation token streams and passed the same independent verifier before
+acceptance. CA-ISSUE-016 tracks the missing versioned formatter capability; the
+workaround does not widen the worker shell or change its frozen oracle. The next
+UI spec is still an explicit preparation gate.

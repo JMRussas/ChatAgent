@@ -8,6 +8,211 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Roadmap review and application execution plan (2026-10-08)
 
+**Continued supervision (2026-10-08).** The user directed continued execution,
+live Active-view checks and defect logging as work proceeds. Work is not complete
+when a plan is stored. Prepare, execute, observe, record findings, verify fixes and
+advance through reviewed artifacts. Keep a defect's reproduction, expected/actual
+behavior, evidence, priority, owner and Hekate task together in
+[the issue register](open-issues.md); distinguish bugs from feature backlog and
+operational limits. Never discard failed proof or worker evidence.
+
+**Implementation now progressing (2026-10-08).** The optional Python planning-role
+runtime and evidence manifest primitives are implemented, independently reviewed
+and integrated into Hekate at `633e31a`. The runtime executes an injected
+LangChain model through a LangGraph model/validation graph, rejects malformed
+correlation/output, disables ambient tracing and leaves review pending. Evidence
+manifests verify bounded exact bytes against distinct task, attempt, content and
+state identities. Neither primitive claims process liveness or authenticates actors.
+Their Hekate nodes `a08ee7ab-7b4a-5bde-967e-eb512132d089` and
+`28520a10-c13d-55ec-8b20-1af2ecdda639` are accepted at attempt epoch 2 after
+independent review rejected the original candidates. Failed candidates and repair
+evidence are retained; Hekate HK-ISSUE-018/019 record the defects and closure.
+
+Checks passed: 159 focused cases; the broader selection passed 359 cases, with
+four harness cases rerun successfully after correcting the worktree's maintained
+container selector. A separate default-dependency environment passed 50 evidence
+cases and skipped the two optional-role test modules. Evidence is under
+`D:/hekate-coordinator/runs/managed-role-adapter-001/`,
+`managed-role-adapter-002/`, `role-evidence-001/` and `role-evidence-002/`.
+Odin's managed-attempt/trace wiring task
+`c2fd26d1-4643-561d-9601-6866e3810727` is accepted and integrated at `33feddc`.
+It uses the existing claim, attempt journal, trace and finish path. Independent
+verification passed 372 cases, with one Windows symlink capability skip. A real
+Claude CLI model run through LangChain/LangGraph completed under a native claim;
+the API returned a verified trace and the browser displayed it. The lead verified
+its exact evidence manifest before recording acceptance. Evidence is retained at
+`D:/hekate-coordinator/runs/role-live-001/` and `managed-role-wiring-002/`.
+
+The shared observer task `9f18907d-ef1e-5288-a31f-b78d27ef1920` is accepted at
+attempt epoch 2 and integrated into ChatAgent at `2f3d6df`. The GET-only collector
+shares stable task/attempt metadata between human and AI projections, bounds the
+whole exchange and retains exact response hashes. Its AI projection excludes raw
+trace/prompt and other arbitrary free text. Liveness and useful progress remain
+unknown. Verification passed 106 selected tests plus format, lint and docs checks.
+Three live observations matched the native role's exact task/attempt and verified
+trace, including record zero. CA-ISSUE-017 records the rejected candidate and repair.
+
+Mimir's review task `efb428c9-5e44-5326-b856-0909efed76e1` is accepted at
+epoch 2. Claim-key cross-checks/provenance limits are integrated at ChatAgent
+`4b00df6`; explicit unknown-liveness/useful-progress labels are integrated at
+Hekate `7fa394f`. Verification passed 109 selected observer/coordination tests,
+138 backend cases (one Windows symlink capability skip), 13 focused browser
+cases, typecheck and relevant lint checks. CA-ISSUE-018 records the rejected
+incomplete reviewer launch; CA-ISSUE-019 records the claim-linkage improvement.
+A real native role was captured Active/unverified, then done/verified and removed
+from Active, with manifest verification preceding independent acceptance.
+
+**Contention and dispatch repair (2026-10-08):** managed task
+`2e272c20-db6c-576f-8cb7-73e87311c0ed` is accepted at epoch 2 and integrated at
+`cf9d1a4`. Real Windows delete-pending kernel handles reproduce lock-open `EPERM`;
+rotation recovers after release through bounded exclusive-creation retries, refuses
+permanent contention, and refuses if another owner wins the name. The old source
+fails the new recovery test with captured `open`/`EPERM` metadata. Full verification:
+2,432 passed, 9 existing skips; format/lint/docs checks pass. The original field
+holder remains unidentified. Initial fixture failure and a wrong-repository artifact
+reference were preserved; the incorrect reference was explicitly rejected and a
+new attempt reviewed against the exact ChatAgent commit.
+
+Owned dispatch task `3764990e-b4ba-530f-91ad-6d107c4571e0` is in final review,
+attempt `owned-dispatch-002-r1`, with source integrated at Hekate `24404af`. The first candidate was rejected before live use.
+The host reuses native PlanStore/runner ownership and makes process identity,
+heartbeat, blocked preparation/review, failure and ready-but-idle states explicit.
+107 runner/store checks and 38 final dispatcher checks pass; independent Mimir
+review found no blockers, and its scoped follow-ups are corrected/documented. The
+real store rehearsal correctly reports `ready_idle/observe_only` without dispatch. The existing application API task is now
+pinned to verified package `plan-status-api-006`, SHA-256
+`61e3c2b8f35e61141dd97afbb9764dc23c1d9721c9c7db81a1698444cd1083c8`.
+Native hidden dispatch launched the original API task and its trace was captured
+Active/unverified through the live UI (22 GETs, no browser errors). Windows virtualenv
+launcher/interpreter PID indirection left the first acknowledgement `unconfirmed`;
+launch-ID correlation is corrected and its test passes. The two authorized model
+rounds both failed the formatting oracle, and the owner stopped as `failed` with
+`node_not_accepted/max_rounds`. Both rejected artifacts and the native journal remain
+retained. Operator attempt `operator-format-review-001-r1` is Active: a trusted
+formatting-only derivative has identical TypeScript token streams and passes all 26
+frozen oracle cases; the unchanged full verifier passed (26 frozen cases, 2,437 full-suite cases,
+9 existing skips, typecheck/docs and clean tree). The original API task is
+accepted at epoch 3 with artifact `d0fea19a1cfdc6350706c2fe3ae35368ebb4d630`. No third model round
+was launched. CA-ISSUE-016 follow-up `db59fb7b-d963-537a-853a-8883601ab757`
+requires a versioned pinned formatter capability rather than broadening shell
+authority or altering frozen verification. Corrected live launch acknowledgement succeeded with distinct launcher/runtime
+PIDs and launch ID. The four-hour owned host is waiting explicitly on
+`plan-status-ui/spec_pending`, with a five-second heartbeat. It dispatches only
+prepared work and leaves planning, failed-budget recovery and integration to
+explicitly attributed operator/role tasks. Source review acceptance is being recorded.
+
+**Active:** application resumption `47f98ae5-c0ec-5be1-919b-7ea615f07952`,
+attempt `application-resume-001-r1`. Supervision rehearsal
+`5544af83-8716-528b-aabf-2ceb21719bde` is accepted at epoch 3 after the
+prior finish correctly refused `stale_prerequisites`: adding the historical repair
+gate required releasing the old attempt and revalidating the exact bundle under
+current pins. Evidence and that review are retained in
+`D:/hekate-coordinator/runs/supervision-audit-002/repin-review.txt`. Windows
+recurrence diagnosis `c3c70c65-52ea-53e4-9209-d3d39893f927` is accepted at
+`6cfd9fc`; 39 focused cases and the full suite (2,428 passed, 9 existing skips)
+passed. The narrow lock-acquisition refusal fix preserves native error cause; the
+original field holder remains unconfirmed. The application API package has passed reference proof and has run two native
+model rounds; its explicit operator formatting/review attempt is described above.
+Historical-trace defect `248e4707-3124-59a2-abf8-0eba1b069fc7` is accepted and
+integrated at `9d408b9` after 124 selected tests and eight native observer/browser
+comparisons.
+The first audit harness exceeded the maintained eight-node import bound and failed
+before importing work; it was rejected and retried within that bound. The second
+native rehearsal exercised eight controlled failure/injection cases, retained
+unaccepted evidence, stopped failed allocations explicitly, and proved duplicate
+claims invoke no second model. A bounded real HTTP 503 fixture verifies observer
+refusal without exporting its body or issuing writes. CA-ISSUE-020 records a real
+historical-trace omission after cancellation; the bounded worker fix is reviewed
+and rehearsal acceptance requires its accepted artifact. Evidence is under
+`D:/hekate-coordinator/runs/supervision-audit-001/002/` and
+`observation-history-001/`.
+
+The prior rehearsal monitor ended; an observer alone left execution idle until the
+lead started the shared-observer task. That operational failure is recorded against
+CA-ISSUE-004. A 30-minute, 15-second polling observer adds evidence collection;
+the lead remains responsible for dispatch, independent review and advancing gates.
+Direct CLI assignments recorded through state transitions do not yet have native
+journal traces: the collector explicitly refuses their missing trace instead of
+inventing progress. Persisted role assignments and native coding-worker dispatch
+remain follow-up work.
+
+**Human and AI supervision (2026-10-08).** The user authorized management,
+observation and improvement through the task system. Athena's role-contract task
+`d0a3d0bb-92a2-578a-8577-b7b47c77b049` was expanded to auditability and executed
+by a read-only CLI worker. Its report, independent lead corrections, launch/exit
+facts and timestamped GET snapshots are retained under
+`D:/hekate-coordinator/plans/role-contract-audit-20261008/`.
+The [shared supervision contract](implementation/13-hekate-plan-node-integration.md#managed-roles-and-shared-supervision-contract-2026-10-08)
+defines role boundaries, causal evidence links, freshness/liveness distinctions,
+public decision rationale, trust limits, bounded read-only monitoring and refusal
+cases. It is implementation acceptance criteria, not a completed monitoring runtime.
+
+The next role slice must include an evidence manifest, shared human/AI observation
+projection and a rehearsal of failed, interrupted, stale and duplicate work.
+Those deliverables are tasks in the same Hekate role plan, linked to managed wiring
+and review validation. Each observer must identify the same attempt and exact
+evidence; recommendations are distinct from authorized control operations. Keep
+already authorized lead actions moving through explicit tasks and review gates.
+Do not interpret new trace lines as useful progress or missing observations as
+permission to relaunch. Session supervision is active; persistent unattended
+monitoring, recovery and stronger independently anchored audit guarantees remain
+unimplemented. Current CLI streams are restricted local evidence pending a
+sanitized, managed viewer trace path.
+
+The broader roadmap is now represented in the same Hekate project, alongside the
+application sequence:
+
+- **Reliability, recovery and evidence backlog:** plan
+  `d6450921-6673-5535-b495-07cc165ada2d`, eight stored items: CA-ISSUE-004,
+  CA-ISSUE-008, CA-ISSUE-009, recovery/fencing, handoff manifests and evidence
+  binding, shared deployment, optional independent quality evidence and memory
+  research. Existing deferrals remain explicit; these are pending specs, not
+  running work or newly claimed completion.
+- **Workflow defects and maintenance:** plan
+  `9edb606e-59ff-536b-b1f2-541a2683c51e`, with CA-ISSUE-015 (Windows focus),
+  CA-ISSUE-016 (formatting acceptance) and a source/evidence reconciliation task
+  for remaining roadmap, documentation and CI commitments. The latter keeps
+  historical assertions from being silently promoted into new work or forgotten.
+
+Their import files, deterministic node IDs and readbacks are under
+`D:/hekate-coordinator/plans/chatagent-reliability-backlog-20261008/` and
+`chatagent-workflow-defects-20261008/`. PlanStore owns task state. Application work
+remains the implementation sequence. Before its next launch, the user requested
+role-based planning using the existing LangChain/LangGraph work. Planning task
+`d03b6782-01e2-5fce-ade6-149fe746dcd0` under root
+`29141a72-9c9a-54f8-a357-fb6db74d84d9` was assigned a bounded, read-only Claude
+CLI worker. Its prompt, stream, exit result and reviewed report are retained under
+`D:/hekate-coordinator/plans/gods-managed-planning-20261008/`. Planning is explicit
+work, not invisible preparation outside the task system.
+The planning artifact is now done and manually accepted with corrections in
+`review.txt`; it is not implementation acceptance. Eight follow-up tasks are stored
+in that same plan: role contract → read-only role adapter → managed attempt wiring
+→ review/Active UI validation → resume the existing application plan, plus verifier
+fail-open, CLI turn-bound investigation and CA-ISSUE-014 recurrence. Dependencies
+require accepted predecessors. Follow-ups are scoped backlog, not runnable frozen specs.
+The real planning task appeared in Active while running and its CLI exited successfully;
+its stream remains a disk artifact until native managed trace wiring is implemented.
+
+**Role direction:** Athena plans, Odin coordinates, Hermes executes, Mimir reviews,
+and Hephaestus integrates. Roles define responsibilities and contracts independently
+of model bindings. Reuse ChatAgent’s `src/app/roleCatalog.ts` and evaluate Hekate’s
+existing, untracked `Odin/langgraph_engine/` before adding orchestration code.
+LangChain supplies model/tool integration; LangGraph can express workflow steps.
+Deterministic dispatch, attempt fencing and verification gates remain code, not
+model judgment. PlanStore must own task/attempt/review state; checkpoints must not
+override that authority. The local profile intentionally disables the gods dispatcher.
+
+The experimental engine currently projects its own graph state into legacy
+`orchestration.db` with best-effort writes, and its Mimir node returns `passed`
+when the model verifier throws. These are integration blockers for managed work,
+not claims about the existing managed runner. Review failure must remain unknown
+or awaiting review, never accepted. This planning run is a supervised CLI invocation
+with retained stream evidence, not yet execution through the LangGraph roles.
+
+The `plan-status-api` reference proof also remains blocked: corrected route
+inventory and all 26 oracle cases passed, but the full suite reproduced Windows
+identity-rotation `EPERM` (CA-ISSUE-014, reopened). No API worker was launched.
+
 Review baseline: ChatAgent `8a68f31`, clean before this review; Hekate `e27cae3`,
 with unrelated local changes preserved. Source inspection confirms that
 `scripts/devcoord.ts` provides read-only plan inspection and `--check` exit codes;

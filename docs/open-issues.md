@@ -39,19 +39,27 @@ ledger. Deferred issues can remain backlog nodes until selected for work.
 Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 (2026-10-07). Later fixes are identified separately below.
 
-| ID           | Title                                                         | Kind   | Gate               | Status | Owner / assignee                             |
-| ------------ | ------------------------------------------------------------- | ------ | ------------------ | ------ | -------------------------------------------- |
-| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError | defect | deferred           | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-002 | No handoff composition after delivery verification            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-003 | No host slot for the consumer view                            | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-004 | No automatic recovery of an idle lead or worker               | gap    | unattended blocker | open   | codex-chatagent / unassigned                 |
-| CA-ISSUE-008 | No provider-authoritative quota reconciliation                | gap    | deferred           | open   | codex-chatagent / unassigned                 |
-| CA-ISSUE-009 | Runtime quota-window declarations are not persisted           | gap    | deferred           | open   | codex-chatagent / unassigned                 |
-| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale  | gap    | deferred           | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use       | gap    | pilot blocker      | closed | codex-chatagent / claude-chatagent           |
-| CA-ISSUE-012 | Role catalog changes need a restart                           | gap    | deferred           | closed | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-013 | Missing review identity fields pass TS verification           | defect | deferred           | closed | codex-chatagent / supervised pipeline worker |
-| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM              | defect | deferred           | closed | codex-chatagent / supervised pipeline worker |
+| ID           | Title                                                              | Kind   | Gate                 | Status   | Owner / assignee                             |
+| ------------ | ------------------------------------------------------------------ | ------ | -------------------- | -------- | -------------------------------------------- |
+| CA-ISSUE-001 | Detached buffer escapes the delivery validator as a TypeError      | defect | deferred             | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-002 | No handoff composition after delivery verification                 | gap    | pilot blocker        | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-003 | No host slot for the consumer view                                 | gap    | pilot blocker        | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-004 | No automatic recovery of an idle lead or worker                    | gap    | unattended blocker   | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-008 | No provider-authoritative quota reconciliation                     | gap    | deferred             | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-009 | Runtime quota-window declarations are not persisted                | gap    | deferred             | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-010 | Coordination status shows an older-attempt decision as stale       | gap    | deferred             | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-011 | No cross-repo parity check of a handoff view before use            | gap    | pilot blocker        | closed   | codex-chatagent / claude-chatagent           |
+| CA-ISSUE-012 | Role catalog changes need a restart                                | gap    | deferred             | closed   | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-013 | Missing review identity fields pass TS verification                | defect | deferred             | closed   | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-014 | Identity rotation can fail on Windows with EPERM                   | defect | verification blocker | reopened | codex-chatagent / supervised pipeline worker |
+| CA-ISSUE-015 | Background launches interrupt desktop focus                        | defect | deferred             | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-016 | Task verifier omits formatting acceptance                          | defect | acceptance gap       | open     | codex-chatagent / unassigned                 |
+| CA-ISSUE-017 | Role observer candidate loses native trace and exposes raw AI text | defect | acceptance blocker   | closed   | codex-chatagent / supervised Odin worker     |
+| CA-ISSUE-018 | Review worker cannot read required source and evidence             | defect | review blocker       | closed   | codex-chatagent / supervised Mimir worker    |
+| CA-ISSUE-019 | Observer does not compare current event and trace claim keys       | gap    | audit acceptance     | closed   | codex-chatagent / Codex lead                 |
+| CA-ISSUE-020 | Cancelled tasks lose historical traces in shared observation       | defect | audit acceptance     | closed   | codex-chatagent / supervised Hermes worker   |
+| CA-ISSUE-021 | Operator exporter selected the wrong repository artifact           | defect | audit evidence       | closed   | codex-chatagent                              |
+| CA-ISSUE-022 | Hidden launch acknowledgement selected launcher PID                | defect | dispatch observation | closed   | codex-chatagent                              |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -160,6 +168,16 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 - **Closure criteria:** a stalled lead or worker is detected from recorded evidence
   and resumed or escalated within a stated bound, demonstrated by the proposed
   review-pending handoff acceptance scenario in doc 13; independently verified.
+
+- **Supervision recurrence (2026-10-08):** after the native role rehearsal,
+  the lead ended execution and restarted only a read-only observer. Both services
+  were healthy and the UI showed zero active tasks; roadmap work remained ready.
+  User correction triggered `role-observation-001-r1` on existing Hekate task
+  `9f18907d-ef1e-5288-a31f-b78d27ef1920`; the browser then verified it as active.
+  Evidence: `D:/hekate-coordinator/runs/monitor-resume-20261008/` and
+  `role-observation-001/`. This is manual recovery, not closure of idle-lead
+  detection or unattended continuation. Monitoring must lead to explicit dispatch,
+  independent review and the next eligible task within the authorized session.
 
 ### CA-ISSUE-008 — No provider-authoritative quota reconciliation
 
@@ -411,6 +429,27 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 
 ### CA-ISSUE-014 — Identity rotation can fail on Windows with EPERM
 
+- **Contention mechanism repaired (2026-10-08):** `cf9d1a4`, accepted managed
+  task `2e272c20-db6c-576f-8cb7-73e87311c0ed` epoch 2. Real kernel handles
+  reproduce delete-pending lock-open `EPERM`. Six bounded waits recover after
+  release without stealing a lock; permanent contention and another owner remain
+  safe refusals. Independent old-source run fails the new recovery case. Full
+  suite: 2,432 passed, 9 existing skips; format/lint/docs pass; frozen POSIX oracle
+  unchanged. Evidence: `D:/hekate-coordinator/runs/resolve-both-001/identity-contention/`.
+  Initial fixture DWORD binding failure and mistaken artifact correlation were
+  rejected/corrected with retained records. The original field syscall/holder is
+  still unconfirmed; unrelated permanent denying handles are not bypassed.
+
+- **Recurrence review (2026-10-08):** accepted narrow lock-acquisition refusal fix
+  `6cfd9fc` under managed task `c3c70c65-52ea-53e4-9209-d3d39893f927`.
+  Windows lock-open `EPERM` now yields `LocalIdentityError` preserving native cause,
+  without acquiring or removing another process's lock. Verification passed 39
+  focused cases and 2,428 full-suite cases with 9 existing skips; lint and docs
+  checks passed. Evidence: `D:/hekate-coordinator/runs/identity-recurrence-001/`.
+  The original failing field syscall and holder remain unconfirmed, so the broader
+  issue stays reopened; this acceptance does not establish that every Windows
+  replacement contention is repaired.
+
 - **Current assignment (2026-10-08):** prepare the next supervised task's safe
   replacement design, frozen tests and reference proof (bridge assignments
   2186, 2199). A deterministic delete-sharing-reader reproduction and native
@@ -499,6 +538,115 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
   not proven. If `EPERM` recurs in the real-file rotation test, that is the case to
   investigate.
 
+**2026-10-08 recurrence:** reference proof
+`D:/hekate-coordinator/authoring/plan-status-api-003/` failed
+`tests/integration/localIdentity.test.ts` in “serializes concurrent rotations and
+refuses to rotate past the largest epoch”: expected a `LocalIdentityError`, received
+a native `EPERM` rename failure. Reopened for diagnosis; the precise holder and
+relationship to the earlier fix are not established. Preserve the failed proof
+and require the focused real-file case plus the full reference suite before closure.
+Hekate task: `c3c70c65-52ea-53e4-9209-d3d39893f927`.
+
+## Findings from supervised application work (2026-10-08)
+
+These findings are recorded as work proceeds. Their Hekate node references below
+own live execution state. A workaround is not closure; closure requires the named
+verification. Feature backlog and intentionally deferred limitations stay distinct
+from defects.
+
+### CA-ISSUE-015 — Background coordinator launches can interrupt desktop focus
+
+- **Hekate task:** `fe089f06-235b-5c28-8ad7-b469f42a5153` in plan
+  `9edb606e-59ff-536b-b1f2-541a2683c51e`.
+
+- **Kind / priority:** defect, supervised-workflow usability; address before
+  repeated interactive runs. Owner: ChatAgent coordination launcher; Hekate child
+  launch changes require their own scoped implementation review.
+- **Observed:** the user reported Windows taking focus during launches. The local
+  viewer launcher used detached Node spawn without `windowsHide`; Hekate's Python
+  worker/check launchers set `CREATE_NEW_PROCESS_GROUP` without `CREATE_NO_WINDOW`,
+  and API/helper launches also lack a consistent hidden-window policy. These are
+  source observations, not proof that each path caused a focus change.
+- **Reproduce:** with another application focused, launch the viewer, a worker and
+  its verifier on Windows; record foreground-window identity before/during/after
+  and console visibility. Preserve process-tree and command evidence without
+  credentials. Repeat independently after the fix.
+- **Expected:** supervised background work leaves the foreground application
+  focused, retains logs and permits bounded process-tree cancellation.
+- **Current mitigation:** `D:/hekate-coordinator/plans/chatagent-app-20261008/start-viewer.mjs`
+  now sets `windowsHide: true`; new controlled Node helper launches do too. No
+  claim of end-to-end closure. The running service was not restarted for that edit.
+- **Closure:** maintained launch paths use the appropriate no-window controls,
+  cancellation and output capture regressions pass, and the Windows foreground
+  probe demonstrates no launcher-caused activation for viewer/worker/verifier.
+
+### CA-ISSUE-016 — Formatting acceptance and worker capability disagree
+
+- **Hekate task:** `696aa273-2b34-5933-8f6f-370ff7ab2b92` in plan
+  `9edb606e-59ff-536b-b1f2-541a2683c51e`.
+
+- **Kind / priority:** defect in ChatAgent's task profile, supervised integration
+  quality. Owner: ChatAgent. Status: open; per-task mitigation prepared.
+- **Observed:** Hekate accepted artifact `1b9d2d2` after oracle, typecheck, full
+  suite and docs checks, but its new README table was not Prettier formatted.
+  Commit `f143a45` is the separate formatting-only correction. The worker correctly
+  reported that shell checks were unavailable; no worker test claim was trusted.
+- **Reproduce:** compare `git show 1b9d2d2:README.md` against pinned Prettier output,
+  and inspect `docs/contracts/hekate-task-profile.json`: its verifier steps omit
+  `format:check`/`lint`. Evidence:
+  `D:/hekate-coordinator/runs/chatagent-app-20261008/monitor-runbook/pilot-2adf0389b8ab/evidence.json`.
+- **Expected:** a candidate that violates mandatory formatting is rejected before
+  acceptance, without altering frozen inputs or the candidate during verification.
+- **Mitigation:** the next API task's frozen oracle checks every allowed source and
+  contract path with pinned Prettier; the maintained profile still checks types,
+  the full suite and documentation. An attempted profile using an absolute npm
+  entrypoint was refused by the existing spec validator, before execution; its
+  input is retained. The validator was not weakened.
+- **Native recurrence:** `application-native-001/plan-status-api/pilot-06a62336c3ed`
+  ran two real model rounds; both were correctly rejected by the unchanged format
+  oracle. The worker's sole permitted Bash command is the frozen oracle, so it
+  cannot invoke Prettier. The runner respected the two-round limit and stopped.
+  The explicit operator review creates a formatting-only derivative and verifies
+  it afresh; TypeScript token equivalence proves no implementation token changed.
+  This is a separately attributed review, not an automatic model retry.
+- **Capability follow-up:** `db59fb7b-d963-537a-853a-8883601ab757`, root
+  `29141a72-9c9a-54f8-a357-fb6db74d84d9`: version a pinned formatter capability
+  separate from the frozen oracle, preserve v0 authority and immutable evidence,
+  and format before artifact commit. Never normalize the verifier's tree into a
+  false pass or grant unrestricted shell as a workaround.
+- **Closure:** a supported maintained profile/check command rejects an otherwise
+  correct but unformatted candidate, accepts a formatted control, preserves exact
+  candidate bytes and runs the existing required checks. Update profile contracts
+  and relevant tests; verify a real task. The one-task oracle is not a global fix.
+
+### UI observation — Active state and refresh
+
+The 2026-10-08 focused browser run passed 48 existing task/plan/trace cases,
+including an `in_progress` task in Active and the In progress board column. A
+live read-only check matched zero active database tasks to zero visible Active
+tasks, with no page errors. Evidence:
+`D:/hekate-coordinator/rechecks/active-ui-20261008/`.
+No active-filter defect was reproduced. Refresh is explicitly manual in the
+current UI; automatic progress refresh remains a planned feature, not a closed
+defect. Check the real active worker during the next run as a separate live case.
+
+### API task authoring finding — route inventory omitted
+
+The first reference proof for `plan-status-api` passed the HTTP oracle and typecheck
+but failed the full suite: `authPrimitives.test.ts` expected 46 routes while the
+candidate correctly added the 47th. The initial task preparation had omitted this
+existing contract. Its base now includes the deliberate 47-route inventory and
+operator access expectation; no assertion was removed or weakened. The failed
+reference remains in `D:/hekate-coordinator/authoring/plan-status-api-001/`; a new
+proof `plan-status-api-002` refused an oracle-membership omission. Corrected proof
+`plan-status-api-003` passed all 26 oracle cases and typecheck, then failed the
+full suite in the existing concurrent identity-rotation test with `EPERM`.
+This reopens CA-ISSUE-014 for investigation; the failure is preserved and the API
+task remains unlaunchable until its reference proof passes. This is an authoring defect on Hekate node
+`2bea5646-085a-55ba-8043-8c7928711aac`, not a regression integrated into main and
+not a reason to bypass the full suite. The route inventory correction passed;
+complete reference verification remains blocked by the identity failure.
+
 ## External dependencies
 
 Owned and tracked elsewhere. These rows give no status or closure of their own; the
@@ -522,3 +670,149 @@ ownership was clear and remain only as aliases.
   no gate is assigned from this observation.
 - **CA-ISSUE-007:** the ChatAgent port already refuses both inputs with typed codes
   (doc 13, host differences); only the reference differs.
+
+### CA-ISSUE-017 — Role observer candidate loses native trace and exposes raw AI text
+
+- **Kind / status:** defect / closed for the bounded shared observation collector at `2f3d6df`.
+- **Observed:** candidate `0cc1d73` passed its worker-authored selection (89 cases),
+  but five of six independent cases failed. The first trace request used cursor
+  zero and the record schema refused native sequence zero. Normal subsequent-page
+  prompt omission falsely changed consistency and lost the first prompt. The AI
+  projection retained arbitrary trace credentials/instructions; unknown statuses
+  passed validation, and UTF-8 decoding silently stripped BOM bytes before hashing.
+- **Expected:** match the maintained native trace API, retain exact validated bytes,
+  distinguish partial/stale evidence, and expose only allowlisted metadata to AI.
+  Raw human evidence remains explicitly restricted local data.
+- **Owner / task:** codex-chatagent lead and supervised Odin worker; Hekate node
+  `9f18907d-ef1e-5288-a31f-b78d27ef1920`, root
+  `29141a72-9c9a-54f8-a357-fb6db74d84d9`. Epoch 1 was rejected; repair attempt
+  `managed-role-observation-002-r1` was accepted at epoch 2.
+- **Evidence:** `D:/hekate-coordinator/runs/role-observation-001/independent-first.log`,
+  `review-rejected.txt`, rejected candidate and exact live API fixtures. The copied
+  rejection driver's history refers to `managed-role-observation-001/`; that path
+  holds the same review/readback, with the correction recorded and no mutation retried.
+- **Closure evidence:** 106 selected cases passed, including independent regressions
+  and maintained coordination tests; format/lint/docs checks passed. Three live
+  observations matched native task/attempt identity, captured sequence zero and
+  verified trace; all response hashes independently recomputed. Reviewed artifact
+  `2f3d6df` integrated and accepted. Failure/harness-correction logs retained.
+
+### CA-ISSUE-018 — Review worker cannot read its required source and evidence
+
+- **Kind / status:** launch defect / closed; review completeness blocker.
+- **Observed:** Mimir's first report was incomplete: the restricted CLI read tools
+  could read the ChatAgent worktree, but refused Hekate source and retained evidence
+  outside it. The prompt named those inputs without configuring their allowed paths.
+- **Expected:** every assigned review input is readable within the declared tool
+  scope; refused inputs stay explicit gaps and cannot support acceptance.
+- **Owner / task:** codex-chatagent lead; Hekate task
+  `efb428c9-5e44-5326-b856-0909efed76e1`. Epoch 1 report rejected; epoch 2 reviewer read the required native evidence with zero permission denials.
+  The corrected launcher uses `--add-dir` for the exact source and evidence
+  directories while exposing only Read/Grep/Glob tools.
+- **Evidence:** `D:/hekate-coordinator/runs/role-review-001/public-report.txt`,
+  `review-rejected.txt` and `role-review-002/launch.json`. Local CLI help confirms
+  restricted mode confines file tools to working directories including `--add-dir`.
+- **Closure:** reviewer demonstrates reads of the required files and reports on
+  actual native Active/completion and fail-closed evidence; lead verifies the report.
+
+- **Closure evidence:** the second report read native source and live Active/finished
+  observations; lead supplied direct browser assertions, exact manifest verification
+  and the 138 passing backend cases (one Windows symlink capability skip). Report
+  recommendations were triaged separately from verified failures. Its claim-binding
+  gap prompted CA-ISSUE-019 and a reviewed fix; no incomplete report was accepted.
+
+### CA-ISSUE-019 — Observer does not compare current event and trace claim keys
+
+- **Kind / status:** audit gap / closed at `4b00df6`.
+- **Observed:** Mimir source review found that node/attempt/epoch were validated,
+  but the current `attempt_started` event's claim key was not compared with the
+  trace's claim key. Existing live evidence agreed; this was a missing invariant,
+  not an observed live identity conflict.
+- **Fix:** compare current-attempt start keys and refuse conflicts, retain older
+  attempt history separately, expose matched/unavailable claim linkage and bounded
+  stop facts in the AI metadata. The policy explicitly limits source-reported trace
+  integrity and does not claim manifest verification or actor authentication.
+- **Owner / task:** Codex lead, within Mimir task
+  `efb428c9-5e44-5326-b856-0909efed76e1`. Its report and corrections are retained at
+  `D:/hekate-coordinator/runs/role-review-002/`.
+- **Closure evidence:** three additional independent cases, 109 total selected tests,
+  format/lint checks, and the native live observer's matched claim key. A historical
+  attempt does not bind the current claim; stop reason text is excluded from AI.
+
+### CA-ISSUE-020 — Cancelled tasks lose historical traces in shared observation
+
+- **Kind / status:** defect / closed at `9d408b9`; failure rehearsal fix verified.
+- **Observed:** native cancellation clears the node's current attempt ID. The
+  observer then returned no trace, even though the human viewer could select the
+  failed attempt through its event history. Seven cancelled fault cases omitted
+  their traces from the AI projection; current/historical identities need to stay
+  separate. Two independent reproductions fail on the accepted observer source.
+- **Expected:** select an explicitly historical recorded attempt when current ID is
+  absent, bind its trace and claim to exact node/event/epoch, preserve current work
+  and review separately, and show pinned content independently from current content.
+  Truncated history and unknown pins remain explicit; liveness stays unknown.
+- **Owner / task:** supervised Hermes worker and Codex lead; existing role plan node
+  `248e4707-3124-59a2-abf8-0eba1b069fc7`, attempt `observation-history-001-r1`.
+  The audit task requires this defect task's accepted artifact before completion.
+- **Evidence:** `D:/hekate-coordinator/runs/supervision-audit-002/observer-matrix.json`,
+  all native case traces/plan states, and `role-observation-001/history-independent-first.log`.
+- **Closure evidence:** 124 selected tests, format/lint/docs checks passed. All eight
+  native cases retain matching historical/current identities and trace facts in both
+  projections. The browser compared all eight with 51 GETs, no writes/page errors,
+  and verified stopped fixtures absent Active. Current and pinned content revisions
+  remain distinct. Reviewed source `9d408b9` integrated and accepted at epoch 1.
+  Two worker fixtures used an invalid work enum and were corrected without changing
+  production validation; failed logs retained.
+
+### Role planning review findings (2026-10-08)
+
+Tracked under Hekate plan `29141a72-9c9a-54f8-a357-fb6db74d84d9`:
+
+- Experimental Mimir returns `passed` on verifier exceptions
+  (`Hekate/Odin/langgraph_engine/nodes/mimir.py`). Task
+  `83375f7c-8878-5649-9d68-c7a95280ca80` requires unavailable/awaiting-review
+  behavior and a regression proving no acceptance. This is an experimental runner
+  blocker, not an observed failure of the managed verifier.
+- Planning CLI received `--max-turns 24`, but its successful result reports
+  `num_turns: 41`. Task `aebbb930-4c66-578a-8a06-335fda70dafd` investigates
+  counting semantics and enforcement. Retained launch/stream/result files are in
+  `D:/hekate-coordinator/plans/gods-managed-planning-20261008/`; host timeout and
+  output limits were not reached. Do not claim the CLI turn limit was proven.
+- Experimental graph state is projected into legacy `orchestration.db` with
+  best-effort writes. Managed integration task
+  `c2fd26d1-4643-561d-9601-6866e3810727` must use PlanStore attempt fences and
+  authoritative state, with failed-persistence and duplicate-launch tests.
+
+### CA-ISSUE-021 — Operator evidence exporter selected the wrong repository
+
+- **Kind:** audit evidence defect; closed for the scoped exporter correction.
+- **Task:** `2e272c20-db6c-576f-8cb7-73e87311c0ed`.
+- **Observed:** the first completion exporter invoked `git rev-parse HEAD` from
+  the Hekate Python working directory, attaching Hekate `7fa394f` to the reviewed
+  ChatAgent Windows repair. No source change was caused by this metadata error.
+- **Correction:** explicit `git -C D:/Git/ChatAgent`, assert expected source commit,
+  reject the mistaken decision and reopen an independently reviewed attempt with
+  exact `cf9d1a4` source. Original review/decision remain retained. Future exporters
+  must bind the intended repository explicitly before publishing an artifact ref.
+- **Evidence:** `D:/hekate-coordinator/runs/resolve-both-001/identity-contention/review-artifact-correction.txt`
+  and `review-corrected.txt`; PlanStore rejected/accepted decisions at distinct epochs.
+
+### CA-ISSUE-022 — Hidden launch acknowledgement used the virtualenv launcher PID
+
+- **Kind:** dispatch observation defect; closed after corrected live acknowledgement. Task `3764990e-b4ba-530f-91ad-6d107c4571e0`.
+- **Observed:** Windows virtualenv `Popen.pid` was 51048 while its runtime interpreter
+  was 35124. Native API task was Active and its trace was visible, but acknowledgement
+  timed out as `unconfirmed`. Neither timeout nor task state was treated as proof
+  that no worker existed; the host did not launch another worker.
+- **Repair:** Hekate `24404af` adds a host-generated launch ID; acknowledgement
+  requires that ID plus matching native process creation identity and fresh heartbeat,
+  and reports runtime/launcher PIDs separately. No authentication claim is made.
+- **Evidence:** `D:/hekate-coordinator/runs/resolve-both-001/execution-gap/background-launch.log`,
+  `app-active-browser.json`, native owner status and independent wrapper-PID regression.
+
+Corrected native launch reported `launched:true`, runtime PID 76996, launcher PID
+55704 and launch ID `f67884194f5e425c99bd15bb5f16af2a`; status is explicitly
+`blocked/spec_pending` for `plan-status-ui` with an advancing heartbeat. The first
+shared launcher log path was reused; its `unconfirmed` result is reconstructed from
+the preserved tool result in `first-launch-result.json`, and native append-only
+dispatch events and rejected worker journals remain the execution evidence.
