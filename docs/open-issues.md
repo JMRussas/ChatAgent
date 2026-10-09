@@ -1005,3 +1005,9 @@ use actual startup/auth/collector and only fixture loopback Hekate responses; no
 model or dispatcher runs. Evidence: external
 `attempt-progress-prepare-002/startup-unwired-negative.log`. Keep open until the
 corrected startup is verified, integrated and exercised with the live product API.
+The first reference package remained unpinned after its full suite passed 2,848
+cases, skipped ten explicit cases and failed the existing 50-route inventory.
+Its correction adds the new operator-only GET to that strict inventory and checks
+all 51 routes exactly once, including client/operator authorization; it does not
+relax or skip the assertion. Preserve authoring `attempt-progress-view-001` and
+prepare a new immutable package before execution.
