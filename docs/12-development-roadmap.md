@@ -126,7 +126,7 @@ remain separate work rather than delaying the useful first slice.
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
 | Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |
 | Continuation contract       | Freeze generation-to-external-verification continuation without a user message      | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Operator contract `1031fd7` accepted, integrated `ec0714a`; original failed run retained  |
-| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Initial candidate rejected; repair `7aa55f5` accepted, live delivery running              |
+| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Accepted final source `7aa55f5`, integrated `69ce8f3`; live delivery verified             |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -280,8 +280,8 @@ message IDs, below its 15-minute/60-message hard bounds. Provider-reported 40
 turns and USD1.808362 remain unverified metadata. Raw candidate `4d0568a` and
 separate formatting commit `66d7d0e` are retained. Format/type and docs checks
 pass, but independent review rejected three authority cases; the first complete
-focused gate passed 33 cases with two fixture failures. No feature acceptance
-or live adoption is claimed.
+focused gate passed 33 cases with two fixture failures. That original attempt
+remains rejected; final acceptance uses a distinct operator attempt below.
 
 CA-ISSUE-046 is recorded in real Hekate repair task
 `d2284986-61fc-5433-a66f-3dd41d17c5c8`, attempt
@@ -294,10 +294,21 @@ old model run separate. Repair candidate `7aa55f5` passes all 38 focused cases a
 checks; its corrected full suite passes 3,301 with ten existing skips. The prior
 full failure was caused by the lead launcher omitting PowerShell from PATH; the
 failed gate and harness diagnosis are retained. Exact scoped repair `7aa55f5`
-is accepted. Real continuation delivery is now running through the finite
-coordinator in a separate toy worktree; whole-feature acceptance and integration
-remain pending. Its real Hekate task and independently prepared failing baseline
-are retained under `checkpoint-continuation-live-001`. Evidence is retained under
+is accepted. Actual retained-store delivery task
+`dbfc5c3f-4819-59a8-81cf-6b1480e06759` passed and is separately accepted. A real
+worker ended at 16:53:55.418 UTC, then the same finite coordinator created one
+candidate, confirmed one finish-only CAS and automatically started Prettier,
+TypeScript and focused Vitest at 16:53:56.092/56.317/54:01.645. All checks passed;
+the coordinator ended at `review_pending` at 16:54:02.148, without another user
+message. The paired executive view matches exact source, task fence and current
+supplied gate. This is isolated toy proof: its helper and independently prepared
+baseline tests are not integrated.
+
+Whole-feature finalization is accepted at operator epoch 2/content 3,
+`checkpoint-continuation-feature-finalize-r2`, exact source `7aa55f5`, integrated
+at `69ce8f3`. The original epoch-1 budget is history, never relabelled as the
+operator run. Final acceptance receipts, actual worker/check timestamps and
+paired UI proof are retained under `checkpoint-continuation-live-001`. Evidence is retained under
 `checkpoint-continuation-implementation-001` and
 `checkpoint-continuation-repair-001`.
 

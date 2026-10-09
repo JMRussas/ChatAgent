@@ -238,7 +238,10 @@ unattended service is established, so the original issue remains open.
   budget stop and rejected the absent proposal; cause remains unattributed and
   no model retry was spent. The subsequent operator recovery is accepted at
   `1031fd7`, integrated at `ec0714a`; the finite external-verification coordinator
-  is now running as implementation task `ffe5f5c6-c656-5761-a724-f13c5586059e`.
+  is accepted as task `ffe5f5c6-c656-5761-a724-f13c5586059e` at operator
+  epoch 2/content 3, source `7aa55f5`, integrated `69ce8f3`. Real isolated
+  delivery proves a worker automatically continues to candidate/finish/checks
+  in one owned process; exact source/current gate is visible in the paired UI.
   Semantic AI review, acceptance/integration and next-task claiming remain
   separate; this does not close the persistent supervision gap.
   `checkpoint-continuation-contract-001/no-artifact-review.json` and
@@ -1455,7 +1458,9 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
   and independent source review. The first full-suite gate failed because the
   lead launcher omitted PowerShell from PATH; the unchanged candidate passed
   after that harness correction. That failed gate and diagnosis remain retained.
-  Whole-feature delivery proof and integration are separate pending gates.
+  Whole-feature delivery is independently verified and accepted at operator
+  epoch 2/content 3, source `7aa55f5`, integrated `69ce8f3`. The toy proof
+  source is excluded from integration. Persistent supervision remains separate.
 
 ### CA-ISSUE-045 — Export file identity cannot detect a same-inode replacement on Linux
 
