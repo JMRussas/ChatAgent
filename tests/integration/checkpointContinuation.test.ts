@@ -324,7 +324,12 @@ describe("continuation lifecycle with real subprocesses", () => {
       expect(await stored(f)).toMatchObject({ phase: "needs_operator", reason: "cleanup_failed" });
       expect(await gateExists(f)).toBe(false);
       const pids = JSON.parse(await readFile(join(f.root, "hang-vitest.pids"), "utf8"));
-      process.kill(pids.grand);
+      try {
+        process.kill(pids.grand);
+      } catch (error) {
+        // The grandchild may already have exited; any other cleanup error stays visible.
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+      }
     },
     T
   );
@@ -351,13 +356,15 @@ describe("continuation lifecycle with real subprocesses", () => {
 });
 
 describe("continuation refusals launch no worker", () => {
-  const refusal = async (f: Fixture, code: string, deps = f.deps()) => {
+  /** `gateBytes` is a preexisting gate: it must survive the refusal unchanged. */
+  const refusal = async (f: Fixture, code: string, deps = f.deps(), gateBytes?: string) => {
     const result = await runContinuation(f.manifest, deps);
     expect(result).toMatchObject({ exitCode: 2, record: null, refusal: code });
     expect(f.workerCalls).toBe(0);
     expect(f.plan.posts).toHaveLength(0);
     expect(f.toolLog()).toHaveLength(0);
-    expect(await gateExists(f)).toBe(false);
+    if (gateBytes === undefined) expect(await gateExists(f)).toBe(false);
+    else expect(await readFile(gateRecordPath(f.rec, RUN_ID), "utf8")).toBe(gateBytes);
   };
 
   it("refuses an existing continuation record, budget record or gate", async () => {
@@ -368,7 +375,7 @@ describe("continuation refusals launch no worker", () => {
     ]) {
       const f = fixture();
       await writeFile(join(f.rec, name), "{}");
-      await refusal(f, "run_exists");
+      await refusal(f, "run_exists", f.deps(), name.endsWith(".gate.json") ? "{}" : undefined);
     }
   });
 

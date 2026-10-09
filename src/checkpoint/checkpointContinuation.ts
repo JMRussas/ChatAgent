@@ -694,28 +694,31 @@ export async function entryState(cwd: string, path: string): Promise<"file" | "a
 
 // ----- authority -----
 
-function matchesLeaf(leaf: LeafStatus | undefined, input: RunInput, startRevision: boolean) {
+/** The exact claimed identity and dependency authority, required in every state. */
+function holdsIdentity(leaf: LeafStatus | undefined, input: RunInput): leaf is LeafStatus {
   return (
     leaf !== undefined &&
-    leaf.state === "in_progress" &&
     leaf.attemptPins === "current" &&
     leaf.attemptId === input.identity.attemptId &&
     leaf.attemptEpoch === input.identity.attemptEpoch &&
     leaf.contentRevision === input.identity.contentRevision &&
     leaf.executorRef === input.identity.executorRef &&
+    leaf.gatesHold &&
+    !leaf.upstreamChanged
+  );
+}
+
+function matchesLeaf(leaf: LeafStatus | undefined, input: RunInput, startRevision: boolean) {
+  return (
+    holdsIdentity(leaf, input) &&
+    leaf.state === "in_progress" &&
     (!startRevision || leaf.stateRevision === input.identity.stateRevision)
   );
 }
 
 function matchesFinished(leaf: LeafStatus | undefined, input: RunInput, candidate: string) {
   return (
-    leaf !== undefined &&
-    leaf.state === "review_pending" &&
-    leaf.attemptPins !== "stale" &&
-    leaf.attemptId === input.identity.attemptId &&
-    leaf.attemptEpoch === input.identity.attemptEpoch &&
-    leaf.contentRevision === input.identity.contentRevision &&
-    leaf.artifactRef === candidate
+    holdsIdentity(leaf, input) && leaf.state === "review_pending" && leaf.artifactRef === candidate
   );
 }
 
@@ -985,26 +988,38 @@ export async function runContinuation(
     } catch {
       throw new PersistenceFailure();
     }
-    await verifyLease();
     const finalPath = continuationRecordPath(recordDir, input.runId);
     const temp = `${finalPath}.${randomBytes(6).toString("hex")}.tmp`;
     try {
-      const handle = await open(temp, "wx");
       try {
-        await handle.writeFile(text, "utf8");
-      } finally {
-        await handle.close();
+        const handle = await open(temp, "wx");
+        try {
+          await handle.writeFile(text, "utf8");
+        } finally {
+          await handle.close();
+        }
+      } catch {
+        throw new PersistenceFailure();
       }
-      await rename(temp, finalPath);
-    } catch {
+      // Lease and liveness are rechecked after the awaited write, immediately before the rename.
+      await verifyLease();
+      if (!final) live();
+      try {
+        await rename(temp, finalPath);
+      } catch {
+        throw new PersistenceFailure();
+      }
+    } catch (error) {
       await unlink(temp).catch(() => undefined);
-      throw new PersistenceFailure();
+      throw error;
     }
   };
 
   // ----- bounded owned Git -----
   const noHooks = () => join(recordDir, `.no-hooks-${claimKey.slice(0, 16)}`);
-  const git = async (args: readonly string[], capture = true): Promise<Buffer> => {
+  const git = async (args: readonly string[], capture = true, mutates = false): Promise<Buffer> => {
+    // A mutation rechecks the lease, then liveness synchronously before the process starts.
+    if (mutates) await verifyLease();
     live();
     const result = await runOwned(
       gitPath,
@@ -1053,7 +1068,8 @@ export async function runContinuation(
       maxBytes: CONTINUATION_LIMITS.authorityMaxBytes
     });
     live();
-    if (status.status !== "ok") return undefined;
+    // Unavailable authority throws; a readable status without this leaf is a mismatch.
+    if (status.status !== "ok") throw new Error("AUTHORITY_UNAVAILABLE");
     return status.leaves.find((l) => l.nodeId === input.identity.nodeId);
   };
 
@@ -1115,8 +1131,7 @@ export async function runContinuation(
       if (error instanceof Stop) throw error;
       throw new Refusal("authority_unavailable");
     }
-    if (!matchesLeaf(leaf, input, true) || !leaf!.gatesHold || leaf!.upstreamChanged)
-      throw new Refusal("authority_mismatch");
+    if (!matchesLeaf(leaf, input, true)) throw new Refusal("authority_mismatch");
   };
   const toolPath = (name: CheckName) => join(cwd, ...TOOLING_ENTRIES[name].split("/"));
 
@@ -1232,7 +1247,7 @@ export async function runContinuation(
     changes = await collectChanges();
     const paths = changes.map((c) => c.path);
     if (!(await pinnedExecutable(input.gitExecutable))) throw new Stop("snapshot_failed");
-    await git(["add", "-A", "--", ...paths], false);
+    await git(["add", "-A", "--", ...paths], false, true);
     const staged = parseRawDiffZ(
       await git(["diff", "--cached", "--raw", "-z", "--no-renames", "--no-abbrev"])
     );
@@ -1244,7 +1259,11 @@ export async function runContinuation(
       staged.some((e) => !REGULAR_MODES.has(e.oldMode) || !REGULAR_MODES.has(e.newMode))
     )
       throw new Stop("scope_violation");
-    await git(["commit", "--no-verify", "--no-gpg-sign", "--quiet", "-m", COMMIT_MESSAGE], false);
+    await git(
+      ["commit", "--no-verify", "--no-gpg-sign", "--quiet", "-m", COMMIT_MESSAGE],
+      false,
+      true
+    );
     const sha = (await head()).toLowerCase();
     if (!gitRef.safeParse(sha).success || sha === input.identity.baseRef)
       throw new Stop("snapshot_failed");
@@ -1288,6 +1307,9 @@ export async function runContinuation(
     const url = `${planApiBase(input.planApiUrl)}/api/plan-contract/v1/nodes/${input.identity.nodeId}/transition`;
     // The attempt is durable before the only mutation: a crash can never be replayed as unsent.
     await publish({ finish: "attempted" });
+    // Recheck after the awaited publish; a stop here leaves the attempt recorded, never rolled back.
+    await verifyLease();
+    live();
     let status: number;
     try {
       status = (
@@ -1355,13 +1377,15 @@ export async function runContinuation(
         stopped = true;
         continue;
       }
+      await verifyLease();
+      live();
       const began = iso(now());
       const result = await runOwned(
         manifest.nodeExecutable.path,
         checkArguments(name, existingChanged, manifest.focusedTests),
         {
           cwd,
-          timeoutMs: budgetMs,
+          timeoutMs: Math.min(verifierEnd - mono(), remaining()),
           maxOutputBytes: outputLeft,
           capture: false,
           signal: abort.signal,
@@ -1405,7 +1429,6 @@ export async function runContinuation(
     if (!matchesFinished(leaf, input, sha)) throw new Stop("authority_changed");
     if ((await head()).toLowerCase() !== sha || (await statusEntries()).length > 0)
       throw new Stop("source_changed");
-    await verifyLease();
     live();
     const gate = buildGate(state, claimKey, iso(now()));
     const parsed = gateRecordSchema.safeParse(gate);
@@ -1416,20 +1439,30 @@ export async function runContinuation(
     const finalPath = gateRecordPath(recordDir, input.runId);
     const temp = `${finalPath}.${randomBytes(6).toString("hex")}.tmp`;
     try {
-      const handle = await open(temp, "wx");
       try {
-        await handle.writeFile(text, "utf8");
-      } finally {
-        await handle.close();
+        const handle = await open(temp, "wx");
+        try {
+          await handle.writeFile(text, "utf8");
+        } finally {
+          await handle.close();
+        }
+      } catch {
+        throw new Stop("gate_write_failed");
       }
-      await link(temp, finalPath);
-    } catch {
-      throw new Stop("gate_write_failed");
+      // Lease and liveness are rechecked after the awaited write, immediately before the link.
+      await verifyLease();
+      live();
+      try {
+        await link(temp, finalPath);
+      } catch {
+        throw new Stop("gate_write_failed");
+      }
     } finally {
       await unlink(temp).catch(() => undefined);
     }
     const passed = parsed.data.outcome === "checks_passed";
-    // The gate is durable: the terminal record reports it even if the deadline is now observed.
+    // The gate is durable, so a stop observed now is recorded with it as needs_operator: only a
+    // failed-check record is final; review_pending is never published after a stop.
     await publish(
       passed
         ? { phase: "review_pending", reason: "checks_passed", gate: "written" }
@@ -1440,7 +1473,7 @@ export async function runContinuation(
               : "check_failed",
             gate: "written"
           },
-      true
+      !passed
     );
   };
 
