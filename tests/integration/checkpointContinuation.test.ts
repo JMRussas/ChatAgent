@@ -414,20 +414,24 @@ describe("continuation refusals launch no worker", () => {
     await refusal(missing, "pin_mismatch");
   });
 
-  it("refuses a stale claim, changed content or executor, an unmet gate and an unavailable plan", async () => {
-    for (const patch of [
-      { attemptEpoch: 3 },
-      { contentRevision: 4 },
-      { executorRef: "other" },
-      { stateRevision: 9 },
-      { attemptPins: "stale" as const },
-      { gatesHold: false },
-      { state: "review_pending" as const }
-    ]) {
-      const f = fixture();
-      f.plan.leaf = { ...f.plan.leaf, ...patch };
-      await refusal(f, "authority_mismatch");
-    }
+  // Each refusal creates a real Git worktree and runs bounded preflight commands.
+  // Keep an independent test budget per case instead of sharing five seconds
+  // across eight subprocess scenarios on a Windows host.
+  it.each([
+    { attemptEpoch: 3 },
+    { contentRevision: 4 },
+    { executorRef: "other" },
+    { stateRevision: 9 },
+    { attemptPins: "stale" as const },
+    { gatesHold: false },
+    { state: "review_pending" as const }
+  ])("refuses stale authority %j without launching a worker", async (patch) => {
+    const f = fixture();
+    f.plan.leaf = { ...f.plan.leaf, ...patch };
+    await refusal(f, "authority_mismatch");
+  });
+
+  it("refuses an unavailable plan without launching a worker", async () => {
     const down = fixture();
     down.plan.unavailable = true;
     await refusal(down, "authority_unavailable");

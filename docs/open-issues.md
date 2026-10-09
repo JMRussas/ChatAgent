@@ -1500,6 +1500,11 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
   `baseRef` was still presented as current. The external negative reproduces this
   in `independent-base-negative`; the reader now requires source-base agreement
   with its matched budget record and reports `stale_source` otherwise.
+- **Full-gate harness recurrence:** one existing test grouped eight real-worktree
+  refusal scenarios under a shared five-second timeout. It timed out in both the
+  full run and a focused reproduction. Cases now retain their refusal/no-worker
+  assertions with separate test budgets; no production bound or global test
+  timeout is increased. The initial 3,368-pass/one-timeout run is preserved.
 - **Acceptance:** the original epoch 1 remains rejected with its raw commit,
   budget and automatic gate. Only a new explicit delivery attempt can accept the
   repaired artifact after external checks and real paired same-page UI proof.
