@@ -216,6 +216,17 @@ unobserved availability failure at a controlled closed port. Evidence:
 `accepted-ui-proof.json`. No delivered escalation, wake, resumption or persistent
 unattended service is established, so the original issue remains open.
 
+- **2026-10-09 supervised queue gap:** after accepting the recovery contract, the
+  lead handed back with its implementation still TODO and no worker running. A
+  healthy retained API was not execution. The user detected the gap; the actual
+  preflight readback (`checkpoint-recovery-implementation-001/preflight-task.json`)
+  records TODO/epoch 0. The lead explicitly resumed task
+  `e2adb990-cffe-5129-81be-4ba202dac1f9` through the maintained checkpoint runner
+  at epoch 1/content 2. Real Hekate Active and ChatAgent exact budget/claim evidence
+  are retained in `hekate-active-proof.json` and `active-state-proof.json`. This
+  operational correction does not close persistent queue advancement, supervision
+  or wake-delivery scope. Service heartbeat remains separate from task execution.
+
 ### CA-ISSUE-008 — No provider-authoritative quota reconciliation
 
 - **Gap:** fixed or rolling quota windows are reconciled only against operator
