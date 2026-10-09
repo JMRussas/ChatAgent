@@ -609,8 +609,9 @@ source integration, deployment, worker liveness and budget are not established b
 `checkpoint-budget/v1` files written by the operator-run `scripts/runCheckpoint.ts`
 (`docs/implementation/19-checkpoint-execution.md`). Invalid registration fails startup with
 `INVALID_CHECKPOINT_RECORDS` and never echoes the value. Without it the response is unchanged
-`executive-overview/v1` and `budgetEvidence` is `not_reported`. With it the response is
-`executive-overview/v2`: only registered tasks (accepted ones included) get one bounded lookup of
+`executive-overview/v1` (byte-identical, no `attention` field) and `budgetEvidence` is
+`not_reported`. With it the response is `executive-overview/v3` (v2 plus `attention`, below; the
+page still reads v1 and v2): only registered tasks (accepted ones included) get one bounded lookup of
 the record and its `<runId>.gate.json` (regular file, no symlink, 16 KiB, 500 ms, strict JSON, closed
 schema) and `budgetEvidence` becomes `reported` or `unavailable` with a typed `reason` (`missing`,
 `unreadable`, `too_large`, `invalid`, `unsupported_schema`, `stale_identity`, `timeout`). The
@@ -620,6 +621,43 @@ unauthenticated runner output with unknown owner liveness; the unit is "distinct
 IDs seen", the 30/60 defaults are a provisional heuristic, provider `num_turns` and cost are
 unverified, and lead-supplied gate evidence is current only for the exact artifact. The runner
 adds no HTTP route; the UI renders records with `textContent` and issues no extra request.
+
+#### Checkpoint attention and local handoff (optional, advice only)
+
+Design: `docs/implementation/20-checkpoint-recovery-handoff.md`. With a registry the v3 body adds
+`attention` (`checkpoint-attention/v1`): at most 32 items, an exact `omitted` count, and
+`registeredRecordsUnavailable` (registered entries whose root is unavailable, task is missing or
+omitted, or record is missing, invalid or quarantined; a quarantined record's numbers are never
+shown). Items come only from a fence-matched, supplied record: `cleanup_unconfirmed`,
+`overdue_unreported`, `stopped_tripwire`, `stopped_failed`, `refused_start`, and
+`verification_unavailable` (a gate that is current for the task's artifact with outcome
+`verifier_unavailable`). Tripwire, failed and refused items are suppressed for accepted or
+cancelled tasks; the other kinds are not. Each item carries ids, the fence, `runId`, the closed
+stop code, `attribution: "unattributed"`, a closed advice key and `automaticAllowed: false`
+with a constant forbidden list; it carries no task name, text, path or free string. A stop item
+means a supplied record says so, an overdue item means no end is recorded past the declared bound;
+neither establishes liveness, cause or a retry. If the body would exceed the response cap, task
+rows are dropped first (items keep `taskListed: false`), then trailing items with `omitted` counted.
+
+The page shows an Attention panel above the roots. **Open detail** opens the same page's root and
+task detail (the existing single progress GET, no navigation, no new route) after re-checking that
+the item's fence and `runId` still match the task shown; otherwise the row reads "changed,
+refresh". An omitted task row has no control.
+
+`npx tsx scripts/handoffCheckpoint.ts --out-dir <absolute dir>` reads the server environment
+(`HEKATE_PLAN_API_URL`, `HEKATE_EXECUTIVE_OVERVIEW`, `HEKATE_EXECUTIVE_ROOTS_JSON`,
+`HEKATE_CHECKPOINT_RECORDS_JSON`), collects the overview, projects attention, collects a second
+time and writes `<handoffId>.handoff.json` (`checkpoint-handoff/v1`, at most 64 KiB) only if both
+reads agree on kind, ids, fence, `runId`, stop, record state and gate source and no involved root
+was unavailable. Zero items writes nothing. Publication creates a temp file, syncs it and creates
+the final name with a no-overwrite hard link, so an existing file is never replaced; a missing
+link capability refuses. The out-dir must be an absolute, canonical, existing, non-symlink
+directory. Exit codes: 0 written or nothing to hand off, 1 refused (changed, unavailable,
+deadline of 20 s, invalid out-dir, oversize), 2 usage, 4 write failed. The file is local storage
+only: `delivery: "not_sent"`, `notification`, `wake` and `acknowledgment` are `"none"`, fences are
+observed at capture and are not current state, and nothing re-reads it except
+`scripts/handoffCheckpoint.ts --show <file>` (strict bounded parse). It adds no daemon, request
+beyond the existing loopback GETs, notification or process control.
 
 ## Provider configuration
 
