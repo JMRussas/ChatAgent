@@ -80,14 +80,18 @@ describe("attention panel in the executive overview", () => {
     await refresh(v3([cleanupItem()]));
     expect(net.calls.map((c) => c.method)).toEqual(["GET"]);
     const text = view.textContent;
-    expect(text).toContain("Attention (derived from supplied, unauthenticated records; advice only)");
+    expect(text).toContain(
+      "Attention (derived from supplied, unauthenticated records; advice only)"
+    );
     expect(text).toContain("Delivery — Cleanup not confirmed in the supplied record");
     expect(text).toContain("Inspect the owned process manually");
     expect(text).toContain("Registered records unavailable: 1. Items omitted: 0.");
     expect(buttons(view).map((b) => b.textContent)).toEqual(["Open detail"]);
     // Task detail text legitimately says a PID is not authority to restart; the panel offers no such control.
     const panel = view.findAll((el) => "data-attention" in el.attrs)[0].textContent;
-    expect(panel).not.toMatch(/\b(kill|restart|retry|terminate|alive|healthy|delivered|notified)\b/i);
+    expect(panel).not.toMatch(
+      /\b(kill|restart|retry|terminate|alive|healthy|delivered|notified)\b/i
+    );
   });
 
   it("says nothing is a health statement when there are no items and still shows coverage", async () => {
@@ -108,14 +112,22 @@ describe("attention panel in the executive overview", () => {
     buttons(view)[0].click();
     await settle();
     expect(detailsOf(view, "data-root")[0].open).toBe(true);
-    expect(detailsOf(view, "data-task").find((d) => d.attrs["data-state"] === "in_progress")!.open).toBe(true);
+    expect(
+      detailsOf(view, "data-task").find((d) => d.attrs["data-state"] === "in_progress")!.open
+    ).toBe(true);
     expect(view.textContent).toContain("Cleanup was not confirmed; clean stop is not asserted");
     // The only added request is the existing progress GET.
     expect(net.calls.map((c) => [c.method, c.url.includes("/progress")])).toEqual([
       ["GET", false],
       ["GET", true]
     ]);
-    net.calls.at(-1)!.respond(progressBody(ROOT_A, overview.roots[0].tasks.find((t) => t.state === "in_progress")!), 200);
+    net.calls.at(-1)!.respond(
+      progressBody(
+        ROOT_A,
+        overview.roots[0].tasks.find((t) => t.state === "in_progress")!
+      ),
+      200
+    );
     await settle();
     expect(view.textContent).toContain("Evidence read at");
   });
@@ -129,7 +141,9 @@ describe("attention panel in the executive overview", () => {
       ])
     );
     expect(view.textContent).toContain("changed, refresh");
-    expect(view.textContent).toContain("Task row omitted by the size cap; refresh or reduce scope.");
+    expect(view.textContent).toContain(
+      "Task row omitted by the size cap; refresh or reduce scope."
+    );
     expect(buttons(view)).toHaveLength(0);
     // A different run id for the same fence is also a changed item.
     await refresh(v3([cleanupItem({ runId: "66666666-6666-4666-8666-666666666666" })]));
@@ -150,7 +164,10 @@ describe("attention panel in the executive overview", () => {
       v3(Array.from({ length: 33 }, () => cleanupItem())),
       v3([cleanupItem()], (o) => ((o.attention as unknown as Record<string, unknown>).extra = 1)),
       v3([cleanupItem()], (o) => (o.schema = "executive-overview/v1")),
-      v3([cleanupItem()], (o) => ((o.attention as unknown as Record<string, unknown>).automaticAllowed = true))
+      v3(
+        [cleanupItem()],
+        (o) => ((o.attention as unknown as Record<string, unknown>).automaticAllowed = true)
+      )
     ];
     for (const overview of bad) {
       await refresh(overview);

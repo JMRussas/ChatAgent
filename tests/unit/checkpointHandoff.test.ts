@@ -17,7 +17,8 @@ const record = (...items: AttentionItem[]) =>
     overviewGeneratedAt: STAMP,
     attention: attentionOf(...items)
   });
-const bytes = (value: unknown) => Buffer.from(typeof value === "string" ? value : JSON.stringify(value));
+const bytes = (value: unknown) =>
+  Buffer.from(typeof value === "string" ? value : JSON.stringify(value));
 
 describe("checkpoint-handoff/v1", () => {
   it("round-trips with literal not-sent fields, no taskListed and a pinned digest", () => {
@@ -73,12 +74,21 @@ describe("checkpoint-handoff/v1", () => {
 
   it("rejects duplicate keys, __proto__, floats, oversize input and syntax errors without echo", () => {
     const text = serializeHandoff(record(item()));
-    expect(parseHandoff(bytes(text.replace('"wake":"none"', '"wake":"none","wake":"none"'))).ok).toBe(false);
+    expect(
+      parseHandoff(bytes(text.replace('"wake":"none"', '"wake":"none","wake":"none"'))).ok
+    ).toBe(false);
     expect(parseHandoff(bytes(text.replace("{", '{"__proto__":{},'))).ok).toBe(false);
-    expect(parseHandoff(bytes(text.replace('"attemptEpoch":2', '"attemptEpoch":2.5'))).ok).toBe(false);
-    expect(parseHandoff(bytes(text.replace('"attemptEpoch":2', '"attemptEpoch":2.0'))).ok).toBe(false);
+    expect(parseHandoff(bytes(text.replace('"attemptEpoch":2', '"attemptEpoch":2.5'))).ok).toBe(
+      false
+    );
+    expect(parseHandoff(bytes(text.replace('"attemptEpoch":2', '"attemptEpoch":2.0'))).ok).toBe(
+      false
+    );
     expect(parseHandoff(bytes("{not json SECRET"))).toEqual({ ok: false, reason: "invalid" });
-    expect(parseHandoff(Buffer.alloc(64 * 1024 + 1, 32))).toEqual({ ok: false, reason: "too_large" });
+    expect(parseHandoff(Buffer.alloc(64 * 1024 + 1, 32))).toEqual({
+      ok: false,
+      reason: "too_large"
+    });
   });
 
   it("refuses to serialize a record that is oversize or off-contract", () => {

@@ -163,7 +163,9 @@ function itemsOfTask(
     task.artifactRef !== null &&
     gate.gate.sourceRef === task.artifactRef
   )
-    out.push(make("verification_unavailable", { rootPid: null, gateSourceRef: gate.gate.sourceRef }));
+    out.push(
+      make("verification_unavailable", { rootPid: null, gateSourceRef: gate.gate.sourceRef })
+    );
   return out;
 }
 
@@ -180,7 +182,8 @@ export function projectAttention(
   let unavailable = 0;
   for (const entry of registry) {
     const root = roots.find((r) => r.rootId === entry.rootId);
-    const task = root && root.status === "ok" ? root.tasks.find((t) => t.nodeId === entry.nodeId) : undefined;
+    const task =
+      root && root.status === "ok" ? root.tasks.find((t) => t.nodeId === entry.nodeId) : undefined;
     if (!task || task.checkpointBudget?.state !== "reported") unavailable++;
   }
   const ranked: { item: AttentionItem; root: number; task: number }[] = [];
@@ -220,7 +223,10 @@ const bytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value), "utf8
  * `omitted`) until the body fits. Never returns an oversized body; an item whose row is gone is
  * kept with `taskListed: false` rather than silently discarded.
  */
-export function finalizeAttention(overview: ExecutiveOverview, maxBytes: number): ExecutiveOverview {
+export function finalizeAttention(
+  overview: ExecutiveOverview,
+  maxBytes: number
+): ExecutiveOverview {
   const attention = overview.attention;
   if (!attention) return overview;
   const listed = new Set(
@@ -231,7 +237,10 @@ export function finalizeAttention(overview: ExecutiveOverview, maxBytes: number)
     taskListed: listed.has(`${item.rootId}|${item.nodeId}`)
   }));
   let omitted = attention.omitted;
-  const build = (): ExecutiveOverview => ({ ...overview, attention: { ...attention, items, omitted } });
+  const build = (): ExecutiveOverview => ({
+    ...overview,
+    attention: { ...attention, items, omitted }
+  });
   let result = build();
   while (bytes(result) > maxBytes && items.length > 0) {
     items.pop();
@@ -293,9 +302,15 @@ const handoffItemSchema = z
   .refine((i) => (i.kind === "cleanup_unconfirmed") === (i.stop.code === "cleanup_failed"))
   .refine((i) => i.rootPid === null || i.kind === "cleanup_unconfirmed")
   .refine((i) => (i.kind === "verification_unavailable") === (i.gateSourceRef !== null))
-  .refine((i) => i.kind !== "overdue_unreported" || (i.recordState === "running" && i.stop.kind === "none"))
+  .refine(
+    (i) =>
+      i.kind !== "overdue_unreported" || (i.recordState === "running" && i.stop.kind === "none")
+  )
   .refine((i) => i.kind !== "stopped_tripwire" || i.stop.kind === "tripwire")
-  .refine((i) => i.kind !== "stopped_failed" || (i.stop.kind === "failed" && i.stop.code !== "cleanup_failed"))
+  .refine(
+    (i) =>
+      i.kind !== "stopped_failed" || (i.stop.kind === "failed" && i.stop.code !== "cleanup_failed")
+  )
   .refine((i) => i.kind !== "refused_start" || i.stop.kind === "refused");
 export type HandoffItem = Omit<AttentionItem, "taskListed">;
 
@@ -348,7 +363,9 @@ function canonicalItem(i: HandoffItem): HandoffItem {
 }
 
 export function itemsDigest(items: readonly HandoffItem[]): string {
-  return createHash("sha256").update(JSON.stringify(items.map(canonicalItem))).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(items.map(canonicalItem)))
+    .digest("hex");
 }
 
 export function toHandoffItem(item: AttentionItem): HandoffItem {
@@ -416,7 +433,9 @@ const handoffSchema = z
     omitted: safe,
     registeredRecordsUnavailable: safe,
     itemsSha256: z.string().regex(/^[0-9a-f]{64}$/),
-    forbidden: z.array(z.string()).refine((f) => JSON.stringify(f) === JSON.stringify(ATTENTION_FORBIDDEN)),
+    forbidden: z
+      .array(z.string())
+      .refine((f) => JSON.stringify(f) === JSON.stringify(ATTENTION_FORBIDDEN)),
     automaticAllowed: z.literal(false),
     trust: z
       .object({
@@ -449,7 +468,8 @@ export type HandoffParseFailure = "too_large" | "invalid";
 export function parseHandoff(
   input: Uint8Array
 ): { ok: true; value: HandoffRecord } | { ok: false; reason: HandoffParseFailure } {
-  if (input.byteLength > ATTENTION_LIMITS.maxHandoffBytes) return { ok: false, reason: "too_large" };
+  if (input.byteLength > ATTENTION_LIMITS.maxHandoffBytes)
+    return { ok: false, reason: "too_large" };
   let parsed: unknown;
   try {
     const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(input);
@@ -466,6 +486,15 @@ export function parseHandoff(
 /** The pinned fields a second read must reproduce; times and row listing are ignored. */
 export function pinOf(items: readonly AttentionItem[]): string {
   return JSON.stringify(
-    items.map((i) => [i.kind, i.rootId, i.nodeId, i.fence, i.runId, i.stop, i.recordState, i.gateSourceRef])
+    items.map((i) => [
+      i.kind,
+      i.rootId,
+      i.nodeId,
+      i.fence,
+      i.runId,
+      i.stop,
+      i.recordState,
+      i.gateSourceRef
+    ])
   );
 }

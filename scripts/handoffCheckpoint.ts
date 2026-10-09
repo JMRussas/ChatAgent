@@ -115,7 +115,9 @@ export async function publishHandoff(
     return target;
   } catch (error) {
     throw new PublishError(
-      (error as NodeJS.ErrnoException).code === "EEXIST" && created ? "TARGET_EXISTS" : "WRITE_FAILED"
+      (error as NodeJS.ErrnoException).code === "EEXIST" && created
+        ? "TARGET_EXISTS"
+        : "WRITE_FAILED"
     );
   } finally {
     if (created) await io.unlink(temp).catch(() => undefined);
@@ -251,10 +253,9 @@ async function write(
     if (first.attention.omitted > 0) throw new Refusal("ITEMS_OMITTED");
     out.push("no attention items (not a health statement); nothing written");
     const down = unavailableRoots(first.overview);
-    for (const [rootId, reason] of down) out.push(`root ${rootId} unavailable (${reason}); not covered`);
-    out.push(
-      `registered records unavailable: ${first.attention.registeredRecordsUnavailable}`
-    );
+    for (const [rootId, reason] of down)
+      out.push(`root ${rootId} unavailable (${reason}); not covered`);
+    out.push(`registered records unavailable: ${first.attention.registeredRecordsUnavailable}`);
     return;
   }
 
@@ -283,13 +284,17 @@ async function write(
   try {
     text = serializeHandoff(record);
   } catch (error) {
-    throw new Refusal(error instanceof HandoffError && error.code === "TOO_LARGE" ? "TOO_LARGE" : "FILE_INVALID");
+    throw new Refusal(
+      error instanceof HandoffError && error.code === "TOO_LARGE" ? "TOO_LARGE" : "FILE_INVALID"
+    );
   }
   // Every collection, deadline and size check completes before anything is created.
   if (remaining() <= 0) throw new Refusal("DEADLINE");
   const path = await publishHandoff(outDir, handoffId, text, deps.io);
   out.push(`handoff written locally; not sent: ${path}`);
-  out.push(`items ${record.items.length}, omitted ${record.omitted}, itemsSha256 ${record.itemsSha256}`);
+  out.push(
+    `items ${record.items.length}, omitted ${record.omitted}, itemsSha256 ${record.itemsSha256}`
+  );
 }
 
 export async function runHandoffCli(

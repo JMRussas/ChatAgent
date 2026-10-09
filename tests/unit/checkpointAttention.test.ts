@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { BudgetRecord, GateRecord } from "../../src/checkpoint/checkpointRecord";
 import type { CheckpointGateView } from "../../src/integrations/hekate/checkpointBudget";
 import type { CheckpointRecordEntry } from "../../src/config/checkpointRecordsConfig";
-import { finalizeAttention, projectAttention } from "../../src/integrations/hekate/checkpointAttention";
+import {
+  finalizeAttention,
+  projectAttention
+} from "../../src/integrations/hekate/checkpointAttention";
 import {
   collectExecutiveOverview,
   type ExecutiveOverview,
@@ -11,13 +14,7 @@ import {
 import { FORBIDDEN_ACTIONS } from "../../src/integrations/hekate/recoveryAssessment";
 import type { LeafState } from "../../src/integrations/hekate/devCoordination";
 import { ROOT_A, guid, leaf, overviewOf, rootView } from "../helpers/executiveFixtures";
-import {
-  FENCE,
-  SOURCE_REF,
-  OTHER_REF,
-  makeGate,
-  makeRecord
-} from "../helpers/checkpointFixtures";
+import { FENCE, SOURCE_REF, OTHER_REF, makeGate, makeRecord } from "../helpers/checkpointFixtures";
 
 const SENTINEL_NUMBER = 987_654_321;
 
@@ -103,7 +100,10 @@ describe("projectAttention derivation", () => {
       kind: "refused_start",
       setup: { record: { stop: { kind: "refused", code: "claim_already_owned" } } }
     },
-    { kind: "verification_unavailable", setup: { gate: { state: "current", gate: verifierGate() } } }
+    {
+      kind: "verification_unavailable",
+      setup: { gate: { state: "current", gate: verifierGate() } }
+    }
   ];
 
   for (const { kind, setup } of cases)
@@ -183,7 +183,9 @@ describe("projectAttention derivation", () => {
         ]).items.map((i) => i.kind)
       ).toEqual(["cleanup_unconfirmed"]);
       expect(
-        attend([{ state, gate: { state: "current", gate: verifierGate() } }]).items.map((i) => i.kind)
+        attend([{ state, gate: { state: "current", gate: verifierGate() } }]).items.map(
+          (i) => i.kind
+        )
       ).toEqual(["verification_unavailable"]);
     }
   });
@@ -223,9 +225,7 @@ describe("projectAttention derivation", () => {
 
   it("emits no liveness, cause or delivery claims and no percent, ETA or SLO", () => {
     const text = JSON.stringify(
-      attend(
-        cases.map((c) => c.setup).map((s, i) => ({ ...s, n: i + 1 }))
-      )
+      attend(cases.map((c) => c.setup).map((s, i) => ({ ...s, n: i + 1 })))
     );
     expect(text).not.toMatch(
       /\b(alive|healthy|idle|stalled|hung|dead|delivered|notified|acknowledged|eta|slo)\b|%/i
@@ -252,7 +252,12 @@ describe("projectAttention derivation", () => {
     const { roots } = build([{ record: { stop: { kind: "tripwire", code: "hard_wall" } } }]);
     // No registry entry for the task: an unregistered record is outside coverage.
     expect(projectAttention(roots, []).items).toEqual([]);
-    const down = { ...roots[0], status: "unavailable" as const, reason: "TIMEOUT" as const, tasks: [] };
+    const down = {
+      ...roots[0],
+      status: "unavailable" as const,
+      reason: "TIMEOUT" as const,
+      tasks: []
+    };
     const attention = projectAttention(
       [down],
       [{ rootId: ROOT_A, nodeId: FENCE.nodeId, recordPath: "/r.json" }]
@@ -294,7 +299,12 @@ describe("overview integration and caps", () => {
         fetchStatus: async () => ({
           status: "ok",
           rootId: ROOT_A,
-          progress: { state: "active", rootCompletion: "incomplete", rootAcceptance: "pending", leafCounts: {} },
+          progress: {
+            state: "active",
+            rootCompletion: "incomplete",
+            rootAcceptance: "pending",
+            leafCounts: {}
+          },
           leaves: [leaf(1, "ready")]
         }),
         now: () => new Date("2026-10-09T10:00:00Z")

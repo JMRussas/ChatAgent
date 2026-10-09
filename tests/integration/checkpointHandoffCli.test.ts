@@ -39,10 +39,15 @@ const tmp = async () => {
   return dir;
 };
 
-const overview = (items: AttentionItem[], status: "ok" | "unavailable" = "ok"): ExecutiveOverview => {
+const overview = (
+  items: AttentionItem[],
+  status: "ok" | "unavailable" = "ok"
+): ExecutiveOverview => {
   const view = rootView(ROOT_A, "Delivery", [leaf(1, "in_progress")]);
   const root =
-    status === "ok" ? view : { ...view, status: "unavailable" as const, reason: "TIMEOUT" as const };
+    status === "ok"
+      ? view
+      : { ...view, status: "unavailable" as const, reason: "TIMEOUT" as const };
   return {
     ...overviewOf(root),
     schema: "executive-overview/v3",
@@ -67,7 +72,10 @@ describe("handoffCheckpoint CLI", () => {
   it("writes one file after exactly two agreeing collections and --show parses it", async () => {
     const out = await tmp();
     const first = overview([item()]);
-    const { handoff, collections } = deps([first, overview([item({ recordUpdatedAt: "2026-10-09T10:00:05.000Z" })])]);
+    const { handoff, collections } = deps([
+      first,
+      overview([item({ recordUpdatedAt: "2026-10-09T10:00:05.000Z" })])
+    ]);
     const result = await runHandoffCli(["--out-dir", out], {}, handoff);
     expect(result.exitCode).toBe(0);
     expect(result.stdout.join("\n")).toContain("handoff written locally; not sent");
@@ -76,7 +84,12 @@ describe("handoffCheckpoint CLI", () => {
     const saved = JSON.parse(await readFile(handoffPath(out, ID), "utf8"));
     expect(saved.items).toHaveLength(1);
     expect(saved.items[0].recordUpdatedAt).toBe(STAMP);
-    expect(saved).toMatchObject({ delivery: "not_sent", notification: "none", wake: "none", acknowledgment: "none" });
+    expect(saved).toMatchObject({
+      delivery: "not_sent",
+      notification: "none",
+      wake: "none",
+      acknowledgment: "none"
+    });
     const shown = await runHandoffCli(["--show", handoffPath(out, ID)], {});
     expect(shown.exitCode).toBe(0);
     expect(shown.stdout.join("\n")).toContain("delivery not_sent");
@@ -99,11 +112,22 @@ describe("handoffCheckpoint CLI", () => {
       overview([item({ fence: { attemptId: "at-1", attemptEpoch: 3, contentRevision: 3 } })]),
       overview([item({ runId: "44444444-4444-4444-8444-444444444444" })]),
       overview([item({ stop: { kind: "tripwire", code: "hard_units" } })]),
-      overview([item(), item({ kind: "refused_start", stop: { kind: "refused", code: "pin_mismatch" }, action: "fix_start_precondition" })]),
+      overview([
+        item(),
+        item({
+          kind: "refused_start",
+          stop: { kind: "refused", code: "pin_mismatch" },
+          action: "fix_start_precondition"
+        })
+      ]),
       overview([])
     ]) {
       const out = await tmp();
-      const result = await runHandoffCli(["--out-dir", out], {}, deps([overview([item()]), second]).handoff);
+      const result = await runHandoffCli(
+        ["--out-dir", out],
+        {},
+        deps([overview([item()]), second]).handoff
+      );
       expect(result.exitCode).toBe(1);
       expect(result.stderr.join()).toContain("PIN_CHANGED");
       expect(await ls(out)).toEqual([]);
@@ -140,11 +164,17 @@ describe("handoffCheckpoint CLI", () => {
     const relative = deps([overview([item()])]);
     expect((await runHandoffCli(["--out-dir", "rel/dir"], {}, relative.handoff)).exitCode).toBe(1);
     expect(relative.collections()).toBe(0);
-    const missing = await runHandoffCli(["--out-dir", join(out, "nope")], {}, deps([overview([item()])]).handoff);
+    const missing = await runHandoffCli(
+      ["--out-dir", join(out, "nope")],
+      {},
+      deps([overview([item()])]).handoff
+    );
     expect(missing.exitCode).toBe(1);
     const file = join(out, "plain.txt");
     await writeFile(file, "x");
-    expect((await runHandoffCli(["--out-dir", file], {}, deps([overview([item()])]).handoff)).exitCode).toBe(1);
+    expect(
+      (await runHandoffCli(["--out-dir", file], {}, deps([overview([item()])]).handoff)).exitCode
+    ).toBe(1);
     expect(await ls(out)).toEqual(["plain.txt"]);
   });
 
@@ -158,7 +188,11 @@ describe("handoffCheckpoint CLI", () => {
     } catch {
       return; // symlink creation is not permitted on this host
     }
-    const result = await runHandoffCli(["--out-dir", linked], {}, deps([overview([item()])]).handoff);
+    const result = await runHandoffCli(
+      ["--out-dir", linked],
+      {},
+      deps([overview([item()])]).handoff
+    );
     expect(result.exitCode).toBe(1);
     expect(await ls(real)).toEqual([]);
   });
@@ -176,7 +210,11 @@ describe("handoffCheckpoint CLI", () => {
         return realLink(from, to);
       }
     };
-    const result = await runHandoffCli(["--out-dir", out], {}, deps([overview([item()])], { io: racing }).handoff);
+    const result = await runHandoffCli(
+      ["--out-dir", out],
+      {},
+      deps([overview([item()])], { io: racing }).handoff
+    );
     expect(result.exitCode).toBe(4);
     expect(await readFile(handoffPath(out, ID), "utf8")).toBe(existing);
     expect(await ls(out)).toEqual([`${ID}.handoff.json`]);
@@ -193,13 +231,23 @@ describe("handoffCheckpoint CLI", () => {
         throw Object.assign(new Error("nope"), { code: "EPERM" });
       }
     };
-    const result = await runHandoffCli(["--out-dir", out], {}, deps([overview([item()])], { io: noLink }).handoff);
+    const result = await runHandoffCli(
+      ["--out-dir", out],
+      {},
+      deps([overview([item()])], { io: noLink }).handoff
+    );
     expect(result.exitCode).toBe(4);
     expect(await ls(out)).toEqual([]);
   });
 
   it("returns usage errors with code 2", async () => {
-    for (const argv of [[], ["--out-dir"], ["--show"], ["--out-dir", "/a", "--show", "/b"], ["--other", "x"]])
+    for (const argv of [
+      [],
+      ["--out-dir"],
+      ["--show"],
+      ["--out-dir", "/a", "--show", "/b"],
+      ["--other", "x"]
+    ])
       expect((await runHandoffCli(argv, {})).exitCode).toBe(2);
   });
 
