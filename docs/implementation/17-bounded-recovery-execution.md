@@ -1,9 +1,10 @@
 # 17 — Bounded recovery execution: first increment (planning contract)
 
-Status: proposed planning contract for the next roadmap delivery. It is not
-implementation and not evidence that anything was built, run or accepted. Planning is
-accepted separately; it never marks the implementation task done. The lead chooses the
-final contract after review.
+Status: behavior contract for the first bounded, read-only recovery assessment and
+its CLI. Recorded task acceptance and source integration are separate evidence in
+the roadmap. This phase does not implement unattended recovery, wake-up or automatic
+control actions. Sections 8–13 retain the proposed prepared TaskSpec automation path;
+section 14 describes the actual supervised API/CLI execution boundary.
 
 Scope: the existing recovery backlog task `af690ee2-4e2e-5043-a71a-c0d126030971` under
 root `d6450921-6673-5535-b495-07cc165ada2d` (reconcile idle lead/worker state before
@@ -184,6 +185,11 @@ replayed input never holds worker text.
 
 `recovery-assessment/v1`, deterministic, at most 16 KiB, with these parts:
 
+- `recorded`: the observed root, node, state revision, content revision, attempt
+  identity/epoch/content pin, effective acceptance and safe task/decision artifact
+  views. A pending-review candidate artifact is preserved even without a decision.
+  A failed observation has no recorded binding. These fields let both roles cite
+  exactly which record was assessed; supplied replay is not authenticated evidence.
 - `subject` and `fence`: validated identities only, and for each fenced field whether it matches
   (`match`, `mismatch`, and the field names that differ).
 - `observation`: `status` (`observed` or `failed`), `faultClass`, the fixed `reason`,
@@ -329,7 +335,23 @@ Precedence: invalid input, fence mismatch, observation failure, `stale` consiste
 not block classification, because decision and identity fields come from the strict plan
 view. It adds the reason codes and sets the evidence completeness to `partial`.
 
-### 5.8 CLI
+### 5.8 Implemented interface
+
+`extractAssessmentInput({ expected, response, host? })` accepts the existing typed
+attempt-progress service result, selects bounded metadata and returns a `Result`.
+`extractHostInput` selects the optional supplied host projection. `parseAssessmentInput`
+strictly parses bounded UTF-8 replay bytes. `assessRecovery` returns the deterministic
+assessment, and `renderAssessment` presents the same facts as fixed human text.
+`assessmentExitCode` maps a valid assessment to 0 or 4.
+
+Unknown response codes and oversized metadata lists are refused, not silently
+converted into complete evidence. Signed safe native exit codes are valid metadata
+and do not determine a worker/source outcome. Trace citations bind to the selected
+attempt; they never point at a different attempt on the same node. A supplied owner
+without root or launch identity is unverified. State, attempt and artifact identities
+remain available in both JSON and human output.
+
+### 5.9 CLI
 
 `npx tsx scripts/assessRecovery.ts --root <guid> --node <guid> --attempt <id|none>
 --epoch <n> --content <n> [--launch-id <hex32>] [--host-status <file>] [--replay
@@ -340,7 +362,8 @@ view. It adds the reason codes and sets the evidence completeness to `partial`.
   The URL must pass `planApiBase` (literal loopback http, no credentials). No bridge
   token, no cookie and no browser state are read.
 - `--replay` reads one input object and makes no request.
-- Each cycle is an independent fresh observation. There is no cross-cycle inference and
+- Each cycle is an independent fresh observation. Explicit cycles continue for
+  `wait_and_reobserve` or `reobserve_then_escalate`, and end on other recommendations. There is no cross-cycle inference and
   no state between runs. Cadence is finite: at most 6 cycles, at least 5 s apart, at most
   60 s in total (the deadline can end fewer cycles; each observation receives only
   the remaining time, and late results are discarded), matching the existing Watch bounds in doc 16 section 5.
