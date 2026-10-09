@@ -602,6 +602,25 @@ an accurate `tasksOmitted`; JSON is never truncated). The page loads empty; only
 button and expanding a task issue requests, both `GET`. It reports PlanStore acceptance only:
 source integration, deployment, worker liveness and budget are not established by it.
 
+#### Checkpoint budget records (optional, read-only)
+
+`HEKATE_CHECKPOINT_RECORDS_JSON` (requires the overview) registers at most 16
+`{ "rootId", "nodeId", "recordPath" }` entries with absolute, duplicate-free paths to
+`checkpoint-budget/v1` files written by the operator-run `scripts/runCheckpoint.ts`
+(`docs/implementation/19-checkpoint-execution.md`). Invalid registration fails startup with
+`INVALID_CHECKPOINT_RECORDS` and never echoes the value. Without it the response is unchanged
+`executive-overview/v1` and `budgetEvidence` is `not_reported`. With it the response is
+`executive-overview/v2`: only registered tasks (accepted ones included) get one bounded lookup of
+the record and its `<runId>.gate.json` (regular file, no symlink, 16 KiB, 500 ms, strict JSON, closed
+schema) and `budgetEvidence` becomes `reported` or `unavailable` with a typed `reason` (`missing`,
+`unreadable`, `too_large`, `invalid`, `unsupported_schema`, `stale_identity`, `timeout`). The
+identity fence (`attemptId`, `attemptEpoch`, `contentRevision`) must match the task; `stateRevision`
+may advance. A fence mismatch is quarantined and its numbers are not shown. Records are supplied,
+unauthenticated runner output with unknown owner liveness; the unit is "distinct assistant message
+IDs seen", the 30/60 defaults are a provisional heuristic, provider `num_turns` and cost are
+unverified, and lead-supplied gate evidence is current only for the exact artifact. The runner
+adds no HTTP route; the UI renders records with `textContent` and issues no extra request.
+
 ## Provider configuration
 
 The validated inventory lives in [data/model-catalog.json](../data/model-catalog.json).

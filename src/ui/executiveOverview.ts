@@ -25,7 +25,7 @@ export const EXECUTIVE_UI_LIMITS = {
 export function executiveOverviewHtml(): string {
   return `<details id="executiveOverview" open>
         <summary>Executive overview (operator, read-only)</summary>
-        <p>Recorded PlanStore state only. Accepted means accepted in PlanStore; source integration and deployment are not proven by this view. Goals are operator-configured text, not verified results. Budget evidence is not reported.</p>
+        <p>Recorded PlanStore state only. Accepted means accepted in PlanStore; source integration and deployment are not proven by this view. Goals are operator-configured text, not verified results. Budget evidence is not reported unless an operator registered a runner record for the task; such a record is supplied and unauthenticated.</p>
         <button type="button" id="execRefresh">Refresh</button>
         <p id="execNote" role="status">Press Refresh to read the configured plans. Nothing is requested until then.</p>
         <div id="execStale" role="alert" hidden style="border:2px solid #b45309;padding:6px;font-weight:bold"></div>
@@ -67,6 +67,23 @@ export function executiveOverviewScript(): string {
   var CONSISTENCY = ['current', 'stale', 'partial'];
   var TRACE_STATUS = ['running', 'exited', 'unfinished', 'not_captured'];
   var INTEGRITY = ['verified', 'unverified', 'none'];
+  var TOKEN = /^[!-~]{1,200}$/;
+  var GIT_REF = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+  var STAMP = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$/;
+  var SIGNAL = /^SIG[A-Z0-9]{1,12}$/;
+  var BUDGET_EVIDENCE = ['not_reported', 'reported', 'unavailable'];
+  var BUDGET_REASONS = ['missing', 'unreadable', 'too_large', 'invalid', 'unsupported_schema', 'stale_identity', 'timeout'];
+  var STOP_CODES = {
+    none: ['none'],
+    refused: ['profile_unsupported', 'pin_mismatch', 'worktree_invalid', 'authority_mismatch', 'authority_unavailable'],
+    tripwire: ['hard_units', 'hard_wall', 'hard_output', 'counter_uncertain', 'authority_changed'],
+    cancelled: ['cancelled'],
+    exited: ['exited'],
+    failed: ['exited_nonzero', 'spawn_failed', 'cleanup_failed', 'record_write_failed']
+  };
+  var GATE_OUTCOMES = ['checks_passed', 'source_failed', 'partial', 'verifier_unavailable'];
+  var CHECK_RESULTS = ['pass', 'fail', 'unavailable'];
+  var allowBudget = false;
   var STATE_LABELS = {
     review_pending: 'Awaiting review',
     rejected: 'Rejected (rework decision needed)',
@@ -138,8 +155,56 @@ export function executiveOverviewScript(): string {
   function validAcceptance(a) {
     return a === null || (isObject(a) && oneOf(a.decision, ['accepted', 'rejected']) && isInt(a.contentRevision) && isNullStr(a.artifactRef, 400) && isNullStr(a.attemptId, 400) && isInt(a.attemptEpoch) && isStr(a.decidedBy, 400) && isNullStr(a.evidenceRef, 400));
   }
+  function keysAre(o, list) {
+    var keys = Object.keys(o);
+    return keys.length === list.length && list.every(function (k) { return keys.indexOf(k) >= 0; });
+  }
+  function validFence(f) {
+    return GUID.test(f.rootId) && GUID.test(f.nodeId) && typeof f.attemptId === 'string' && TOKEN.test(f.attemptId) && isInt(f.attemptEpoch) && isInt(f.contentRevision);
+  }
+  function validRecord(r) {
+    if (!isObject(r) || !keysAre(r, ['schema', 'runId', 'identity', 'baseRef', 'profile', 'state', 'unit', 'expected', 'hard', 'consumed', 'expectedExceeded', 'providerReported', 'cost', 'stop', 'exit', 'rootPid', 'startedAt', 'updatedAt', 'endedAt', 'writer', 'recordTrust', 'writerLiveness', 'artifactRef'])) return false;
+    var i = r.identity, e = r.expected, h = r.hard, c = r.consumed, p = r.providerReported, s = r.stop;
+    if (r.schema !== 'checkpoint-budget/v1' || !GUID.test(r.runId) || !GIT_REF.test(r.baseRef) || !oneOf(r.profile, ['readonly_smoke', 'coding']) || !oneOf(r.state, ['running', 'ended']) || r.unit !== 'assistant_message_ids_distinct/v1') return false;
+    if (!isObject(i) || !keysAre(i, ['rootId', 'nodeId', 'attemptId', 'attemptEpoch', 'contentRevision', 'observedStateRevision', 'executorRef']) || !validFence(i) || !isInt(i.observedStateRevision) || typeof i.executorRef !== 'string' || !TOKEN.test(i.executorRef)) return false;
+    if (!isObject(e) || !keysAre(e, ['units', 'basis']) || !isInt(e.units) || e.basis !== 'provisional_heuristic') return false;
+    if (!isObject(h) || !keysAre(h, ['units', 'wallMs', 'outputBytes']) || !isInt(h.units) || !isInt(h.wallMs) || !isInt(h.outputBytes)) return false;
+    if (!isObject(c) || !keysAre(c, ['units', 'wallMs', 'outputBytes', 'counterState']) || !isInt(c.units) || !isInt(c.wallMs) || !isInt(c.outputBytes) || !oneOf(c.counterState, ['exact_observed', 'lower_bound'])) return false;
+    if (typeof r.expectedExceeded !== 'boolean') return false;
+    if (!isObject(p) || !keysAre(p, ['numTurns', 'costUsd', 'status']) || !(p.numTurns === null || isInt(p.numTurns)) || !(p.costUsd === null || (typeof p.costUsd === 'number' && isFinite(p.costUsd) && p.costUsd >= 0)) || p.status !== 'unverified') return false;
+    if (!isObject(r.cost) || !keysAre(r.cost, ['enforcement']) || !oneOf(r.cost.enforcement, ['none', 'provider_cap_configured_unverified'])) return false;
+    if (!isObject(s) || !keysAre(s, ['kind', 'code']) || !STOP_CODES.hasOwnProperty(s.kind) || !oneOf(s.code, STOP_CODES[s.kind])) return false;
+    if (!(r.exit === null || (isObject(r.exit) && keysAre(r.exit, ['code', 'signal']) && (r.exit.code === null || (typeof r.exit.code === 'number' && Math.floor(r.exit.code) === r.exit.code)) && (r.exit.signal === null || (typeof r.exit.signal === 'string' && SIGNAL.test(r.exit.signal)))))) return false;
+    if (!(r.rootPid === null || isInt(r.rootPid))) return false;
+    if (typeof r.startedAt !== 'string' || !STAMP.test(r.startedAt) || typeof r.updatedAt !== 'string' || !STAMP.test(r.updatedAt) || !(r.endedAt === null || (typeof r.endedAt === 'string' && STAMP.test(r.endedAt)))) return false;
+    if (r.writer !== 'runner_record' || r.recordTrust !== 'supplied_not_authenticated' || r.writerLiveness !== 'unknown' || !(r.artifactRef === null || (typeof r.artifactRef === 'string' && GIT_REF.test(r.artifactRef)))) return false;
+    return (r.state === 'running') === (s.kind === 'none') && (r.state === 'running') === (r.endedAt === null);
+  }
+  function validGate(g) {
+    if (!isObject(g) || !keysAre(g, ['schema', 'runId', 'identity', 'sourceRef', 'suppliedBy', 'recordedAt', 'evidenceRefs', 'checks', 'outcome'])) return false;
+    if (g.schema !== 'checkpoint-gate/v1' || !GUID.test(g.runId) || !isObject(g.identity) || !keysAre(g.identity, ['rootId', 'nodeId', 'attemptId', 'attemptEpoch', 'contentRevision']) || !validFence(g.identity)) return false;
+    if (typeof g.sourceRef !== 'string' || !GIT_REF.test(g.sourceRef) || g.suppliedBy !== 'lead' || typeof g.recordedAt !== 'string' || !STAMP.test(g.recordedAt) || !oneOf(g.outcome, GATE_OUTCOMES)) return false;
+    if (!Array.isArray(g.evidenceRefs) || g.evidenceRefs.length > 8 || !g.evidenceRefs.every(function (x) { return isStr(x, 128); })) return false;
+    return Array.isArray(g.checks) && g.checks.length <= 16 && g.checks.every(function (x) { return isObject(x) && keysAre(x, ['name', 'result']) && isStr(x.name, 64) && oneOf(x.result, CHECK_RESULTS); });
+  }
+  function validGateView(v) {
+    if (!isObject(v)) return false;
+    if (v.state === 'unavailable') return keysAre(v, ['state', 'reason']) && oneOf(v.reason, BUDGET_REASONS);
+    return (v.state === 'current' || v.state === 'history') && keysAre(v, ['state', 'gate']) && validGate(v.gate);
+  }
+  function validBudget(b) {
+    if (!isObject(b)) return false;
+    if (b.state === 'unavailable') return keysAre(b, ['state', 'reason']) && oneOf(b.reason, BUDGET_REASONS);
+    return b.state === 'reported' && keysAre(b, ['state', 'record', 'gate', 'overdueUnreported']) && typeof b.overdueUnreported === 'boolean' && validRecord(b.record) && validGateView(b.gate);
+  }
+  function validBudgetFields(t) {
+    if (!allowBudget) return t.budgetEvidence === 'not_reported' && t.checkpointBudget === undefined;
+    if (!oneOf(t.budgetEvidence, BUDGET_EVIDENCE)) return false;
+    if (t.budgetEvidence === 'not_reported') return t.checkpointBudget === undefined;
+    return validBudget(t.checkpointBudget) && (t.budgetEvidence === 'reported') === (t.checkpointBudget.state === 'reported');
+  }
   function validTask(t) {
-    return isObject(t) && GUID.test(t.nodeId) && isNullStr(t.name, 400) && oneOf(t.state, STATES) && t.executionAcknowledged === 'unknown' && typeof t.gatesHold === 'boolean' && typeof t.upstreamChanged === 'boolean' && oneOf(t.attemptPins, PIN_VALUES) && isNullStr(t.scope, 400) && isInt(t.contentRevision) && isInt(t.stateRevision) && isNullStr(t.attemptId, 400) && isInt(t.attemptEpoch) && isNullStr(t.executorRef, 400) && isNullStr(t.artifactRef, 400) && validAcceptance(t.acceptance) && (t.acceptanceHistorical === undefined || t.acceptanceHistorical === true) && Array.isArray(t.blockers) && t.blockers.length <= MAX_BLOCKERS && t.blockers.every(validBlocker) && isInt(t.blockersOmitted) && (t.prod === 'none' || oneOf(t.prod, PRODS)) && oneOf(t.checkpointGate, GATES) && t.budgetEvidence === 'not_reported';
+    return isObject(t) && GUID.test(t.nodeId) && isNullStr(t.name, 400) && oneOf(t.state, STATES) && t.executionAcknowledged === 'unknown' && typeof t.gatesHold === 'boolean' && typeof t.upstreamChanged === 'boolean' && oneOf(t.attemptPins, PIN_VALUES) && isNullStr(t.scope, 400) && isInt(t.contentRevision) && isInt(t.stateRevision) && isNullStr(t.attemptId, 400) && isInt(t.attemptEpoch) && isNullStr(t.executorRef, 400) && isNullStr(t.artifactRef, 400) && validAcceptance(t.acceptance) && (t.acceptanceHistorical === undefined || t.acceptanceHistorical === true) && Array.isArray(t.blockers) && t.blockers.length <= MAX_BLOCKERS && t.blockers.every(validBlocker) && isInt(t.blockersOmitted) && (t.prod === 'none' || oneOf(t.prod, PRODS)) && oneOf(t.checkpointGate, GATES) && validBudgetFields(t);
   }
   function validRoot(r) {
     if (!isObject(r) || !GUID.test(r.rootId) || !isStr(r.label, 400) || !isNullStr(r.goal, 800) || !isStr(r.observedAt, 64) || !oneOf(r.status, ['ok', 'invalid', 'unavailable'])) return false;
@@ -157,7 +222,8 @@ export function executiveOverviewScript(): string {
   function parseOverview(raw) {
     var d;
     try { d = JSON.parse(raw); } catch (e) { return null; }
-    if (!isObject(d) || d.schema !== 'executive-overview/v1' || d.atomic !== false || !isStr(d.generatedAt, 64)) return null;
+    if (!isObject(d) || (d.schema !== 'executive-overview/v1' && d.schema !== 'executive-overview/v2') || d.atomic !== false || !isStr(d.generatedAt, 64)) return null;
+    allowBudget = d.schema === 'executive-overview/v2';
     if (!Array.isArray(d.roots) || d.roots.length > MAX_ROOTS || !d.roots.every(validRoot)) return null;
     var seen = {};
     for (var i = 0; i < d.roots.length; i++) {
@@ -383,6 +449,39 @@ export function executiveOverviewScript(): string {
     if (task.state === 'accepted' || task.state === 'rejected') return 'Current decision: ' + a.decision + who;
     return 'Recorded decision, not current for this task state: ' + a.decision + who;
   }
+  function renderBudget(body, task) {
+    var b = task.checkpointBudget;
+    if (b === undefined) return;
+    var box = add(body, 'div');
+    box.setAttribute('data-budget', b.state);
+    if (b.state === 'unavailable') {
+      add(box, 'p', 'Checkpoint budget record unavailable (reason: ' + b.reason + ').' + (b.reason === 'stale_identity' ? ' The record belongs to another attempt or content revision; its numbers are not shown.' : ''));
+      return;
+    }
+    var r = b.record;
+    add(box, 'p', 'Checkpoint budget record (supplied runner record, not authenticated; owner liveness unknown):');
+    line(box, 'Run', r.runId);
+    line(box, 'Unit', 'distinct assistant message IDs seen (' + r.unit + ')');
+    line(box, 'Expected (provisional heuristic, not an SLO)', r.expected.units);
+    line(box, 'Hard limits', r.hard.units + ' units, ' + r.hard.wallMs + ' ms, ' + r.hard.outputBytes + ' output bytes');
+    line(box, 'Consumed at last write (' + (r.consumed.counterState === 'lower_bound' ? 'lower bound' : 'observed') + ')', r.consumed.units + ' units, ' + r.consumed.wallMs + ' ms, ' + r.consumed.outputBytes + ' output bytes');
+    if (r.expectedExceeded) add(box, 'p', 'Expected units reached.');
+    add(box, 'p', r.state === 'running' ? 'Run state: running as last recorded at ' + r.updatedAt + '; owner liveness unknown.' : 'Run state: ended at ' + r.endedAt + '.');
+    if (b.overdueUnreported) add(box, 'p', 'Overdue: no end was recorded past the hard wall limit plus grace (overdue_unreported).');
+    line(box, 'Stop', r.stop.kind + ' / ' + r.stop.code);
+    if (r.stop.code === 'cleanup_failed') add(box, 'p', 'Cleanup was not confirmed; clean stop is not asserted. Root PID ' + (r.rootPid === null ? 'unknown' : r.rootPid) + ' is a recorded descriptor, not authority to stop or restart anything.');
+    if (r.exit !== null) line(box, 'Worker exit (not the stop cause)', (r.exit.code === null ? 'no code' : r.exit.code) + (r.exit.signal === null ? '' : ' ' + r.exit.signal));
+    line(box, 'Provider reported (unverified)', 'num_turns ' + (r.providerReported.numTurns === null ? 'none' : r.providerReported.numTurns) + ', cost USD ' + (r.providerReported.costUsd === null ? 'none' : r.providerReported.costUsd));
+    line(box, 'Cost enforcement', r.cost.enforcement);
+    var g = b.gate;
+    if (g.state === 'unavailable') {
+      add(box, 'p', 'Gate evidence unavailable (reason: ' + g.reason + '). Supplied by the lead when present, not verified by ChatAgent.');
+      return;
+    }
+    add(box, 'p', 'Gate evidence (' + (g.state === 'current' ? 'current' : 'history, not for the current artifact') + '; supplied by the lead, not verified by ChatAgent): ' + g.gate.outcome);
+    line(box, 'Gate source', g.gate.sourceRef);
+    for (var k = 0; k < g.gate.checks.length; k++) add(box, 'p', 'Check ' + text(g.gate.checks[k].name) + ': ' + g.gate.checks[k].result);
+  }
   function renderTask(parent, rootId, task) {
     var key = rootId + '|' + task.nodeId;
     var details = add(parent, 'details');
@@ -406,6 +505,7 @@ export function executiveOverviewScript(): string {
     add(body, 'p', 'Task artifact: ' + refText(task.artifactRef));
     add(body, 'p', 'Checkpoint gate (current state): ' + task.checkpointGate);
     add(body, 'p', 'Budget evidence: ' + task.budgetEvidence);
+    renderBudget(body, task);
     if (task.blockers.length > 0) {
       add(body, 'p', 'Blocked by:');
       var list = add(body, 'ul');

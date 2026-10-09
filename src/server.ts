@@ -7,6 +7,12 @@ import {
 import { createAttemptProgressService } from "./integrations/hekate/attemptProgress";
 import { collectExecutiveOverview } from "./integrations/hekate/executiveOverview";
 import {
+  CheckpointRecordsConfigError,
+  loadCheckpointRecordsConfig,
+  parseCheckpointRecords,
+  type CheckpointRecordEntry
+} from "./config/checkpointRecordsConfig";
+import {
   ExecutiveConfigError,
   loadExecutiveOverviewConfig,
   parseExecutiveRoots,
@@ -247,6 +253,12 @@ interface ServerOptions {
    * page is byte-identical to before. A browser can never supply a root, URL or label.
    */
   executiveOverview?: { roots: ExecutiveRoot[] };
+  /**
+   * Trusted, startup-validated registry (1..16) of runner record files for the executive
+   * overview; needs `executiveOverview` and each root to be configured there. Absent: the
+   * overview stays `executive-overview/v1`. A browser can never supply a path.
+   */
+  checkpointRecords?: CheckpointRecordEntry[];
   /**
    * Trusted, already validated dispatch host for prepared plan roots. Absent: the
    * development dispatch routes answer 404 DISPATCH_HOST_DISABLED.
@@ -578,6 +590,16 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
     options.executiveOverview === undefined
       ? undefined
       : parseExecutiveRoots(options.executiveOverview.roots);
+  const checkpointRecords =
+    options.checkpointRecords === undefined
+      ? undefined
+      : parseCheckpointRecords(options.checkpointRecords);
+  if (
+    checkpointRecords !== undefined &&
+    (executiveRoots === undefined ||
+      checkpointRecords.some((e) => !executiveRoots.some((r) => r.rootId === e.rootId)))
+  )
+    throw new CheckpointRecordsConfigError();
   if (options.dispatchHost !== undefined && !(options.dispatchHost instanceof DispatchHost))
     throw new Error("INVALID_DISPATCH_HOST");
   const dispatchHost = options.dispatchHost;
@@ -794,7 +816,15 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             error: "No query parameters are accepted"
           });
         try {
-          return json(res, 200, await collectExecutiveOverview(planApiUrl, executiveRoots));
+          return json(
+            res,
+            200,
+            await collectExecutiveOverview(
+              planApiUrl,
+              executiveRoots,
+              checkpointRecords ? { checkpointRecords } : {}
+            )
+          );
         } catch {
           return json(res, 503, { code: "EXECUTIVE_OVERVIEW_UNAVAILABLE" });
         }
@@ -1729,6 +1759,10 @@ export async function startServer(
   const streamAdmission = loadStreamAdmissionConfig();
   // Fails startup with a stable code, before anything is allocated, and never echoes the value.
   const executiveOverview = loadExecutiveOverviewConfig(process.env);
+  const checkpointRecords = loadCheckpointRecordsConfig(
+    process.env,
+    executiveOverview !== undefined
+  );
   // Trusted startup configuration only; a malformed file stops startup before anything runs.
   const dispatchHost = await loadDispatchHost(process.env);
   const briefings = extensions.briefings ?? (await loadLiveBriefingFromEnv(process.env));
@@ -2084,6 +2118,7 @@ export async function startServer(
     planApiUrl: process.env.HEKATE_PLAN_API_URL,
     attemptProgress: process.env.HEKATE_PLAN_API_URL !== undefined,
     ...(executiveOverview ? { executiveOverview } : {}),
+    ...(checkpointRecords ? { checkpointRecords } : {}),
     ...(dispatchHost ? { dispatchHost } : {}),
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,

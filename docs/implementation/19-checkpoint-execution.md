@@ -1,6 +1,13 @@
 # 19 — Checkpoint execution and budget record (planning contract)
 
-Status: **lead-reviewed implementation contract; implementation remains unverified.** Planning task `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` prepares implementation task `94438651-ed00-5656-803d-d6097d4a4e40` under management
+Status: **lead-reviewed implementation contract; an implementation exists in the isolated
+worktree but its tests, lint and live checks have not been run or verified by the author.**
+Implementation notes: the argument list is `--print --output-format stream-json --verbose --model <m>
+--tools <list> --allowedTools <list>` (plus `--max-budget-usd` only with a configured provider
+cap), confirmed against the installed `--help` before the only spawn; the planning artifact below is
+otherwise unchanged. Record `rootPid` is set only for `cleanup_failed`. Tripwire code
+`authority_changed` and failure code `record_write_failed` are added to the closed enums; the
+runner additionally refuses `run_exists` and `record_dir_invalid` without writing a record. Planning task `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` prepares implementation task `94438651-ed00-5656-803d-d6097d4a4e40` under management
 root `29141a72-9c9a-54f8-a357-fb6db74d84d9`, ready after accepted live delivery `77aca710`.
 
 ## Purpose and unit of management
