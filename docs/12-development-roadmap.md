@@ -1,5 +1,11 @@
 # Development roadmap
 
+Repository publication: the GitHub remote is now `JMRussas/ChatAgent`. The root
+license and package metadata use AGPL-3.0-or-later, matching the related software
+projects. Merged branch cleanup preserves worktree files and an external Git
+bundle; active and unmerged work stays available. Publication checks and remote
+readbacks are retained under `chatagent-publish-001`.
+
 ## Current plan — executive observability and checkpoint delivery (2026-10-09)
 
 This section is the authoritative execution order. Earlier dated entries below are
@@ -119,7 +125,7 @@ remain separate work rather than delaying the useful first slice.
 | Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof |
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
 | Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |
-| Continuation contract       | Freeze actual generation-to-independent-review resume without a user message        | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Athena claimed `checkpoint-continuation-contract-001-r1`, epoch 1/content 1               |
+| Continuation contract       | Freeze actual generation-to-independent-review resume without a user message        | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Stopped at hard wall; no artifact; proposal rejected; implementation blocked              |
 | Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | TODO behind contract acceptance                                                           |
 
 These real tasks are stored under management root
@@ -229,9 +235,9 @@ epoch 2/content 2. The original model budget remains fenced to epoch 1; it is no
 presented as a current operator-run budget. `accepted-readback.json` and
 `reviewed-bundle.json` preserve the distinction. No model retry was spent.
 
-Next actual planning task `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` is claimed at
+Planning task `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` was claimed at
 `checkpoint-continuation-contract-001-r1`, epoch 1/content 1, through the maintained
-fixed-profile Claude CLI on source `93d72a1`. It must define a finite manager that
+fixed-profile Claude CLI on source `93d72a1`. Its intended scope is a finite manager that
 starts deterministic verification and a separate independent review after generation
 without a user message; a ledger or this chat's process-local history is not a wake.
 Implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` remains gated by planning
@@ -239,7 +245,13 @@ acceptance. Hard bounds are 60 message IDs, five minutes, 4 MiB output and USD2
 provider cap; expected 30 IDs remains a heuristic. An initial missing record-directory
 preparation refused before spawning any model; the refusal is retained, the directory
 precondition was fixed, and the same unopened run then started. This is not a model
-retry. Evidence is retained under `checkpoint-continuation-contract-001`.
+retry. The model then reached its hard wall at 300.297 seconds with 11 message
+IDs and produced no contract artifact. The tripwire stopped the owned run; the
+proposal is explicitly rejected without attributing a source defect or spending
+a model retry. Implementation remains blocked, and CA-ISSUE-004 remains open.
+Repository publication work is now the active priority. Evidence includes
+`no-artifact-review.json` and `rejected-readback.json` under
+`checkpoint-continuation-contract-001`.
 
 The runtime budget monitor continued independently until the model worker ended;
 independent lead gates still determine acceptance. Persistent queue advancement,

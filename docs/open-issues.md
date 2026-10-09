@@ -231,6 +231,14 @@ unattended service is established, so the original issue remains open.
   operational correction does not close persistent queue advancement, supervision
   or wake-delivery scope. Service heartbeat remains separate from task execution.
 
+- **Latest checkpoint:** continuation contract task
+  `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` stopped at its five-minute hard wall
+  without a contract artifact (11 observed message IDs). The lead recorded the
+  budget stop and rejected the absent proposal; cause remains unattributed and
+  no model retry was spent. The manager implementation is still blocked.
+  `checkpoint-continuation-contract-001/no-artifact-review.json` and
+  `rejected-readback.json` retain the actual decision.
+
 ### CA-ISSUE-008 — No provider-authoritative quota reconciliation
 
 - **Gap:** fixed or rolling quota windows are reconciled only against operator

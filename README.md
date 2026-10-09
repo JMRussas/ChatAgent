@@ -7,7 +7,7 @@ LangGraph checkpointed execution.
 
 Built by [Justin M Russas](https://github.com/JMRussas). This is a working local
 engineering prototype with reproducible experiments, not a hosted production
-service. The GitHub repository and internal package retain the name **ChatRuntime**.
+service. Source and development history are in [JMRussas/ChatAgent](https://github.com/JMRussas/ChatAgent).
 No sibling repository or private project is required to run it.
 
 **Start here:** [Engineering case study](docs/portfolio-case-study.md) ·
@@ -298,3 +298,8 @@ bytes, completed answer buffers, coalesced telemetry saves and discovery churn.
 describe overflow, cancellation and snapshot replacement semantics; `.env.example`
 lists the limits. The sustained-memory gate includes separate scripted discovery
 and stalled file-write workloads, without live provider calls.
+
+## License
+
+[GNU Affero General Public License v3.0 or later](LICENSE), matching the licensing
+used by Agent Insights, Orchestration Engine and Tiered Moderation Agent.
