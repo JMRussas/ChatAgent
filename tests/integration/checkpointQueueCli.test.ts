@@ -28,7 +28,9 @@ async function setup(label = "ready task"): Promise<Setup> {
   dirs.push(dir);
   const reviewPath = join(dir, "review.budget.json");
   const runningPath = join(dir, "running.budget.json");
-  const ended = makeRecord({ identity: { ...FENCE, nodeId: guid(100, 2), observedStateRevision: 4, executorRef: "e" } });
+  const ended = makeRecord({
+    identity: { ...FENCE, nodeId: guid(100, 2), observedStateRevision: 4, executorRef: "e" }
+  });
   const live = makeRecord({
     runId: guid(7),
     identity: { ...FENCE, nodeId: guid(100, 3), observedStateRevision: 4, executorRef: "e" },
@@ -135,12 +137,22 @@ describe("checkpointQueue CLI", () => {
     const accepted = (n: number) =>
       leaf(n, "accepted", {
         ...FENCED,
-        acceptance: { decision: "accepted", contentRevision: 3, artifactRef: SOURCE_REF, attemptId: "at-1", attemptEpoch: 2, decidedBy: "lead", evidenceRef: null }
+        acceptance: {
+          decision: "accepted",
+          contentRevision: 3,
+          artifactRef: SOURCE_REF,
+          attemptId: "at-1",
+          attemptEpoch: 2,
+          decidedBy: "lead",
+          evidenceRef: null
+        }
       });
     s.leaves.splice(0, 3, accepted(1), accepted(2), accepted(3));
     // Entry 1 still expects a null attempt, so its accepted decision is on a moved fence.
     expect((await evaluate(s)).exitCode).toBe(1);
-    expect(parseLedger(await readFile(ledgerPath(s.dir, QUEUE))).entries[0].reason).toBe("fence_moved");
+    expect(parseLedger(await readFile(ledgerPath(s.dir, QUEUE))).entries[0].reason).toBe(
+      "fence_moved"
+    );
     const fenced = '{"attemptId":"at-1","attemptEpoch":2,"contentRevision":3}';
     const nullFence = '{"attemptId":null,"attemptEpoch":0,"contentRevision":1}';
     await writeFile(s.manifest, (await readFile(s.manifest, "utf8")).replace(nullFence, fenced));
@@ -199,7 +211,10 @@ describe("checkpointQueue CLI", () => {
     const changed = (await readFile(s.manifest, "utf8")).replace("ready task", "renamed task");
     await writeFile(s.manifest, changed);
     for (const result of [await evaluate(s), await show(s)])
-      expect(result).toMatchObject({ exitCode: 4, stderr: ["checkpointQueue: LEDGER_MANIFEST_CHANGED"] });
+      expect(result).toMatchObject({
+        exitCode: 4,
+        stderr: ["checkpointQueue: LEDGER_MANIFEST_CHANGED"]
+      });
     expect(await readFile(ledgerPath(s.dir, QUEUE), "utf8")).toBe(before);
   });
 
@@ -269,19 +284,32 @@ describe("checkpointQueue CLI", () => {
     expect(result.exitCode).toBe(1);
     const ledger = parseLedger(await readFile(ledgerPath(s.dir, QUEUE)));
     expect(ledger.outcome).toBe("unobservable");
-    expect(ledger.entries.every((e) => e.reason === "plan_unavailable" && e.observed === null)).toBe(true);
+    expect(
+      ledger.entries.every((e) => e.reason === "plan_unavailable" && e.observed === null)
+    ).toBe(true);
     expect(ledger.entries.every((e) => e.runId === null && e.gate.state === "none")).toBe(true);
   });
 
   it("refuses usage and configuration errors with codes only", async () => {
     const s = await setup();
-    for (const argv of [[], ["--evaluate"], ["--manifest", s.manifest], ["--manifest", s.manifest, "--evaluate", "--show"], ["--manifest", s.manifest, "--once"]])
+    for (const argv of [
+      [],
+      ["--evaluate"],
+      ["--manifest", s.manifest],
+      ["--manifest", s.manifest, "--evaluate", "--show"],
+      ["--manifest", s.manifest, "--once"]
+    ])
       expect((await runQueueCli(argv, {})).exitCode).toBe(2);
     const bad = join(s.dir, "bad.json");
-    await writeFile(bad, JSON.stringify({ schema: "checkpoint-queue-manifest/v1", secret: "do-not-echo" }));
+    await writeFile(
+      bad,
+      JSON.stringify({ schema: "checkpoint-queue-manifest/v1", secret: "do-not-echo" })
+    );
     const result = await runQueueCli(["--manifest", bad, "--evaluate"], s.deps);
     expect(result).toMatchObject({ exitCode: 2, stderr: ["checkpointQueue: MANIFEST_INVALID"] });
     expect(JSON.stringify(result)).not.toContain("do-not-echo");
-    expect((await runQueueCli(["--manifest", join(s.dir, "missing.json"), "--show"], {})).exitCode).toBe(2);
+    expect(
+      (await runQueueCli(["--manifest", join(s.dir, "missing.json"), "--show"], {})).exitCode
+    ).toBe(2);
   });
 });

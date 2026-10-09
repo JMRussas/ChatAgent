@@ -90,13 +90,19 @@ describe("classifyEntry", () => {
       acceptance({ artifactRef: OTHER_REF }),
       acceptance({ decision: "rejected" })
     ])
-      expect(classify(plan(claimed("accepted", { acceptance: bad }))).reason).toBe("plan_inconsistent");
-    const historical = claimed("accepted", { acceptance: acceptance(), acceptanceHistorical: true });
+      expect(classify(plan(claimed("accepted", { acceptance: bad }))).reason).toBe(
+        "plan_inconsistent"
+      );
+    const historical = claimed("accepted", {
+      acceptance: acceptance(),
+      acceptanceHistorical: true
+    });
     expect(classify(plan(historical)).state).toBe("needs_operator");
     // A strictly older decision is surfaced by the reader as review_pending, never accepted.
-    expect(classify(plan(claimed("review_pending", { acceptance: acceptance({ attemptEpoch: 1 }) }))).state).toBe(
-      "review_pending"
-    );
+    expect(
+      classify(plan(claimed("review_pending", { acceptance: acceptance({ attemptEpoch: 1 }) })))
+        .state
+    ).toBe("review_pending");
   });
 
   it("names recorded rejected, stale, cancelled and blocked conditions", () => {
@@ -134,11 +140,17 @@ describe("classifyEntry", () => {
       gate: { state: "current", outcome: "checks_passed", sourceRef: SOURCE_REF }
     });
     const partial = makeGate({
-      checks: [{ name: "a", result: "pass" }, { name: "b", result: "fail" }],
+      checks: [
+        { name: "a", result: "pass" },
+        { name: "b", result: "fail" }
+      ],
       outcome: "partial"
     });
     expect(classify(task, view(partial)).reason).toBe("verification_incomplete");
-    const unavailable = makeGate({ checks: [{ name: "a", result: "unavailable" }], outcome: "verifier_unavailable" });
+    const unavailable = makeGate({
+      checks: [{ name: "a", result: "unavailable" }],
+      outcome: "verifier_unavailable"
+    });
     expect(classify(task, view(unavailable)).reason).toBe("verification_unavailable");
     const source = makeGate({
       checks: [{ name: "a", result: "fail" }],
@@ -162,7 +174,9 @@ describe("classifyEntry", () => {
       reason: "liveness_unknown",
       recordState: "running"
     });
-    expect(classify(plan(claimed("in_progress")), reported(running(), undefined, true))).toMatchObject({
+    expect(
+      classify(plan(claimed("in_progress")), reported(running(), undefined, true))
+    ).toMatchObject({
       state: "needs_operator",
       reason: "overdue_unreported"
     });
@@ -173,14 +187,23 @@ describe("classifyEntry", () => {
       state: "claimed_unobserved",
       reason: "record_not_registered"
     });
-    const missing: RecordFact = { kind: "observed", view: { state: "unavailable", reason: "missing" } };
+    const missing: RecordFact = {
+      kind: "observed",
+      view: { state: "unavailable", reason: "missing" }
+    };
     expect(classify(plan(claimed("in_progress")), missing).reason).toBe("record_missing");
-    const stale: RecordFact = { kind: "observed", view: { state: "unavailable", reason: "stale_identity" } };
+    const stale: RecordFact = {
+      kind: "observed",
+      view: { state: "unavailable", reason: "stale_identity" }
+    };
     expect(classify(plan(claimed("in_progress")), stale).reason).toBe("record_stale_identity");
   });
 
   it("withholds non-hex artifacts and unbounded attempt text", () => {
-    const l = claimed("in_progress", { artifactRef: "https://example.invalid/x", attemptId: "a b" });
+    const l = claimed("in_progress", {
+      artifactRef: "https://example.invalid/x",
+      attemptId: "a b"
+    });
     const c = classify(plan(l), { kind: "not_registered" }, { ...EXPECTED, attemptId: "a b" });
     expect(c.observed?.attemptId).toBe("<withheld>");
     const ok = classify(plan(claimed("in_progress", { artifactRef: "https://example.invalid/x" })));
@@ -232,30 +255,47 @@ describe("manifest and ledger schemas", () => {
   it("refuses unknown keys, duplicates, decimals and bad scope without echoing input", () => {
     expect(parseText(manifestOf()).entries).toHaveLength(1);
     expect(refusal(() => parseText(manifestOf({ extra: 1 })))).toBe("MANIFEST_INVALID");
-    expect(refusal(() => parseText(manifestOf({ planApiUrl: "http://example.com" })))).toBe("MANIFEST_INVALID");
+    expect(refusal(() => parseText(manifestOf({ planApiUrl: "http://example.com" })))).toBe(
+      "MANIFEST_INVALID"
+    );
     expect(refusal(() => parseText(manifestOf({ entries: [] })))).toBe("MANIFEST_INVALID");
-    expect(refusal(() => parseText(manifestOf({ entries: [entryA, entryA] })))).toBe("MANIFEST_INVALID");
+    expect(refusal(() => parseText(manifestOf({ entries: [entryA, entryA] })))).toBe(
+      "MANIFEST_INVALID"
+    );
     const other = { ...entryA, entryId: guid(11), nodeId: guid(100, 2) };
     const path = process.platform === "win32" ? "C:\\r\\a.json" : "/r/a.json";
     expect(
       refusal(() =>
-        parseText(manifestOf({ entries: [{ ...entryA, recordPath: path }, { ...other, recordPath: path }] }))
+        parseText(
+          manifestOf({
+            entries: [
+              { ...entryA, recordPath: path },
+              { ...other, recordPath: path }
+            ]
+          })
+        )
       )
     ).toBe("MANIFEST_INVALID");
-    expect(refusal(() => parseText(manifestOf({ entries: [{ ...entryA, label: "bad\nlabel" }] })))).toBe(
-      "MANIFEST_INVALID"
-    );
+    expect(
+      refusal(() => parseText(manifestOf({ entries: [{ ...entryA, label: "bad\nlabel" }] })))
+    ).toBe("MANIFEST_INVALID");
     const dup = JSON.stringify(manifestOf()).replace('"schema"', '"queueId":"x","schema"');
     expect(refusal(() => parseManifest(Buffer.from(dup)))).toBe("MANIFEST_INVALID");
     const decimal = JSON.stringify(manifestOf()).replace('"attemptEpoch":2', '"attemptEpoch":2.0');
     expect(refusal(() => parseManifest(Buffer.from(decimal)))).toBe("MANIFEST_INVALID");
     expect(refusal(() => parseManifest(Buffer.alloc(33 * 1024, 32)))).toBe("MANIFEST_TOO_LARGE");
-    expect(refusal(() => parseText(manifestOf({ schema: "checkpoint-queue-manifest/v2" })))).toBe("MANIFEST_INVALID");
+    expect(refusal(() => parseText(manifestOf({ schema: "checkpoint-queue-manifest/v2" })))).toBe(
+      "MANIFEST_INVALID"
+    );
   });
 
   const manifest = parseText(manifestOf()) as QueueManifest;
   const sha = "e".repeat(64);
-  const build = (prior = null as ReturnType<typeof parseLedger> | null, at = STAMP, task = claimed("ready")) =>
+  const build = (
+    prior = null as ReturnType<typeof parseLedger> | null,
+    at = STAMP,
+    task = claimed("ready")
+  ) =>
     buildLedger(
       manifest,
       sha,
@@ -267,7 +307,11 @@ describe("manifest and ledger schemas", () => {
   it("increments generation, keeps unchanged stateSince and resets a changed one", () => {
     const first = build(null, "2026-10-09T10:00:00.000Z", claimed("in_progress"));
     expect(first).toMatchObject({ generation: 1, outcome: "unobservable" });
-    const again = build(parseLedger(Buffer.from(serializeLedger(first))), "2026-10-09T11:00:00.000Z", claimed("in_progress"));
+    const again = build(
+      parseLedger(Buffer.from(serializeLedger(first))),
+      "2026-10-09T11:00:00.000Z",
+      claimed("in_progress")
+    );
     expect(again.generation).toBe(2);
     expect(again.entries[0]).toMatchObject({
       firstSeenAt: "2026-10-09T10:00:00.000Z",
@@ -287,14 +331,20 @@ describe("manifest and ledger schemas", () => {
     expect(parseLedger(Buffer.from(text)).delivery).toBe("not_sent");
     const code = (s: string) => refusal(() => parseLedger(Buffer.from(s)));
     expect(code(text.replace('"not_sent"', '"sent"'))).toBe("LEDGER_INVALID");
-    expect(code(text.replace('"taskMutationAllowed":false', '"taskMutationAllowed":true'))).toBe("LEDGER_INVALID");
-    expect(code(text.replace("checkpoint-queue/v1", "checkpoint-queue/v2"))).toBe("LEDGER_UNSUPPORTED_SCHEMA");
-    expect(code(text.replace('"generation":1', '"generation":1.0'))).toBe("LEDGER_INVALID");
-    expect(code(text.replace('"generation":1', '"generation":1,"generation":2'))).toBe("LEDGER_INVALID");
-    expect(code(text.replace('"ready_requires_claim"', '"all_accepted"'))).toBe("LEDGER_INVALID");
-    expect(code(text.replace('"prepare_or_claim_outside_tool","action"', '"liveness_unknown","action"'))).toBe(
+    expect(code(text.replace('"taskMutationAllowed":false', '"taskMutationAllowed":true'))).toBe(
       "LEDGER_INVALID"
     );
+    expect(code(text.replace("checkpoint-queue/v1", "checkpoint-queue/v2"))).toBe(
+      "LEDGER_UNSUPPORTED_SCHEMA"
+    );
+    expect(code(text.replace('"generation":1', '"generation":1.0'))).toBe("LEDGER_INVALID");
+    expect(code(text.replace('"generation":1', '"generation":1,"generation":2'))).toBe(
+      "LEDGER_INVALID"
+    );
+    expect(code(text.replace('"ready_requires_claim"', '"all_accepted"'))).toBe("LEDGER_INVALID");
+    expect(
+      code(text.replace('"prepare_or_claim_outside_tool","action"', '"liveness_unknown","action"'))
+    ).toBe("LEDGER_INVALID");
     expect(code(text.replace('"wake":"none"', '"wake":"none","extra":1'))).toBe("LEDGER_INVALID");
     expect(refusal(() => parseLedger(Buffer.alloc(65 * 1024, 32)))).toBe("LEDGER_TOO_LARGE");
   });

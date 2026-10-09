@@ -38,7 +38,9 @@ export interface CliResult {
   stderr: string[];
 }
 
-function parseArgs(argv: readonly string[]): { manifest: string; mode: "evaluate" | "show" } | null {
+function parseArgs(
+  argv: readonly string[]
+): { manifest: string; mode: "evaluate" | "show" } | null {
   let manifest: string | undefined;
   let mode: "evaluate" | "show" | undefined;
   for (let i = 0; i < argv.length; i++) {
@@ -78,7 +80,11 @@ export async function runQueueCli(
     stderr.push(`checkpointQueue: ${code}`);
     if (error instanceof QueueError && error.cleanup.length > 0)
       stderr.push(`checkpointQueue: CLEANUP_INCOMPLETE ${error.cleanup.join(",")}`);
-    return { exitCode: error instanceof QueueError && CONFIG_CODES.includes(code) ? 2 : 4, stdout, stderr };
+    return {
+      exitCode: error instanceof QueueError && CONFIG_CODES.includes(code) ? 2 : 4,
+      stdout,
+      stderr
+    };
   }
 }
 

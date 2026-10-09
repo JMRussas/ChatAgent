@@ -319,8 +319,7 @@ export type QueueLedger = z.infer<typeof ledgerSchema>;
 
 // ----- pure classification -----
 
-export type PlanFact =
-  { kind: "unavailable" } | { kind: "ok"; leaf: LeafStatus | null };
+export type PlanFact = { kind: "unavailable" } | { kind: "ok"; leaf: LeafStatus | null };
 
 export type RecordFact =
   | { kind: "not_registered" }
@@ -337,7 +336,8 @@ const boundedRef = (ref: string | null) =>
 
 function observedFence(leaf: LeafStatus) {
   return {
-    attemptId: leaf.attemptId === null ? null : TOKEN.test(leaf.attemptId) ? leaf.attemptId : WITHHELD,
+    attemptId:
+      leaf.attemptId === null ? null : TOKEN.test(leaf.attemptId) ? leaf.attemptId : WITHHELD,
     attemptEpoch: leaf.attemptEpoch,
     contentRevision: leaf.contentRevision
   };
@@ -421,7 +421,12 @@ export function classifyEntry(
     case "blocked":
       return make("blocked", "blocked_by_dependency", "wait_for_dependency", at);
     case "ready":
-      return make("ready_unclaimed", "prepare_or_claim_outside_tool", "prepare_or_claim_outside_tool", at);
+      return make(
+        "ready_unclaimed",
+        "prepare_or_claim_outside_tool",
+        "prepare_or_claim_outside_tool",
+        at
+      );
     default:
       break;
   }
@@ -436,10 +441,13 @@ export function classifyEntry(
       gate:
         gate.state === "unavailable"
           ? ({ state: "unavailable", reason: gate.reason } as const)
-          : ({ state: gate.state, outcome: gate.gate.outcome, sourceRef: gate.gate.sourceRef } as const)
+          : ({
+              state: gate.state,
+              outcome: gate.gate.outcome,
+              sourceRef: gate.gate.sourceRef
+            } as const)
     };
-    const exitedClean =
-      run.state === "ended" && run.stop.kind === "exited" && run.exit?.code === 0;
+    const exitedClean = run.state === "ended" && run.stop.kind === "exited" && run.exit?.code === 0;
     if (run.state === "ended" && !exitedClean) {
       const reason = run.stop.kind === "exited" ? "exit_nonzero" : `stop_${run.stop.kind}`;
       return make("needs_operator", reason, "inspect_evidence", detail);
@@ -452,10 +460,20 @@ export function classifyEntry(
         return make("needs_operator", "verification_incomplete", "inspect_evidence", detail);
       if (outcome === "source_failed")
         return make("needs_operator", "source_failure_reported", "inspect_evidence", detail);
-      return make("gate_recorded", "awaiting_lead_acceptance", "review_acceptance_outside_tool", detail);
+      return make(
+        "gate_recorded",
+        "awaiting_lead_acceptance",
+        "review_acceptance_outside_tool",
+        detail
+      );
     }
     if (leaf.state === "review_pending" || exitedClean)
-      return make("review_pending", "awaiting_independent_review", "run_independent_review", detail);
+      return make(
+        "review_pending",
+        "awaiting_independent_review",
+        "run_independent_review",
+        detail
+      );
     if (overdueUnreported)
       return make("needs_operator", "overdue_unreported", "confirm_owner_outside_tool", detail);
     return make("running_recorded", "liveness_unknown", "confirm_owner_outside_tool", detail);
@@ -619,7 +637,8 @@ export async function checkLedgerDir(dir: string, io: QueueIo = REAL_IO): Promis
   try {
     const info = await io.lstat(dir);
     if (info.isSymbolicLink() || !info.isDirectory()) throw new QueueError("LEDGER_DIR_INVALID");
-    if (caseKey(await io.realpath(dir)) !== caseKey(dir)) throw new QueueError("LEDGER_DIR_INVALID");
+    if (caseKey(await io.realpath(dir)) !== caseKey(dir))
+      throw new QueueError("LEDGER_DIR_INVALID");
   } catch (error) {
     throw error instanceof QueueError ? error : new QueueError("LEDGER_DIR_INVALID");
   }
@@ -848,7 +867,9 @@ export async function evaluateQueue(
       }
     } catch (error) {
       throw new QueueError(
-        (error as NodeJS.ErrnoException).code === "EEXIST" && !lockHeld ? "LOCK_BUSY" : "LOCK_FAILED"
+        (error as NodeJS.ErrnoException).code === "EEXIST" && !lockHeld
+          ? "LOCK_BUSY"
+          : "LOCK_FAILED"
       );
     }
 
@@ -865,7 +886,10 @@ export async function evaluateQueue(
     const text = serializeLedger(ledger);
 
     guard();
-    const temp = join(manifest.ledgerDir, `.${manifest.queueId}.${randomBytes(6).toString("hex")}.tmp`);
+    const temp = join(
+      manifest.ledgerDir,
+      `.${manifest.queueId}.${randomBytes(6).toString("hex")}.tmp`
+    );
     try {
       const handle = await io.open(temp, "wx", 0o600);
       tempPath = temp;
@@ -881,7 +905,10 @@ export async function evaluateQueue(
 
     // Observed external change: the prior bytes must be unchanged (or the target still absent).
     const again = await readLedgerBytes(manifest, io);
-    if ((again === null) !== (priorBytes === null) || (again && priorBytes && !again.equals(priorBytes)))
+    if (
+      (again === null) !== (priorBytes === null) ||
+      (again && priorBytes && !again.equals(priorBytes))
+    )
       throw new QueueError("LEDGER_MOVED");
 
     guard(); // synchronous with the publish call below: no late publication after the deadline
@@ -914,15 +941,18 @@ export async function evaluateQueue(
 
   let timer: NodeJS.Timeout | undefined;
   const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      abandoned = true;
-      const error = new QueueError("DEADLINE");
-      error.settled = work.then(
-        () => undefined,
-        () => undefined
-      );
-      reject(error);
-    }, Math.max(1, deadlineMs));
+    timer = setTimeout(
+      () => {
+        abandoned = true;
+        const error = new QueueError("DEADLINE");
+        error.settled = work.then(
+          () => undefined,
+          () => undefined
+        );
+        reject(error);
+      },
+      Math.max(1, deadlineMs)
+    );
   });
   try {
     return await Promise.race([work, late]);
@@ -948,7 +978,9 @@ export function describeLedger(ledger: QueueLedger, mode: "evaluate" | "show"): 
     lines.push(
       `entry ${e.entryId} "${e.label}" root ${e.rootId} task ${e.nodeId} state ${e.state} reason ${e.reason} action ${e.action}`,
       `  expected attempt ${e.expected.attemptId ?? "none"} epoch ${e.expected.attemptEpoch} content ${e.expected.contentRevision}; observed ` +
-        (o ? `attempt ${o.attemptId ?? "none"} epoch ${o.attemptEpoch} content ${o.contentRevision}` : "none") +
+        (o
+          ? `attempt ${o.attemptId ?? "none"} epoch ${o.attemptEpoch} content ${o.contentRevision}`
+          : "none") +
         `; first seen ${e.firstSeenAt}; state since ${e.stateSince}`
     );
     const extra = [
