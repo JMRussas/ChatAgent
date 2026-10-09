@@ -108,10 +108,10 @@ describe("checkpointQueue CLI", () => {
     const s = await setup();
     await evaluate(s);
     const first = parseLedger(await readFile(ledgerPath(s.dir, QUEUE)));
-    await evaluate(s, { now: () => new Date("2026-10-09T12:00:00.000Z") });
+    await evaluate(s, { now: () => new Date("2026-10-09T10:05:00.000Z") });
     const second = parseLedger(await readFile(ledgerPath(s.dir, QUEUE)));
     expect(second.generation).toBe(2);
-    expect(second.evaluatedAt).toBe("2026-10-09T12:00:00.000Z");
+    expect(second.evaluatedAt).toBe("2026-10-09T10:05:00.000Z");
     expect(second.entries.map((e) => e.stateSince)).toEqual(first.entries.map((e) => e.stateSince));
     const requestsBefore = s.requests.length;
     const shown = await show(s);
@@ -122,12 +122,12 @@ describe("checkpointQueue CLI", () => {
 
     // A changed observation resets state metadata.
     s.leaves[0] = leaf(1, "blocked");
-    await evaluate(s, { now: () => new Date("2026-10-09T13:00:00.000Z") });
+    await evaluate(s, { now: () => new Date("2026-10-09T10:10:00.000Z") });
     const third = parseLedger(await readFile(ledgerPath(s.dir, QUEUE)));
     expect(third.entries[0]).toMatchObject({
       state: "blocked",
       firstSeenAt: first.entries[0].firstSeenAt,
-      stateSince: "2026-10-09T13:00:00.000Z"
+      stateSince: "2026-10-09T10:10:00.000Z"
     });
     expect(third.entries[1].stateSince).toBe(first.entries[1].stateSince);
   });
@@ -234,6 +234,71 @@ describe("checkpointQueue CLI", () => {
     expect(result).toMatchObject({ exitCode: 4, stderr: ["checkpointQueue: LEDGER_MOVED"] });
     expect(await readFile(ledgerPath(s.dir, QUEUE), "utf8")).toBe("externally changed");
     expect((await files(s.dir)).filter((n) => /\.(lock|tmp)$/.test(n))).toEqual([]);
+  });
+
+  it("refuses publication under a replaced lock and preserves the existing ledger", async () => {
+    const s = await setup();
+    await evaluate(s);
+    const before = await readFile(ledgerPath(s.dir, QUEUE), "utf8");
+    const result = await evaluate(s, {
+      io: {
+        open: (async (path: string, flags?: string, mode?: number) => {
+          const handle = await (await import("node:fs/promises")).open(path, flags as string, mode);
+          if (String(path).endsWith(".tmp"))
+            await writeFile(lockPath(s.dir, QUEUE), "foreign-owner\n");
+          return handle;
+        }) as never
+      }
+    });
+    expect(result.exitCode).toBe(4);
+    expect(result.stderr[0]).toBe("checkpointQueue: LOCK_FAILED");
+    expect(await readFile(ledgerPath(s.dir, QUEUE), "utf8")).toBe(before);
+    expect(await readFile(lockPath(s.dir, QUEUE), "utf8")).toBe("foreign-owner\n");
+    expect((await files(s.dir)).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("includes manifest loading in the same monotonic deadline", async () => {
+    const s = await setup();
+    let clock = 0;
+    const result = await evaluate(s, {
+      monotonicMs: () => clock,
+      io: {
+        lstat: (async (path: string) => {
+          const result = await (await import("node:fs/promises")).lstat(path);
+          if (String(path) === s.manifest) clock = 60_000;
+          return result;
+        }) as never
+      }
+    });
+    expect(result).toMatchObject({ exitCode: 4, stderr: ["checkpointQueue: DEADLINE"] });
+    expect(s.requests).toEqual([]);
+    expect(await files(s.dir)).not.toContain(`${QUEUE}.queue.json`);
+  });
+
+  it("bounds a pending manifest read and never starts late evaluation", async () => {
+    const s = await setup();
+    let release!: () => void;
+    const delayed = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = evaluate(s, {
+      deadlineMs: 30,
+      io: {
+        lstat: (async (path: string) => {
+          if (String(path) === s.manifest) await delayed;
+          return (await import("node:fs/promises")).lstat(path);
+        }) as never
+      }
+    });
+    const early = await Promise.race([
+      pending,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 150))
+    ]);
+    release();
+    await pending;
+    expect(early).toMatchObject({ exitCode: 4, stderr: ["checkpointQueue: DEADLINE"] });
+    expect(s.requests).toEqual([]);
+    expect(await files(s.dir)).not.toContain(`${QUEUE}.queue.json`);
   });
 
   it("refuses a racing initial creator without replacing it", async () => {

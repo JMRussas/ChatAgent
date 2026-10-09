@@ -7,6 +7,7 @@ import {
   parseManifest,
   serializeLedger,
   QueueError,
+  type ExpectedFence,
   type PlanFact,
   type QueueManifest,
   type RecordFact
@@ -19,8 +20,11 @@ const EXPECTED = { attemptId: "at-1", attemptEpoch: 2, contentRevision: 3 };
 const claimed = (state: Parameters<typeof leaf>[1], over = {}) =>
   leaf(1, state, { ...EXPECTED, artifactRef: SOURCE_REF, ...over });
 const plan = (l: ReturnType<typeof leaf> | null): PlanFact => ({ kind: "ok", leaf: l });
-const classify = (p: PlanFact, r: RecordFact = { kind: "not_registered" }, expected = EXPECTED) =>
-  classifyEntry({ expected }, p, r);
+const classify = (
+  p: PlanFact,
+  r: RecordFact = { kind: "not_registered" },
+  expected: ExpectedFence = EXPECTED
+) => classifyEntry({ expected }, p, r);
 
 const reported = (
   record = makeRecord(),
@@ -113,6 +117,21 @@ describe("classifyEntry", () => {
       state: "blocked",
       reason: "blocked_by_dependency"
     });
+  });
+
+  it("keeps unmet dependency gates blocked even when the projected state is ready", () => {
+    const fresh = { attemptId: null, attemptEpoch: 0, contentRevision: 1 };
+    expect(
+      classify(plan(leaf(1, "ready", { gatesHold: false })), { kind: "not_registered" }, fresh)
+    ).toMatchObject({
+      state: "blocked",
+      reason: "blocked_by_dependency",
+      action: "wait_for_dependency"
+    });
+  });
+
+  it("keeps rejected state ahead of dependency blocking", () => {
+    expect(classify(plan(claimed("rejected", { gatesHold: false }))).reason).toBe("plan_rejected");
   });
 
   it("maps typed stops of an ended record to the operator", () => {

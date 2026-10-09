@@ -69,7 +69,7 @@ Before an evaluation write, exclusively create `<queueId>.lock` in the fixed can
 
 Read existing ledger with lstat/open/fstat and bounded allocation. Reject malformed, oversized, duplicate-key or unsupported ledgers; do not overwrite or reset them. A changed manifest hash requires a new queue ID. Preserve original bytes on every refusal.
 
-Under the owned lock, increment generation, validate and bound the new ledger, write an exclusive temp file in the same directory, sync and close. Re-read prior generation/hash before publication to detect an observed external change, then check the monotonic deadline immediately before atomic rename. For initial creation use a no-overwrite final-name operation so a racing creator cannot be replaced. Existing-ledger replacement is serialized only among writers respecting the owned lock; reread-plus-rename is not atomic CAS against arbitrary external edits. Remove only this process's temp and lock after checking the lock's instance token. A changed lock is retained and reported, never removed as ours.
+Under the owned lock, increment generation, validate and bound the new ledger, write an exclusive temp file in the same directory, sync and close. Re-read prior generation/hash before publication to detect an observed external change, then check the monotonic deadline immediately before atomic rename. For initial creation use a no-overwrite final-name operation so a racing creator cannot be replaced. Existing-ledger replacement is serialized only among writers respecting the owned lock; reread-plus-rename is not atomic CAS against arbitrary external edits. Recheck the instance token before publication; an observed replacement refuses publication. Remove only this process's temp and lock after checking the lock's instance token. A changed lock is retained and reported, never removed as ours.
 
 No late publication after deadline refusal. Late filesystem reads/writes close and clean up when they settle; uninterruptible filesystem cancellation and directory-sync/power-loss safety are not promised. A result cannot silently claim clean cleanup if cleanup failed. No process termination is performed by this tool.
 
@@ -79,7 +79,7 @@ No late publication after deadline refusal. Late filesystem reads/writes close a
 
 `checkpointQueue --manifest <file> --show` reads only the exact manifest and ledger, validates schema/hash/queue identity and prints the retained observation; it performs no API request or write. Say that it is a retained observation, not current state. No `--once`, polling, dispatch or arbitrary command flag exists.
 
-Exit 0 only for `all_accepted`; exit 1 for recorded actionable/uncertain queue outcomes; exit 2 for usage/configuration refusal; exit 4 for ownership/ledger/publication failure. Preserve distinct closed codes. Stdout may include bounded trusted labels and IDs; refusal stderr contains codes only. Both modes have a 20-second wait bound and clean their owned resources. No global `process.exit` is needed.
+Exit 0 only for `all_accepted`; exit 1 for recorded actionable/uncertain queue outcomes; exit 2 for usage/configuration refusal; exit 4 for ownership/ledger/publication failure. Preserve distinct closed codes. Stdout may include bounded trusted labels and IDs; refusal stderr contains codes only. Both modes share a 20-second monotonic wait bound from CLI entry, including manifest loading, and clean their owned resources. No global `process.exit` is needed.
 
 ## 8. Objective acceptance gates
 

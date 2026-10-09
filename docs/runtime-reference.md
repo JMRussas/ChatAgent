@@ -685,11 +685,11 @@ preserves `stateSince`; a changed fence, state or reason resets it), `workerLive
 `taskMutationAllowed: false` and `delivery`, `notification`, `wake`, `acknowledgment` of
 not-sent/`none`.
 
-Before writing, the process exclusively creates `<queueId>.lock` holding a random instance token.
+The CLI deadline includes manifest loading. Before writing, the process exclusively creates `<queueId>.lock` holding a random instance token.
 An existing lock is `LOCK_BUSY` and is never taken over by PID or age; a crash leaves it for a
 separate operator recovery. A malformed, oversized, wrong-schema, symlinked or other-queue prior
 ledger is refused and left untouched, and a changed manifest hash needs a new `queueId`. The new
-generation is written to an exclusive temp file and synced; the prior bytes are re-read, the deadline
+generation is written to an exclusive temp file and synced; the prior bytes and owned lock token are re-read, the deadline
 is checked immediately before publication, and the first ledger is created with a no-overwrite hard
 link (a replacement uses rename). Replacement is serialized only among writers that respect the
 lock; it is not an atomic compare-and-swap against arbitrary external writers, and directory sync

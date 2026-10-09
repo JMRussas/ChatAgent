@@ -421,15 +421,20 @@ export function classifyEntry(
     case "blocked":
       return make("blocked", "blocked_by_dependency", "wait_for_dependency", at);
     case "ready":
-      return make(
-        "ready_unclaimed",
-        "prepare_or_claim_outside_tool",
-        "prepare_or_claim_outside_tool",
-        at
-      );
+      break;
     default:
       break;
   }
+
+  if (!leaf.gatesHold || leaf.blockers.length > 0)
+    return make("blocked", "blocked_by_dependency", "wait_for_dependency", at);
+  if (leaf.state === "ready")
+    return make(
+      "ready_unclaimed",
+      "prepare_or_claim_outside_tool",
+      "prepare_or_claim_outside_tool",
+      at
+    );
 
   if (record.kind === "observed" && record.view.state === "reported") {
     const { record: run, gate, overdueUnreported } = record.view;
@@ -652,16 +657,20 @@ export interface LoadedManifest {
 /** Reads the exact trusted manifest and verifies its ledger directory; echoes nothing on refusal. */
 export async function loadManifest(
   path: string,
-  override: Partial<QueueIo> = {}
+  override: Partial<QueueIo> = {},
+  deadlineMs: number = QUEUE_LIMITS.deadlineMs
 ): Promise<LoadedManifest> {
   const io: QueueIo = { ...REAL_IO, ...override };
-  const bytes = await readBounded(path, QUEUE_LIMITS.maxManifestBytes, io, {
-    unreadable: "MANIFEST_UNREADABLE",
-    tooLarge: "MANIFEST_TOO_LARGE"
-  });
-  const manifest = parseManifest(bytes!);
-  await checkLedgerDir(manifest.ledgerDir, io);
-  return { manifest, sha256: createHash("sha256").update(bytes!).digest("hex") };
+  const read = async (): Promise<LoadedManifest> => {
+    const bytes = await readBounded(path, QUEUE_LIMITS.maxManifestBytes, io, {
+      unreadable: "MANIFEST_UNREADABLE",
+      tooLarge: "MANIFEST_TOO_LARGE"
+    });
+    const manifest = parseManifest(bytes!);
+    await checkLedgerDir(manifest.ledgerDir, io);
+    return { manifest, sha256: createHash("sha256").update(bytes!).digest("hex") };
+  };
+  return withDeadline(read(), deadlineMs);
 }
 
 function checkLedgerMatches(
@@ -739,6 +748,8 @@ export interface EvaluateDeps {
   io?: Partial<QueueIo>;
   newToken?: () => string;
   deadlineMs?: number;
+  /** Absolute monotonic deadline supplied by the CLI, including manifest loading. */
+  deadlineAtMs?: number;
 }
 
 export interface EvaluateResult {
@@ -816,7 +827,8 @@ export async function evaluateQueue(
   const mono = deps.monotonicMs ?? (() => performance.now());
   const deadlineMs = deps.deadlineMs ?? QUEUE_LIMITS.deadlineMs;
   const started = mono();
-  const remaining = () => deadlineMs - (mono() - started);
+  const deadlineAt = deps.deadlineAtMs ?? started + deadlineMs;
+  const remaining = () => deadlineAt - mono();
   const { manifest } = loaded;
   const target = ledgerPath(manifest.ledgerDir, manifest.queueId);
   const lock = lockPath(manifest.ledgerDir, manifest.queueId);
@@ -910,6 +922,12 @@ export async function evaluateQueue(
       (again && priorBytes && !again.equals(priorBytes))
     )
       throw new QueueError("LEDGER_MOVED");
+
+    const currentLock = await readBounded(lock, QUEUE_LIMITS.maxLockBytes, io, {
+      unreadable: "LOCK_FAILED",
+      tooLarge: "LOCK_FAILED"
+    });
+    if (currentLock?.toString("utf8") !== `${instanceToken}\n`) throw new QueueError("LOCK_FAILED");
 
     guard(); // synchronous with the publish call below: no late publication after the deadline
     try {

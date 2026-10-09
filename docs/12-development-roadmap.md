@@ -117,8 +117,8 @@ remain separate work rather than delaying the useful first slice.
 | Enforcement delivery        | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`                             |
 | Recovery contract           | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract, implementation pending                           |
 | Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof |
-| Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Athena running `checkpoint-queue-contract-001-r1`, epoch 1, bounded maintained runner     |
-| Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | TODO; gated on accepted queue contract                                                    |
+| Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
+| Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Independently repaired and verified: 3,263 full-suite passes, real CLI/UI proof           |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -194,15 +194,36 @@ Evidence: `checkpoint-recovery-implementation-001/reviewed-bundle.json`,
 `maintained-ui-proof.json` and `handoff-live-proof.json`.
 
 The lead advanced the accepted gate into the next actual model checkpoint rather
-than ending with only queued work. Athena task `ac55a6f7-0502-54f7-bdc1-654057c8cc92`
-is claimed at `checkpoint-queue-contract-001-r1`, epoch 1, through the maintained
-runner (30 expected/60 hard IDs, five minutes, 4 MiB, USD2 provider cap). It freezes
-one bounded durable review/queue increment with visible idle/review reasons and
-explicit dispatch authority. Implementation task
-`2d9e65de-80d8-5de3-a853-6f407240732b` is TODO behind planning acceptance.
-`checkpoint-queue-contract-001` retains the actual claim/run record. Persistent
-queue advancement, independent AI wake and unattended supervision remain open;
-a running finite worker or a local handoff file is not that service. Evidence is retained at
+than ending with only queued work. Athena contract task
+`ac55a6f7-0502-54f7-bdc1-654057c8cc92` is accepted at `0535a4e`, integrated at
+`8df3130` ([document 21](implementation/21-checkpoint-review-queue.md)). Its real
+maintained run ended within bounds: seven message IDs in 128.579 seconds,
+391,985 output bytes and USD0.473135 provider-reported, unverified cost. Independent
+lead review selected the smaller read-only durable ledger boundary, correcting
+invented ready-task claim inputs, incompatible pass/worker budgets and unsupported
+atomic-CAS/authentication claims. It makes current review/idle reasons durable;
+it does not automatically claim/dispatch, accept/integrate, notify or wake.
+
+Hermes implementation task `2d9e65de-80d8-5de3-a853-6f407240732b` ended at
+14:21:56 UTC after 342.407 seconds, 13 distinct message IDs and 784,574 output
+bytes; USD1.069912 is provider-reported, unverified cost. Its generated candidate
+`5a5f8ec` was moved to Awaiting review, not left as an active worker. The lead resumed at the
+user's check-in at 14:35 UTC; the budget monitor did not resume semantic review.
+CA-ISSUE-004 remains open. Independent repair CA-ISSUE-044 fixed four
+old-source negative cases reproduced deadline, lock-ownership and dependency
+classification gaps. A two-hour overdue fixture was corrected without weakening
+tripwires. Formatting-only commit `1a3f1f4` remains separate. Independent checks passed: 62 focused cases,
+3,263 full-suite passes with ten explicit skips, pinned format/lint/docs checks,
+actual retained-store CLI evaluation and fresh-process show, and paired UI
+review-state/fence proof. The ledger distinguishes current incomplete verification,
+accepted work and ready-unclaimed work; unchanged `stateSince` survives restart.
+The completed model artifact cannot be amended through PlanStore: final repaired
+source completion uses an explicit operator attempt, preserving the original
+model proposal, run, fence and failed gates. This is not a model retry. Evidence
+is retained under `checkpoint-review-ledger-001`.
+The runtime budget monitor continued independently until the model worker ended;
+independent lead gates still determine acceptance. Persistent queue advancement,
+AI wake and unattended supervision remain unfinished (CA-ISSUE-004). Evidence is retained at
 `checkpoint-recovery-next-001/reviewed-bundle.json`, `active-ui-proof.json` and
 `active-state-proof.json`. This builds on the read-only recovery assessment and
 explicitly leaves actual wake/notification delivery, acknowledgment, persistent
@@ -211,7 +232,10 @@ remains open. Do not claim a stored local handoff is a delivered human notificat
 
 The retained database currently has one finite API-only LocalStore owner for
 supervised tasks, with a four-hour bound and no native dispatch or model execution.
-The prior API owner shut down cleanly before replacement. The previous native
+The prior API owner shut down cleanly before replacement. The latest same-store
+renewal is `checkpoint-queue-api-owner-001`, retaining project/database identities;
+its predecessor is `executive-api-owner-001`. API liveness does not mean a worker
+is running. The previous native
 backlog dispatcher exited on `inflight`; its conservative blocked-state relaunch
 fence remains intact. Runtime ownership is separate from active task execution.
 

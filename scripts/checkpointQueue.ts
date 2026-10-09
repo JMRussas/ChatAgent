@@ -17,6 +17,7 @@
 import { pathToFileURL } from "node:url";
 import {
   CONFIG_CODES,
+  QUEUE_LIMITS,
   QueueError,
   describeLedger,
   evaluateQueue,
@@ -61,14 +62,27 @@ export async function runQueueCli(
   const stderr: string[] = [];
   const args = parseArgs(argv);
   if (!args) return { exitCode: 2, stdout, stderr: [USAGE] };
+  const mono = deps.monotonicMs ?? (() => performance.now());
+  const deadlineAtMs = mono() + (deps.deadlineMs ?? QUEUE_LIMITS.deadlineMs);
+  const remaining = () => {
+    const ms = deadlineAtMs - mono();
+    if (ms <= 0) throw new QueueError("DEADLINE");
+    return ms;
+  };
   try {
-    const loaded = await loadManifest(args.manifest, deps.io);
+    const loaded = await loadManifest(args.manifest, deps.io, remaining());
+    const deadlineMs = remaining();
     if (args.mode === "show") {
-      const ledger = await showQueue(loaded, { io: deps.io, deadlineMs: deps.deadlineMs });
+      const ledger = await showQueue(loaded, { io: deps.io, deadlineMs });
       stdout.push(...describeLedger(ledger, "show"));
       return { exitCode: ledger.outcome === "all_accepted" ? 0 : 1, stdout, stderr };
     }
-    const result = await evaluateQueue(loaded, deps);
+    const result = await evaluateQueue(loaded, {
+      ...deps,
+      deadlineMs,
+      deadlineAtMs,
+      monotonicMs: mono
+    });
     stdout.push(...describeLedger(result.ledger, "evaluate"));
     if (result.cleanup.length > 0) {
       stderr.push(`checkpointQueue: CLEANUP_INCOMPLETE ${result.cleanup.join(",")}`);
