@@ -296,6 +296,13 @@ Only three implementation follow-ups are queued, all still unstarted:
   the executive overview and existing inline detail, with exact attempt/content
   fences, bounded metadata and unknown/stale evidence handling. This is the next
   observability increment; it does not add per-step AI supervision or automatic retry.
+  Source implementation is in the working tree and specified in
+  [document 24](implementation/24-checkpoint-phase-visibility.md): an optional trusted
+  `continuationRecordPath` per registry entry and a closed `executive-overview/v4`
+  opened only when one is configured. Limits: records are supplied and unauthenticated,
+  a phase is the last recorded one (writer liveness unknown), checks passing is not
+  acceptance, and stale or unmatched records show as unavailable. External checks,
+  review, acceptance, integration and live proof are not yet recorded.
 - **P2 Hekate Gods task-list dependencies/tools**, task
   `f9bd68e5-40d9-594f-b5f6-2840b3ce0efe`: fix the confirmed legacy Gods API/consumer
   omission with validated arrays, filter isolation and bounded queries. Managed

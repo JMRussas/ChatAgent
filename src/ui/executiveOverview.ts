@@ -9,6 +9,7 @@ export const EXECUTIVE_UI_LIMITS = {
   maxEvidence: 8,
   maxStatements: 5,
   maxItems: 50,
+  maxContinuationItems: 32,
   maxConcurrentDrills: 3,
   overviewDeadlineMs: 12_000,
   drillDeadlineMs: 10_000,
@@ -25,7 +26,7 @@ export const EXECUTIVE_UI_LIMITS = {
 export function executiveOverviewHtml(): string {
   return `<details id="executiveOverview" open>
         <summary>Executive overview (operator, read-only)</summary>
-        <p>Recorded PlanStore state only. Accepted means accepted in PlanStore; source integration and deployment are not proven by this view. Goals are operator-configured text, not verified results. Budget evidence is not reported unless an operator registered a runner record for the task; such a record is supplied and unauthenticated.</p>
+        <p>Recorded PlanStore state only. Accepted means accepted in PlanStore; source integration and deployment are not proven by this view. Goals are operator-configured text, not verified results. Budget evidence is not reported unless an operator registered a runner record for the task; such a record is supplied and unauthenticated. Checkpoint phases appear only when an operator configured a continuation record; they are supplied, unauthenticated, never proof of a live writer, and passing checks are not acceptance.</p>
         <button type="button" id="execRefresh">Refresh</button>
         <p id="execNote" role="status">Press Refresh to read the configured plans. Nothing is requested until then.</p>
         <div id="execStale" role="alert" hidden style="border:2px solid #b45309;padding:6px;font-weight:bold"></div>
@@ -46,6 +47,7 @@ export function executiveOverviewScript(): string {
   var MAX_EVIDENCE = ${L.maxEvidence};
   var MAX_STATEMENTS = ${L.maxStatements};
   var MAX_ITEMS = ${L.maxItems};
+  var MAX_CONT_ITEMS = ${L.maxContinuationItems};
   var MAX_DRILLS = ${L.maxConcurrentDrills};
   var OVERVIEW_DEADLINE_MS = ${L.overviewDeadlineMs};
   var DRILL_DEADLINE_MS = ${L.drillDeadlineMs};
@@ -108,7 +110,31 @@ export function executiveOverviewScript(): string {
     rerun_independent_checks_outside_worker: 'Rerun independent checks outside the worker.'
   };
   var MAX_ATTENTION = 32;
+  var CONT_PHASES = ['reserved', 'running', 'snapshotting', 'verifying', 'review_pending', 'needs_operator'];
+  var CONT_REASONS = ['in_progress', 'checks_passed', 'worker_not_clean', 'authority_changed', 'authority_unavailable', 'scope_violation', 'no_source_change', 'snapshot_failed', 'finish_conflict', 'finish_uncertain', 'finish_unconfirmed', 'check_failed', 'check_unavailable', 'source_changed', 'deadline_exceeded', 'cancelled', 'cleanup_failed', 'gate_write_failed', 'lease_changed', 'internal_error'];
+  var CONT_UNAVAILABLE = ['missing', 'unreadable', 'too_large', 'invalid', 'unsupported_schema', 'stale_identity', 'stale_source', 'stale_state', 'run_mismatch', 'run_unverified', 'timeout'];
+  var CONT_FINISH = ['not_attempted', 'attempted', 'confirmed', 'conflict', 'uncertain'];
+  var CONT_CHECKS = ['prettier', 'typescript', 'vitest'];
+  var CONT_STALE = ['stale_identity', 'stale_source', 'stale_state', 'run_mismatch', 'run_unverified'];
+  var PHASE_LABELS = {
+    reserved: 'reserved (worker not started as last recorded)',
+    running: 'working (worker running as last recorded)',
+    snapshotting: 'working (snapshotting source edits as last recorded)',
+    verifying: 'checking (external format, type and test checks as last recorded)',
+    review_pending: 'awaiting review (external checks passed; not accepted)',
+    needs_operator: 'needs operator (stopped at a recorded reason)'
+  };
+  var PHASE_SHORT = {
+    needs_operator: 'needs operator',
+    review_pending: 'awaiting review',
+    verifying: 'checking',
+    snapshotting: 'snapshotting',
+    running: 'working',
+    reserved: 'reserved'
+  };
+  var PHASE_ORDER = ['needs_operator', 'review_pending', 'verifying', 'snapshotting', 'running', 'reserved'];
   var allowBudget = false;
+  var allowContinuation = false;
   var STATE_LABELS = {
     review_pending: 'Awaiting review',
     rejected: 'Rejected (rework decision needed)',
@@ -235,8 +261,53 @@ export function executiveOverviewScript(): string {
     if (t.budgetEvidence === 'not_reported') return t.checkpointBudget === undefined;
     return validBudget(t.checkpointBudget) && (t.budgetEvidence === 'reported') === (t.checkpointBudget.state === 'reported');
   }
+  function isSigned(v) { return typeof v === 'number' && isFinite(v) && Math.floor(v) === v && v >= -2147483648 && v <= 2147483647; }
+  function validCheck(c) {
+    return isObject(c) && keysAre(c, ['name', 'result', 'ran', 'exitCode', 'timedOut', 'outputLimited']) && oneOf(c.name, CONT_CHECKS) && oneOf(c.result, CHECK_RESULTS) && typeof c.ran === 'boolean' && (c.exitCode === null || isSigned(c.exitCode)) && typeof c.timedOut === 'boolean' && typeof c.outputLimited === 'boolean';
+  }
+  function validWorker(w) {
+    if (w === null) return true;
+    return isObject(w) && keysAre(w, ['stopKind', 'stopCode', 'exitCode', 'signal']) && typeof w.stopKind === 'string' && /^[a-z_]{1,16}$/.test(w.stopKind) && typeof w.stopCode === 'string' && /^[a-z_]{1,32}$/.test(w.stopCode) && (w.exitCode === null || isSigned(w.exitCode)) && (w.signal === null || (typeof w.signal === 'string' && SIGNAL.test(w.signal)));
+  }
+  // Only an open needs-operator or review-pending record asks for attention; settled ones never do.
+  function expectedAttention(phase, relevance) {
+    return relevance === 'open' && (phase === 'needs_operator' || phase === 'review_pending') ? phase : 'none';
+  }
+  function validContinuation(c) {
+    if (!isObject(c)) return false;
+    if (c.state === 'unavailable') return keysAre(c, ['state', 'reason']) && oneOf(c.reason, CONT_UNAVAILABLE);
+    if (c.state !== 'reported' || !keysAre(c, ['state', 'runId', 'phase', 'reason', 'startedAt', 'updatedAt', 'endedAt', 'sourceRef', 'finish', 'gate', 'worker', 'checks', 'relevance', 'attention', 'trust', 'writerLiveness', 'semanticReview'])) return false;
+    if (typeof c.runId !== 'string' || !GUID.test(c.runId) || !oneOf(c.phase, CONT_PHASES) || !oneOf(c.reason, CONT_REASONS)) return false;
+    if (typeof c.startedAt !== 'string' || !STAMP.test(c.startedAt) || typeof c.updatedAt !== 'string' || !STAMP.test(c.updatedAt) || !(c.endedAt === null || (typeof c.endedAt === 'string' && STAMP.test(c.endedAt)))) return false;
+    if ((c.endedAt !== null) !== (c.phase === 'review_pending' || c.phase === 'needs_operator')) return false;
+    if (!(c.sourceRef === null || (typeof c.sourceRef === 'string' && GIT_REF.test(c.sourceRef))) || !oneOf(c.finish, CONT_FINISH) || !oneOf(c.gate, ['not_written', 'written']) || !validWorker(c.worker)) return false;
+    if (!Array.isArray(c.checks) || c.checks.length > CONT_CHECKS.length || !c.checks.every(validCheck)) return false;
+    if (!oneOf(c.relevance, ['open', 'settled']) || c.attention !== expectedAttention(c.phase, c.relevance)) return false;
+    if (c.phase === 'review_pending' && (c.gate !== 'written' || c.sourceRef === null || c.reason !== 'checks_passed')) return false;
+    return c.trust === 'supplied_not_authenticated' && c.writerLiveness === 'unknown' && c.semanticReview === 'not_performed';
+  }
+  function validContinuationField(t) {
+    if (!allowContinuation) return t.continuation === undefined;
+    return t.continuation === undefined || validContinuation(t.continuation);
+  }
+  function validContinuationItem(i, rootIds) {
+    if (!isObject(i) || !keysAre(i, ['rootId', 'nodeId', 'runId', 'phase', 'reason', 'attention', 'updatedAt', 'taskState', 'taskListed'])) return false;
+    if (!GUID.test(i.rootId) || !GUID.test(i.nodeId) || !GUID.test(i.runId) || rootIds.indexOf(i.rootId) < 0) return false;
+    if (!oneOf(i.phase, CONT_PHASES) || !oneOf(i.reason, CONT_REASONS) || typeof i.updatedAt !== 'string' || !STAMP.test(i.updatedAt) || !oneOf(i.taskState, STATES) || typeof i.taskListed !== 'boolean') return false;
+    return i.attention === expectedAttention(i.phase, 'open');
+  }
+  function validContinuationSummary(s, roots) {
+    if (!isObject(s) || !keysAre(s, ['basis', 'configured', 'phases', 'settled', 'unavailable', 'items', 'omitted'])) return false;
+    if (s.basis !== 'supplied_records' || !isInt(s.configured) || !isInt(s.settled) || !isInt(s.unavailable) || !isInt(s.omitted)) return false;
+    if (!isObject(s.phases) || !keysAre(s.phases, CONT_PHASES) || !CONT_PHASES.every(function (p) { return isInt(s.phases[p]); })) return false;
+    var open = CONT_PHASES.reduce(function (sum, p) { return sum + s.phases[p]; }, 0);
+    if (s.configured !== open + s.settled + s.unavailable) return false;
+    if (!Array.isArray(s.items) || s.items.length > MAX_CONT_ITEMS || s.items.length + s.omitted !== open) return false;
+    var rootIds = roots.map(function (r) { return r.rootId; });
+    return s.items.every(function (i) { return validContinuationItem(i, rootIds); });
+  }
   function validTask(t) {
-    return isObject(t) && GUID.test(t.nodeId) && isNullStr(t.name, 400) && oneOf(t.state, STATES) && t.executionAcknowledged === 'unknown' && typeof t.gatesHold === 'boolean' && typeof t.upstreamChanged === 'boolean' && oneOf(t.attemptPins, PIN_VALUES) && isNullStr(t.scope, 400) && isInt(t.contentRevision) && isInt(t.stateRevision) && isNullStr(t.attemptId, 400) && isInt(t.attemptEpoch) && isNullStr(t.executorRef, 400) && isNullStr(t.artifactRef, 400) && validAcceptance(t.acceptance) && (t.acceptanceHistorical === undefined || t.acceptanceHistorical === true) && Array.isArray(t.blockers) && t.blockers.length <= MAX_BLOCKERS && t.blockers.every(validBlocker) && isInt(t.blockersOmitted) && (t.prod === 'none' || oneOf(t.prod, PRODS)) && oneOf(t.checkpointGate, GATES) && validBudgetFields(t);
+    return isObject(t) && GUID.test(t.nodeId) && isNullStr(t.name, 400) && oneOf(t.state, STATES) && t.executionAcknowledged === 'unknown' && typeof t.gatesHold === 'boolean' && typeof t.upstreamChanged === 'boolean' && oneOf(t.attemptPins, PIN_VALUES) && isNullStr(t.scope, 400) && isInt(t.contentRevision) && isInt(t.stateRevision) && isNullStr(t.attemptId, 400) && isInt(t.attemptEpoch) && isNullStr(t.executorRef, 400) && isNullStr(t.artifactRef, 400) && validAcceptance(t.acceptance) && (t.acceptanceHistorical === undefined || t.acceptanceHistorical === true) && Array.isArray(t.blockers) && t.blockers.length <= MAX_BLOCKERS && t.blockers.every(validBlocker) && isInt(t.blockersOmitted) && (t.prod === 'none' || oneOf(t.prod, PRODS)) && oneOf(t.checkpointGate, GATES) && validBudgetFields(t) && validContinuationField(t);
   }
   function validRoot(r) {
     if (!isObject(r) || !GUID.test(r.rootId) || !isStr(r.label, 400) || !isNullStr(r.goal, 800) || !isStr(r.observedAt, 64) || !oneOf(r.status, ['ok', 'invalid', 'unavailable'])) return false;
@@ -280,10 +351,12 @@ export function executiveOverviewScript(): string {
   function parseOverview(raw) {
     var d;
     try { d = JSON.parse(raw); } catch (e) { return null; }
-    if (!isObject(d) || (d.schema !== 'executive-overview/v1' && d.schema !== 'executive-overview/v2' && d.schema !== 'executive-overview/v3') || d.atomic !== false || !isStr(d.generatedAt, 64)) return null;
+    if (!isObject(d) || (d.schema !== 'executive-overview/v1' && d.schema !== 'executive-overview/v2' && d.schema !== 'executive-overview/v3' && d.schema !== 'executive-overview/v4') || d.atomic !== false || !isStr(d.generatedAt, 64)) return null;
     allowBudget = d.schema !== 'executive-overview/v1';
+    allowContinuation = d.schema === 'executive-overview/v4';
     if (!Array.isArray(d.roots) || d.roots.length > MAX_ROOTS || !d.roots.every(validRoot)) return null;
-    if (d.schema === 'executive-overview/v3' ? !validAttention(d.attention, d.roots) : d.attention !== undefined) return null;
+    if (d.schema === 'executive-overview/v3' || d.schema === 'executive-overview/v4' ? !validAttention(d.attention, d.roots) : d.attention !== undefined) return null;
+    if (allowContinuation ? !validContinuationSummary(d.continuation, d.roots) : d.continuation !== undefined) return null;
     var seen = {};
     for (var i = 0; i < d.roots.length; i++) {
       if (seen[d.roots[i].rootId]) return null;
@@ -542,6 +615,34 @@ export function executiveOverviewScript(): string {
     line(box, 'Failure attribution (lead supplied)', g.gate.failureAttribution);
     for (var k = 0; k < g.gate.checks.length; k++) add(box, 'p', 'Check ' + text(g.gate.checks[k].name) + ': ' + g.gate.checks[k].result);
   }
+  function renderContinuation(body, task) {
+    var c = task.continuation;
+    if (c === undefined) return;
+    var box = add(body, 'div');
+    box.setAttribute('data-continuation', c.state === 'reported' ? c.phase : 'unavailable');
+    if (c.state === 'unavailable') {
+      add(box, 'p', 'Checkpoint continuation record unavailable (reason: ' + c.reason + ').' + (CONT_STALE.indexOf(c.reason) >= 0 ? ' The record no longer describes this exact task, attempt, run or source; no phase is shown as current.' : ' No phase is shown.'));
+      return;
+    }
+    add(box, 'p', 'Checkpoint continuation (supplied record, not authenticated; writer liveness unknown): ' + PHASE_LABELS[c.phase]);
+    line(box, 'Continuation run', c.runId);
+    line(box, 'Reason', c.reason);
+    line(box, 'Started', c.startedAt);
+    line(box, 'Last recorded update', c.updatedAt);
+    line(box, 'Ended', c.endedAt);
+    line(box, 'Candidate source', c.sourceRef);
+    line(box, 'Finish step', c.finish);
+    line(box, 'Gate written', c.gate);
+    if (c.worker !== null) line(box, 'Worker stop', c.worker.stopKind + ' / ' + c.worker.stopCode + (c.worker.exitCode === null ? '' : ', exit ' + c.worker.exitCode) + (c.worker.signal === null ? '' : ' ' + c.worker.signal));
+    for (var k = 0; k < c.checks.length; k++) {
+      var ck = c.checks[k];
+      add(box, 'p', 'Check ' + ck.name + ': ' + ck.result + (ck.ran ? '' : ' (not run)') + (ck.timedOut ? ' (timed out)' : '') + (ck.outputLimited ? ' (output limit reached)' : ''));
+    }
+    add(box, 'p', 'Semantic review: not performed. Passing external checks are not acceptance; the recorded task decision above is separate.');
+    if (c.relevance === 'settled') add(box, 'p', 'Historical: the task is already settled in PlanStore, so this phase asks for nothing.');
+    else if (c.attention === 'needs_operator') add(box, 'p', 'Needs operator: the continuation stopped at the recorded reason and does not retry itself.');
+    else if (c.attention === 'review_pending') add(box, 'p', 'Awaiting lead review of the candidate source; nothing here accepts it.');
+  }
   function renderTask(parent, rootId, task) {
     var key = rootId + '|' + task.nodeId;
     var details = add(parent, 'details');
@@ -549,6 +650,13 @@ export function executiveOverviewScript(): string {
     details.setAttribute('data-state', task.state);
     var summary = add(details, 'summary', summaryOf(task));
     if (task.prod !== 'none') add(summary, 'em', ' — attention: ' + PROD_LABELS[task.prod]);
+    var cont = task.continuation;
+    if (cont !== undefined && cont.state === 'reported' && cont.relevance === 'open') {
+      var phaseTag = add(summary, 'em', ' — checkpoint: ' + PHASE_LABELS[cont.phase]);
+      phaseTag.setAttribute('data-phase', cont.phase);
+    } else if (cont !== undefined && cont.state === 'unavailable') {
+      add(summary, 'em', ' — checkpoint phase unavailable (' + cont.reason + ')');
+    }
     var body = add(details, 'div');
     line(body, 'Task', task.nodeId);
     line(body, 'Content revision', task.contentRevision);
@@ -566,6 +674,7 @@ export function executiveOverviewScript(): string {
     add(body, 'p', 'Checkpoint gate (current state): ' + task.checkpointGate);
     add(body, 'p', 'Budget evidence: ' + task.budgetEvidence);
     renderBudget(body, task);
+    renderContinuation(body, task);
     if (task.blockers.length > 0) {
       add(body, 'p', 'Blocked by:');
       var list = add(body, 'ul');
@@ -656,15 +765,30 @@ export function executiveOverviewScript(): string {
     }
     return { state: 'changed' };
   }
-  function openDetail(item) {
-    // Re-checked against the overview currently shown, so a refresh that moved the fence cannot be opened.
-    return last !== null && attentionStatus(item, last.overview).state === 'ok';
+  // The phase item must still describe the exact run, phase and task state the page shows.
+  function phaseStatus(item, overview) {
+    if (!item.taskListed) return { state: 'omitted' };
+    for (var r = 0; r < overview.roots.length; r++) {
+      if (overview.roots[r].rootId !== item.rootId) continue;
+      for (var k = 0; k < overview.roots[r].tasks.length; k++) {
+        var t = overview.roots[r].tasks[k];
+        if (t.nodeId !== item.nodeId) continue;
+        var c = t.continuation;
+        var same = c !== undefined && c.state === 'reported' && c.relevance === 'open' && c.runId === item.runId && c.phase === item.phase && c.reason === item.reason && c.updatedAt === item.updatedAt && t.state === item.taskState;
+        return same ? { state: 'ok' } : { state: 'changed' };
+      }
+    }
+    return { state: 'changed' };
   }
-  function showDetail(item, row) {
+  function openDetail(item, check) {
+    // Re-checked against the overview currently shown, so a refresh that moved the fence cannot be opened.
+    return last !== null && check(item, last.overview).state === 'ok';
+  }
+  function showDetail(item, row, check) {
     var key = item.rootId + '|' + item.nodeId;
     var rootEl = rootRefs[item.rootId];
     var ref = taskRefs[key];
-    if (!openDetail(item) || !rootEl || !ref) {
+    if (!openDetail(item, check) || !rootEl || !ref) {
       row.replaceChildren();
       add(row, 'span', 'This item changed since it was read (changed, refresh).');
       return;
@@ -696,7 +820,30 @@ export function executiveOverviewScript(): string {
       if (status.state === 'changed') { add(row, 'span', 'This item changed (changed, refresh).'); return; }
       var open = add(row, 'button', 'Open detail');
       open.setAttribute('type', 'button');
-      open.addEventListener('click', function () { showDetail(item, row); });
+      open.addEventListener('click', function () { showDetail(item, row, attentionStatus); });
+    });
+  }
+  function renderPhases(parent, overview) {
+    var s = overview.continuation;
+    var panel = add(parent, 'div');
+    panel.setAttribute('data-phases', '');
+    add(panel, 'strong', 'Checkpoint phases (derived from supplied, unauthenticated records; advice only)');
+    add(panel, 'p', 'Configured records: ' + s.configured + '. ' + PHASE_ORDER.map(function (p) { return s.phases[p] + ' ' + PHASE_SHORT[p]; }).join(', ') + '.');
+    add(panel, 'p', 'Settled (task accepted or cancelled): ' + s.settled + '. Unavailable coverage: ' + s.unavailable + '. Items omitted: ' + s.omitted + '.');
+    if (s.items.length === 0) add(panel, 'p', 'No open checkpoint phases from configured records (not a health statement).');
+    var list = add(panel, 'ul');
+    s.items.forEach(function (item) {
+      var row = add(list, 'li');
+      row.setAttribute('data-phase-item', item.phase);
+      var label = '';
+      for (var r = 0; r < overview.roots.length; r++) if (overview.roots[r].rootId === item.rootId) label = text(overview.roots[r].label);
+      var status = phaseStatus(item, overview);
+      add(row, 'span', label + ' — ' + PHASE_SHORT[item.phase] + (item.attention === 'none' ? '' : ' (attention)') + ' (' + item.reason + ', task ' + item.nodeId + '). ');
+      if (status.state === 'omitted') { add(row, 'span', 'Task row omitted by the size cap; refresh or reduce scope.'); return; }
+      if (status.state === 'changed') { add(row, 'span', 'This item changed (changed, refresh).'); return; }
+      var open = add(row, 'button', 'Open phase detail');
+      open.setAttribute('type', 'button');
+      open.addEventListener('click', function () { showDetail(item, row, phaseStatus); });
     });
   }
   function render(overview) {
@@ -706,6 +853,7 @@ export function executiveOverviewScript(): string {
     taskRefs = {};
     var box = document.createElement('div');
     add(box, 'p', 'Generated ' + clip(overview.generatedAt, 64) + ' (ChatAgent server clock). Roots are read independently; their times are not one snapshot.');
+    var phaseSlot = overview.continuation !== undefined ? add(box, 'div') : null;
     var attentionSlot = overview.attention !== undefined ? add(box, 'div') : null;
     var alive = {};
     for (var i = 0; i < overview.roots.length; i++) {
@@ -713,6 +861,7 @@ export function executiveOverviewScript(): string {
       for (var k = 0; k < overview.roots[i].tasks.length; k++) alive[overview.roots[i].rootId + '|' + overview.roots[i].tasks[k].nodeId] = true;
     }
     // The last overview is set before render, so the panel checks the same overview it displays.
+    if (phaseSlot !== null) renderPhases(phaseSlot, overview);
     if (attentionSlot !== null) renderAttention(attentionSlot, overview);
     view.replaceChildren(box);
     for (var gone in drills) if (!alive[gone]) stopDrill(gone);

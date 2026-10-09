@@ -24,35 +24,59 @@ export interface CheckpointRecordEntry {
   rootId: string;
   nodeId: string;
   recordPath: string;
+  /**
+   * Optional trusted `<runId>.continuation.json` file of the finite continuation (doc 22, 24).
+   * Absent entries keep the exact shape and the v1..v3 overview contracts.
+   */
+  continuationRecordPath?: string;
 }
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const CONTINUATION_FILE =
+  /[\\/][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.continuation\.json$/;
+const absolutePath = z
+  .string()
+  .min(1)
+  .max(1024)
+  .refine((value) => isAbsolute(value) && !/[\u0000-\u001f]/.test(value));
 const entrySchema = z
   .object({
     rootId: z.string().regex(GUID),
     nodeId: z.string().regex(GUID),
-    recordPath: z
-      .string()
-      .min(1)
-      .max(1024)
-      .refine((value) => isAbsolute(value) && !/[\u0000-\u001f]/.test(value))
+    recordPath: absolutePath,
+    continuationRecordPath: absolutePath
+      .refine((value) => CONTINUATION_FILE.test(value))
+      .optional()
   })
   .strict();
 const entriesSchema = z
   .array(entrySchema)
   .min(1)
   .max(CHECKPOINT_MAX_RECORDS)
-  .refine(
-    (entries) =>
+  .refine((entries) => {
+    const paths = entries.flatMap((e) =>
+      e.continuationRecordPath === undefined
+        ? [e.recordPath]
+        : [e.recordPath, e.continuationRecordPath]
+    );
+    return (
       new Set(entries.map((e) => `${e.rootId}|${e.nodeId}`)).size === entries.length &&
-      new Set(entries.map((e) => e.recordPath)).size === entries.length
-  );
+      new Set(paths).size === paths.length
+    );
+  });
 
 /** Strict validation of an already parsed registry; returns detached copies. */
 export function parseCheckpointRecords(value: unknown): CheckpointRecordEntry[] {
   const parsed = entriesSchema.safeParse(value);
   if (!parsed.success) throw new CheckpointRecordsConfigError();
-  return parsed.data.map((e) => ({ rootId: e.rootId, nodeId: e.nodeId, recordPath: e.recordPath }));
+  return parsed.data.map((e) => ({
+    rootId: e.rootId,
+    nodeId: e.nodeId,
+    recordPath: e.recordPath,
+    ...(e.continuationRecordPath === undefined
+      ? {}
+      : { continuationRecordPath: e.continuationRecordPath })
+  }));
 }
 
 /**

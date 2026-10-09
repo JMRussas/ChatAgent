@@ -1,4 +1,5 @@
 import { projectAttention } from "../../src/integrations/hekate/checkpointAttention";
+import { projectContinuation } from "../../src/integrations/hekate/checkpointContinuationView";
 import { makeRecord } from "../helpers/checkpointFixtures";
 import type { Page, Route } from "@playwright/test";
 import { test, expect } from "./fixture";
@@ -154,6 +155,106 @@ test.describe("executive overview", () => {
     await expect(task(page)).toHaveAttribute("open", "");
     await expect(task(page)).toContainText("tripwire / hard_units");
     await expect(task(page).locator("[data-evidence]")).toContainText("Evidence read at");
+    expect(page.url()).toBe(before);
+    expect(seen.map((r) => r.method)).toEqual(["GET", "GET"]);
+  });
+
+  test("shows checkpoint phases and opens the task in place without navigation", async ({
+    page,
+    app
+  }) => {
+    const SOURCE = "c".repeat(40);
+    const NODE2 = guid(100, 2);
+    const fence = { attemptId: "at-1", attemptEpoch: 2, contentRevision: 3, stateRevision: 4 };
+    const overview = overviewOf(
+      rootView(ROOT_A, HOSTILE, [
+        leaf(1, "in_progress", fence),
+        leaf(2, "review_pending", { ...fence, artifactRef: SOURCE })
+      ])
+    );
+    const base = {
+      state: "reported",
+      runId: "11111111-1111-4111-8111-111111111111",
+      startedAt: "2026-10-09T10:00:00.000Z",
+      updatedAt: "2026-10-09T10:00:00.000Z",
+      worker: null,
+      relevance: "open",
+      trust: "supplied_not_authenticated",
+      writerLiveness: "unknown",
+      semanticReview: "not_performed"
+    };
+    const views = {
+      [NODE]: {
+        ...base,
+        phase: "running",
+        reason: "in_progress",
+        endedAt: null,
+        sourceRef: null,
+        finish: "not_attempted",
+        gate: "not_written",
+        checks: [],
+        attention: "none"
+      },
+      [NODE2]: {
+        ...base,
+        phase: "needs_operator",
+        reason: "check_failed",
+        endedAt: "2026-10-09T10:00:00.000Z",
+        sourceRef: SOURCE,
+        finish: "confirmed",
+        gate: "written",
+        checks: [
+          {
+            name: "typescript",
+            result: "fail",
+            ran: true,
+            exitCode: 1,
+            timedOut: false,
+            outputLimited: false
+          }
+        ],
+        attention: "needs_operator"
+      }
+    };
+    const registry = [NODE, NODE2].map((nodeId) => ({
+      rootId: ROOT_A,
+      nodeId,
+      recordPath: "/controlled.budget.json",
+      continuationRecordPath: `/${base.runId}.continuation.json`
+    }));
+    for (const t of overview.roots[0].tasks)
+      (t as { continuation?: unknown }).continuation = views[t.nodeId];
+    Object.assign(overview, {
+      schema: "executive-overview/v4",
+      attention: projectAttention(overview.roots, registry),
+      continuation: projectContinuation(overview.roots, registry)
+    });
+    const { seen } = await stub(page, {
+      overview: { status: 200, body: overview },
+      progress: (path) => ({
+        status: 200,
+        body: progressBody(ROOT_A, taskOf(overview as never, path.includes(NODE2) ? NODE2 : NODE))
+      })
+    });
+    await app.pair(page);
+    expect(seen).toEqual([]);
+    const before = page.url();
+    await refresh(page);
+    const phases = view(page).locator("[data-phases]");
+    await expect(phases).toContainText("1 needs operator, 0 awaiting review");
+    await expect(phases).toContainText("1 working");
+    const top = phases.locator("li").first();
+    await expect(top).toHaveAttribute("data-phase-item", "needs_operator");
+    await expect(root(page)).not.toHaveAttribute("open", "");
+    await phases.getByRole("button", { name: "Open phase detail" }).first().click();
+    await expect(root(page)).toHaveAttribute("open", "");
+    await expect(task(page, NODE2)).toHaveAttribute("open", "");
+    await expect(task(page, NODE2)).toContainText("Check typescript: fail");
+    await expect(task(page, NODE2)).toContainText("Passing external checks are not acceptance");
+    await expect(task(page, NODE2).locator("[data-evidence]")).toContainText("Evidence read at");
+    await expect(task(page, NODE)).not.toHaveAttribute("open", "");
+    // Hostile configured text stays inert text, and nothing navigated or mutated.
+    await expect(view(page).locator("img, script, b")).toHaveCount(0);
     expect(page.url()).toBe(before);
     expect(seen.map((r) => r.method)).toEqual(["GET", "GET"]);
   });

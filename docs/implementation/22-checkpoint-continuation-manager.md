@@ -41,8 +41,13 @@ UI control or role catalog change is included.
 
 The existing executive view can show the ended worker, recorded review-pending
 source and final current gate. The durable continuation record also exposes
-`snapshotting` and `verifying` to a human or AI reader. Wiring those intermediate
-phases into the executive page is a separate presentation increment.
+`snapshotting` and `verifying` to a human or AI reader. Showing those phases
+inline is a separate read-only presentation increment, specified in
+[document 24](24-checkpoint-phase-visibility.md): an optional trusted
+`continuationRecordPath` registry field and a closed `executive-overview/v4`
+projection. It reads this record unchanged, treats it as supplied and
+unauthenticated, shows stale or unavailable evidence as unavailable, and does not
+change this manager's lifecycle or records.
 
 ## 3. Closed trusted manifest
 

@@ -5,6 +5,7 @@ import {
   executiveOverviewHtml,
   executiveOverviewScript
 } from "../../src/ui/executiveOverview";
+import { CONTINUATION_READ_LIMITS } from "../../src/integrations/hekate/checkpointContinuationView";
 import { EXECUTIVE_LIMITS } from "../../src/integrations/hekate/executiveOverview";
 import { renderHomePageHtml } from "../../src/ui/homePage";
 import { FakeDoc, controlledFetch, settle, type FakeEl } from "../helpers/fakeDom";
@@ -117,6 +118,10 @@ describe("home page integration", () => {
       maxResponseBytes: EXECUTIVE_LIMITS.maxResponseBytes,
       maxConcurrentDrills: 3
     });
+  });
+
+  it("shares the continuation item bound with the view module", () => {
+    expect(EXECUTIVE_UI_LIMITS.maxContinuationItems).toBe(CONTINUATION_READ_LIMITS.maxItems);
   });
 
   it("classifies the route as operator-only and denies other methods", () => {
@@ -234,6 +239,18 @@ describe("executive overview script behavior", () => {
     const sneaky = standard() as unknown as { atomic: boolean };
     sneaky.atomic = true;
     await refresh(sneaky);
+    expect(view.kids).toHaveLength(0);
+  });
+
+  it("keeps v1 closed: a continuation field is unknown before the v4 contract", async () => {
+    const { refresh, doc, view } = mount();
+    const bad = standard() as unknown as { roots: { tasks: Record<string, unknown>[] }[] };
+    bad.roots[0].tasks[0].continuation = { state: "unavailable", reason: "missing" };
+    await refresh(bad);
+    expect(doc.el("execNote").textContent).toContain("not recognized");
+    expect(view.kids).toHaveLength(0);
+    await refresh({ ...standard(), continuation: {} });
+    expect(doc.el("execNote").textContent).toContain("not recognized");
     expect(view.kids).toHaveLength(0);
   });
 

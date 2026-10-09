@@ -1,4 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  continuationRecordPath,
+  serializeContinuationRecord,
+  type ContinuationRecord
+} from "../../src/checkpoint/checkpointContinuation";
+import { budgetRecordPath } from "../../src/checkpoint/checkpointRecord";
+import type { CheckpointRecordEntry } from "../../src/config/checkpointRecordsConfig";
+import { BASE_REF, FENCE, SOURCE_REF, STAMP, makeRecord } from "../helpers/checkpointFixtures";
 import {
   DevCoordinationError,
   type CoordinationStatus,
@@ -387,6 +398,178 @@ describe("collectExecutiveOverview", () => {
     });
     expect(Buffer.byteLength(JSON.stringify(overview))).toBeLessThanOrEqual(50_000);
     expect(overview.roots.every((r) => r.tasks.length + r.tasksOmitted === 100)).toBe(true);
+  });
+});
+
+describe("collectExecutiveOverview with continuation records", () => {
+  const dirs: string[] = [];
+  afterEach(async () => {
+    for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
+  });
+  const runs = [guid(61, 1), guid(61, 2), guid(61, 3)];
+  const fenced = {
+    attemptPins: "current",
+    attemptId: FENCE.attemptId,
+    attemptEpoch: FENCE.attemptEpoch,
+    contentRevision: FENCE.contentRevision
+  } as const;
+  const leaves = [
+    leaf(1, "in_progress", fenced),
+    leaf(2, "accepted", { ...fenced, artifactRef: SOURCE_REF }),
+    leaf(3, "in_progress", fenced)
+  ];
+  const record = (n: number, over: Partial<ContinuationRecord>): ContinuationRecord => ({
+    schema: "checkpoint-continuation/v1",
+    runId: runs[n - 1],
+    identity: {
+      ...FENCE,
+      nodeId: guid(100, n),
+      observedStateRevision: 4,
+      executorRef: "exec-1"
+    },
+    baseRef: BASE_REF,
+    phase: "running",
+    reason: "in_progress",
+    startedAt: STAMP,
+    updatedAt: STAMP,
+    endedAt: null,
+    sourceRef: null,
+    worker: null,
+    finish: "not_attempted",
+    checkRole: "mimir_external_checks",
+    checks: [],
+    gate: "not_written",
+    failureAttribution: "unattributed",
+    leadAcceptance: "pending",
+    semanticReview: "not_performed",
+    delivery: "not_sent",
+    wake: "none",
+    acknowledgment: "none",
+    recordTrust: "supplied_not_authenticated",
+    writerLiveness: "unknown",
+    ...over
+  });
+  const passed = (["prettier", "typescript", "vitest"] as const).map((name) => ({
+    name,
+    result: "pass" as const,
+    ran: true,
+    exitCode: 0,
+    signal: null,
+    timedOut: false,
+    outputLimited: false,
+    outputBytes: 1,
+    outputSha256: "e".repeat(64),
+    startedAt: STAMP,
+    endedAt: STAMP
+  }));
+
+  async function registry(withContinuation: boolean) {
+    const dir = await mkdtemp(join(tmpdir(), "ckpt-overview-cont-"));
+    dirs.push(dir);
+    const finished = {
+      phase: "review_pending",
+      reason: "checks_passed",
+      endedAt: STAMP,
+      sourceRef: SOURCE_REF,
+      finish: "confirmed",
+      gate: "written",
+      checks: passed
+    } as const;
+    const files = [record(1, {}), record(2, finished), record(3, {})];
+    const entries: CheckpointRecordEntry[] = [];
+    for (let n = 1; n <= 3; n++) {
+      const rec = files[n - 1];
+      await writeFile(
+        budgetRecordPath(dir, runs[n - 1]),
+        JSON.stringify(makeRecord({ runId: runs[n - 1], identity: rec.identity }))
+      );
+      await writeFile(continuationRecordPath(dir, runs[n - 1]), serializeContinuationRecord(rec));
+      entries.push({
+        rootId: ROOT_A,
+        nodeId: guid(100, n),
+        recordPath: budgetRecordPath(dir, runs[n - 1]),
+        ...(withContinuation
+          ? { continuationRecordPath: continuationRecordPath(dir, runs[n - 1]) }
+          : {})
+      });
+    }
+    return entries;
+  }
+  const collect = async (checkpointRecords: CheckpointRecordEntry[]) =>
+    collectExecutiveOverview("http://127.0.0.1:1", [config(ROOT_A)], {
+      fetchStatus: async () => ok(ROOT_A, leaves),
+      now: () => new Date(NOW),
+      checkpointRecords,
+      continuationRead: {
+        io: {
+          // The third record's read never settles, so only its own deadline can end it.
+          open: ((path: string, flags: string) =>
+            path.includes(runs[2]) && path.endsWith(".continuation.json")
+              ? new Promise(() => undefined)
+              : open(path, flags)) as never
+        },
+        deadlineMs: 100
+      }
+    });
+  const byNode = (overview: ExecutiveOverview, n: number) =>
+    overview.roots[0].tasks.find((t) => t.nodeId === guid(100, n))!;
+
+  it("stays v3 with no continuation field when no entry configures a record", async () => {
+    const entries = await registry(false);
+    expect(entries.every((e) => !("continuationRecordPath" in e))).toBe(true);
+    const overview = await collect(entries);
+    expect(overview.schema).toBe("executive-overview/v3");
+    expect("continuation" in overview).toBe(false);
+    expect(overview.roots[0].tasks.every((t) => !("continuation" in t))).toBe(true);
+    expect(overview.attention).toMatchObject({ items: [], registeredRecordsUnavailable: 0 });
+    expect(JSON.stringify(overview)).not.toContain("continuation");
+  });
+
+  it("opens v4 per task and summarizes phases without touching the v3 attention shape", async () => {
+    const overview = await collect(await registry(true));
+    expect(overview.schema).toBe("executive-overview/v4");
+    expect(byNode(overview, 1).continuation).toMatchObject({
+      state: "reported",
+      phase: "running",
+      relevance: "open",
+      attention: "none"
+    });
+    // The accepted task's old terminal phase is history, never an open review.
+    expect(byNode(overview, 2).continuation).toMatchObject({
+      state: "reported",
+      phase: "review_pending",
+      relevance: "settled",
+      attention: "none"
+    });
+    expect(byNode(overview, 2).state).toBe("accepted");
+    expect(byNode(overview, 3).continuation).toEqual({ state: "unavailable", reason: "timeout" });
+    expect(overview.continuation).toMatchObject({
+      basis: "supplied_records",
+      configured: 3,
+      settled: 1,
+      unavailable: 1,
+      omitted: 0,
+      phases: { running: 1, review_pending: 0, needs_operator: 0 }
+    });
+    expect(overview.continuation!.items).toEqual([
+      expect.objectContaining({ nodeId: guid(100, 1), phase: "running", taskListed: true })
+    ]);
+    expect(Object.keys(overview.attention!).sort()).toEqual(
+      [
+        "automaticAllowed",
+        "basis",
+        "forbidden",
+        "items",
+        "omitted",
+        "registeredRecordsUnavailable"
+      ].sort()
+    );
+    // Nothing private from the records or the files enters the body.
+    const text = JSON.stringify(overview);
+    expect(text).not.toContain("e".repeat(64));
+    expect(text).not.toContain(BASE_REF);
+    // JSON-escaped form, so a Windows path would be caught as well.
+    expect(text).not.toContain(JSON.stringify(dirs[0]).slice(1, -1));
   });
 });
 

@@ -177,6 +177,52 @@ describe("executive overview HTTP", () => {
     });
   });
 
+  it("keeps v1 and v3 byte-compatible without a continuation path and never opens v4 by itself", async () => {
+    const root = rootOf(1);
+    const remote = await upstream({ [root]: { status: 200, body: plan(root) } });
+    const plain = await (await fetch((await app(remote.url, inventory(1))) + OVERVIEW)).json();
+    expect(plain.schema).toBe("executive-overview/v1");
+    const node = plain.roots[0].tasks[0].nodeId as string;
+    const registered = await listen(
+      createChatServer(service(), {
+        auth: allowAllTestAuth,
+        planApiUrl: remote.url,
+        executiveOverview: { roots: inventory(1) },
+        checkpointRecords: [{ rootId: root, nodeId: node, recordPath: "/absent/r.budget.json" }]
+      })
+    );
+    const body = await (await fetch(registered + OVERVIEW)).json();
+    expect(body.schema).toBe("executive-overview/v3");
+    expect("continuation" in body).toBe(false);
+    expect(body.roots[0].tasks.every((t: object) => !("continuation" in t))).toBe(true);
+    // A configured continuation path whose file is absent opens v4 with explicit unavailability.
+    const phased = await listen(
+      createChatServer(service(), {
+        auth: allowAllTestAuth,
+        planApiUrl: remote.url,
+        executiveOverview: { roots: inventory(1) },
+        checkpointRecords: [
+          {
+            rootId: root,
+            nodeId: node,
+            recordPath: "/absent/r.budget.json",
+            continuationRecordPath: "/absent/11111111-1111-4111-8111-111111111111.continuation.json"
+          }
+        ]
+      })
+    );
+    const v4 = await (await fetch(phased + OVERVIEW)).json();
+    expect(v4.schema).toBe("executive-overview/v4");
+    expect(v4.continuation).toMatchObject({
+      configured: 1,
+      unavailable: 1,
+      items: [],
+      phases: { running: 0, needs_operator: 0 }
+    });
+    const task = v4.roots[0].tasks.find((t: { nodeId: string }) => t.nodeId === node);
+    expect(task.continuation).toEqual({ state: "unavailable", reason: "missing" });
+  });
+
   it("enforces operator-only access before any upstream read", async () => {
     const remote = await upstream({ [rootOf(1)]: { status: 200, body: plan(rootOf(1)) } });
     const unauth = await app(remote.url, inventory(1), { resolve: () => undefined });

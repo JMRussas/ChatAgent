@@ -290,6 +290,61 @@ describe("checkpoint record registry config", () => {
     ).toThrow(CheckpointRecordsConfigError);
   });
 
+  describe("optional continuation record path", () => {
+    const withContinuation = (n = 1, runId = RUN_ID) => ({
+      ...entry(n),
+      continuationRecordPath: join(tmpdir(), `${runId}.continuation.json`)
+    });
+
+    it("keeps the exact existing entry shape when absent", () => {
+      const [parsed] = parseCheckpointRecords([entry()]);
+      expect(Object.keys(parsed)).toEqual(["rootId", "nodeId", "recordPath"]);
+      // An explicit undefined is the same as absent and never leaks a key.
+      const [undef] = parseCheckpointRecords([{ ...entry(), continuationRecordPath: undefined }]);
+      expect(Object.keys(undef)).toEqual(["rootId", "nodeId", "recordPath"]);
+    });
+
+    it("accepts one trusted absolute run-named path and returns a detached copy", () => {
+      const input = withContinuation();
+      const [parsed] = parseCheckpointRecords([input]);
+      expect(parsed).toEqual(input);
+      expect(parsed).not.toBe(input);
+      const env = { HEKATE_CHECKPOINT_RECORDS_JSON: JSON.stringify([input]) };
+      expect(loadCheckpointRecordsConfig(env, true)).toEqual([input]);
+    });
+
+    it("refuses relative, control-character, wrongly named and non-string values", () => {
+      const bad = [
+        `${RUN_ID}.continuation.json`,
+        join(tmpdir(), "run.continuation.json"),
+        join(tmpdir(), `${RUN_ID}.budget.json`),
+        join(tmpdir(), `${RUN_ID}.continuation.json.bak`),
+        join(tmpdir(), `${RUN_ID}\u0001.continuation.json`),
+        join(tmpdir(), "AAAAAAAA-1111-4111-8111-111111111111.continuation.json"),
+        join(tmpdir(), "x".repeat(1024), `${RUN_ID}.continuation.json`),
+        "",
+        7,
+        null
+      ];
+      for (const continuationRecordPath of bad)
+        expect(() => parseCheckpointRecords([{ ...entry(), continuationRecordPath }])).toThrow(
+          CheckpointRecordsConfigError
+        );
+    });
+
+    it("refuses a path reused by any entry, including as its own budget record", () => {
+      const path = join(tmpdir(), `${RUN_ID}.continuation.json`);
+      expect(() => parseCheckpointRecords([withContinuation(1), withContinuation(2)])).toThrow();
+      expect(() =>
+        parseCheckpointRecords([{ ...entry(1, path), continuationRecordPath: path }])
+      ).toThrow();
+      expect(() => parseCheckpointRecords([entry(1, path), withContinuation(2)])).toThrow();
+      expect(
+        parseCheckpointRecords([withContinuation(1), withContinuation(2, guid(7))])
+      ).toHaveLength(2);
+    });
+  });
+
   it("never echoes the configured value", () => {
     const secret = "SECRET-PATH-VALUE";
     try {

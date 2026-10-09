@@ -7,6 +7,14 @@ import {
 } from "./checkpointBudget";
 import { finalizeAttention, projectAttention, type Attention } from "./checkpointAttention";
 import {
+  finalizeContinuation,
+  projectContinuation,
+  readContinuation,
+  type ContinuationSummary,
+  type ContinuationView,
+  type ReadContinuationOptions
+} from "./checkpointContinuationView";
+import {
   DevCoordinationError,
   fetchCoordinationStatus,
   type CoordinationStatus,
@@ -29,6 +37,8 @@ export const EXECUTIVE_OVERVIEW_SCHEMA = "executive-overview/v1";
 export const EXECUTIVE_OVERVIEW_SCHEMA_V2 = "executive-overview/v2";
 /** Used when a registry is configured: v2 plus the closed, bounded `attention` field. */
 export const EXECUTIVE_OVERVIEW_SCHEMA_V3 = "executive-overview/v3";
+/** Used only when a registry entry explicitly configures a continuation record: v3 plus phases. */
+export const EXECUTIVE_OVERVIEW_SCHEMA_V4 = "executive-overview/v4";
 
 /** Named bounds shared with the UI and the tests. */
 export const EXECUTIVE_LIMITS = {
@@ -90,6 +100,8 @@ export interface ExecutiveTask {
   budgetEvidence: "not_reported" | "reported" | "unavailable";
   /** v2 only, and only for a task explicitly in the registry. */
   checkpointBudget?: CheckpointBudgetView;
+  /** v4 only, and only for a task whose registry entry configured a continuation record. */
+  continuation?: ContinuationView;
 }
 
 export interface ExecutiveRootView {
@@ -113,13 +125,16 @@ export interface ExecutiveOverview {
   schema:
     | typeof EXECUTIVE_OVERVIEW_SCHEMA
     | typeof EXECUTIVE_OVERVIEW_SCHEMA_V2
-    | typeof EXECUTIVE_OVERVIEW_SCHEMA_V3;
+    | typeof EXECUTIVE_OVERVIEW_SCHEMA_V3
+    | typeof EXECUTIVE_OVERVIEW_SCHEMA_V4;
   generatedAt: string;
   /** Roots are read independently; their timestamps are not one snapshot. */
   atomic: false;
   roots: ExecutiveRootView[];
-  /** v3 only (registry configured): exceptions derived from supplied records. */
+  /** v3 and v4 (registry configured): exceptions derived from supplied records. */
   attention?: Attention;
+  /** v4 only: finite continuation phases derived from explicitly configured records. */
+  continuation?: ContinuationSummary;
 }
 
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
@@ -348,6 +363,7 @@ export interface CollectOptions {
    */
   checkpointRecords?: readonly CheckpointRecordEntry[];
   budgetRead?: ReadBudgetOptions;
+  continuationRead?: ReadContinuationOptions;
 }
 
 /** Looks up only explicitly registered tasks, accepted ones included; nothing is crawled. */
@@ -368,6 +384,30 @@ async function attachBudgets(
       }
       task.checkpointBudget = budget;
       task.budgetEvidence = budget.state === "reported" ? "reported" : "unavailable";
+    })
+  );
+}
+
+/** Runs after the budgets, whose registered run the continuation record must belong to. */
+async function attachContinuations(
+  view: ExecutiveRootView,
+  entries: readonly CheckpointRecordEntry[],
+  continuationRead: ReadContinuationOptions
+): Promise<void> {
+  await Promise.all(
+    view.tasks.map(async (task) => {
+      const entry = entries.find((e) => e.rootId === view.rootId && e.nodeId === task.nodeId);
+      if (!entry || entry.continuationRecordPath === undefined) return;
+      try {
+        task.continuation = await readContinuation(
+          entry,
+          task,
+          task.checkpointBudget,
+          continuationRead
+        );
+      } catch {
+        task.continuation = { state: "unavailable", reason: "unreadable" };
+      }
     })
   );
 }
@@ -428,8 +468,14 @@ export async function collectExecutiveOverview(
             deadline
           ]);
           const view = projectRoot(status, config, now().toISOString());
-          if (options.checkpointRecords)
+          if (options.checkpointRecords) {
             await attachBudgets(view, options.checkpointRecords, options.budgetRead ?? {});
+            await attachContinuations(
+              view,
+              options.checkpointRecords,
+              options.continuationRead ?? {}
+            );
+          }
           return view;
         } catch (error) {
           return unavailableRoot(config, reasonOf(error), now().toISOString());
@@ -438,18 +484,25 @@ export async function collectExecutiveOverview(
     );
     const maxBytes = options.maxResponseBytes ?? EXECUTIVE_LIMITS.maxResponseBytes;
     const registry = options.checkpointRecords;
-    // Attention is derived from the full views, before the cap can omit any task row.
+    // Only an explicitly configured continuation record opens the closed v4 contract.
+    const phased = registry?.some((e) => e.continuationRecordPath !== undefined) ?? false;
+    // Attention and phases are derived from the full views, before the cap can omit any task row.
     const capped = capOverviewBytes(
       {
-        schema: registry ? EXECUTIVE_OVERVIEW_SCHEMA_V3 : EXECUTIVE_OVERVIEW_SCHEMA,
+        schema: phased
+          ? EXECUTIVE_OVERVIEW_SCHEMA_V4
+          : registry
+            ? EXECUTIVE_OVERVIEW_SCHEMA_V3
+            : EXECUTIVE_OVERVIEW_SCHEMA,
         generatedAt: now().toISOString(),
         atomic: false,
         roots: views,
-        ...(registry ? { attention: projectAttention(views, registry) } : {})
+        ...(registry ? { attention: projectAttention(views, registry) } : {}),
+        ...(registry && phased ? { continuation: projectContinuation(views, registry) } : {})
       },
       maxBytes
     );
-    return registry ? finalizeAttention(capped, maxBytes) : capped;
+    return registry ? finalizeContinuation(finalizeAttention(capped, maxBytes), maxBytes) : capped;
   } finally {
     clearTimeout(timer);
   }
