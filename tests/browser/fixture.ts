@@ -93,7 +93,8 @@ async function runtime(
   maxEventStreams?: number,
   documentationTasks = false,
   planStatus = false,
-  planRunControls = false
+  planRunControls = false,
+  attemptProgress = false
 ) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
@@ -330,6 +331,9 @@ async function runtime(
     // page.route, so no Hekate is contacted. The discard port is never listening.
     ...(planStatus ? { planApiUrl: "http://127.0.0.1:9" } : {}),
     ...(planRunControls ? { dispatchHost: inertDispatchHost() } : {}),
+    // Opt-in progress route and panel; specs stub the browser's requests with page.route and
+    // the server's own observer can only reach the never-listening discard port.
+    ...(attemptProgress ? { attemptProgress: true } : {}),
     briefings: sports.http,
     maxEventStreams,
     auth: ephemeral.auth,
@@ -415,14 +419,25 @@ export const test = base.extend<{
   documentationTasks: boolean;
   planStatus: boolean;
   planRunControls: boolean;
+  attemptProgress: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
   documentationTasks: [false, { option: true }],
   planStatus: [false, { option: true }],
   planRunControls: [false, { option: true }],
-  app: async ({ streamCap, documentationTasks, planStatus, planRunControls }, use) => {
-    const app = await runtime(streamCap, documentationTasks, planStatus, planRunControls);
+  attemptProgress: [false, { option: true }],
+  app: async (
+    { streamCap, documentationTasks, planStatus, planRunControls, attemptProgress },
+    use
+  ) => {
+    const app = await runtime(
+      streamCap,
+      documentationTasks,
+      planStatus,
+      planRunControls,
+      attemptProgress
+    );
     try {
       await use(app);
     } finally {

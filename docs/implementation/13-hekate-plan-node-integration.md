@@ -1432,4 +1432,29 @@ requests; the auth cases use the real server boundary). `npm run`-independent he
 uniquely named directory beside the worktree. Prepared without a shell: none of these
 have been run by the preparation worker.
 
+**Attempt progress** (`src/integrations/hekate/attemptProgress.ts`, `src/ui/attemptProgress.ts`).
+Maintained `startServer` enables it when the trusted `HEKATE_PLAN_API_URL` is configured;
+without that URL it stays disabled. Direct `createChatServer` callers opt in with
+`attemptProgress: true` as well as the configured API. The real startup regression is
+`tests/integration/attemptProgressStartup.test.ts`; its enclosing bound includes Windows
+identity ACL setup and it starts no real model or native dispatcher.
+An opt-in, operator-only `GET /development/plans/:rootId/nodes/:nodeId/progress` projects one
+bounded role observation of the server-selected attempt (current, else latest historical) through
+an allowlist: identities, enums, numbers, digests, evidence hashes and a small public activity list.
+Activity comes only from complete, uncut, unredacted stdout JSON records with both
+`type: assistant` and `message.role: assistant`. It exposes text blocks and the bounded worker's
+fixed Read/Glob/Grep/Edit/Write tool names. Thinking, tool inputs and results, user/system content, stderr, Hekate
+diagnostics and malformed or cut records are never exposed, and the raw observation and trace envelopes never
+leave the module. References are shown only as a lowercase 40/64-hex digest (native Git artifact id),
+`git:<40 hex>` or `sha256:<64 hex>`; arbitrary schemes, paths and payloads are withheld. Worker statements are
+unverified claims, separate from the recorded PlanStore decision, and liveness and useful progress stay
+"unknown". Each read is an independent sample (no atomicity across reads; consistency and `observedAt`
+are shown) and re-reads the trace from its start. The browser panel sends nothing at load; reads are
+explicit clicks, with a finite watch (6 reads, 5 s pauses, 60 s). It pins the displayed root, task, attempt
+id and epoch; user, conversation, root or task input, a status refresh that changes the binding, or the
+task disappearing aborts the pending read or watch and discards its late response. Tests:
+`tests/unit/attemptProgress.test.ts`, `attemptProgressUi.test.ts`, `tests/integration/attemptProgressHttp.test.ts`,
+`tests/browser/attemptProgress.spec.ts`; `scripts/check-attempt-progress-browser.mjs` runs the status, controls
+and progress specs. Prepared without a shell: not run by the preparation worker.
+
 Preparation review corrections: startup JSON uses the maintained duplicate-key/exact-integer parser and bounded value-free field diagnostics. Observed links are refused and an opened regular file must match the observed identity; these checks do not claim OS isolation against arbitrary filesystem mutation. Link tests explicitly skip unavailable capabilities. Approved trace root is inherited by the native launcher, detached Python owner and LocalStore C# API; the Python modules do not have to read the variable. Real product launch/trace readback remains a separate proof. Host current plan key and canonical task ID are separate fields; controls match the task ID only, label independent observations and omit stale status-panel correlation.

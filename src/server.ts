@@ -4,6 +4,8 @@ import {
   fetchCoordinationStatus,
   planApiBase
 } from "./integrations/hekate/devCoordination";
+import { createAttemptProgressService } from "./integrations/hekate/attemptProgress";
+import type { RoleObserver } from "./integrations/hekate/roleObservation";
 import { DispatchHost } from "./integrations/hekate/dispatchHost";
 import { loadDispatchHost } from "./integrations/hekate/dispatchHostConfig";
 import { loadRoleCatalog, reloadRoleCatalog } from "./app/roleCatalog";
@@ -225,6 +227,13 @@ interface ServerOptions {
    * development plan status route answers 404 PLAN_STATUS_DISABLED.
    */
   planApiUrl?: string;
+  /**
+   * Opt-in, read-only attempt progress for one plan node; needs `planApiUrl`. `true` uses
+   * the bounded role observer on that URL; the object form injects the observer factory
+   * (called once per request) for tests. Absent: the route answers 404
+   * ATTEMPT_PROGRESS_DISABLED and the home page is byte-identical to before.
+   */
+  attemptProgress?: boolean | { createObserver: () => RoleObserver };
   /**
    * Trusted, already validated dispatch host for prepared plan roots. Absent: the
    * development dispatch routes answer 404 DISPATCH_HOST_DISABLED.
@@ -541,6 +550,15 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
     options.maxConnections === undefined ? DEFAULT_MAX_CONNECTIONS : options.maxConnections
   );
   const planApiUrl = options.planApiUrl === undefined ? undefined : planApiBase(options.planApiUrl);
+  const attemptProgress =
+    planApiUrl !== undefined && options.attemptProgress
+      ? createAttemptProgressService(
+          planApiUrl,
+          typeof options.attemptProgress === "object"
+            ? { createObserver: options.attemptProgress.createObserver }
+            : {}
+        )
+      : undefined;
   if (options.dispatchHost !== undefined && !(options.dispatchHost instanceof DispatchHost))
     throw new Error("INVALID_DISPATCH_HOST");
   const dispatchHost = options.dispatchHost;
@@ -768,6 +786,28 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           });
         }
       }
+      const progressRoute = /^\/development\/plans\/([^/]+)\/nodes\/([^/]+)\/progress$/.exec(
+        url.pathname
+      );
+      if (method === "GET" && progressRoute) {
+        res.setHeader("Cache-Control", "no-store");
+        if (attemptProgress === undefined)
+          return json(res, 404, {
+            code: "ATTEMPT_PROGRESS_DISABLED",
+            error: "Attempt progress is not configured"
+          });
+        if ((req.url ?? "").includes("?"))
+          return json(res, 400, {
+            code: "INVALID_QUERY",
+            error: "No query parameters are accepted"
+          });
+        if (!PLAN_ROOT.test(progressRoute[1]))
+          return json(res, 400, { code: "INVALID_ROOT", error: "The plan root is not a GUID" });
+        if (!PLAN_ROOT.test(progressRoute[2]))
+          return json(res, 400, { code: "INVALID_NODE", error: "The plan node is not a GUID" });
+        const result = await attemptProgress.read(progressRoute[1], progressRoute[2]);
+        return json(res, result.status, result.body);
+      }
       const dispatchRoute = /^\/development\/plans\/([^/]+)\/dispatch(?:\/(launch|stop))?$/.exec(
         url.pathname
       );
@@ -807,7 +847,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             options.runtimeMode,
             Boolean(options.documentTasks),
             planApiUrl !== undefined,
-            planApiUrl !== undefined && dispatchHost !== undefined
+            planApiUrl !== undefined && dispatchHost !== undefined,
+            attemptProgress !== undefined
           )
         );
         return;
@@ -2001,6 +2042,7 @@ export async function startServer(
     documentTasks,
     documentTaskControl: documentTasks,
     planApiUrl: process.env.HEKATE_PLAN_API_URL,
+    attemptProgress: process.env.HEKATE_PLAN_API_URL !== undefined,
     ...(dispatchHost ? { dispatchHost } : {}),
     runtimeMode: dispatch ? { mode: "unknown" } : runtimeMode,
     modelCatalog: buildCatalogResponse,
