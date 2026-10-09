@@ -126,7 +126,7 @@ remain separate work rather than delaying the useful first slice.
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
 | Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |
 | Continuation contract       | Freeze generation-to-external-verification continuation without a user message      | `9bd14df4-5bc7-5d68-96e1-e8e0ffb4b627` | Operator contract `1031fd7` accepted, integrated `ec0714a`; original failed run retained  |
-| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Hermes running `checkpoint-continuation-implementation-001-r1`, epoch 1/content 2         |
+| Continuation manager        | Finite owned no-repeat execution and external review continuation proof             | `ffe5f5c6-c656-5761-a724-f13c5586059e` | Initial candidate `66d7d0e` rejected; CA-ISSUE-046 repair running                         |
 
 These real tasks are stored under management root
 `29141a72-9c9a-54f8-a357-fb6db74d84d9` with acceptance dependencies. Checkpoints,
@@ -259,15 +259,25 @@ attempt and automatically starts fixed external checks. It ends at a supplied
 review gate; semantic AI review, acceptance, integration and next-task claiming
 remain separate. CA-ISSUE-004 is still open.
 
-Hermes implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` is claimed at
-`checkpoint-continuation-implementation-001-r1`, epoch 1/content 2, through the
-maintained fixed-profile runner on the integrated source. Its bounds are 30
-expected/60 hard message IDs, 15 minutes, 8 MiB and a configured USD5 provider
-cap. This is a distinct implementation task after operator recovery, not a retry
-of the failed planning model. Current claim, executable/prompt/source pins and
-actual budget record are retained under `checkpoint-continuation-implementation-001`. Evidence includes
-`no-artifact-review.json` and `rejected-readback.json` under
-`checkpoint-continuation-contract-001`.
+Hermes implementation `ffe5f5c6-c656-5761-a724-f13c5586059e` ended cleanly
+at 16:28:35 UTC on October 9 after 611.669 seconds and 19 distinct assistant
+message IDs, below its 15-minute/60-message hard bounds. Provider-reported 40
+turns and USD1.808362 remain unverified metadata. Raw candidate `4d0568a` and
+separate formatting commit `66d7d0e` are retained. Format/type and docs checks
+pass, but independent review rejected three authority cases; the first complete
+focused gate passed 33 cases with two fixture failures. No feature acceptance
+or live adoption is claimed.
+
+CA-ISSUE-046 is recorded in real Hekate repair task
+`d2284986-61fc-5433-a66f-3dd41d17c5c8`, attempt
+`checkpoint-continuation-repair-001-r1`, epoch 1. Hermes is running the narrow
+repair with 12 expected/30 hard message IDs, five minutes, 4 MiB and a configured
+USD2.50 provider cap. Independent regression source is committed at `630f679`.
+The original task is completed and rejected at its exact candidate, keeping the
+old model run separate. Independent final checks, real continuation delivery,
+acceptance and integration remain pending. Evidence is retained under
+`checkpoint-continuation-implementation-001` and
+`checkpoint-continuation-repair-001`.
 
 The runtime budget monitor continued independently until the model worker ended;
 independent lead gates still determine acceptance. Persistent queue advancement,

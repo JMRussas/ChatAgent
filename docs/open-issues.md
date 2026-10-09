@@ -90,6 +90,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-043 | Checkpoint attention evidence and publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 
 | CA-ISSUE-044 | Checkpoint ledger deadline and ownership publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
+| CA-ISSUE-046 | Continuation authority and publication checks are incomplete | defect | acceptance blocker | open | Hermes / scoped repair |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1427,6 +1428,29 @@ empty-history-repair-001/negative-proof.json, reviewed-bundle.json and live-ui-p
 - **Evidence:** retained raw candidate, `gate-focused-exit.json`,
   `negative-independent-exit.json` (four failures, 28 passes) and separate
   formatting-only commit `1a3f1f4` under `checkpoint-review-ledger-001`.
+
+### CA-ISSUE-046 — Continuation authority and publication checks are incomplete
+
+- **Observed / priority:** P1 acceptance blocker in candidate `66d7d0e`.
+  Three independently prepared subprocess cases fail: changed dependency gates
+  and changed upstream authority after worker exit still create a candidate and
+  finish it; a changed executor on finish confirmation still receives checks and
+  a gate. Existing process tests also contain two fixture errors: a preserved
+  preexisting gate is asserted absent and cleanup kills an already-exited child.
+- **Expected:** recheck current task, executor, dependency gates and upstream
+  authority before snapshot/finish and after finish; stop before later phases on
+  any mismatch. Check deadline and cooperative lease immediately before record
+  and gate publication, after awaited preparation. Preserve ambiguous effects,
+  old evidence and fixed commands; never replay a finish or auto-accept.
+- **Owner / real task:** Hermes repair `d2284986-61fc-5433-a66f-3dd41d17c5c8`,
+  `checkpoint-continuation-repair-001-r1`, epoch 1, is running with a five-minute,
+  30-message hard bound. Original implementation is completed and rejected;
+  its ended worker budget and exact candidate are preserved.
+- **Evidence:** `checkpoint-continuation-implementation-001/independent-negative-oldsource-exit.json`
+  (three failures), `candidate-focus-r3-exit.json` (33 passed, two fixture
+  failures), `rejected-readback.json`; repair `start-readback.json` and budget
+  under `checkpoint-continuation-repair-001`. Final validation and acceptance
+  remain pending.
 
 ### CA-ISSUE-045 — Export file identity cannot detect a same-inode replacement on Linux
 
