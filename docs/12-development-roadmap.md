@@ -6,6 +6,69 @@ This section is the authoritative execution order. Earlier dated entries below a
 historical decisions, not competing instructions for the next step. The sports work
 remains a deliberate demonstration of the general role/tool/evidence runtime.
 
+### Current assessment and next delivery gate (2026-10-08, 21:36 Eastern)
+
+The supervised development foundation works. The next priority is completing the
+conversation-to-execution workflow and reducing preparation/review delay. PlanStore
+readback confirms **three of seven application nodes accepted**: monitor runbook,
+plan-status API and plan-status UI. This is a milestone count, not an estimate of
+percentage effort completed. ChatAgent HEAD `66985f3` integrates the exact accepted
+UI artifact; its combined validation passed all 2,515 tests, lint and docs checks.
+
+| Area                         | Evidence-backed state                                                                                                                                            | Remaining delivery gate                                                                                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Task authority and execution | Native claims, dependency gates, CLI execution, verification and retained attempts have delivered accepted artifacts.                                            | Prepared specifications and lead review/integration still require active supervision.                                                                              |
+| Human/AI observation         | Shared task/attempt identities, bounded read-only observations, traces and Active-view browser proofs exist. Hekate UI 5193 and API 5111 both returned HTTP 200. | Expose execution phase and evidence freshness so an open task cannot be mistaken for a running worker. Finish the conversation progress view.                      |
+| Roles                        | LangChain/LangGraph planning-role and managed-attempt primitives are integrated and have a real CLI rehearsal.                                                   | A persistent role assignment/review/recovery service is unfinished; role names alone do not establish autonomous operation.                                        |
+| Launch adapter               | Corrected preparation candidate passes 317 focused tests and lint.                                                                                               | Connect launch-specific native stop fencing, review the candidate, prepare its frozen specification on the accepted UI base and run the original application task. |
+| Stop control                 | Candidate passes 76 focused cases with one Windows symlink skip. A live wrong-owner request was refused without changing the stop file.                          | Independent acceptance, source integration, adapter adoption and controlled runtime handoff remain pending.                                                        |
+| Execution metrics            | The current candidate passes 46 projector/hook cases in this assessment; earlier compatibility checks are retained.                                              | Real dispatcher/verifier hook coverage, review, integration and actual-run measurements. No baseline or SLO exists.                                                |
+
+At observation time the owned dispatcher was alive, with a fresh five-second
+heartbeat, but **no application task was executing**. It was blocked at
+`bounded-plan-launch/spec_pending`. The three preparation/control/metrics tasks
+were still `in_progress` in PlanStore, while their recorded workers had exited.
+They require lead review or follow-up work; their open task state is not evidence
+of active model computation. The bounded host does not provide persistent AI
+supervision or automatic review/integration.
+
+**Delivery order:**
+
+1. Finish the existing stop-fence review and connect it to the existing launch
+   adapter. Preserve rejected candidates, verify replacement-owner races and
+   duplicate/uncertain outcomes, then freeze the next specification on `66985f3`.
+2. Execute and independently review the original `bounded-plan-launch` node
+   `6bbefda0-cc3b-510d-ab02-f1fbc5b5ba61`; integrate its accepted artifact. Do not
+   create a duplicate feature node or weaken its frozen acceptance checks.
+3. Deliver `conversation-run-controls`, then `attempt-progress-view`. Show task
+   state, worker liveness, execution phase, review state and observation time as
+   separate facts, with explicit unknowns.
+4. Complete `integrated-rehearsal`: start one useful prepared change from the
+   conversation, observe it, demonstrate duplicate refusal and correctly targeted
+   graceful stop, verify the exact result, integrate it and reload the conversation.
+5. Use that end-to-end evidence to prioritize unattended recovery and broader role
+   orchestration. Keep general framework expansion off this delivery path.
+
+Use a work-in-progress limit of one application feature plus its immediate
+blocking repair. Finish or explicitly defer current candidates before adding more
+preparation work. Retain the metrics candidate and review it in a bounded follow-up;
+its completion is not a prerequisite for launching the next feature. Avoid repeated
+full implementation in preparation and execution where smaller contract fixtures
+can prove feasibility; changes to that authoring method need their own reviewed
+contract, not edits to an in-flight frozen oracle.
+
+Measure ready-to-acceptance and acceptance-to-integration time, phase durations,
+accepted application features per observed hour, review backlog age, failed/rework
+time and attributed reported cost per accepted feature. Keep preparation throughput
+separate, include failed attempts, and compare equivalent task/model/host/verification
+cohorts. Hard timeouts are operational bounds, not a delivery-performance baseline.
+The immediate observed bottleneck is preparation/review handoff; current evidence
+does not support claiming that model execution itself is too slow.
+
+Assessment evidence: `D:/hekate-coordinator/runs/state-assessment-20261008/`
+contains timestamped PlanStore responses and hashes plus the focused metrics check.
+This assessment reads the existing plans; it does not claim new task acceptance.
+
 ### Roadmap review and application execution plan (2026-10-08)
 
 **Continued supervision (2026-10-08).** The user directed continued execution,
@@ -121,15 +184,17 @@ completed the original UI task as `pilot-f5ea665af140-r2`, accepted at epoch 2. 
 worker trace exists, and the headless UI shows In progress with the exact attempt
 (18 read-only API calls, no page errors). The first candidate passed 67/68 cases and was rejected by a literal URL-variable
 assertion (CA-ISSUE-025); the second passes all 68 cases and all remaining checks.
-Exact accepted artifact `9659c7fcf45bb3df5a44a12b5fa9298a747a1616` awaits lead
-integration. Both native rounds ran the pinned formatter twice with unchanged
+Exact accepted artifact `9659c7fcf45bb3df5a44a12b5fa9298a747a1616` is integrated
+at ChatAgent `66985f3`; the combined suite passed all 2,515 tests, lint and docs. Both native rounds ran the pinned formatter twice with unchanged
 output bytes and successful idempotence checks. Native CLI-reported costs are
 `0.5148252` and `0.526193` USD; their sum is reported usage, not metered spend. The five-second owner heartbeat and separately recorded task state keep
 worker liveness/useful progress explicitly unknown until observed evidence permits
 stronger conclusions.
 Athena planning `e2876010-1741-5d6f-8aa0-edd00a52d674` is accepted with lead
 corrections; adapter preparation `3221839c-1b48-55b8-bb36-c9e425f13d9f` is Active
-at epoch 2 with a real correction worker. Its initial candidate passed 189
+at epoch 2; its correction worker has exited and the candidate awaits lead completion
+and review. It now passes 317 focused cases and lint, with stop-fence adoption still
+pending. Its initial candidate passed 189
 focused checks and lint, but independent review rejected workspace-selection and
 journal validation gaps (CA-ISSUE-024). Initial files/tests/rejection remain retained. Measurement task
 `ef5ef6dc-9f8f-543e-8c8f-ad8e1ab8e68c` is Active; its read-only audit proposes comparable
@@ -143,7 +208,10 @@ hard limits are execution bounds. The audit found the pilot journal uses a logic
 clock (`now=1000`, fixed tick increments), so that field cannot supply execution
 durations. Readiness intervals must use actual observation gaps, acceptance must
 match artifact as well as epoch/content, and UTC/local dates are explicitly qualified.
-Instrumentation/projector implementation remains pending. Evidence lives under the external
+Instrumentation/projector source is now a candidate: the first implementation timed
+out and was explicitly rejected; epoch 2 finished its follow-up worker. Independent
+assessment passes 46 projector/hook tests. Actual dispatcher/verifier integration
+coverage, acceptance and deployment remain pending. Evidence lives under the external
 `task-formatter-001`, `ui-prepare-001`, `ui-native-observation-001`,
 `launch-adapter-planning-001`, `launch-adapter-prepare-001` and
 `execution-metrics-001` directories. Continuous autonomous AI supervision beyond
@@ -307,7 +375,7 @@ in the Hekate Tasks/Plans browser at `http://localhost:5193/`; refresh is explic
 | `attempt-progress-view`     | Expose Hekate attempt conversations and tool events in ChatAgent, with bounded incremental refresh and cancellation on view disposal. Keep verifier decisions separate from worker claims. Test truncation, unavailable trace, attempt changes and refresh cleanup.                                                                                                                       | `conversation-run-controls` |
 | `integrated-rehearsal`      | Run one useful bounded change from ChatAgent, watch worker and verifier evidence, review the exact accepted artifact, integrate it separately and reload the conversation. Retain commands, revisions, test results, trace identities and observed limitations. Demonstrate a refused or failed launch without a duplicate worker.                                                        | `attempt-progress-view`     |
 
-The first node has been authored, executed and accepted in round 1. Successors remain
+The first three nodes are accepted. The four remaining nodes stay
 `spec_pending` until their predecessor artifact is reviewed and their own frozen
 acceptance and satisfiability proof exist. The existing adapter refuses package,
 lock and dot-configuration edits; the first node therefore documents the existing

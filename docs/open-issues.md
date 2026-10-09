@@ -63,6 +63,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-023 | Full-suite CLI deadline under concurrent verification              | defect | verification resources | open     | codex-chatagent                              |
 | CA-ISSUE-024 | Adapter workspace selection and journal validation gaps            | defect | host adapter           | open     | codex-chatagent                              |
 | CA-ISSUE-025 | UI oracle constrains variable spelling                             | defect | test design            | open     | codex-chatagent                              |
+| CA-ISSUE-026 | Stop request can target a replacement dispatcher                   | defect | host adapter           | open     | codex-chatagent / supervised Mimir worker    |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -863,3 +864,23 @@ artifact `7d154a5e54b5e0eb68dfe6efc227824168720b77` and native evidence; verify
 the intended URL/method/count property through semantic tests and negative controls
 before changing a future oracle. First candidate was never fully verified. Record
 this rework separately from product defects and preserve the rejected attempt.
+
+### CA-ISSUE-026 — Stop request can target a replacement dispatcher
+
+Status: open; blocks exposing adapter stop control. Hekate task
+`93a81ce6-a7c2-5acb-a135-e2eca3195353`; owner `codex-chatagent`, native repair
+assigned to the supervised Mimir worker. The adapter records the observed launch
+ID, but its stop command does not pass that identity to the native owner. If owner
+A is replaced by B between observation and request handling, the unfenced request
+can stop B. The old existence-only stop guard reproduces this in the retained
+negative-control test. Expected: a request for A cannot stop B.
+
+Candidate native repair adds `--expected-launch-id`, a target-labelled request and
+an owner-side check. It passes 76 focused cases with one Windows symlink capability
+skip. A live wrong-owner request was refused `owner_changed` and left the stop file
+unchanged. These checks do not establish integrated adapter behavior: the candidate
+is unaccepted, the running host still uses `c200ef7`, and adapter adoption is pending.
+Close only after reviewed native integration, adapter identity/response checks,
+replacement-owner and graceful-stop verification, and a controlled runtime handoff.
+Evidence: `D:/hekate-coordinator/runs/stop-fence-001/`; the candidate's behavior
+contract is Hekate plan 053. Preserve all failed and negative-control evidence.
