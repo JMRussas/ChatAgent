@@ -708,7 +708,7 @@ export function executiveOverviewScript(): string {
       renderRoot(box, overview.roots[i]);
       for (var k = 0; k < overview.roots[i].tasks.length; k++) alive[overview.roots[i].rootId + '|' + overview.roots[i].tasks[k].nodeId] = true;
     }
-    // `last` is set before render, so the panel checks the same overview it displays.
+    // The last overview is set before render, so the panel checks the same overview it displays.
     if (attentionSlot !== null) renderAttention(attentionSlot, overview);
     view.replaceChildren(box);
     for (var gone in drills) if (!alive[gone]) stopDrill(gone);
