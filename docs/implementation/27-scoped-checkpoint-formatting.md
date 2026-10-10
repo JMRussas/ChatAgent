@@ -1,6 +1,9 @@
 # 27 — Scoped checkpoint formatting
 
-Status: repaired proposal, pending Codex lead acceptance (the earlier candidate was rejected). Nothing is implemented, run or tested; every gate below is a future requirement, not a result. Line numbers refer to `src/checkpoint/checkpointContinuation.ts`.
+Status: accepted runtime contract after independent lead review and operator
+finalization. The current implementation, checks, live proof and remaining limits
+are recorded in the development roadmap; the gates below define the contract and
+are not a substitute for their exact source-bound receipts.
 
 ## 1. Increment
 

@@ -55,21 +55,28 @@ refuses nonterminal or stale verification is not yet delivered.
 The scoped formatter runtime contract is lead-reviewed in
 [document 27](implementation/27-scoped-checkpoint-formatting.md), after rejecting
 proposal `0a7643e`, accepting repair `66fea48` and lead clarification `18bde4d`.
-The current formatter checkpoint (task `2c9aa7ef-c42a-5927-9212-24edb08ed585`) is an
-implementation candidate under external verification and lead review; it is not
-accepted, pushed or live-proved. It preserves raw functional source, a separate
-formatting-only commit, and one finish against final source. Explicit same-page
-formatter facts remain a separate later checkpoint, followed by useful independently
-based backlog tasks.
-CA-ISSUE-052 (formatter generation stopped at budget tripwires) is open with its
-repair under review: two generations (36 IDs/385.669 s/4 MiB output, then 37 IDs/298.936 s
-at the 36-unit limit) were rejected as incomplete, with partial sources preserved at
-`1e2ead6` and `539af6f`. TypeScript failed on the first and passed on the second, whose
-focused run was 163 cases with 160 passing and 3 failing. The bounded repair narrows the
-record union, corrects two schema fixtures and the argv indices, and adds a cooperative
-size/mtime/inode/device fence around `git add` plus fresh claim checks before the
-formatter spawn and commit. It has not been verified by the independent coordinator and
-is not accepted, full-suite verified, live-proved or pushed.
+The formatter runtime is independently verified at `e0d7aa1`: **3,456 tests pass**
+with ten existing skips, **109 browser cases pass**, and lint/documentation checks
+pass. A real restricted worker intentionally produced unformatted TypeScript; its
+raw source fails the pinned Prettier check, while the separate formatting commit
+passes Prettier, TypeScript and focused Vitest. PlanStore records one start and one
+finish, naming only the final commit. The queue completes in one invocation after
+independent lead artifact acceptance. Paired candidate UI shows the exact current
+source/gate in place. Raw/formatter facts remain in the v2 CLI record; explicit
+same-page formatting detail is the next observability increment, not yet delivered.
+
+CA-ISSUE-052 is closed for the defined formatter scope. The two budget-stopped
+partial snapshots and failed gates remain unchanged. Narrow repair `b87fcec` uses
+bigint file identities around staging and fresh claim checks before effects; both
+new race assertions fail against older source `539af6f`. Separate formatting commit
+`e0d7aa1` follows the functional source. Whole-feature task
+`2c9aa7ef-c42a-5927-9212-24edb08ed585` and immediate repair `8666b9f3-a9c8-5cb0-8c71-37c91cb7f314`
+use separately fenced operator finalization for the reviewed final source; no old
+model counters are relabelled. Exact acceptance and integration mappings are
+external under `cleanup-loop-001`; source delivery and required GitHub CI remain
+separately recorded gates. Evidence includes `formatter-live-001/lead-review.json`,
+`events.json`, `proof-review_pending-ui-proof.json` and retained check logs.
+
 CA-ISSUE-004 remains open for wake, notifications and unattended recovery; bounded
 queues do not provide a continuously running AI manager.
 

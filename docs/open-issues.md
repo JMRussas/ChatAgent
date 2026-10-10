@@ -96,7 +96,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-049 | Formatter proposal rejects required config and contradicts unsupported-file gate | planning defect | acceptance blocker | closed / contract repaired | Athena / lead review |
 | CA-ISSUE-050 | Hosted Windows CI failures hidden by advisory job | verification defect | P1 | closed / verified harness repair | Mimir / CI repair |
 | CA-ISSUE-051 | Operator source mutation overlapped independent verification | operator defect | P1 | open / handoff guard queued | Codex lead |
-| CA-ISSUE-052 | Formatter generation stopped at hard output budget | generation defect | P1 | open / repair under review | Codex lead |
+| CA-ISSUE-052 | Formatter generation stopped at hard output budget | generation defect | P1 | closed / verified scoped repair | Codex lead |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1619,7 +1619,7 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
 - **Immediate handling:** preserve the old candidate, counters and invalidated
   gate; use an explicitly fenced operator attempt for the complete workflow source
   and real CI. Wait for terminal verification before later source mutations.
-- **Next guard / status:** remains OPEN (real task-find source issue register) as task `4071b736-67ef-5f87-b180-d357356d15b5`: freeze and verify a
+- **Next guard / status:** open, task `4071b736-67ef-5f87-b180-d357356d15b5`: freeze and verify a
   cooperative operator handoff that refuses nonterminal or stale verification and
   requires current ownership/source fences. No global filesystem lock or automatic
   gate adoption is claimed. Do not call the product guard defective for refusing
@@ -1647,7 +1647,7 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   source finding showed the pre-`git add` fence checked only that each changed entry
   was a regular file, so bytes appended to an eligible file after the formatter and
   before `git add` could be committed as formatter output.
-- **Repair under review:** `ContinuationRecord` is now the union and run-state updates
+- **Verified repair:** `ContinuationRecord` is now the union and run-state updates
   narrow on the `schema` literal without casts. The strict v1 wire schema, old
   manifests and v1 output are unchanged. Unknown-schema tests use v3 and keep the
   `unsupported_schema` guards; argv assertions use the corrected indices with the
@@ -1658,9 +1658,18 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   formatter spawn and before the formatting commit. This is cooperative detection, not
   an atomic filesystem lock. A real Git/process regression injects bytes through the
   `fetchStatus` seam, and a second test supersedes the claim after staging. The repair
-  is not verified by the independent coordinator. No closed-implementation,
-  acceptance, full-suite, live-proof or push claim is made.
-- **Status:** remains OPEN. The repair task ID is assigned by the root and is not
-  recorded here. Independent real-model proof of the formatter is still later work.
-  CA-ISSUE-051 (handoff guard) and CA-ISSUE-004 (wake, unattended recovery) remain
-  open; CA-ISSUE-050 is closed at `26169e3`.
+  passes independent gates at `e0d7aa1`: 3,456 full tests / ten existing skips,
+  109 browser cases, lint and documentation checks. The two new assertions fail
+  against unchanged older production source `539af6f`.
+- **Live proof / status:** closed for this bounded formatter scope. A real model
+  worker's raw commit `5f299b0` fails the actual pinned Prettier check; final commit
+  `9bdd796` has that raw parent and passes all three checks. The retained store shows
+  one start and one finish against only the final artifact, then separate lead
+  acceptance. The one-invocation queue completes and the paired UI matches the
+  source/gate without navigation or mutations. Final functional candidate `b87fcec`
+  is followed by separate formatting commit `e0d7aa1`. Original stopped counters,
+  snapshots and failed gates remain history; operator finalization is newly fenced.
+  Repair task `8666b9f3-a9c8-5cb0-8c71-37c91cb7f314`; whole feature
+  `2c9aa7ef-c42a-5927-9212-24edb08ed585`. Evidence is external under
+  `cleanup-loop-001/formatter-live-001` and retained source/check bundles.
+  CA-ISSUE-051 (handoff guard) and CA-ISSUE-004 (wake, unattended recovery) remain open.
