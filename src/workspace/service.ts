@@ -13,9 +13,17 @@ import {
   type StoredWorkflowPlan,
   type WorkflowRun
 } from "../workflows/types";
-import { WorkspaceCatalog } from "./catalog";
+import { WorkspaceCatalog, type WorkspaceProject } from "./catalog";
 import { ProjectWorkflowRouter } from "./projectWorkflows";
 import { readCodingProject } from "./codingProjects";
+import { codingDigest, compactDigest, workflowDigest, type WorkDigest } from "./workDigest";
+import {
+  outstandingStates,
+  projectWorkList,
+  workStateSchema,
+  workStates,
+  type WorkReadError
+} from "./listWork";
 
 const uuid = z
   .string()
@@ -53,6 +61,46 @@ const conversationJson = {
   archived: { type: "boolean" }
 };
 const specs: Array<WorkflowTool & { schema: z.ZodTypeAny }> = [
+  {
+    name: "list_work",
+    description:
+      "List observed work as compact factual digests with counts by state. Defaults to the conversation's assigned project, otherwise all owned active projects. Use get_work_digest for fuller metadata and decision prompts, get_plan for saved definitions, and get_run for recorded step inputs and outputs. Counts cover observed work only; source limits and read errors are reported.",
+    readOnly: true,
+    inputSchema: jsonObject({
+      projectId: { type: "string", format: "uuid" },
+      state: {
+        type: "array",
+        minItems: 1,
+        maxItems: 7,
+        uniqueItems: true,
+        items: { enum: workStates }
+      },
+      limit: { type: "integer", minimum: 1, maximum: 25 }
+    }),
+    schema: z
+      .object({
+        projectId: uuid.optional(),
+        state: z
+          .array(workStateSchema)
+          .min(1)
+          .max(7)
+          .refine((states) => new Set(states).size === states.length)
+          .optional(),
+        limit: z.number().int().min(1).max(25).optional()
+      })
+      .strict()
+  },
+  {
+    name: "get_work_digest",
+    description:
+      "Read a factual work summary: current versus historical state, next actor, decision, progress and step-level evidence. No outputs or model call.",
+    readOnly: true,
+    inputSchema: jsonObject(
+      { id: { type: "string", format: "uuid" }, projectId: { type: "string", format: "uuid" } },
+      ["id"]
+    ),
+    schema: z.object({ id: uuid, projectId: uuid.optional() }).strict()
+  },
   {
     name: "get_workspace",
     description:
@@ -188,6 +236,86 @@ export class WorkspaceService implements WorkflowToolService {
       throw new WorkflowError("INVALID_WORKSPACE_INPUT", "Invalid workspace tool input.", 400);
     const args = parsed.data as Record<string, any>;
     switch (name) {
+      case "list_work": {
+        if (args.projectId) this.options.catalog.getProject(owner, args.projectId);
+        if (context.conversationId) this.ownedConversation(owner, context.conversationId);
+        const assigned = context.conversationId
+          ? this.options.catalog.conversationMetadata(owner, context.conversationId)?.projectId
+          : undefined;
+        const projectId = args.projectId ?? assigned;
+        const projects = projectId
+          ? [this.options.catalog.getProject(owner, projectId)]
+          : this.options.catalog.listProjects(owner).filter((project) => !project.archived);
+        const read = await this.readWork(owner, projects, context);
+        return projectWorkList(
+          read.work.map((row) => row.digest as WorkDigest),
+          {
+            projectId: projectId ?? null,
+            projectsRead: read.projectsRead,
+            source: args.projectId ? "explicit" : assigned ? "conversation" : "all_active",
+            state: args.state ?? outstandingStates
+          },
+          read.observedErrors,
+          read.truncated,
+          args.limit ?? 25
+        );
+      }
+      case "get_work_digest": {
+        if (context.conversationId) this.ownedConversation(owner, context.conversationId);
+        const selected =
+          args.projectId ??
+          (context.conversationId
+            ? this.options.catalog.conversationMetadata(owner, context.conversationId)?.projectId
+            : undefined) ??
+          this.options.workflows?.existingLegacyProject(owner)?.id;
+        if (!selected)
+          throw new WorkflowError(
+            "DEFAULT_PROJECT_REQUIRED",
+            "Select a project before reading a work digest.",
+            409
+          );
+        const project = this.options.catalog.getProject(owner, selected);
+        const signal = context.signal
+          ? AbortSignal.any([context.signal, AbortSignal.timeout(10000)])
+          : AbortSignal.timeout(10000);
+        const boundedContext = { ...context, signal };
+        let workflowError: WorkflowError | undefined;
+        if (this.options.workflows) {
+          try {
+            const plan = (await this.options.workflows.call(
+              "get_plan",
+              { id: args.id, projectId: project.id },
+              boundedContext
+            )) as StoredWorkflowPlan & { latestRunId?: string };
+            return (await this.readWorkflowDigest(plan, project.id, boundedContext)).digest;
+          } catch (error) {
+            if (!(
+              error instanceof WorkflowError &&
+              (error.status === 404 || error.code === "WORKFLOW_INVALID_STORAGE")
+            ))
+              throw error;
+            workflowError = error;
+          }
+        }
+        if (this.options.apiUrl && project.hekateProjectId) {
+          try {
+            const read = await readCodingProject(this.options.apiUrl, project.hekateProjectId, {
+              preparedRoots: project.preparedPlanRoots,
+              signal
+            });
+            const item = read.work.find((work) => work.id === args.id);
+            // A workflow parser has deliberately narrower graph limits. Only a
+            // positively identified coding graph may override invalid storage.
+            if (item && (workflowError?.code !== "WORKFLOW_INVALID_STORAGE" || !item.error))
+              return codingDigest(item, project.id);
+          } catch (error) {
+            if (workflowError?.code === "WORKFLOW_INVALID_STORAGE") throw workflowError;
+            throw error;
+          }
+        }
+        if (workflowError) throw workflowError;
+        throw new WorkflowError("PLAN_NOT_FOUND", "No such work in this project.", 404);
+      }
       case "register_project":
         return this.options.catalog.createProject(owner, args as any);
       case "update_project": {
@@ -248,6 +376,34 @@ export class WorkspaceService implements WorkflowToolService {
         return this.workspace(context, args.projectId);
     }
   }
+  private async readWorkflowDigest(
+    plan: StoredWorkflowPlan & { latestRunId?: string },
+    projectId: string,
+    context: WorkflowContext
+  ): Promise<{ digest: WorkDigest; run?: WorkflowRun; sourceReadError?: string }> {
+    let run: WorkflowRun | undefined;
+    let sourceReadError: string | undefined;
+    if (plan.latestRunId) {
+      try {
+        run = (await this.options.workflows!.call(
+          "get_run",
+          { id: plan.latestRunId, projectId },
+          context
+        )) as WorkflowRun;
+        if (run.planId !== plan.id || run.ownerId !== plan.ownerId) {
+          run = undefined;
+          throw new Error("Run identity mismatch");
+        }
+      } catch {
+        sourceReadError = "The recorded run could not be read.";
+      }
+    }
+    return {
+      digest: workflowDigest(plan, run, projectId, sourceReadError ? [sourceReadError] : []),
+      run,
+      sourceReadError
+    };
+  }
   private async workspace(context: WorkflowContext, projectId?: string) {
     const owner = context.principal.principalId;
     this.options.workflows?.legacyProject(owner);
@@ -263,22 +419,55 @@ export class WorkspaceService implements WorkflowToolService {
         reopenable: row.status !== "expired"
       };
     });
-    const work: Array<Record<string, unknown>> = [];
-    const errors: Array<{ projectId: string; message: string }> = [];
     const selected = projects.filter((project) =>
       projectId ? project.id === projectId : !project.archived
     );
+    const read = await this.readWork(owner, selected, context);
+    const { work, errors, truncated } = read;
+    const result = {
+      projects,
+      conversations,
+      work: [] as Array<Record<string, unknown>>,
+      errors,
+      truncated,
+      persistenceEnabled: this.options.persistenceEnabled ?? false
+    };
+    // Bound added work rows by encoded bytes, not character counts. Project and
+    // conversation metadata is preserved even if it alone exceeds the UI limit.
+    let bytes = Buffer.byteLength(JSON.stringify(result));
+    for (const row of work.sort((a, b) => String(a.name).localeCompare(String(b.name)))) {
+      const rowBytes = Buffer.byteLength(JSON.stringify(row)) + 1;
+      if (bytes + rowBytes > 2 * 1024 * 1024 - 64) {
+        result.truncated = true;
+        break;
+      }
+      result.work.push(row);
+      bytes += rowBytes;
+    }
+    return result;
+  }
+  private async readWork(owner: string, selected: WorkspaceProject[], context: WorkflowContext) {
+    const work: Array<Record<string, unknown>> = [];
+    const errors: Array<{ projectId: string; message: string }> = [];
+    const observedErrors: WorkReadError[] = [];
+    const projectError = (projectId: string, message: string) => {
+      errors.push({ projectId, message });
+      observedErrors.push({ projectId, workId: null, message });
+    };
     const signal = context.signal
       ? AbortSignal.any([context.signal, AbortSignal.timeout(10000)])
       : AbortSignal.timeout(10000);
     let cursor = 0,
+      projectsRead = 0,
       truncated = false;
     await Promise.all(
       Array.from({ length: Math.min(4, selected.length) }, async () => {
         while (cursor < selected.length) {
           const project = selected[cursor++];
           if (!project.hekateProjectId) continue;
-          const append = (row: Record<string, unknown>) => {
+          // Count projects with an actual source query, including failed queries.
+          if (this.options.workflows || this.options.apiUrl) projectsRead++;
+          const append = (row: Record<string, unknown>, sourceReadError?: string) => {
             if (work.length >= 500) {
               truncated = true;
               return;
@@ -289,6 +478,12 @@ export class WorkspaceService implements WorkflowToolService {
               conversationId:
                 this.options.catalog.linkedConversation(owner, project.id, row.id as string) ?? null
             });
+            if (sourceReadError)
+              observedErrors.push({
+                projectId: project.id,
+                workId: row.id as string,
+                message: sourceReadError
+              });
           };
           const reads = await Promise.allSettled([
             this.options.workflows?.call(
@@ -306,13 +501,12 @@ export class WorkspaceService implements WorkflowToolService {
           for (let i = 0; i < reads.length; i++) {
             const result = reads[i];
             if (result.status === "rejected") {
-              errors.push({
-                projectId: project.id,
-                message:
-                  result.reason instanceof WorkflowError
-                    ? result.reason.message
-                    : "Project work is unavailable."
-              });
+              projectError(
+                project.id,
+                result.reason instanceof WorkflowError
+                  ? result.reason.message
+                  : "Project work is unavailable."
+              );
               continue;
             }
             if (!result.value) continue;
@@ -320,58 +514,63 @@ export class WorkspaceService implements WorkflowToolService {
               for (const plan of (
                 result.value as { plans: Array<StoredWorkflowPlan & { latestRunId?: string }> }
               ).plans) {
-                let run: WorkflowRun | undefined;
-                let runUnavailable = false;
-                if (plan.latestRunId) {
-                  try {
-                    run = (await this.options.workflows!.call(
-                      "get_run",
-                      { id: plan.latestRunId, projectId: project.id },
-                      { ...context, signal }
-                    )) as WorkflowRun;
-                  } catch {
-                    runUnavailable = true;
+                const { digest, run, sourceReadError } = await this.readWorkflowDigest(
+                  plan,
+                  project.id,
+                  {
+                    ...context,
+                    signal
                   }
-                }
+                );
+                const runUnavailable = sourceReadError !== undefined;
                 const currentRun = run?.revision === plan.revision ? run : undefined;
                 const next = currentRun?.steps.find((step) => step.status !== "completed");
                 const status = runUnavailable
                   ? "unavailable"
                   : (currentRun?.status ?? (run ? "todo" : plan.work));
-                append({
-                  id: plan.id,
-                  name: plan.definition.name,
-                  kind: "workflow",
-                  status,
-                  latestRunId: plan.latestRunId ?? null,
-                  nextStep:
-                    next?.name ?? (status === "todo" ? plan.definition.steps[0]?.name : undefined),
-                  error: runUnavailable ? "The recorded run could not be read." : currentRun?.error
-                });
+                append(
+                  {
+                    id: plan.id,
+                    name: plan.definition.name,
+                    kind: "workflow",
+                    status,
+                    latestRunId: plan.latestRunId ?? null,
+                    nextStep:
+                      next?.name ??
+                      (status === "todo" ? plan.definition.steps[0]?.name : undefined),
+                    error: runUnavailable
+                      ? "The recorded run could not be read."
+                      : currentRun?.error,
+                    digest: compactDigest(digest)
+                  },
+                  sourceReadError
+                );
               }
             } else {
               const resultValue = result.value as Awaited<ReturnType<typeof readCodingProject>>;
               truncated ||= resultValue.truncated;
               if (resultValue.unavailable)
-                errors.push({
-                  projectId: project.id,
-                  message: "Some coding plans could not be read or verified for this project."
-                });
+                projectError(
+                  project.id,
+                  "Some coding plans could not be read or verified for this project."
+                );
               for (const row of resultValue.work)
-                append({ ...row, nextStep: row.nextStep?.name, nextStepId: row.nextStep?.id });
+                append(
+                  {
+                    ...row,
+                    nextStep: row.nextStep?.name,
+                    nextStepId: row.nextStep?.id,
+                    digest: compactDigest(codingDigest(row, project.id))
+                  },
+                  row.error
+                );
             }
           }
         }
       })
     );
-    return {
-      projects,
-      conversations,
-      work: work.sort((a, b) => String(a.name).localeCompare(String(b.name))),
-      errors,
-      truncated,
-      persistenceEnabled: this.options.persistenceEnabled ?? false
-    };
+    truncated ||= signal.aborted;
+    return { work, errors, observedErrors, truncated, projectsRead };
   }
   capabilities(message?: UserMessage): CapabilityTool[] {
     if (!message?.applicationContext?.principal.roles.has("operator")) return [];

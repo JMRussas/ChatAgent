@@ -37,6 +37,11 @@ export interface CodingWorkItem {
   kind: "coding";
   status: PlanProgressState | "invalid" | "unavailable";
   nextStep?: { id: string; name: string; status: LeafState };
+  decision?: { id: string; name: string };
+  progress?: { done: number; total: number };
+  alsoAllocated?: number;
+  accepted?: { id: string; ref: string };
+  cancelled?: boolean;
   prepared: boolean;
   error?: string;
 }
@@ -193,6 +198,33 @@ export async function readCodingProject(
           item.error = "CODING_INVALID_PLAN";
         } else {
           item.status = state.progress.state;
+          item.progress = {
+            done: state.leaves.filter((leaf) => leaf.state === "accepted").length,
+            total: state.leaves.length
+          };
+          item.cancelled =
+            rootNode.work === "cancelled" ||
+            (state.leaves.length > 0 && state.leaves.every((leaf) => leaf.state === "cancelled"));
+          const review = state.leaves.find((leaf) => leaf.state === "review_pending");
+          item.alsoAllocated = state.leaves.filter(
+            (leaf) => leaf.state === "in_progress" && leaf.nodeId !== review?.nodeId
+          ).length;
+          if (review)
+            item.decision = {
+              id: review.nodeId,
+              name: (review.name?.trim() || "Untitled step").slice(0, 400)
+            };
+          const accepted = state.leaves.find(
+            (leaf) =>
+              leaf.state === "accepted" &&
+              leaf.acceptance?.decision === "accepted" &&
+              !leaf.acceptanceHistorical
+          );
+          if (accepted)
+            item.accepted = {
+              id: accepted.nodeId,
+              ref: `hekate:${root.rootId}:node:${accepted.nodeId}:revision:${accepted.contentRevision}`
+            };
           const next =
             state.leaves.find((leaf) => leaf.state === "in_progress") ??
             state.leaves.find((leaf) => leaf.state === "review_pending") ??

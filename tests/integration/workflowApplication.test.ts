@@ -311,7 +311,7 @@ describe("shared workflow application", () => {
       name: "run_plan",
       arguments: { id: plan.id, revision: updated.revision }
     });
-    expect(started.isError).toBe(false);
+    expect(started.isError, JSON.stringify(started.structuredContent)).toBe(false);
     const run = started.structuredContent as unknown as WorkflowRun;
     expect(run.status).toBe("running");
     let observed: WorkflowRun | undefined;

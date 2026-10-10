@@ -5,6 +5,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CapabilityChat } from "../../src/app/capabilityChat";
 import { ChatService } from "../../src/app/chatService";
@@ -18,10 +20,12 @@ import { MockDeepProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
 import { WorkflowApplication } from "../../src/workflows/application";
 import { WorkflowService } from "../../src/workflows/service";
+import { HekateWorkflowStore } from "../../src/workflows/hekateStore";
 import { WorkspaceCatalog } from "../../src/workspace/catalog";
 import { ProjectWorkflowRouter } from "../../src/workspace/projectWorkflows";
 import { WorkspaceService } from "../../src/workspace/service";
 import { readCodingProject } from "../../src/workspace/codingProjects";
+import { workStates } from "../../src/workspace/listWork";
 import {
   WorkflowError,
   type StoredWorkflowPlan,
@@ -161,7 +165,7 @@ async function workspaceFixture() {
     text: JSON.stringify(planningReply),
     finishReason: "stop" as const
   }));
-  const start = async (identity = auth, apiUrl?: string) => {
+  const start = async (identity = auth, apiUrl?: string, nativeStore = false) => {
     const catalog = new WorkspaceCatalog(join(directory, "workspace.json"));
     const queue = new InMemoryTaskQueue();
     const timeline = new InMemoryConversationTimelineStore();
@@ -203,7 +207,14 @@ async function workspaceFixture() {
         store = new PlanStore();
         stores.set(hekateId, store);
       }
-      return new WorkflowApplication(new WorkflowService(store, runDir, { actions }), actions);
+      return new WorkflowApplication(
+        new WorkflowService(
+          nativeStore ? new HekateWorkflowStore(apiUrl!, hekateId) : store,
+          runDir,
+          { actions }
+        ),
+        actions
+      );
     };
     const runDir = join(directory, "runs");
     const workflows = new ProjectWorkflowRouter({
@@ -240,7 +251,11 @@ async function workspaceFixture() {
       persistence.close();
     };
     cleanups.push(close);
-    const response = (path: string, data?: unknown, headers = identity.headers("operator")) =>
+    const response = (
+      path: string,
+      data?: unknown,
+      headers: Record<string, string> = identity.headers("operator")
+    ) =>
       fetch(base + path, {
         method: data === undefined ? "GET" : "POST",
         headers: { ...headers, "content-type": "application/json" },
@@ -248,10 +263,13 @@ async function workspaceFixture() {
       });
     const rpc = async (name: string, data: unknown) => {
       const result = await response("/workspace/tools/" + name, data);
-      expect(result.status).toBe(200);
+      expect(
+        result.status,
+        `${name}: ${result.status === 200 ? "" : await result.clone().text()}`
+      ).toBe(200);
       return result.json();
     };
-    return { base, response, rpc, close, chat, persistence };
+    return { base, response, rpc, close, chat, persistence, workflows, catalog, workspace };
   };
   return {
     directory,
@@ -267,6 +285,70 @@ async function workspaceFixture() {
 }
 
 describe("existing coding project observation", () => {
+  it("reads a multi-node coding digest through the actual Hekate store boundary while preserving corrupt workflow storage errors", async () => {
+    const observed = graph();
+    observed.defaultGate = "completed";
+    observed.dependencies = [
+      { predecessorId: observed.nodes[4].id, successorId: observed.nodes[1].id, gate: "accepted" }
+    ];
+    expect(observed.nodes.length).toBeGreaterThan(2);
+    const requests: string[] = [];
+    let returned = observed;
+    const base = await endpoint((req, res) => {
+      requests.push(`${req.method} ${req.url}`);
+      const url = new URL(req.url!, "http://127.0.0.1");
+      if (url.pathname === "/api/plan-contract/v1/plans")
+        return json(res, {
+          contractVersion: "plan-contract/v1",
+          plans: [metadata(codingRoot)],
+          nextAfterRootId: null
+        });
+      if (url.pathname.endsWith(codingRoot)) return json(res, returned);
+      json(res, {}, 404);
+    });
+    const fixture = await workspaceFixture();
+    const app = await fixture.start(fixture.auth, base, true);
+    const project = await app.rpc("register_project", {
+      name: "Actual Hekate coding boundary",
+      hekateProjectId: projectId
+    });
+    expect(
+      (await app.response("/workspace/tools/get_plan", { id: codingRoot, projectId: project.id }))
+        .status
+    ).toBe(502);
+    const digest = await app.rpc("get_work_digest", { id: codingRoot, projectId: project.id });
+    expect(digest).toMatchObject({
+      kind: "coding",
+      projectId: project.id,
+      state: "needs_decision",
+      decision: { kind: "result" },
+      revision: null,
+      alsoAllocated: 1,
+      progress: { done: 1, total: 4 }
+    });
+    returned = structuredClone(observed);
+    returned.nodes[0].value = JSON.stringify({
+      kind: "chatagent-workflow",
+      version: 1,
+      ownerId: fixture.auth.auth.principalId
+    });
+    const corruptedWorkflow = await app.response("/workspace/tools/get_work_digest", {
+      id: codingRoot,
+      projectId: project.id
+    });
+    expect(corruptedWorkflow.status).toBe(502);
+    expect(await corruptedWorkflow.json()).toMatchObject({ code: "WORKFLOW_INVALID_STORAGE" });
+    returned = { ...structuredClone(observed), nodes: [] };
+    const corruptedGraph = await app.response("/workspace/tools/get_work_digest", {
+      id: codingRoot,
+      projectId: project.id
+    });
+    expect(corruptedGraph.status).toBe(502);
+    expect(await corruptedGraph.json()).toMatchObject({ code: "WORKFLOW_INVALID_STORAGE" });
+    expect(requests.every((request) => request.startsWith("GET "))).toBe(true);
+    expect(fixture.generate).not.toHaveBeenCalled();
+    expect(fixture.readReport).not.toHaveBeenCalled();
+  });
   it("shows actual coding progress once, excludes shared workflow roots and foreign project data", async () => {
     const workflowRoot = randomUUID();
     const foreignListedRoot = randomUUID();
@@ -340,6 +422,26 @@ describe("existing coding project observation", () => {
         conversationId: null
       })
     ]);
+    const codingDigest = await app.rpc("get_work_digest", {
+      id: codingRoot,
+      projectId: project.id
+    });
+    expect(codingDigest).toMatchObject({
+      kind: "coding",
+      state: "needs_decision",
+      revision: null,
+      run: null,
+      alsoAllocated: 1,
+      decision: { kind: "result" },
+      next: { actor: "You" },
+      progress: { done: 1 }
+    });
+    expect(directory.work[0].digest).toEqual(codingDigest);
+    expect(codingDigest.verification).toMatchObject({
+      by: "hekate_accepted",
+      scope: "step",
+      at: null
+    });
     expect(JSON.stringify(directory)).not.toContain("PRIVATE_FOREIGN_PLAN");
     expect(directory.errors).toContainEqual({
       projectId: project.id,
@@ -400,6 +502,446 @@ describe("existing coding project observation", () => {
 });
 
 describe("authenticated saved workspace journeys", () => {
+  it("exposes the same read-only digest over HTTP and native MCP without registering a default project or replaying work", async () => {
+    const fixture = await workspaceFixture();
+    const app = await fixture.start();
+    const missing = await app.response("/workspace/tools/get_work_digest", { id: randomUUID() });
+    expect(missing.status).toBe(409);
+    expect(app.catalog.listProjects(fixture.auth.auth.principalId)).toEqual([]);
+    const toolList = await (await app.response("/workspace/tools")).json();
+    expect(toolList.tools).toContainEqual(
+      expect.objectContaining({ name: "get_work_digest", readOnly: true })
+    );
+    const project = await app.rpc("register_project", {
+      name: "Read-only summary project",
+      hekateProjectId: randomUUID()
+    });
+    const plan = await app.rpc("create_plan", {
+      projectId: project.id,
+      definition: {
+        version: 1,
+        name: "Review without executing",
+        steps: [
+          {
+            id: "review",
+            name: "Review",
+            action: { type: "human", instructions: "Approve only after checking evidence." }
+          }
+        ]
+      }
+    });
+    const before = readFileSync(join(fixture.directory, "workspace.json"), "utf8");
+    const direct = await app.rpc("get_work_digest", { id: plan.id, projectId: project.id });
+    const client = new Client({ name: "digest-observer", version: "1.0.0" });
+    cleanups.push(() => client.close());
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(app.base + "/mcp"), {
+        requestInit: { headers: fixture.auth.headers("operator") }
+      })
+    );
+    const discovery = await client.listTools();
+    expect(discovery.tools).toContainEqual(
+      expect.objectContaining({
+        name: "get_work_digest",
+        annotations: expect.objectContaining({ readOnlyHint: true })
+      })
+    );
+    expect(discovery.tools).toContainEqual(
+      expect.objectContaining({
+        name: "list_work",
+        annotations: expect.objectContaining({ readOnlyHint: true })
+      })
+    );
+    const list = await app.rpc("list_work", { projectId: project.id });
+    const nativeList = await client.callTool({
+      name: "list_work",
+      arguments: { projectId: project.id }
+    });
+    expect(nativeList.isError).toBe(false);
+    expect(nativeList.structuredContent).toEqual(list);
+    expect(list.items).toEqual([direct]);
+    expect(list.counts).toMatchObject({ read: 1, ready: 1 });
+    const remote = await client.callTool({
+      name: "get_work_digest",
+      arguments: { id: plan.id, projectId: project.id }
+    });
+    expect(remote.isError).toBe(false);
+    expect(remote.structuredContent).toEqual(direct);
+    const principal = fixture.auth.auth.resolve(fixture.auth.headers("operator"))!;
+    expect(
+      await app.workspace.call(
+        "get_work_digest",
+        { id: plan.id, projectId: project.id },
+        { principal, operationId: randomUUID() }
+      )
+    ).toEqual(direct);
+    const capability = app.workspace
+      .capabilities({
+        conversationId: "observer",
+        userId: "observer",
+        text: "Read work",
+        timestampIso: new Date().toISOString(),
+        applicationContext: { principal }
+      })
+      .find((tool) => tool.id === "get_work_digest")!;
+    expect(capability.effect).toBe("read");
+    const formatted = capability.formatResult!(direct);
+    expect(formatted).toContain("Ready");
+    expect(formatted).toContain("Review · You");
+    expect(formatted).toContain("Last outcome: none recorded");
+    expect(formatted).toContain("Verification: not verified");
+    const listCapability = app.workspace
+      .capabilities({
+        conversationId: "observer",
+        userId: "observer",
+        text: "List work",
+        timestampIso: new Date().toISOString(),
+        applicationContext: { principal }
+      })
+      .find((tool) => tool.id === "list_work")!;
+    expect(listCapability.effect).toBe("read");
+    expect(listCapability.formatResult!(list)).toContain("Observed work: 1");
+    expect(listCapability.formatResult!(list)).toContain(plan.id);
+    expect(listCapability.formatResult!(list)).toContain(project.id);
+    expect(direct).toMatchObject({
+      state: "ready",
+      decision: null,
+      run: null,
+      progress: { done: 0, total: 1 }
+    });
+    expect(readFileSync(join(fixture.directory, "workspace.json"), "utf8")).toBe(before);
+    expect(fixture.generate).not.toHaveBeenCalled();
+    expect(fixture.readReport).not.toHaveBeenCalled();
+    expect(
+      (
+        await app.response(
+          "/workspace/tools/get_work_digest",
+          { id: plan.id, projectId: project.id },
+          fixture.auth.headers("client")
+        )
+      ).status
+    ).toBe(403);
+  });
+  it("lists only owned explicit or conversation scope, otherwise active projects, without implicit registration or metadata writes", async () => {
+    const fixture = await workspaceFixture();
+    const app = await fixture.start();
+    expect(await app.rpc("list_work", {})).toMatchObject({
+      scope: { source: "all_active", projectsRead: 0 },
+      counts: { read: 0 }
+    });
+    expect(app.catalog.listProjects(fixture.auth.auth.principalId)).toEqual([]);
+    const first = await app.rpc("register_project", {
+      name: "First active",
+      hekateProjectId: randomUUID()
+    });
+    const second = await app.rpc("register_project", {
+      name: "Second active",
+      hekateProjectId: randomUUID()
+    });
+    const unbacked = await app.rpc("register_project", { name: "Metadata-only project" });
+    const archived = await app.rpc("register_project", {
+      name: "Archived",
+      hekateProjectId: randomUUID(),
+      archived: true
+    });
+    const definition = {
+      version: 1,
+      name: "Ready review",
+      description: "d".repeat(4000),
+      steps: [
+        { id: "review", name: "Review", action: { type: "human", instructions: "p".repeat(4000) } }
+      ]
+    };
+    const plans = await Promise.all(
+      [first, second, archived].map((project) =>
+        app.rpc("create_plan", { projectId: project.id, definition })
+      )
+    );
+    const selectedConversation = await app.rpc("create_conversation", { projectId: first.id });
+    const unassignedConversation = await app.rpc("create_conversation", {});
+    const reads = vi.spyOn(app.workflows, "call");
+    const before = readFileSync(join(fixture.directory, "workspace.json"), "utf8");
+    const headers = {
+      ...fixture.auth.headers("operator"),
+      "x-workspace-conversation-id": selectedConversation.id
+    };
+    const selectedResponse = await app.response("/workspace/tools/list_work", {}, headers);
+    expect(selectedResponse.status).toBe(200);
+    const selected = await selectedResponse.json();
+    expect(selected).toMatchObject({
+      scope: { projectId: first.id, source: "conversation", projectsRead: 1 },
+      counts: { read: 1, ready: 1 },
+      source: { truncated: false, errorCount: 0 }
+    });
+    expect(selected.items[0]).toMatchObject({
+      id: plans[0].id,
+      projectId: first.id,
+      truncated: true
+    });
+    expect(
+      reads.mock.calls
+        .filter(([name]) => name === "list_plans")
+        .map(([, args]) => (args as any).projectId)
+    ).toEqual([first.id]);
+    reads.mockClear();
+    const allResponse = await app.response(
+      "/workspace/tools/list_work",
+      {},
+      {
+        ...fixture.auth.headers("operator"),
+        "x-workspace-conversation-id": unassignedConversation.id
+      }
+    );
+    expect(allResponse.status).toBe(200);
+    const all = await allResponse.json();
+    expect(all).toMatchObject({
+      scope: { projectId: null, source: "all_active", projectsRead: 2 },
+      counts: { read: 2, ready: 2 }
+    });
+    expect(new Set(all.items.map((item: any) => item.id))).toEqual(
+      new Set([plans[0].id, plans[1].id])
+    );
+    const explicit = await (
+      await app.response(
+        "/workspace/tools/list_work",
+        { projectId: second.id.toUpperCase() },
+        headers
+      )
+    ).json();
+    expect(explicit).toMatchObject({
+      scope: { projectId: second.id, source: "explicit", projectsRead: 1 },
+      items: [{ id: plans[1].id }]
+    });
+    reads.mockClear();
+    const unqueried = await app.rpc("list_work", { projectId: unbacked.id });
+    expect(unqueried).toMatchObject({
+      scope: { projectId: unbacked.id, source: "explicit", projectsRead: 0 },
+      counts: { read: 0 },
+      items: []
+    });
+    expect(reads).not.toHaveBeenCalled();
+    expect(readFileSync(join(fixture.directory, "workspace.json"), "utf8")).toBe(before);
+    reads.mockRestore();
+    const snapshot = await app.rpc("get_workspace", { projectId: first.id });
+    expect(snapshot.work.map((row: any) => row.digest)).toEqual(selected.items);
+    const foreign = await fixture.start(fixture.foreignAuth);
+    const foreignReads = vi.spyOn(foreign.workflows, "call");
+    const protectedBefore = readFileSync(join(fixture.directory, "workspace.json"), "utf8");
+    expect(
+      (await foreign.response("/workspace/tools/list_work", { projectId: first.id })).status
+    ).toBe(404);
+    expect(foreignReads).not.toHaveBeenCalled();
+    expect(foreign.catalog.listProjects(fixture.foreignAuth.auth.principalId)).toEqual([]);
+    expect(readFileSync(join(fixture.directory, "workspace.json"), "utf8")).toBe(protectedBefore);
+    expect(fixture.generate).not.toHaveBeenCalled();
+    expect(fixture.readReport).not.toHaveBeenCalled();
+  });
+
+  it("keeps a known recorded execution failure complete, and only marks actual run read failures as incomplete source", async () => {
+    const fixture = await workspaceFixture();
+    fixture.readReport.mockRejectedValueOnce(new Error("PRIVATE_EXECUTOR_ERROR"));
+    const app = await fixture.start();
+    const project = await app.rpc("register_project", {
+      name: "Known execution failure",
+      hekateProjectId: randomUUID()
+    });
+    const plan = await app.rpc("create_plan", {
+      projectId: project.id,
+      definition: {
+        version: 1,
+        name: "Fail and inspect",
+        steps: [{ id: "read", name: "Read report", action: { type: "tool", tool: "read_report" } }]
+      }
+    });
+    const run = await app.rpc("run_plan", {
+      projectId: project.id,
+      id: plan.id,
+      revision: plan.revision
+    });
+    await expect
+      .poll(async () => (await app.rpc("get_run", { projectId: project.id, id: run.id })).status)
+      .toBe("failed");
+    const known = await app.rpc("list_work", { projectId: project.id });
+    expect(known).toMatchObject({
+      counts: { read: 1, needs_attention: 1 },
+      source: { truncated: false, errorCount: 0 },
+      errors: [],
+      errorsOmitted: 0,
+      items: [
+        {
+          state: "needs_attention",
+          errors: ["Step action failed"],
+          run: { id: run.id, status: "failed", current: true }
+        }
+      ]
+    });
+    const workspace = await app.rpc("get_workspace", { projectId: project.id });
+    expect(workspace.work[0]).toMatchObject({ status: "failed", error: "Step action failed" });
+    const principal = fixture.auth.auth.resolve(fixture.auth.headers("operator"))!;
+    const formatted = app.workspace
+      .capabilities({
+        conversationId: "observer",
+        userId: "observer",
+        text: "List work",
+        timestampIso: new Date().toISOString(),
+        applicationContext: { principal }
+      })
+      .find((tool) => tool.id === "list_work")!.formatResult!(known)!;
+    expect(formatted).toContain("Needs attention");
+    expect(formatted).not.toContain("Counts are lower bounds");
+    expect(JSON.stringify(known)).not.toContain("PRIVATE_EXECUTOR_ERROR");
+    const originalCall = app.workflows.call.bind(app.workflows);
+    const reads = vi
+      .spyOn(app.workflows, "call")
+      .mockImplementation(async (name, input, context) => {
+        if (name === "get_run") throw new Error("PRIVATE_STORAGE_ERROR");
+        return originalCall(name, input, context);
+      });
+    const unread = await app.rpc("list_work", { projectId: project.id });
+    expect(unread).toMatchObject({
+      counts: { read: 1, needs_attention: 1 },
+      source: { truncated: false, errorCount: 1 },
+      errors: [
+        { projectId: project.id, workId: plan.id, message: "The recorded run could not be read." }
+      ],
+      items: [{ state: "needs_attention", run: null }]
+    });
+    expect(reads.mock.calls.filter(([name]) => name === "get_run")).toHaveLength(1);
+    expect(JSON.stringify(unread)).not.toContain("PRIVATE_STORAGE_ERROR");
+    expect(fixture.readReport).toHaveBeenCalledTimes(1);
+    expect(fixture.generate).not.toHaveBeenCalled();
+  });
+
+  it("reports controlled source caps, run and project errors, with bounded error details and honest preselection counts", async () => {
+    let apiRequests = 0;
+    const apiUrl = await endpoint((_req, res) => {
+      apiRequests++;
+      json(res, { private: "PRIVATE_PROVIDER_MESSAGE" }, 500);
+    });
+    const fixture = await workspaceFixture();
+    const app = await fixture.start(fixture.auth, apiUrl);
+    const project = await app.rpc("register_project", {
+      name: "Observed failures",
+      hekateProjectId: randomUUID()
+    });
+    const template = await app.rpc("create_plan", {
+      projectId: project.id,
+      definition: {
+        version: 1,
+        name: "Read error fixture",
+        steps: [
+          {
+            id: "review",
+            name: "Review",
+            action: { type: "human", instructions: "Inspect actual evidence" }
+          }
+        ]
+      }
+    });
+    const originalCall = app.workflows.call.bind(app.workflows);
+    let total = 30;
+    let failedRuns = true;
+    vi.spyOn(app.workflows, "call").mockImplementation(async (name, input, context) => {
+      if (name === "list_plans")
+        return {
+          plans: Array.from({ length: total }, () => ({
+            ...template,
+            id: randomUUID(),
+            ...(failedRuns ? { latestRunId: randomUUID() } : {})
+          }))
+        };
+      if (name === "get_run") throw new Error("PRIVATE_PROVIDER_MESSAGE");
+      return originalCall(name, input, context);
+    });
+    const errors = await app.rpc("list_work", { projectId: project.id });
+    expect(errors).toMatchObject({
+      counts: { read: 30, needs_attention: 30 },
+      source: { truncated: false, errorCount: 31 },
+      selection: { matched: 30, returned: 25, omitted: 5 },
+      errorsOmitted: 11
+    });
+    expect(errors.errors).toHaveLength(20);
+    expect(errors.errors[0]).toMatchObject({
+      projectId: project.id,
+      workId: expect.any(String),
+      message: "The recorded run could not be read."
+    });
+    expect(JSON.stringify(errors)).not.toContain("PRIVATE_PROVIDER_MESSAGE");
+    total = 501;
+    failedRuns = false;
+    const capped = await app.rpc("list_work", { projectId: project.id, state: ["ready"] });
+    expect(capped).toMatchObject({
+      counts: { read: 500, ready: 500 },
+      source: { truncated: true, errorCount: 1 },
+      selection: { matched: 500, returned: 25, omitted: 475 }
+    });
+    for (const args of [
+      { limit: 0 },
+      { limit: 26 },
+      { state: [] },
+      { state: ["ready", "ready"] },
+      { state: ["invented"] }
+    ])
+      expect((await app.response("/workspace/tools/list_work", args)).status).toBe(400);
+    expect(fixture.generate).not.toHaveBeenCalled();
+    expect(fixture.readReport).not.toHaveBeenCalled();
+    const foreign = await fixture.start(fixture.foreignAuth, apiUrl);
+    const foreignReads = vi.spyOn(foreign.workflows, "call");
+    const beforeApi = apiRequests;
+    expect(
+      (await foreign.response("/workspace/tools/list_work", { projectId: project.id })).status
+    ).toBe(404);
+    expect(foreignReads).not.toHaveBeenCalled();
+    expect(apiRequests).toBe(beforeApi);
+  });
+
+  it("bounds encoded directory work without replacing project metadata or copying full outputs", async () => {
+    const fixture = await workspaceFixture();
+    const app = await fixture.start();
+    const project = await app.rpc("register_project", {
+      name: "Large observed project",
+      hekateProjectId: randomUUID()
+    });
+    const name = "x" + "\0".repeat(198) + "x";
+    const plan = await app.rpc("create_plan", {
+      projectId: project.id,
+      definition: {
+        version: 1,
+        name,
+        steps: [{ id: "review", name, action: { type: "human", instructions: "p".repeat(4000) } }]
+      }
+    });
+    vi.spyOn(app.catalog, "listProjects").mockReturnValue([
+      project,
+      ...Array.from({ length: 200 }, () => ({
+        ...project,
+        id: randomUUID(),
+        repositoryPath: "D:/" + "r".repeat(3990)
+      }))
+    ]);
+    const originalCall = app.workflows.call.bind(app.workflows);
+    vi.spyOn(app.workflows, "call").mockImplementation(async (name, input, context) => {
+      if (name === "list_plans")
+        return { plans: Array.from({ length: 500 }, () => ({ ...plan, id: randomUUID() })) };
+      return originalCall(name, input, context);
+    });
+    const response = await app.response("/workspace/tools/get_workspace", {
+      projectId: project.id
+    });
+    expect(response.status).toBe(200);
+    const encoded = await response.text();
+    expect(Buffer.byteLength(encoded)).toBeLessThan(2 * 1024 * 1024);
+    const snapshot = JSON.parse(encoded);
+    expect(snapshot.truncated).toBe(true);
+    expect(snapshot.work.length).toBeGreaterThan(0);
+    expect(snapshot.work.length).toBeLessThan(500);
+    expect(snapshot.projects).toContainEqual(
+      expect.objectContaining({ id: project.id, name: project.name })
+    );
+    expect(fixture.generate).not.toHaveBeenCalled();
+    expect(fixture.readReport).not.toHaveBeenCalled();
+  });
+
   it("reopens and continues a legacy thread with its nondefault user label without guessing or changing the saved owner", async () => {
     const fixture = await workspaceFixture();
     const first = await fixture.start();
@@ -470,6 +1012,17 @@ describe("authenticated saved workspace journeys", () => {
   it("reopens a scoped conversation and its waiting project work after restart, with owner isolation", async () => {
     const fixture = await workspaceFixture();
     const first = await fixture.start();
+    const principal = fixture.auth.auth.resolve(fixture.auth.headers("operator"))!;
+    const formattedDigest = (app: typeof first, digest: unknown) =>
+      app.workspace
+        .capabilities({
+          conversationId: "observer",
+          userId: "observer",
+          text: "Read work",
+          timestampIso: new Date().toISOString(),
+          applicationContext: { principal }
+        })
+        .find((tool) => tool.id === "get_work_digest")!.formatResult!(digest)!;
     const project = await first.rpc("register_project", {
       name: "Report review project",
       repositoryPath: fixture.directory,
@@ -560,6 +1113,60 @@ describe("authenticated saved workspace journeys", () => {
         latestRunId: started.id
       })
     );
+    const waitingDigest = await first.rpc("get_work_digest", {
+      id: plan.id,
+      projectId: project.id.toUpperCase()
+    });
+    expect(waitingDigest).toMatchObject({
+      state: "needs_decision",
+      decision: {
+        stepId: "review",
+        kind: "result",
+        prompt: definition.steps[1].action.instructions
+      },
+      progress: { done: 1, total: 2 },
+      run: { id: started.id, current: true },
+      verification: null
+    });
+    expect(savedDirectory.work.find((row: any) => row.id === plan.id).digest).toEqual(
+      waitingDigest
+    );
+    const client = new Client({ name: "current-digest-observer", version: "1.0.0" });
+    cleanups.push(() => client.close());
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(first.base + "/mcp"), {
+        requestInit: { headers: fixture.auth.headers("operator") }
+      })
+    );
+    const remoteDigest = await client.callTool({
+      name: "get_work_digest",
+      arguments: { id: plan.id, projectId: project.id }
+    });
+    expect(remoteDigest.isError).toBe(false);
+    expect(remoteDigest.structuredContent).toEqual(waitingDigest);
+    expect(
+      await first.workspace.call(
+        "get_work_digest",
+        { id: plan.id, projectId: project.id },
+        { principal, operationId: randomUUID(), conversationId }
+      )
+    ).toEqual(waitingDigest);
+    const waitingText = formattedDigest(first, waitingDigest);
+    expect(formattedDigest(first, remoteDigest.structuredContent)).toBe(waitingText);
+    expect(waitingText).toContain("Needs your decision");
+    expect(waitingText).toContain(waitingDigest.decision.prompt);
+    expect(waitingText).toContain(waitingDigest.lastOutcome.summary);
+    expect(waitingText).toContain(`run ${started.id}, revision ${plan.revision}, current`);
+    expect(waitingText).toContain("Verification: not verified");
+    expect(waitingDigest.lastOutcome.ref).toBe(`run:${started.id}:step:read`);
+    expect(waitingText).not.toContain(JSON.stringify(started.steps[0].output));
+    await client.close();
+    const catalogBeforeReads = readFileSync(join(fixture.directory, "workspace.json"), "utf8");
+    await first.rpc("get_work_digest", { id: plan.id, projectId: project.id });
+    expect(readFileSync(join(fixture.directory, "workspace.json"), "utf8")).toBe(
+      catalogBeforeReads
+    );
+    expect(fixture.readReport).toHaveBeenCalledTimes(1);
     const providerCalls = fixture.generate.mock.calls.length;
     await first.close();
 
@@ -577,6 +1184,14 @@ describe("authenticated saved workspace journeys", () => {
     expect(
       (await foreign.response("/workspace/tools/get_plan", { projectId: project.id, id: plan.id }))
         .status
+    ).toBe(404);
+    expect(
+      (
+        await foreign.response("/workspace/tools/get_work_digest", {
+          projectId: project.id,
+          id: plan.id
+        })
+      ).status
     ).toBe(404);
     await foreign.close();
 
@@ -634,6 +1249,28 @@ describe("authenticated saved workspace journeys", () => {
     expect((await restored.rpc("get_workspace", { projectId: project.id })).work).toContainEqual(
       expect.objectContaining({ id: plan.id, status: "completed", latestRunId: started.id })
     );
+    const completedDigest = await restored.rpc("get_work_digest", {
+      projectId: project.id,
+      id: plan.id
+    });
+    expect(completedDigest).toMatchObject({
+      state: "completed",
+      next: null,
+      progress: { done: 2, total: 2 },
+      approval: {
+        stepId: "review",
+        ref: `run:${started.id}:step:review`
+      },
+      run: { current: true }
+    });
+    expect(completedDigest.approval.at).toBeTruthy();
+    expect(completedDigest.verification).toBeNull();
+    const completedText = formattedDigest(restored, completedDigest);
+    expect(completedText).toContain("Completed");
+    expect(completedText).toContain("Approval: recorded for step review");
+    expect(completedText).toContain(completedDigest.approval.at);
+    expect(completedText).toContain("Verification: not verified");
+    expect(completedText).not.toContain("by you");
     const revisedDefinition = {
       ...definition,
       name: "Read and review the refreshed report",
@@ -665,6 +1302,60 @@ describe("authenticated saved workspace journeys", () => {
       revision: plan.revision,
       definition: { name: definition.name }
     });
+    const historicalDigest = await restored.rpc("get_work_digest", {
+      projectId: project.id,
+      id: plan.id
+    });
+    expect(historicalDigest).toMatchObject({
+      state: "ready",
+      stateText: "Edited since the last run.",
+      approval: null,
+      revision: revised.revision,
+      progress: { done: 0, total: 2 },
+      verification: null,
+      run: { revision: plan.revision, current: false },
+      lastOutcome: { ref: `run:${started.id}:step:review` }
+    });
+    expect(revisedWorkspace.work.find((row: any) => row.id === plan.id).digest).toEqual(
+      historicalDigest
+    );
+    const historicalList = await restored.rpc("list_work", {
+      projectId: project.id,
+      state: [...workStates]
+    });
+    expect(historicalList.items).toEqual([historicalDigest]);
+    expect(historicalList.counts).toMatchObject({ read: 1, ready: 1, completed: 0 });
+    const historicalText = formattedDigest(restored, historicalDigest);
+    expect(historicalText).toContain("Ready");
+    expect(historicalText).toContain("Edited since the last run");
+    expect(historicalText).toContain("Historical revision outcome");
+    expect(historicalText).toContain(`run ${started.id}, revision ${plan.revision}, historical`);
+    expect(historicalText).not.toContain("Approval:");
+    const originalCall = restored.workflows.call.bind(restored.workflows);
+    const reads = vi
+      .spyOn(restored.workflows, "call")
+      .mockImplementation(async (name, input, context) => {
+        if (name === "get_run") throw new Error("PRIVATE_BACKEND_DETAILS");
+        return originalCall(name, input, context);
+      });
+    const unavailable = await restored.rpc("get_work_digest", {
+      projectId: project.id,
+      id: plan.id
+    });
+    expect(unavailable).toMatchObject({
+      state: "needs_attention",
+      errors: ["The recorded run could not be read."],
+      run: null
+    });
+    expect(JSON.stringify(unavailable)).not.toContain("PRIVATE_BACKEND_DETAILS");
+    expect(reads.mock.calls.filter(([name]) => name === "get_run")).toHaveLength(1);
+    reads.mockClear();
+    const unavailableWorkspace = await restored.rpc("get_workspace", { projectId: project.id });
+    expect(unavailableWorkspace.work.find((row: any) => row.id === plan.id).digest.state).toBe(
+      "needs_attention"
+    );
+    expect(reads.mock.calls.filter(([name]) => name === "get_run")).toHaveLength(1);
+    reads.mockRestore();
     expect(fixture.readReport).toHaveBeenCalledTimes(1);
   });
 

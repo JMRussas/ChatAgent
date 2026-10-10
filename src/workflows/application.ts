@@ -4,6 +4,8 @@ import { SafeCapabilityError, type CapabilityTool } from "../app/capabilityChat"
 import type { UserMessage } from "../domain/types";
 import { WorkflowService } from "./service";
 import { HekateWorkflowStore } from "./hekateStore";
+import { digestReturnedRun, formatWorkDigest, workDigestSchema } from "../workspace/workDigest";
+import { formatWorkList, listWorkSchema } from "../workspace/listWork";
 import {
   WorkflowError,
   workflowDefinitionSchema,
@@ -19,13 +21,16 @@ const planResultSchema = z.object({
   definition: workflowDefinitionSchema,
   work: z.enum(["todo", "in_progress", "done", "cancelled"])
 });
-const runResultSchema = z.object({
-  id: z.string().uuid(),
-  definition: workflowDefinitionSchema,
-  status: z.enum(["running", "waiting_input", "completed", "failed", "stopped", "uncertain"])
-});
 /** Summaries describe returned state; malformed outcomes retain the generic display. */
 export function formatWorkflowResult(tool: string, result: unknown): string | undefined {
+  if (tool === "list_work") {
+    const parsed = listWorkSchema.safeParse(result);
+    return parsed.success ? formatWorkList(parsed.data) : undefined;
+  }
+  if (tool === "get_work_digest") {
+    const parsed = workDigestSchema.safeParse(result);
+    return parsed.success ? formatWorkDigest(parsed.data) : undefined;
+  }
   if (["create_plan", "update_plan", "get_plan"].includes(tool)) {
     const parsed = planResultSchema.safeParse(result);
     if (!parsed.success) return undefined;
@@ -41,17 +46,8 @@ export function formatWorkflowResult(tool: string, result: unknown): string | un
       tool
     )
   ) {
-    const parsed = runResultSchema.safeParse(result);
-    if (!parsed.success) return undefined;
-    const status = {
-      running: "running",
-      waiting_input: "waiting for input",
-      completed: "completed",
-      failed: "failed",
-      stopped: "stopped",
-      uncertain: "outcome uncertain"
-    }[parsed.data.status];
-    return `Workflow “${parsed.data.definition.name}”: ${status}.`;
+    const digest = digestReturnedRun(result);
+    return digest ? formatWorkDigest(digest) : undefined;
   }
   return undefined;
 }

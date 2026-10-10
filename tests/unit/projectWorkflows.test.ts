@@ -38,6 +38,28 @@ function service(): WorkflowToolService & {
   };
 }
 describe("project workflow routing", () => {
+  it("looks up an existing default without registering it or exposing another owner's project", () => {
+    const catalog = new WorkspaceCatalog();
+    const binding = randomUUID();
+    const router = new ProjectWorkflowRouter({
+      catalog,
+      legacy: service(),
+      factory: () => service(),
+      runDir: runDirectory(),
+      legacyProject: { name: "Default", hekateProjectId: binding }
+    });
+    expect(router.existingLegacyProject("alice")).toBeUndefined();
+    expect(catalog.listProjects("alice")).toEqual([]);
+    catalog.createProject("bob", { name: "Bob's default", hekateProjectId: binding });
+    expect(router.existingLegacyProject("alice")).toBeUndefined();
+    const registered = catalog.createProject("alice", {
+      name: "Alice's default",
+      hekateProjectId: binding
+    });
+    expect(router.existingLegacyProject("alice")).toEqual(registered);
+    expect(catalog.listProjects("alice")).toEqual([registered]);
+  });
+
   it("preserves legacy storage and scopes explicit project calls to reusable per-project services", async () => {
     const catalog = new WorkspaceCatalog();
     const runDir = runDirectory();

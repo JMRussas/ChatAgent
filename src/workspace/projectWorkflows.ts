@@ -55,6 +55,16 @@ export class ProjectWorkflowRouter implements WorkflowToolService {
       : undefined;
   }
 
+  /** Resolve an already registered default without creating navigation metadata. */
+  existingLegacyProject(owner: string): WorkspaceProject | undefined {
+    const binding = this.options.legacyProject?.hekateProjectId.toLowerCase();
+    return binding
+      ? this.options.catalog
+          .listProjects(owner)
+          .find((project) => project.hekateProjectId === binding)
+      : undefined;
+  }
+
   async call(name: string, input: unknown, context: WorkflowContext): Promise<unknown> {
     if (this.closed) throw new WorkflowError("service_closed", "Workflow service is closed.", 503);
     if (!context.principal.roles.has("operator"))
