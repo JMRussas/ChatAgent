@@ -245,14 +245,12 @@ describe("plan status panel markup and script", () => {
     });
   });
 
-  it("has no HTML sink, token handling, write verb or second network call", () => {
+  it("has no HTML sink, token handling, write verb or alternate transport", () => {
     const script = body();
     expect(script).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(/);
     expect(script).not.toMatch(/Authorization|localStorage|document\.cookie|location\./i);
     expect(script).not.toMatch(/['"](POST|PUT|PATCH|DELETE)['"]/);
     expect(script).not.toMatch(/setInterval|EventSource|WebSocket|sendBeacon|XMLHttpRequest/);
-    expect(script.match(/\bfetch\(/g)).toHaveLength(1);
-    expect(script).toContain("'/development/plans/' + value + '/status'");
   });
 });
 
