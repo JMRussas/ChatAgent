@@ -388,31 +388,71 @@ describe("continuation refusals launch no worker", () => {
     }
   });
 
-  it("refuses a dirty start, a staged change and a moved base", async () => {
-    const dirty = fixture();
-    dirty.write("src/b.ts", "export const b = 2;\n");
-    await refusal(dirty, "worktree_dirty");
-    const staged = fixture();
-    staged.write("src/b.ts", "export const b = 3;\n");
-    git(staged.wt, "add", "src/b.ts");
-    await refusal(staged, "worktree_dirty");
-    const moved = fixture();
-    moved.write("src/b.ts", "export const b = 4;\n");
-    git(moved.wt, "-c", "user.name=x", "-c", "user.email=x@invalid", "commit", "-qam", "move");
-    await refusal(moved, "pin_mismatch");
-  });
+  // One real Git fixture per case, so each has its own bounded test budget rather
+  // than sharing one default five seconds across three fixtures on a Windows host.
+  // The 30s figure is a test-runner allowance for real Git, not a product timeout.
+  const GIT_CASE_MS = 30_000;
 
-  it("refuses unsupported pins", async () => {
-    const tool = fixture();
-    tool.manifest.toolingSha256.vitest = "0".repeat(64);
-    await refusal(tool, "pin_mismatch");
-    const node = fixture();
-    node.manifest.nodeExecutable.sha256 = "0".repeat(64);
-    await refusal(node, "pin_mismatch");
-    const missing = fixture();
-    await rm(join(missing.wt, "node_modules", "prettier", "bin", "prettier.cjs"));
-    await refusal(missing, "pin_mismatch");
-  });
+  it.each([
+    {
+      name: "a dirty start",
+      code: "worktree_dirty",
+      arrange: (f: Fixture) => f.write("src/b.ts", "export const b = 2;\n")
+    },
+    {
+      name: "a staged change",
+      code: "worktree_dirty",
+      arrange: (f: Fixture) => {
+        f.write("src/b.ts", "export const b = 3;\n");
+        git(f.wt, "add", "src/b.ts");
+      }
+    },
+    {
+      name: "a moved base",
+      code: "pin_mismatch",
+      arrange: (f: Fixture) => {
+        f.write("src/b.ts", "export const b = 4;\n");
+        git(f.wt, "-c", "user.name=x", "-c", "user.email=x@invalid", "commit", "-qam", "move");
+      }
+    }
+  ])(
+    "refuses $name",
+    async ({ code, arrange }) => {
+      const f = fixture();
+      arrange(f);
+      await refusal(f, code);
+    },
+    GIT_CASE_MS
+  );
+
+  it.each([
+    {
+      name: "a mismatched Vitest hash",
+      arrange: async (f: Fixture) => {
+        f.manifest.toolingSha256.vitest = "0".repeat(64);
+      }
+    },
+    {
+      name: "a mismatched Node hash",
+      arrange: async (f: Fixture) => {
+        f.manifest.nodeExecutable.sha256 = "0".repeat(64);
+      }
+    },
+    {
+      name: "a missing Prettier",
+      arrange: async (f: Fixture) => {
+        await rm(join(f.wt, "node_modules", "prettier", "bin", "prettier.cjs"));
+      }
+    }
+  ])(
+    "refuses unsupported pins: $name",
+    async ({ arrange }) => {
+      const f = fixture();
+      await arrange(f);
+      await refusal(f, "pin_mismatch");
+    },
+    GIT_CASE_MS
+  );
 
   // Each refusal creates a real Git worktree and runs bounded preflight commands.
   // Keep an independent test budget per case instead of sharing five seconds
