@@ -95,10 +95,11 @@ describe("home page integration", () => {
     expect(on.indexOf('id="executiveOverview"')).toBeLessThan(on.indexOf('id="userId"'));
   });
 
-  it("offers Refresh and no other control, with generated script that parses", () => {
+  it("offers Refresh and opt-in automatic refresh, with generated script that parses", () => {
     const html = executiveOverviewHtml();
     expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).toContain(">Refresh</button>");
+    expect(html).toContain('id="execAutoRefresh"');
     const script = executiveOverviewScript();
     expect(
       () => new Function(script.replace(/^<script>/, "").replace(/<\/script>$/, ""))

@@ -598,8 +598,15 @@ the configured value. Goals are operator-written configuration, not verified res
 per-root `ok`, `invalid` or `unavailable` entries (a code only, never an upstream body, message
 or URL); `503` is reserved for the collector failing as a whole. Bounds: 5 s per root, 8 s overall,
 2 MiB upstream per root, 100 tasks per root and 1 MiB serialized (trailing tasks are dropped with
-an accurate `tasksOmitted`; JSON is never truncated). The page loads empty; only the Refresh
-button and expanding a task issue requests, both `GET`. It reports PlanStore acceptance only:
+an accurate `tasksOmitted`; JSON is never truncated). The page loads empty with
+automatic refresh unchecked. Refresh, explicit opt-in automatic overview refresh,
+and expanding a task issue only `GET` requests. Automatic refresh reads immediately
+when enabled, then waits ten seconds after each request settles, without overlap.
+It pauses while the document is hidden or the overview is collapsed; an existing
+request may settle during the pause. Disabling it cancels an automatic request.
+Any refresh error, scope change or page disposal disables it, and reload requires
+a new opt-in. Existing expanded evidence is preserved only for unchanged bindings;
+worker traces are not automatically refreshed. It reports PlanStore acceptance only:
 source integration, deployment, worker liveness and budget are not established by it.
 
 #### Checkpoint budget records (optional, read-only)

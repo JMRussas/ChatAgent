@@ -748,9 +748,14 @@ including an `in_progress` task in Active and the In progress board column. A
 live read-only check matched zero active database tasks to zero visible Active
 tasks, with no page errors. Evidence:
 `D:/hekate-coordinator/rechecks/active-ui-20261008/`.
-No active-filter defect was reproduced. Refresh is explicitly manual in the
-current UI; automatic progress refresh remains a planned feature, not a closed
-defect. Check the real active worker during the next run as a separate live case.
+No active-filter defect was reproduced. The 2026-10-10 local executive overview
+patch adds explicit opt-in automatic overview refresh; fifteen Chromium cases
+pass, including task-state updates without another refresh click. Hidden or
+collapsed views pause it, and errors, scope changes and reload disable it.
+Worker trace/progress polling is still undelivered. This is controlled browser
+evidence; check the real active worker during the next live run before claiming
+delivery or reduced end-to-end supervision. Current task and limits are in the
+[roadmap](12-development-roadmap.md#todays-execution-order-2026-10-10).
 
 ### API task authoring finding — route inventory omitted
 

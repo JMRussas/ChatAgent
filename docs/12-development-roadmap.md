@@ -12,13 +12,76 @@ verbatim in `NOTICE`, linked from each README; package metadata remains unchange
 The standard body’s words are unchanged. Remote detection is verified separately
 in `license-recognition-001`; it must report `agpl-3.0` before task acceptance.
 
-## Current plan — executive observability and checkpoint delivery (2026-10-09)
+## Current plan — useful task completion with less intervention (2026-10-10)
 
-This section is the authoritative execution order. Earlier dated entries below are
-historical decisions, not competing instructions for the next step. The sports work
-remains a deliberate demonstration of the general role/tool/evidence runtime.
+The execution order below supersedes the earlier delivery sequence. A useful
+assistant and autonomous execution remain one product goal. Judge orchestration by
+whether it improves reliable task completion and reduces required supervision.
+The sports work remains a demonstration of the general role/tool/evidence runtime.
 
-### Current assessment and next execution gate (2026-10-09)
+### Today's execution order (2026-10-10)
+
+1. Confirm the exact source baseline and its required Linux/Windows CI results.
+   Local `main` is clean at `9755b5c` before this planning edit; lint passed today.
+   Both required jobs (`verify`, `windows-tests`) passed on that exact source in
+   main run `38024062041`, freshly checked today. The recorded 3,490-test result
+   remains prior evidence.
+2. Select one meaningful task from the existing product backlog, state its
+   observable success criterion, and run it through the maintained workflow.
+   Selected task: remove repeated manual refresh from watching the executive
+   overview. Success means a task-state change appears after explicit opt-in
+   without another click, while preserving scope and evidence identity rules.
+   Use existing ownership, budget and verification controls; keep the result and
+   any failure evidence.
+3. Record where completion requires intervention, why, and the active operator
+   time involved. Distinguish required review from avoidable recovery or status
+   reconstruction. Use the existing evidence records; no new tracking subsystem
+   is needed for this exercise.
+4. Fix the most consequential observed interruption, then repeat the affected
+   workflow to check whether the intervention was removed or reduced. Add
+   orchestration only when it addresses an observed obstacle to completion.
+
+Today's success criterion is a meaningful completed task with recorded
+interventions and a verified improvement where feasible. If blocked, preserve the
+exact blocker and failed evidence without claiming completion. One run provides
+an initial measurement, not a throughput or unattended-reliability claim.
+
+CA-ISSUE-051's fixed scoped mutator and retained-store proof are conditional work:
+resume them if the task demonstrates that automated operator repair is needed.
+The issue remains open and its reviewed contract and acceptance gates still apply.
+Same-page formatting detail and additional recovery orchestration are deferred
+unless they resolve an observed interruption. CA-ISSUE-004 remains open; this
+reprioritization changes neither execution authority nor delivered capability.
+
+**Current task — automatic overview refresh (2026-10-10):** the local patch adds
+an unchecked opt-in control, one overview GET at a time, and a ten-second delay
+after settlement. It pauses while hidden or collapsed, stops on errors and scope
+changes, cancels an automatic read when disabled, and resets on reload. Existing
+task expansions remain in place; changed bindings invalidate their evidence.
+Fifteen real Chromium cases pass on Node 24.21.0, including five new automatic
+refresh cases. The full suite passes 3,502 tests across 212 files with one explicit
+skip on Node 24.21.0 (288.13 seconds), plus lint and documentation validation.
+This is a verified local source change; hosted verification of this patch and
+live delivery remain outstanding.
+
+The observed product interruption was repeated manual refresh in retained UI
+evidence. The browser exercise now needs one opt-in and zero additional refresh
+clicks for its next task-state update. This is controlled browser evidence, not a
+live worker or throughput measurement. Two verification interventions were needed:
+correct a test's expected label to the UI's existing "Awaiting review", and select
+the maintained Node 24.21.0 interpreter after the default 24.15.0 launch was
+refused before tests. Active operator time was not instrumented and is unknown.
+Evidence and the initial failed browser trace are external under
+`overview-auto-refresh-20261010`; maintained-interpreter check logs are under
+`cleanup-loop-001/overview-auto-refresh-*-20261010.*`.
+
+The maintained UI/API ports 5133, 5193 and 5100 refused connections during this
+session. Implementation proceeded directly in the repository with the existing
+test workflow; no managed PlanStore task, live model invocation, service restart
+or deployment is claimed. A live workflow run remains outstanding before judging
+end-to-end supervision or deciding whether the scoped mutator is needed.
+
+### Recorded implementation status (through 2026-10-09)
 
 **Latest checkpoint loop (2026-10-09):** the bounded targeted-start queue is
 implemented and independently verified against source `de518fc`
@@ -56,7 +119,7 @@ paired primary viewer at port 5133 loaded this maintained source; a headless che
 confirmed the accepted live formatter proof and current planning attempt in place.
 This is source delivery, not an NSSM deployment.
 
-**Next execution order:** CA-ISSUE-051 (operator mutation handoff guard, task
+**Open handoff work (conditional under today's order):** CA-ISSUE-051 (operator mutation handoff guard, task
 `4071b736-67ef-5f87-b180-d357356d15b5`) remains OPEN: the product source guard
 correctly refused the old mutated candidate, and the cooperative handoff guard that
 refuses nonterminal or stale verification is not yet delivered. Its
@@ -72,7 +135,8 @@ handle; pending, forged, foreign and reused handles cannot provide provenance.
 This does not authorize source writes. The fixture-type defect CA-ISSUE-054 is
 repaired without changing production code or process assertions. Clean source
 integration and both required hosted jobs remain the delivery gate; the fixed
-scoped mutator and retained-store proof are still next. Both CA-ISSUE-051 and CA-ISSUE-004 remain
+scoped mutator and retained-store proof remain undelivered and conditional on the
+workflow assessment above. Both CA-ISSUE-051 and CA-ISSUE-004 remain
 open. Old attempt budgets and failed gates are never relabelled.
 
 The scoped formatter runtime contract is lead-reviewed in
@@ -86,7 +150,8 @@ passes Prettier, TypeScript and focused Vitest. PlanStore records one start and 
 finish, naming only the final commit. The queue completes in one invocation after
 independent lead artifact acceptance. Paired candidate UI shows the exact current
 source/gate in place. Raw/formatter facts remain in the v2 CLI record; explicit
-same-page formatting detail is the next observability increment, not yet delivered.
+same-page formatting detail remains an undelivered observability option, deferred
+under today's execution order.
 
 CA-ISSUE-052 is closed for the defined formatter scope. The two budget-stopped
 partial snapshots and failed gates remain unchanged. Narrow repair `b87fcec` uses
@@ -163,7 +228,7 @@ The actual UI has restored the genuine reliability backlog against the retained
 store. Evidence: `rehearsal-rework-001/final-reload.json` and
 `post-native-backlog-ui-launch.json`.
 
-**Next delivery order — executive observability MVP first (2026-10-09):**
+**Prior delivery sequence — executive observability MVP first (2026-10-09; superseded by today's execution order):**
 
 1. The first bounded CA-ISSUE-004 recovery assessment is accepted at epoch 1,
    attempt `recovery-assessment-001-r1`, exact artifact

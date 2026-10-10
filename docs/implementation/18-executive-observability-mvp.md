@@ -160,8 +160,21 @@ interface ExecutiveRootView {
   otherwise plain identifiers. No link is fabricated.
 - Every label, goal, task name, reason, ref and statement is written with `textContent`; no
   `innerHTML`, progress URLs are constructed only from validated root/node GUIDs; no arbitrary data URL is followed, no inline handlers from data.
-- **No request on load or reload.** The page loads empty with "Press Refresh". Manual refresh is
-  the MVP; no polling. The only automatic GET is task expansion. There is no POST anywhere.
+- **No request on load or reload.** The page loads empty with "Press Refresh".
+  Automatic refresh is an explicit, unchecked checkbox on every load, including
+  reload. Enabling it reads the overview immediately, then waits ten seconds
+  after each request settles before the next GET. Requests never overlap. While
+  the document is hidden or the overview is collapsed, no automatic request
+  starts; returning to the visible overview schedules the next ten-second wait.
+  An already running request may settle while paused. Disabling the checkbox
+  cancels an automatic request. Any refresh error (including invalid data or
+  timeout), user/conversation change, or page disposal disables automatic
+  refresh. Failures retain the existing stale-data banner. Task expansion remains
+  the only progress GET; automatic overview refresh does not poll worker traces.
+  There is no POST anywhere. Browser acceptance is in
+  `tests/browser/executiveOverview.spec.ts`, including observed task-state
+  updates, preserved expansion and invalidated evidence, pause, cancellation,
+  timeout, failure, scope change and reload reset.
 
 ### Failure, stale and scope rules
 

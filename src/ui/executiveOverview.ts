@@ -12,14 +12,17 @@ export const EXECUTIVE_UI_LIMITS = {
   maxContinuationItems: 32,
   maxConcurrentDrills: 3,
   overviewDeadlineMs: 12_000,
+  autoRefreshMs: 10_000,
   drillDeadlineMs: 10_000,
   maxResponseBytes: 1024 * 1024
 } as const;
 
 /**
  * Operator-only, read-only executive overview. It issues nothing at load or reload: the only
- * requests are the Refresh button's GET of the fixed overview and one GET of the existing
- * progress route when a task is expanded. There is no POST, no polling and no navigation.
+ * requests are explicit Refresh, opt-in automatic overview refresh, and one GET of the existing
+ * progress route when a task is expanded. Automatic refresh waits ten seconds after settlement,
+ * pauses while hidden or collapsed, and stops on error, scope change or page disposal.
+ * It starts unchecked on every load. There is no POST or navigation.
  * Every server field is untrusted data, validated against its schema and written with
  * textContent; progress URLs are built only from validated GUIDs taken from the last overview.
  */
@@ -28,6 +31,7 @@ export function executiveOverviewHtml(): string {
         <summary>Executive overview (operator, read-only)</summary>
         <p>Recorded PlanStore state only. Accepted means accepted in PlanStore; source integration and deployment are not proven by this view. Goals are operator-configured text, not verified results. Budget evidence is not reported unless an operator registered a runner record for the task; such a record is supplied and unauthenticated. Checkpoint phases appear only when an operator configured a continuation record; they are supplied, unauthenticated, never proof of a live writer, and passing checks are not acceptance.</p>
         <button type="button" id="execRefresh">Refresh</button>
+        <label><input type="checkbox" id="execAutoRefresh" autocomplete="off"> Automatically refresh every 10 seconds while this overview is visible</label>
         <p id="execNote" role="status">Press Refresh to read the configured plans. Nothing is requested until then.</p>
         <div id="execStale" role="alert" hidden style="border:2px solid #b45309;padding:6px;font-weight:bold"></div>
         <div id="execView"></div>
@@ -50,6 +54,7 @@ export function executiveOverviewScript(): string {
   var MAX_CONT_ITEMS = ${L.maxContinuationItems};
   var MAX_DRILLS = ${L.maxConcurrentDrills};
   var OVERVIEW_DEADLINE_MS = ${L.overviewDeadlineMs};
+  var AUTO_REFRESH_MS = ${L.autoRefreshMs};
   var DRILL_DEADLINE_MS = ${L.drillDeadlineMs};
   var MAX_BYTES = ${L.maxResponseBytes};
   var GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -158,6 +163,9 @@ export function executiveOverviewScript(): string {
   var userInput = document.getElementById('userId');
   var conversationInput = document.getElementById('conversationId');
   var button = document.getElementById('execRefresh');
+  var autoRefresh = document.getElementById('execAutoRefresh');
+  var panel = document.getElementById('executiveOverview');
+  var autoTimer = null;
   var note = document.getElementById('execNote');
   var staleBox = document.getElementById('execStale');
   var view = document.getElementById('execView');
@@ -868,8 +876,27 @@ export function executiveOverviewScript(): string {
   }
 
   // ----- refresh -----
+  function clearAutoTimer() {
+    if (autoTimer !== null) { clearTimeout(autoTimer); autoTimer = null; }
+  }
+  function autoVisible() {
+    return autoRefresh && autoRefresh.checked && panel.open && !document.hidden;
+  }
+  function scheduleAutoRefresh() {
+    clearAutoTimer();
+    if (!autoVisible() || current) return;
+    autoTimer = setTimeout(function () {
+      autoTimer = null;
+      if (autoVisible()) void refresh(true);
+    }, AUTO_REFRESH_MS);
+  }
+  function stopAutoRefresh() {
+    clearAutoTimer();
+    if (autoRefresh) autoRefresh.checked = false;
+  }
   function setButton() { button.disabled = current !== null; }
   function clearAll(message) {
+    stopAutoRefresh();
     if (current) { clearTimeout(current.timer); current.ctl.abort(); current = null; }
     for (var key in drills) stopDrill(key);
     last = null;
@@ -882,6 +909,7 @@ export function executiveOverviewScript(): string {
     setButton();
   }
   function failed(message) {
+    stopAutoRefresh();
     note.textContent = message;
     if (last) {
       staleBox.textContent = 'Refresh failed; showing data last read at ' + last.at + ' (browser clock) / ' + last.overview.generatedAt + ' (server clock). ' + message;
@@ -889,9 +917,10 @@ export function executiveOverviewScript(): string {
       view.setAttribute('data-stale', 'true');
     }
   }
-  async function refresh() {
+  async function refresh(automatic) {
     if (current) return;
-    var req = { ctl: new AbortController(), scope: scopeNow(), timer: null, timedOut: false };
+    clearAutoTimer();
+    var req = { ctl: new AbortController(), scope: scopeNow(), timer: null, timedOut: false, automatic: automatic === true };
     current = req;
     setButton();
     note.textContent = 'Reading the configured plans…';
@@ -921,7 +950,7 @@ export function executiveOverviewScript(): string {
       else failed('The overview request failed.');
     } finally {
       clearTimeout(req.timer);
-      if (current === req) { current = null; setButton(); }
+      if (current === req) { current = null; setButton(); scheduleAutoRefresh(); }
     }
   }
 
@@ -932,11 +961,29 @@ export function executiveOverviewScript(): string {
     clearAll('The user or conversation changed; press Refresh to read again.');
   }
   button.addEventListener('click', function () { void refresh(); });
+  if (autoRefresh && panel) {
+    autoRefresh.checked = false;
+    autoRefresh.addEventListener('change', function () {
+      clearAutoTimer();
+      if (autoRefresh.checked) {
+        if (autoVisible()) void refresh(true);
+      } else if (current && current.automatic) {
+        clearTimeout(current.timer);
+        current.ctl.abort();
+        current = null;
+        setButton();
+        note.textContent = 'Automatic refresh stopped.';
+      }
+    });
+    panel.addEventListener('toggle', scheduleAutoRefresh);
+    document.addEventListener('visibilitychange', scheduleAutoRefresh);
+  }
   userInput.addEventListener('input', scopeChanged);
   userInput.addEventListener('change', scopeChanged);
   conversationInput.addEventListener('input', scopeChanged);
   conversationInput.addEventListener('change', scopeChanged);
   window.addEventListener('pagehide', function () {
+    stopAutoRefresh();
     if (current) current.ctl.abort();
     for (var key in drills) if (drills[key].ctl) drills[key].ctl.abort();
   });

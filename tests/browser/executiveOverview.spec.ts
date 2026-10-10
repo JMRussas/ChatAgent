@@ -115,6 +115,166 @@ test.describe("executive overview", () => {
     expect(dev).toHaveLength(2);
   });
 
+  test("opt-in refresh shows a changed task without another click and resets on reload", async ({
+    page,
+    app
+  }) => {
+    const overview = standard();
+    const s = await stub(page, {
+      overview: { status: 200, body: overview },
+      progress: () => ({ status: 200, body: progressBody(ROOT_A, taskOf(overview)) })
+    });
+    await app.pair(page);
+    await page.clock.install();
+    const auto = page.locator("#execAutoRefresh");
+    await expect(auto).not.toBeChecked();
+    expect(s.seen).toEqual([]);
+    await auto.check();
+    await expect(page.locator("#execNote")).toHaveText("Overview read (read-only).");
+    await root(page).locator("> summary").click();
+    await task(page).locator("> summary").click();
+    await expect(task(page).locator("[data-evidence]")).toContainText("I will fix the parser.");
+    s.state.overview = {
+      status: 200,
+      body: standard({ state: "review_pending", stateRevision: 5 })
+    };
+    await page.clock.fastForward(10_000);
+    await expect(task(page).locator("> summary")).toContainText("Awaiting review");
+    await expect(task(page)).toHaveAttribute("open", "");
+    await expect(root(page)).toHaveAttribute("open", "");
+    await expect(task(page).locator("[data-evidence]")).toContainText(
+      "changed since it was expanded"
+    );
+    expect(s.seen).toEqual([
+      { method: "GET", path: OVERVIEW },
+      { method: "GET", path: PROGRESS },
+      { method: "GET", path: OVERVIEW }
+    ]);
+    await page.reload();
+    await expect(auto).not.toBeChecked();
+    await page.clock.fastForward(30_000);
+    expect(s.seen).toHaveLength(3);
+  });
+
+  test("automatic refresh pauses while collapsed or hidden and stops on failure", async ({
+    page,
+    app
+  }) => {
+    const overview = standard();
+    const s = await stub(page, {
+      overview: { status: 200, body: overview },
+      progress: () => ({ status: 200, body: progressBody(ROOT_A, taskOf(overview)) })
+    });
+    await app.pair(page);
+    await page.clock.install();
+    const auto = page.locator("#execAutoRefresh");
+    await auto.check();
+    await expect(page.locator("#execNote")).toHaveText("Overview read (read-only).");
+    await page.locator("#executiveOverview > summary").click();
+    await expect(page.locator("#executiveOverview")).not.toHaveAttribute("open", "");
+    await page.clock.fastForward(30_000);
+    expect(s.seen).toHaveLength(1);
+    await page.locator("#executiveOverview > summary").click();
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.clock.fastForward(30_000);
+    expect(s.seen).toHaveLength(1);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: false });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    s.state.overview = { status: 503, body: {} };
+    await page.clock.fastForward(10_000);
+    await expect(auto).not.toBeChecked();
+    await expect(page.locator("#execStale")).toContainText("Refresh failed");
+    await page.clock.fastForward(30_000);
+    expect(s.seen).toHaveLength(2);
+    expect(s.seen.every((r) => r.method === "GET")).toBe(true);
+  });
+
+  test("automatic refresh never overlaps requests and stops when the scope changes", async ({
+    page,
+    app
+  }) => {
+    const overview = standard();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const requests: string[] = [];
+    await page.route("**/development/**", async (route) => {
+      requests.push(route.request().method());
+      await gate;
+      await route
+        .fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(overview) })
+        .catch(() => undefined);
+    });
+    await app.pair(page);
+    await page.clock.install();
+    const auto = page.locator("#execAutoRefresh");
+    await auto.check();
+    await expect(page.locator("#execRefresh")).toBeDisabled();
+    await page.clock.fastForward(10_000);
+    expect(requests).toEqual(["GET"]);
+    await page.locator("#conversationId").fill("another-conversation");
+    await expect(auto).not.toBeChecked();
+    release();
+    await page.clock.fastForward(30_000);
+    await expect(view(page).locator("details")).toHaveCount(0);
+    await expect(page.locator("#execRefresh")).toBeEnabled();
+    expect(requests).toEqual(["GET"]);
+  });
+
+  test("disabling automatic refresh cancels a pending read and ignores its late response", async ({
+    page,
+    app
+  }) => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let reads = 0;
+    await page.route("**/development/**", async (route) => {
+      reads++;
+      await gate;
+      await route
+        .fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(standard()) })
+        .catch(() => undefined);
+    });
+    await app.pair(page);
+    await page.clock.install();
+    const auto = page.locator("#execAutoRefresh");
+    await auto.check();
+    await expect(page.locator("#execRefresh")).toBeDisabled();
+    await auto.uncheck();
+    await expect(page.locator("#execRefresh")).toBeEnabled();
+    release();
+    await page.clock.fastForward(30_000);
+    await expect(view(page).locator("details")).toHaveCount(0);
+    await expect(page.locator("#execNote")).toHaveText("Automatic refresh stopped.");
+    expect(reads).toBe(1);
+  });
+
+  test("a timed-out automatic refresh disarms instead of retrying", async ({ page, app }) => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let reads = 0;
+    await page.route("**/development/**", async (route) => {
+      reads++;
+      await gate;
+      await route.abort().catch(() => undefined);
+    });
+    await app.pair(page);
+    await page.clock.install();
+    const auto = page.locator("#execAutoRefresh");
+    await auto.check();
+    await expect(page.locator("#execRefresh")).toBeDisabled();
+    await page.clock.fastForward(12_000);
+    await expect(auto).not.toBeChecked();
+    await expect(page.locator("#execNote")).toContainText("timed out");
+    await page.clock.fastForward(30_000);
+    expect(reads).toBe(1);
+    release();
+  });
+
   test("opens a checkpoint exception from the top summary without changing views", async ({
     page,
     app
