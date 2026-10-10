@@ -36,7 +36,7 @@ After the verified raw commit, publish `rawRef`, `sourceRef` null, then:
 2. `runOwned` with `[entry, --config, cfg, --no-editorconfig, --ignore-path, ignore, --write, --ignore-unknown, --no-error-on-unmatched-pattern, ...E]`, timeout `min(formatting.wallMs, remaining())`, output cap `formatting.outputBytes`. Nonzero exit is `format_failed`; launch, timeout or output failure is `format_unavailable`.
 3. Pure classifier over status and `git diff --raw -z --no-renames HEAD`: only worktree-modified regular E paths with equal regular modes pass. Staged, untracked, outside-E, delete, mode/type change, symlink, gitlink or moved HEAD is `scope_violation`.
 4. If changed: `lstat` fence, `git add -- F`, staged set equals F, fence recheck, `git commit --no-verify --no-gpg-sign`; verify parent = rawRef, `diff-tree` = F modifications with unchanged modes, clean tree. `sourceRef = HEAD`.
-5. `finishStep(sourceRef)` once, after rechecking HEAD, tree and guard. The raw ref is never posted and does not satisfy `matchesFinished` for the final candidate.
+5. `finishStep(sourceRef)` once, after rechecking HEAD, tree and guard. When a formatting commit exists, only its final ref is posted; the raw ref does not satisfy `matchesFinished` for that final candidate. With no formatting change, final and raw refs are equal and the single finish may name that ref.
 6. Checks (below), then `gateStep` bound to the final `sourceRef`.
 
 On failure the raw commit, dirty tree and artifacts are preserved. No reset, clean, stash, auto retry, accept, merge or recovery. Record: `needs_operator`, `finish: not_attempted`, no gate, no POST.
@@ -50,7 +50,7 @@ On failure the raw commit, dirty tree and artifacts are preserved. No reset, cle
 - Continuation record `v1` unchanged. With `formatting`, write `v2` = v1 plus nullable `rawRef` and a bounded `formatting` object: `mode`, `state` (`pending running unchanged committed failed unavailable`), `ran`, counts `eligible unsupported changed`, exit/signal/timeout/output facts, config and ignore hashes. No paths or output. `sourceRef` is null until the final commit is verified.
 - Reasons `format_failed`, `format_unavailable` exist only in v2. v2 `review_pending` needs state `unchanged` (rawRef = sourceRef) or `committed` (different).
 - `parseClosed` (300) gets explicit supported versions: manifest `v1`, record `v1`/`v2`. Old v1 records are never rewritten.
-- `checkpointContinuationView.ts` parses v2 but projects only the existing v4 phase/gate/source shape: no `rawRef` or formatting keys, no schema v5, no page rewrite. A formatter run shows as `snapshotting`. CLI JSON exposes exact raw/final detail. Page enrichment and an overview schema bump are a separately gated next checkpoint, not delivered here.
+- `checkpointContinuationView.ts` parses v2 but projects only the existing v4 phase/gate/source shape: no `rawRef` or formatting keys, no schema v5 or added page fields. The existing closed page reason list must recognize `format_failed` and `format_unavailable`, with failure rendering tests; this is a compatibility correction, not formatter detail enrichment. A formatter run shows as `snapshotting`. CLI JSON exposes exact raw/final detail. Page enrichment and an overview schema bump are a separately gated next checkpoint, not delivered here.
 - `checkpointQueueService.ts`: pin preflight (426) includes config and ignore; `confirmedCandidate` (679) accepts a stored v2 (`unchanged`/`committed`, consistent refs, final ref equals gate ref); manifests without `formatting` still require v1.
 
 ## 7. Safety limits
@@ -60,7 +60,8 @@ Verify current task, HEAD, clean status and lease before every effect. Staged eq
 ## 8. Scope of work
 
 - Source: `checkpointContinuation.ts` (manifest field, guard, v2, pure `partitionEligible`/`formatArguments`/`classifyFormatResult`, `formatStep`, opt-in check path). In `snapshotStep`, the candidate closure and `changes` list must separate raw from final: set `rawRef` and leave `sourceRef` null, then recompute the list against the final commit so verification and the gate match the final ref. Also `checkpointContinuationView.ts` (parse only) and `checkpointQueueService.ts`.
-- Unchanged: `package.json`, Prettier config files, gate schema, overview sources, UI, routes, profiles.
+- UI scope: add only the two format reason tokens to the existing closed reason enum in `src/ui/executiveOverview.ts` and verify those failure views render. No new fields or schema.
+- Unchanged: `package.json`, Prettier config files, gate schema, overview sources, routes, profiles.
 - Tests: `tests/helpers/continuationFixtures.ts` (labelled stub Prettier modes), `tests/unit/checkpointFormatting.test.ts`, `tests/integration/checkpointContinuationFormatting.test.ts`, updates to existing tests. `docs/runtime-reference.md` only after implementation acceptance.
 
 ## 9. Gates (future, reported with real output)
