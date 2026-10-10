@@ -359,16 +359,19 @@ describe("preflight refuses before anything is spawned", () => {
 describe("authority during the run", () => {
   it("a changed current claim stops the owned worker", async () => {
     const env = await setup();
-    let calls = 0;
-    const result = await runCheckpoint(
+    let changed = false;
+    const running = runCheckpoint(
       env.input,
       env.deps("wait", {
-        fetchStatus: async () => statusOf(currentLeaf(++calls > 1 ? { attemptEpoch: 3 } : {}))
+        fetchStatus: async () => statusOf(currentLeaf(changed ? { attemptEpoch: 3 } : {}))
       })
     );
+    const pids = await env.pids();
+    changed = true;
+    const result = await running;
     expect(result.exitCode).toBe(3);
     expect(result.record?.stop).toEqual({ kind: "tripwire", code: "authority_changed" });
-    await expectGone(await env.pids());
+    await expectGone(pids);
   }, 30_000);
 
   it("an advancing stateRevision or an unreadable authority is not a stop", async () => {
@@ -459,17 +462,25 @@ describe("cancellation and cleanup", () => {
 
 describe("no autorun, retry, mutation or leaked content", () => {
   it("spawns exactly once, writes only its own record and uses only the injected read", async () => {
-    const env = await setup({ hard: { units: 60, wallMs: 300, outputBytes: 1024 * 1024 } });
+    const env = await setup();
+    const controller = new AbortController();
     let fetches = 0;
-    await runCheckpoint(
+    const running = runCheckpoint(
       env.input,
       env.deps("wait", {
+        signal: controller.signal,
         fetchStatus: async () => {
           fetches++;
           return statusOf(currentLeaf());
         }
       })
     );
+    const pids = await env.pids();
+    controller.abort();
+    const result = await running;
+    expect(result.exitCode).toBe(3);
+    expect(result.record?.stop).toEqual({ kind: "cancelled", code: "cancelled" });
+    await expectGone(pids);
     await delay(300);
     expect(await env.spawns()).toBe(1);
     const ownedFiles = await readdir(env.recordDir);
@@ -482,7 +493,6 @@ describe("no autorun, retry, mutation or leaked content", () => {
       runId: env.input.runId
     });
     expect(fetches).toBeGreaterThan(0);
-    await env.pids();
   }, 30_000);
 
   it("keeps prompt, assistant text, tool results, stderr and result text out of the record", async () => {

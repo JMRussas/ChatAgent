@@ -29,6 +29,20 @@ cleanup must not become a prerequisite for useful product progress.
 
 ### Active delivery plan — shared tools and editable workflows (2026-10-10)
 
+**Current design and implementation roles:** Claude Fable reviews the real UI,
+defines improvements and assesses whether delivered changes make recorded work
+easier to understand. Codex Sol and implementation workers translate that design
+into code and verify behavior; passing technical checks does not establish UI
+clarity or user acceptance. The user makes the final acceptance decision. Reuse
+the existing shared tools and bridge/mailbox contracts, with one implementation
+owner per path, bounded assignments and explicit evidence references.
+
+The current Fable review identifies a shared factual work digest for humans and
+models, distinct decision/read-error/allocation counts, and prominent pending
+decisions as the next improvements. Its visual review of real saved desktop and
+mobile screens determines the concrete layout and acceptance criteria. No new
+execution engine or generated model summary is required for routine monitoring.
+
 **Working workspace UI:** the approved layout is the default home when Workspace
 is enabled. Projects form a sidebar; Work and Conversations are separate views,
 with a focused detail panel for goals, step inputs/outputs, results and needed
@@ -90,6 +104,11 @@ were used. Preserved evidence is under the external
 walkthrough remains in `workspace-proof`. These observations verify the working
 controls and one live conversation, not general model planning reliability.
 Source-pinned Linux release/browser and Windows gates run on the published branch.
+The working-home run on `ea2fad6` failed two existing checkpoint process tests:
+their claim-change and 300 ms wall triggers could terminate a worker before its
+PID report. The focused correction waits for actual worker readiness before
+changing authority or cancelling; runtime behavior stays unchanged. Hosted gates
+must pass on the corrected source before this increment is marked validated.
 
 **Delivered increment — native agent tasks:** add one data-defined agent step with
 objective, context, references, selected tools, completion criteria and a total
