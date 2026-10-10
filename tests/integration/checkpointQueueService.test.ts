@@ -3,10 +3,7 @@ import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runQueueCli } from "../../scripts/runCheckpointQueue";
-import {
-  claimKeyOf,
-  type ContinuationResult
-} from "../../src/checkpoint/checkpointContinuation";
+import { claimKeyOf, type ContinuationResult } from "../../src/checkpoint/checkpointContinuation";
 import { runQueueService, type QueueDeps } from "../../src/checkpoint/checkpointQueueService";
 import { fetchCoordinationStatus } from "../../src/integrations/hekate/devCoordination";
 import {
@@ -192,10 +189,7 @@ describe("authority before any effect", () => {
 
 describe("repair regressions", () => {
   const claimLease = (fx: QueueFixture, index: number) =>
-    join(
-      fx.items[index].run.recordDir,
-      `.claim-${claimKeyOf(fx.items[index].run.identity)}.lease`
-    );
+    join(fx.items[index].run.recordDir, `.claim-${claimKeyOf(fx.items[index].run.identity)}.lease`);
 
   it("waits on a current pending review beside an older decision until a new exact acceptance", async () => {
     const fx = await make(1, { epoch: 2 });

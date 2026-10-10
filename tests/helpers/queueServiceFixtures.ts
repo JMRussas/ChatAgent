@@ -184,11 +184,7 @@ export class PlanServer {
               evidenceRef: null
             }
           : null,
-      effectiveAcceptance: n.accepted
-        ? "accepted"
-        : n.older && n.work === "done"
-          ? "stale"
-          : "none"
+      effectiveAcceptance: n.accepted ? "accepted" : n.older && n.work === "done" ? "stale" : "none"
     }));
     return {
       contractVersion: "plan-contract/v1",
