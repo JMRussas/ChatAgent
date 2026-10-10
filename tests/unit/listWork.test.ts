@@ -78,6 +78,18 @@ const scope = (state: WorkList["scope"]["state"] = [...outstandingStates]): Work
 });
 
 describe("compact observed work list", () => {
+  it("formats task-default scope provenance while retaining the same factual digest and references", () => {
+    const row = digest(1, "waiting_input");
+    const result = projectWorkList([row], { ...scope(), source: "task" }, [], false);
+    expect(result.items).toEqual([row]);
+    const text = formatWorkflowResult("list_work", result);
+    expect(text).toEqual(formatWorkList(result));
+    expect(text).toContain(`${projectId} (task; 1 projects queried)`);
+    expect(text).toContain(row.id);
+    expect(text).toContain(row.run!.id);
+    expect(result.source).toEqual({ truncated: false, errorCount: 0 });
+  });
+
   it("counts every observed state before selection, preserves digests, and orders decisions before allocations and readiness", () => {
     const rows = Array.from({ length: 30 }, (_, index) =>
       digest(index, index < 10 ? "waiting_input" : index < 20 ? "allocated" : "completed")

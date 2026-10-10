@@ -19,7 +19,7 @@ export const listWorkSchema = z
       .object({
         projectId: z.string().uuid().nullable(),
         projectsRead: count,
-        source: z.enum(["explicit", "conversation", "all_active"]),
+        source: z.enum(["explicit", "conversation", "all_active", "task"]),
         state: z.array(workStateSchema).min(1).max(7)
       })
       .strict(),

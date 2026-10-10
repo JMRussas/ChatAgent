@@ -20,6 +20,7 @@ import { MockDeepProvider } from "../../src/providers/mockProviders";
 import { createChatServer } from "../../src/server";
 import { WorkflowApplication } from "../../src/workflows/application";
 import { WorkflowService } from "../../src/workflows/service";
+import type { TaskExecutor } from "../../src/tasks/types";
 import { HekateWorkflowStore } from "../../src/workflows/hekateStore";
 import { WorkspaceCatalog } from "../../src/workspace/catalog";
 import { ProjectWorkflowRouter } from "../../src/workspace/projectWorkflows";
@@ -30,6 +31,7 @@ import {
   WorkflowError,
   type StoredWorkflowPlan,
   type WorkflowDefinition,
+  type WorkflowRun,
   type WorkflowPlanStore
 } from "../../src/workflows/types";
 
@@ -144,7 +146,7 @@ class PlanStore implements WorkflowPlanStore {
   }
 }
 
-async function workspaceFixture() {
+async function workspaceFixture(executors: TaskExecutor[] = []) {
   const directory = await mkdtemp(join(tmpdir(), "workspace-application-"));
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
   const auth = createEphemeralAuth();
@@ -207,14 +209,22 @@ async function workspaceFixture() {
         store = new PlanStore();
         stores.set(hekateId, store);
       }
-      return new WorkflowApplication(
+      let app: WorkflowApplication;
+      app = new WorkflowApplication(
         new WorkflowService(
           nativeStore ? new HekateWorkflowStore(apiUrl!, hekateId) : store,
           runDir,
-          { actions }
+          {
+            actions,
+            executors,
+            taskTools: () => (workspace?.taskView(hekateId) ?? app).tools,
+            callTaskTool: (name, input, context) =>
+              (workspace?.taskView(hekateId) ?? app).call(name, input, context)
+          }
         ),
         actions
       );
+      return app;
     };
     const runDir = join(directory, "runs");
     const workflows = new ProjectWorkflowRouter({
@@ -283,6 +293,365 @@ async function workspaceFixture() {
     }
   };
 }
+
+const triageDefinition = (tools: string[]) => ({
+  version: 1,
+  name: "Read project work",
+  steps: [
+    {
+      id: "triage",
+      name: "Read outstanding work",
+      action: {
+        type: "agent",
+        executor: "triage",
+        task: {
+          objective: "Read the source project's outstanding work and cite actual records.",
+          tools,
+          completionCriteria: ["Use actual returned project records."]
+        }
+      }
+    }
+  ]
+});
+async function observedRun(
+  rpc: (name: string, data: unknown) => Promise<any>,
+  projectId: string,
+  id: string,
+  predicate: (run: WorkflowRun) => boolean
+) {
+  let run!: WorkflowRun;
+  await vi.waitFor(
+    async () => {
+      run = await rpc("get_run", { id, projectId });
+      expect(predicate(run), JSON.stringify({ status: run.status, error: run.error })).toBe(true);
+    },
+    { timeout: 8000, interval: 30 }
+  );
+  return run;
+}
+
+describe("native task workspace authority", () => {
+  it("keeps the source project across conversation reassignment and restart while allowing an explicit owned project", async () => {
+    let source: any;
+    let other: any;
+    let foreign: any;
+    let planId: string;
+    const executor: TaskExecutor = {
+      id: "triage",
+      async execute(_task, host, checkpoint) {
+        expect(await host.callTool("list_work", {})).toMatchObject({
+          scope: { projectId: source.id, source: "task" },
+          items: [expect.objectContaining({ id: planId, projectId: source.id })]
+        });
+        if (!checkpoint) {
+          expect(await host.callTool("list_work", { projectId: other.id })).toMatchObject({
+            scope: { projectId: other.id, source: "explicit" },
+            items: [expect.objectContaining({ name: "Other project's review" })]
+          });
+          await expect(host.callTool("list_work", { projectId: foreign.id })).rejects.toMatchObject(
+            { code: "PROJECT_NOT_FOUND" }
+          );
+          // An actual successful same-tool read resolves the failed read; no effect is retried.
+          await host.callTool("list_work", {});
+          await host.requestContext("Review the project counts before continuing.");
+          return { text: "Awaiting the operator's context.", checkpoint: { stage: 1 } };
+        }
+        expect(await host.callTool("get_work_digest", { id: planId })).toMatchObject({
+          id: planId,
+          projectId: source.id,
+          run: { id: host.runId, current: true }
+        });
+        return { text: "Read the original project's records after restart." };
+      }
+    };
+    const fixture = await workspaceFixture([executor]);
+    const first = await fixture.start();
+    source = await first.rpc("register_project", { name: "Source", hekateProjectId: randomUUID() });
+    other = await first.rpc("register_project", { name: "Other", hekateProjectId: randomUUID() });
+    foreign = first.catalog.createProject(fixture.foreignAuth.auth.principalId, {
+      name: "Foreign source binding",
+      hekateProjectId: source.hekateProjectId
+    });
+    await first.rpc("create_plan", {
+      projectId: other.id,
+      definition: {
+        version: 1,
+        name: "Other project's review",
+        steps: [{ id: "review", name: "Review", action: { type: "human", instructions: "Review" } }]
+      }
+    });
+    const conversation = await first.rpc("create_conversation", {
+      title: "Triage",
+      projectId: source.id
+    });
+    const principal = fixture.auth.auth.resolve(fixture.auth.headers("operator"))!;
+    const context = { principal, operationId: randomUUID(), conversationId: conversation.id };
+    const plan = (await first.workspace.call(
+      "create_plan",
+      { definition: triageDefinition(["list_work", "get_work_digest"]) },
+      context
+    )) as StoredWorkflowPlan;
+    planId = plan.id;
+    const started = (await first.workspace.call(
+      "run_plan",
+      { id: plan.id, revision: plan.revision },
+      context
+    )) as WorkflowRun;
+    const parked = await observedRun(
+      first.rpc,
+      source.id,
+      started.id,
+      (run) => run.status === "waiting_input"
+    );
+    expect(parked.ownerId).toBe(principal.principalId);
+    expect(parked.steps[0]!.agent!.events).toContainEqual(
+      expect.objectContaining({
+        type: "tool_started",
+        tool: "list_work",
+        arguments: {}
+      })
+    );
+    expect(parked.steps[0]!.agent!.events).toContainEqual(
+      expect.objectContaining({
+        type: "tool_failed",
+        tool: "list_work",
+        result: expect.objectContaining({ code: "PROJECT_NOT_FOUND" })
+      })
+    );
+    expect(parked.steps[0]!.output).toBeUndefined();
+    const taskView = first.workspace.taskView(source.hekateProjectId);
+    const linkMetadata = taskView.tools.find((tool) => tool.name === "link_plan")!;
+    expect(linkMetadata.inputSchema.required).not.toContain("projectId");
+    expect(
+      first.workspace.tools.find((tool) => tool.name === "link_plan")!.inputSchema.required
+    ).toContain("projectId");
+    await taskView.call("link_plan", { planId, conversationId: conversation.id }, context);
+    expect(first.catalog.linkedConversation(principal.principalId, source.id, planId)).toBe(
+      conversation.id
+    );
+    await first.rpc("update_conversation", { id: conversation.id, projectId: other.id });
+    // projectId is a patch here: a title-only rename must not reassign this conversation.
+    await first.workspace
+      .taskView(source.hekateProjectId)
+      .call("update_conversation", { id: conversation.id, title: "Renamed triage" }, context);
+    expect(
+      first.catalog.conversationMetadata(principal.principalId, conversation.id)
+    ).toMatchObject({
+      title: "Renamed triage",
+      projectId: other.id
+    });
+    await first.close();
+    const resumed = await fixture.start();
+    await resumed.workspace.call(
+      "respond_to_task_request",
+      {
+        projectId: source.id,
+        id: started.id,
+        stepId: "triage",
+        requestId: parked.steps[0]!.agent!.requests[0]!.id,
+        response: "Counts reviewed; continue the original project."
+      },
+      { ...context, operationId: randomUUID() }
+    );
+    const completed = await observedRun(
+      resumed.rpc,
+      source.id,
+      started.id,
+      (run) => run.status === "completed"
+    );
+    expect(
+      completed.steps[0]!.agent!.events.filter(
+        (event) => event.type === "tool_finished" && event.tool === "list_work"
+      ).at(-1)?.result
+    ).toMatchObject({ scope: { projectId: source.id, source: "task" } });
+    expect(completed.steps[0]!.output).toMatchObject({ executor: "triage" });
+    expect(fixture.generate).not.toHaveBeenCalled();
+  });
+
+  it("preserves grants, denied writes, self-control guards and failed-read recovery through the workspace registry", async () => {
+    let project: any;
+    let planId: string;
+    const executor: TaskExecutor = {
+      id: "triage",
+      async execute(task, host, checkpoint) {
+        const stage = (checkpoint as { stage?: number } | undefined)?.stage ?? 0;
+        if (stage === 0) {
+          await expect(host.callTool("get_work_digest", { id: planId })).rejects.toMatchObject({
+            code: "tool_not_allowed"
+          });
+          for (const name of ["get_workspace", "stop_run"])
+            await expect(host.requestTool(name, "Request access")).rejects.toMatchObject({
+              code: "tool_unavailable"
+            });
+          await expect(
+            host.callTool("respond_to_task_request", { id: host.runId })
+          ).rejects.toMatchObject({ code: "task_self_control" });
+          await expect(
+            host.callTool("list_work", { projectId: project.hekateProjectId })
+          ).rejects.toMatchObject({ code: "PROJECT_NOT_FOUND" });
+          await host.callTool("list_work", {});
+          await host.requestTool("register_project", "May I register another project?");
+          return { text: "Requesting explicit write access.", checkpoint: { stage: 1 } };
+        }
+        if (stage === 1) {
+          expect(task.tools).not.toContain("register_project");
+          await expect(
+            host.callTool("register_project", { name: "Must not be written" })
+          ).rejects.toMatchObject({ code: "tool_not_allowed" });
+          await host.requestTool("get_work_digest", "May I read the plan's decision summary?");
+          return { text: "Requesting read access.", checkpoint: { stage: 2 } };
+        }
+        expect(task.tools).toContain("get_work_digest");
+        expect(await host.callTool("get_work_digest", { id: planId })).toMatchObject({
+          id: planId,
+          projectId: project.id
+        });
+        return { text: "Read the granted factual summary." };
+      }
+    };
+    const fixture = await workspaceFixture([executor]);
+    const app = await fixture.start();
+    project = await app.rpc("register_project", {
+      name: "Task source",
+      hekateProjectId: randomUUID()
+    });
+    const definition = triageDefinition(["list_work", "respond_to_task_request"]);
+    const excluded = await app.response("/workspace/tools/create_plan", {
+      projectId: project.id,
+      definition: triageDefinition(["get_workspace"])
+    });
+    expect(await excluded.json()).toMatchObject({ code: "tool_unavailable" });
+    const plan = await app.rpc("create_plan", { projectId: project.id, definition });
+    planId = plan.id;
+    const started = await app.rpc("run_plan", {
+      projectId: project.id,
+      id: plan.id,
+      revision: plan.revision
+    });
+    const writeRequest = await observedRun(
+      app.rpc,
+      project.id,
+      started.id,
+      (run) => run.status === "waiting_input"
+    );
+    expect(writeRequest.steps[0]!.agent!.requests[0]).toMatchObject({
+      kind: "tool",
+      tool: "register_project",
+      origin: "executor"
+    });
+    await app.rpc("respond_to_task_request", {
+      projectId: project.id,
+      id: started.id,
+      stepId: "triage",
+      requestId: writeRequest.steps[0]!.agent!.requests[0]!.id,
+      response: { approved: false }
+    });
+    const readRequest = await observedRun(
+      app.rpc,
+      project.id,
+      started.id,
+      (run) => run.status === "waiting_input" && run.steps[0]!.agent!.requests.length === 2
+    );
+    expect(readRequest.steps[0]!.agent!.allowedTools).toEqual(
+      definition.steps[0]!.action.task.tools
+    );
+    await app.rpc("respond_to_task_request", {
+      projectId: project.id,
+      id: started.id,
+      stepId: "triage",
+      requestId: readRequest.steps[0]!.agent!.requests[1]!.id,
+      response: { approved: true }
+    });
+    const completed = await observedRun(
+      app.rpc,
+      project.id,
+      started.id,
+      (run) => run.status === "completed"
+    );
+    expect(completed.steps[0]!.agent!.allowedTools).toContain("get_work_digest");
+    expect(
+      app.catalog.listProjects(fixture.auth.auth.principalId).map((item) => item.name)
+    ).toEqual(["Task source"]);
+    expect(
+      completed.steps[0]!.agent!.events.filter(
+        (event) => event.type === "tool_started" && event.tool === "register_project"
+      )
+    ).toEqual([]);
+    expect(fixture.generate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unavailable source binding and conflicting names without implicit registration or input rewriting", async () => {
+    const fixture = await workspaceFixture();
+    const app = await fixture.start();
+    const principal = fixture.auth.auth.resolve(fixture.auth.headers("operator"))!;
+    const project = await app.rpc("register_project", {
+      name: "Conversation project",
+      hekateProjectId: randomUUID()
+    });
+    const conversation = await app.rpc("create_conversation", {
+      title: "Assigned",
+      projectId: project.id
+    });
+    const context = { principal, operationId: randomUUID(), conversationId: conversation.id };
+    const missing = app.workspace.taskView(randomUUID());
+    await expect(missing.call("list_work", {}, context)).rejects.toMatchObject({
+      code: "TASK_PROJECT_UNAVAILABLE",
+      status: 409
+    });
+    expect(await missing.call("list_work", { projectId: project.id }, context)).toMatchObject({
+      scope: { projectId: project.id }
+    });
+    await expect(
+      missing.call(
+        "list_work",
+        {},
+        { ...context, principal: { ...principal, roles: new Set(["client" as const]) } }
+      )
+    ).rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
+    for (const projectId of [null, 123])
+      await expect(missing.call("list_work", { projectId }, context)).rejects.toMatchObject({
+        code: "INVALID_WORKSPACE_INPUT"
+      });
+    await expect(missing.call("get_workspace", {}, context)).rejects.toMatchObject({
+      code: "tool_unavailable"
+    });
+    // Registration has no project scope selector; its strict schema must receive the original args.
+    const registered = (await missing.call(
+      "register_project",
+      { name: "Explicit registration" },
+      context
+    )) as { id: string };
+    expect(app.catalog.getProject(principal.principalId, registered.id).name).toBe(
+      "Explicit registration"
+    );
+    for (const name of ["list_work", "get_workspace"]) {
+      const actions = [
+        {
+          name,
+          description: "Configured conflicting action",
+          inputSchema: { type: "object" },
+          execute: async () => ({})
+        }
+      ];
+      const workflow = new WorkflowApplication(
+        new WorkflowService(new PlanStore(), join(fixture.directory, name), { actions }),
+        actions
+      );
+      const colliding = new ProjectWorkflowRouter({
+        catalog: app.catalog,
+        legacy: workflow,
+        runDir: fixture.directory,
+        factory: () => workflow
+      });
+      expect(
+        () => new WorkspaceService({ catalog: app.catalog, chat: app.chat, workflows: colliding })
+      ).toThrow(expect.objectContaining({ code: "DUPLICATE_WORKSPACE_TOOL" }));
+      await colliding.close();
+    }
+    expect(app.catalog.listProjects(principal.principalId)).toHaveLength(2);
+    expect(fixture.generate).not.toHaveBeenCalled();
+  });
+});
 
 describe("existing coding project observation", () => {
   it("reads a multi-node coding digest through the actual Hekate store boundary while preserving corrupt workflow storage errors", async () => {

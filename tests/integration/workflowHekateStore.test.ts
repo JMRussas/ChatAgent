@@ -1,8 +1,28 @@
 import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ChatService } from "../../src/app/chatService";
+import { ContextManager } from "../../src/app/contextManager";
+import { ChatOrchestrator, DeepWorker } from "../../src/app/orchestrator";
+import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
+import { InMemoryTaskQueue } from "../../src/providers/interfaces";
+import { MockFastProvider, MockDeepProvider } from "../../src/providers/mockProviders";
+import { openTaskMcpGateway } from "../../src/tasks/mcpGateway";
+import { createWorkflowApplication } from "../../src/workflows/application";
 import { HekateWorkflowStore } from "../../src/workflows/hekateStore";
-import { workflowDefinitionSchema } from "../../src/workflows/types";
+import {
+  workflowDefinitionSchema,
+  type WorkflowRun,
+  type StoredWorkflowPlan
+} from "../../src/workflows/types";
+import { WorkspaceCatalog } from "../../src/workspace/catalog";
+import { ProjectWorkflowRouter } from "../../src/workspace/projectWorkflows";
+import { WorkspaceService } from "../../src/workspace/service";
 
 interface Node {
   id: string;
@@ -163,6 +183,176 @@ describe("Hekate workflow storage over its HTTP contract", () => {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve()))
     );
+  });
+
+  it("lazily exposes owner-scoped workspace reads through the public factory and a real native MCP gateway", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "native-workspace-factory-"));
+    let workspace: WorkspaceService | undefined;
+    let lookups = 0;
+    let sourceId: string;
+    const principal = {
+      principalId: "local:native-owner",
+      roles: new Set(["operator" as const]),
+      via: "bearer" as const
+    };
+    const context = () => ({ principal, operationId: randomUUID() });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test address");
+    const application = createWorkflowApplication({
+      apiUrl: `http://127.0.0.1:${address.port}`,
+      projectId,
+      runDir: join(directory, "runs"),
+      taskTools: () => {
+        lookups++;
+        return workspace?.taskView(projectId);
+      },
+      executors: [
+        {
+          id: "triage",
+          async execute(_task, host) {
+            const gateway = await openTaskMcpGateway(host);
+            const client = new Client({ name: "native-workspace-regression", version: "1" });
+            try {
+              await client.connect(
+                new StreamableHTTPClientTransport(new URL(gateway.url), {
+                  requestInit: { headers: { authorization: `Bearer ${gateway.token}` } }
+                })
+              );
+              const names = (await client.listTools()).tools.map((tool) => tool.name);
+              expect(names).toEqual(
+                expect.arrayContaining([
+                  "list_work",
+                  "list_available_tools",
+                  "request_context",
+                  "request_tool"
+                ])
+              );
+              expect(names).not.toContain("register_project");
+              expect(names).not.toContain("get_workspace");
+              const result = await client.callTool({ name: "list_work", arguments: {} });
+              expect(result.isError).toBe(false);
+              expect(result.structuredContent).toMatchObject({
+                scope: { projectId: sourceId, source: "task" },
+                items: [
+                  expect.objectContaining({ name: "Native project triage", projectId: sourceId })
+                ]
+              });
+              return { text: "Read the actual source project's outstanding records." };
+            } finally {
+              await client.close();
+              await gateway.close();
+            }
+          }
+        }
+      ]
+    });
+    try {
+      expect(lookups).toBe(0);
+      expect(application.tools.length).toBeGreaterThan(0);
+      expect(lookups).toBe(0);
+      const nativeDefinition = {
+        version: 1,
+        name: "Native project triage",
+        steps: [
+          {
+            id: "triage",
+            name: "Read work",
+            action: {
+              type: "agent",
+              executor: "triage",
+              task: {
+                objective: "Read actual project work.",
+                tools: ["list_work"],
+                completionCriteria: ["Cite actual returned project records."]
+              }
+            }
+          }
+        ]
+      };
+      // No workspace exists yet: the public factory retains its original application registry.
+      await expect(
+        application.call("create_plan", { definition: nativeDefinition }, context())
+      ).rejects.toMatchObject({ code: "tool_unavailable" });
+      expect(writes).toEqual([]);
+      expect(lookups).toBeGreaterThan(0);
+      const catalog = new WorkspaceCatalog();
+      sourceId = catalog.createProject(principal.principalId, {
+        name: "Native source",
+        hekateProjectId: projectId
+      }).id;
+      const queue = new InMemoryTaskQueue();
+      const timeline = new InMemoryConversationTimelineStore();
+      const chat = new ChatService(
+        new ChatOrchestrator(
+          new MockFastProvider(),
+          queue,
+          timeline,
+          undefined,
+          new ContextManager(timeline, {
+            windowTokens: 64000,
+            maxHistoryTurns: 12,
+            safetyTokens: 256,
+            fastOutputTokens: 1024,
+            deepOutputTokens: 2048
+          })
+        ),
+        new DeepWorker(queue, new MockDeepProvider(), timeline),
+        timeline,
+        queue
+      );
+      const router = new ProjectWorkflowRouter({
+        catalog,
+        legacy: application,
+        legacyProject: { name: "Native source", hekateProjectId: projectId },
+        runDir: join(directory, "runs"),
+        factory: () => {
+          throw new Error("Unexpected project factory");
+        }
+      });
+      workspace = new WorkspaceService({ catalog, chat, workflows: router });
+      const saved = (await workspace.call(
+        "create_plan",
+        { projectId: sourceId, definition: nativeDefinition },
+        context()
+      )) as StoredWorkflowPlan;
+      const started = (await workspace.call(
+        "run_plan",
+        { projectId: sourceId, id: saved.id, revision: saved.revision },
+        context()
+      )) as WorkflowRun;
+      let finished!: WorkflowRun;
+      await vi.waitFor(
+        async () => {
+          finished = (await workspace!.call(
+            "get_run",
+            { projectId: sourceId, id: started.id },
+            context()
+          )) as WorkflowRun;
+          expect(finished.status, JSON.stringify(finished.error)).toBe("completed");
+        },
+        { timeout: 8000, interval: 30 }
+      );
+      expect(finished.ownerId).toBe(principal.principalId);
+      expect(finished.steps[0]!.agent!.events).toContainEqual(
+        expect.objectContaining({ type: "tool_started", tool: "list_work", arguments: {} })
+      );
+      expect(finished.steps[0]!.agent!.events).toContainEqual(
+        expect.objectContaining({
+          type: "tool_finished",
+          tool: "list_work",
+          result: expect.objectContaining({
+            scope: expect.objectContaining({ projectId: sourceId, source: "task" })
+          })
+        })
+      );
+      expect(
+        finished.steps[0]!.agent!.events.filter((event) => event.type === "tool_started")
+      ).toHaveLength(1);
+      expect((await store.get(principal.principalId, saved.id)).work).toBe("done");
+    } finally {
+      await application.close();
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("creates an editable workflow and retries creation without duplicate tasks", async () => {

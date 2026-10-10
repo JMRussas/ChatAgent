@@ -224,6 +224,7 @@ export function createWorkflowApplication(options: {
   endpoints?: string;
   model?: (prompt: string, inputs: unknown, context: WorkflowContext) => Promise<unknown>;
   executors?: TaskExecutor[];
+  taskTools?: () => WorkflowToolService | undefined;
 }) {
   const actions = workflowHttpActions(options.endpoints);
   let application: WorkflowApplication;
@@ -234,8 +235,9 @@ export function createWorkflowApplication(options: {
       actions,
       model: options.model,
       executors: options.executors,
-      taskTools: () => application.tools,
-      callTaskTool: (name, input, context) => application.call(name, input, context)
+      taskTools: () => (options.taskTools?.() ?? application).tools,
+      callTaskTool: (name, input, context) =>
+        (options.taskTools?.() ?? application).call(name, input, context)
     }
   );
   application = new WorkflowApplication(service, actions);

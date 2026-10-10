@@ -22,6 +22,7 @@ import {
   projectWorkList,
   workStateSchema,
   workStates,
+  type WorkList,
   type WorkReadError
 } from "./listWork";
 
@@ -187,9 +188,89 @@ export class WorkspaceService implements WorkflowToolService {
       ...specs.map(({ schema: _schema, ...tool }) => tool),
       ...(options.workflows?.tools ?? [])
     ];
+    if (new Set(this.tools.map((tool) => tool.name)).size !== this.tools.length)
+      throw new WorkflowError(
+        "DUPLICATE_WORKSPACE_TOOL",
+        "Workspace tool names must be unique and distinct from configured workflow actions."
+      );
     options.chat.addRetirementParticipant({
       forget: (conversationId) => options.catalog.forgetConversationById(conversationId)
     });
+  }
+  /** Native tasks resolve their original source binding with the run owner's authority. */
+  taskView(hekateProjectId: string): WorkflowToolService {
+    const binding = hekateProjectId.toLowerCase();
+    const scoped = (tool: WorkflowTool) =>
+      tool.name !== "update_conversation" &&
+      Object.prototype.hasOwnProperty.call(tool.inputSchema.properties ?? {}, "projectId");
+    const tools = this.tools
+      .filter((tool) => tool.name !== "get_workspace")
+      .map((tool) => {
+        if (!scoped(tool)) return tool;
+        const properties = tool.inputSchema.properties as Record<string, unknown>;
+        return {
+          ...tool,
+          ...(tool.name === "list_work"
+            ? {
+                description:
+                  "List observed work as compact factual digests with counts by state. Omitted projectId uses this task's original source project; explicit catalog project UUID overrides it. Use get_work_digest for fuller metadata and get_plan/get_run for saved definitions and results."
+              }
+            : {}),
+          inputSchema: {
+            ...tool.inputSchema,
+            ...(Array.isArray(tool.inputSchema.required)
+              ? { required: tool.inputSchema.required.filter((name) => name !== "projectId") }
+              : {}),
+            properties: {
+              ...properties,
+              projectId: {
+                ...(properties.projectId as Record<string, unknown>),
+                description:
+                  "Owned workspace catalog project UUID. Omit to use this task's original source project. A Hekate project UUID is not a catalog project UUID."
+              }
+            }
+          }
+        };
+      });
+    return {
+      tools,
+      call: async (name, input, context) => {
+        if (!context.principal.roles.has("operator"))
+          throw new WorkflowError("OPERATOR_REQUIRED", "An operator credential is required.", 403);
+        const tool = tools.find((tool) => tool.name === name);
+        if (!tool)
+          throw new WorkflowError(
+            "tool_unavailable",
+            "That tool is not available to this task.",
+            404
+          );
+        let injectedProject = false;
+        if (
+          scoped(tool) &&
+          (input === undefined ||
+            (input !== null && typeof input === "object" && !Array.isArray(input))) &&
+          (input as Record<string, unknown> | undefined)?.projectId === undefined
+        ) {
+          const project = this.options.catalog
+            .listProjects(context.principal.principalId)
+            .find((project) => project.hekateProjectId === binding);
+          if (!project)
+            throw new WorkflowError(
+              "TASK_PROJECT_UNAVAILABLE",
+              "The task's source project is not registered for this owner. Register its Hekate binding before scoped work reads or plan operations.",
+              409
+            );
+          input = { ...(input as Record<string, unknown> | undefined), projectId: project.id };
+          injectedProject = true;
+        }
+        const result = await this.call(name, input, context);
+        if (name === "list_work" && injectedProject) {
+          const list = result as WorkList;
+          return { ...list, scope: { ...list.scope, source: "task" } };
+        }
+        return result;
+      }
+    };
   }
   ownedConversation(principalId: string, conversationId: string): string {
     const owner = this.options.chat.conversationOwner(conversationId);

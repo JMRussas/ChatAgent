@@ -2182,7 +2182,8 @@ export async function startServer(
       runDir,
       endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
       executors: configuredTaskExecutors(process.env, runDir),
-      model: workflowModel
+      model: workflowModel,
+      taskTools: () => workspaceTools?.taskView(projectId)
     });
   const workflowTools =
     process.env.HEKATE_PLAN_API_URL && (workspaceEnabled || process.env.WORKFLOW_PROJECT_ID)
