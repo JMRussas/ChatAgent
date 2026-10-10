@@ -6,6 +6,7 @@ import { attemptProgressHtml, attemptProgressScript } from "./attemptProgress";
 import { executiveOverviewHtml, executiveOverviewScript } from "./executiveOverview";
 import { workflowPanelHtml, workflowPanelScript } from "./workflowPanel";
 import { workspacePanelHtml, workspacePanelScript } from "./workspacePanel";
+import { renderWorkspaceHomePageHtml } from "./workspaceHome";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -27,7 +28,7 @@ export function renderHomePageHtml(
 ): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -418,12 +419,13 @@ export function renderHomePageHtml(
   <main class="app">${workspace ? workspacePanelHtml() : ""}
     <section class="panel chat-shell" aria-label="chat">${workflows ? `\n      ${workflowPanelHtml()}` : ""}${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
       <header class="panel-header">
-        <h1>ChatAgent Fast + Deep Thread</h1>
-        <div class="sub">Watch provisional replies upgrade to refined replies as deep processing completes.</div>
+        <h1>${workspace ? "Conversation" : "ChatAgent Fast + Deep Thread"}</h1>
+        <div class="sub">${workspace ? "Discuss the work, review results, and decide what comes next." : "Watch provisional replies upgrade to refined replies as deep processing completes."}</div>
       </header>
 
       <p id="mockNotice" role="status" hidden>Mock preview: replies are simulated. Completion means the simulation finished, not that facts were retrieved or verified.</p>
       <form id="composer" class="composer">
+        ${workspace ? '<details id="conversationOptions"><summary>Model and references</summary>' : ""}
         <fieldset id="runControls" hidden>
           <legend>Manual run controls</legend>
           <label>Role <select id="runRole"><option value="">No role — configured planner</option></select></label>
@@ -465,10 +467,11 @@ export function renderHomePageHtml(
           </label>
         </div>
         ${workspace ? "</details>" : ""}
-        <p id="selectedConversationContext" role="status">Conversation scope: general</p>
+        ${workspace ? "</details>" : ""}
+        <p id="selectedConversationContext" role="status">${workspace ? "No external reference attached." : "Conversation scope: general"}</p>
         <label>
           Prompt
-          <textarea id="prompt" required minlength="1" placeholder="Ask something with external data need to trigger deep path..."></textarea>
+          <textarea id="prompt" required minlength="1" placeholder="${workspace ? "Describe what you want to do…" : "Ask something with external data need to trigger deep path..."}"></textarea>
         </label>
         <button id="sendButton" type="submit">Send</button>
         ${documentTasks ? '<button id="documentTaskStart" type="button">Ask project docs</button>' : ""}
@@ -986,6 +989,7 @@ export function renderHomePageHtml(
       if (runControls && ["review","revise"].includes(runControls.mode) && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
       if(runControls?.mode === "answer-evidence" && !referenceSelections.length){setStatus("Attach evidence rows first.",true);return;}
       state.submitting = true;
+      composer.dataset.submitting = "true";
       sendButton.disabled = true;
       try {
         await refreshConversationContext();
@@ -1053,6 +1057,7 @@ export function renderHomePageHtml(
         } else setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
       } finally {
         state.submitting = false;
+        composer.dataset.submitting = "false";
         sendButton.disabled = state.expired;
       }
     });
@@ -1132,7 +1137,7 @@ export function renderHomePageHtml(
         if (remaining <= 0) context = {...context,reference:null,referenceStatus:"expired"};
         else contextExpiryTimer = setTimeout(() => { void refreshConversationContext(); }, Math.min(remaining + 25, 2147483647));
       }
-      $("selectedConversationContext").textContent = context ? "Conversation scope: " + context.path.join(" → ") + ". Reference: " + context.referenceStatus + (context.reference ? " (" + context.reference.sourceUrl + ")" : "") : "Conversation scope: general";
+      $("selectedConversationContext").textContent = context ? (${workspace} ? "Reference context: " : "Conversation scope: ") + context.path.join(" → ") + ". Reference: " + context.referenceStatus + (context.reference ? " (" + context.reference.sourceUrl + ")" : "") : (${workspace} ? "No external reference attached." : "Conversation scope: general");
     };
     const refreshConversationContext = async () => {
       const requestVersion = ++contextRequestVersion;
@@ -1307,4 +1312,5 @@ ${
 }
 </body>
 </html>`;
+  return workspace ? renderWorkspaceHomePageHtml(html) : html;
 }

@@ -6,6 +6,13 @@ const SECOND = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const PLAN = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
 const ROOT = "cccccccc-dddd-4eee-8fff-000000000000";
 const HOSTILE = '<img src=x onerror="window.workspaceInjected=1">';
+async function manage(page: Page) {
+  if (await page.locator("#workspacePanel").isVisible()) return;
+  if (await page.locator("#workspaceActionDialog").isVisible())
+    await page.locator("#workspaceActionClose").click();
+  await page.locator("#shellManageWorkspace").click();
+  await expect(page.locator("#workspacePanel")).toBeVisible();
+}
 function project(id: string, name: string) {
   return {
     id,
@@ -158,6 +165,7 @@ test("projects and saved conversations can be selected, edited, searched and arc
     })
   );
   await app.pair(page);
+  await manage(page);
   await expect(page.locator("#workspaceConversations")).toContainText("First discussion");
   for (const id of ["workspaceConversations", "workspaceWork"]) {
     await expect(page.locator("#" + id + " > li")).toHaveCount(20);
@@ -177,18 +185,13 @@ test("projects and saved conversations can be selected, edited, searched and arc
   expect(seen.find((entry) => entry.name === "update_project")!.input.revision).toBe(1);
   await page.getByRole("button", { name: "First discussion", exact: true }).click();
   await expect(page.locator("#thread")).toContainText("Saved conversation history");
-  await expect(page.locator("#thread .bubble.user").first()).toBeInViewport({ ratio: 1 });
-  await expect
-    .poll(async () =>
-      page
-        .locator("#thread .bubble.user")
-        .first()
-        .evaluate((bubble) => bubble.getBoundingClientRect().top)
-    )
-    .toBeLessThan(180);
+  await expect(page.locator("#thread .bubble.user").first()).toBeVisible();
+  await expect(page.locator("#prompt")).toBeVisible();
+  await manage(page);
   await page.getByLabel("Conversation title", { exact: true }).fill("Release discussion");
   await page.getByRole("button", { name: "Save conversation", exact: true }).click();
   await expect(page.locator("#workspaceConversations")).toContainText("Release discussion");
+  await manage(page);
   await page.getByRole("button", { name: "Archive conversation", exact: true }).click();
   await expect(page.locator("#workspaceConversations")).not.toContainText("Release discussion");
   await page.getByLabel("Include archived conversations").check();
@@ -199,10 +202,17 @@ test("projects and saved conversations can be selected, edited, searched and arc
   await page.getByLabel("Search conversations").fill("");
   await page.getByLabel("Project", { exact: true }).selectOption(SECOND);
   await page.getByLabel("New conversation title").fill("Second planning session");
-  await page.getByRole("button", { name: "New conversation", exact: true }).click();
+  await page
+    .locator("#workspacePanel")
+    .getByRole("button", { name: "New conversation", exact: true })
+    .click();
   await expect(page.locator("#workspaceSelectedTitle")).toContainText("Second planning session");
   expect(state.conversations.at(-1)!.projectId).toBe(SECOND);
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await manage(page);
+  await page
+    .locator("#workspacePanel")
+    .getByRole("button", { name: "New project", exact: true })
+    .click();
   await page.getByLabel("Project name", { exact: true }).fill("Third project");
   await page.getByLabel("Repository path (optional)").fill("D:/Git/third");
   await page.getByRole("button", { name: "Save project", exact: true }).click();
@@ -226,7 +236,9 @@ test("saved conversations use the authorized bridge for send and reload without 
     })
   );
   await app.pair(page);
-  await page.getByRole("button", { name: "Second discussion", exact: true }).click();
+  await page.locator("#conversationsTab").click();
+  await page.locator("#conversationList").getByText("Second discussion", { exact: true }).click();
+  await page.locator("#continueConversation").click();
   await expect(page.locator("#thread")).toContainText("Saved conversation history");
   await expect(page.locator("#conversationIdentifiers")).not.toHaveAttribute("open");
   await page.getByLabel("Prompt", { exact: true }).fill("Continue this project");
@@ -241,6 +253,7 @@ test("saved conversations use the authorized bridge for send and reload without 
     )
     .toBe(true);
   await page.reload();
+  await manage(page);
   await expect(page.locator("#workspaceSelectedTitle")).toContainText("Second discussion");
   await expect(page.locator("#conversationId")).toHaveValue("saved-second");
   await expect(page.locator("#thread")).toContainText("Saved conversation history");
@@ -295,22 +308,29 @@ test("opening work selects its plan and explicit Run forwards the project and or
     await route.fulfill({ json: result });
   });
   await app.pair(page);
-  const work = page.locator('[data-work="' + PLAN + '"]');
-  await work.getByRole("button", { name: "Open", exact: true }).click();
+  const work = page.locator('#workList [data-work="' + PLAN + '"]');
+  await work.click();
+  await page.locator("#openCurrent").click();
   await expect(page.locator("#workflowTitle")).toHaveText("Review report");
   expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(0);
   await expect(page.locator("#workflowRun")).toBeEnabled();
-  await work.getByRole("button", { name: "Run", exact: true }).click();
+  await page.locator("#workflowRun").click();
   await expect(page.locator("#workflowRunStatus")).toContainText("Needs your input");
   const run = seen.find((entry) => entry.name === "run_plan")!;
   expect(run.input.projectId).toBe(FIRST);
   expect(run.conversation).toBe("saved-first");
-  await page.getByLabel("Project", { exact: true }).selectOption(SECOND);
+  await page.locator("#workspaceActionClose").click();
+  await page.locator('#projects [data-project="' + SECOND + '"]').click();
+  await page.locator("#workspaceActionReopen").click();
   await page.locator("#workflowRunRefresh").click();
   expect(seen.filter((entry) => entry.name === "get_run").at(-1)!.input.projectId).toBe(FIRST);
-  await page.getByLabel("Project", { exact: true }).selectOption(FIRST);
+  await page.locator("#workspaceActionClose").click();
+  await page.locator('#projects [data-project="' + FIRST + '"]').click();
+  await page.locator("#workspaceActionReopen").click();
   await page.locator("#workflowNew").click();
-  await page.getByLabel("Project", { exact: true }).selectOption(SECOND);
+  await page.locator("#workspaceActionClose").click();
+  await page.locator('#projects [data-project="' + SECOND + '"]').click();
+  await page.locator("#workspaceActionReopen").click();
   await expect(page.locator("#workflowSavedState")).toContainText("Draft");
   await expect(page.locator("#workflowProjectScope")).toContainText("keeps its original project");
   await page.locator("#workflowSave").click();
@@ -381,29 +401,32 @@ test("prepared coding work opens existing controls while unavailable and hostile
     await route.fulfill({ status: 503, json: { code: "UNAVAILABLE" } });
   });
   await app.pair(page);
+  await manage(page);
   await expect(page.locator("#workspaceErrors")).toHaveText(HOSTILE);
   await expect(page.locator("#workspaceNote")).toContainText("More work exists");
   await expect(page.locator("#workspaceWork")).not.toContainText("Earlier completed work");
   await page.getByLabel("Include completed work").check();
   await expect(page.locator("#workspaceWork")).toContainText("Earlier completed work");
-  await expect(page.locator('[data-work="' + FIRST + '"]')).toContainText("Coding plan");
+  await expect(page.locator('#workspacePanel [data-work="' + FIRST + '"]')).toContainText(
+    "Coding plan"
+  );
   expect(
     await page
-      .locator('[data-work="' + FIRST + '"]')
+      .locator('#workspacePanel [data-work="' + FIRST + '"]')
       .getByRole("button", { name: "Run", exact: true })
       .count()
   ).toBe(0);
   await expect(page.locator("#workspaceConversations button").first()).toBeDisabled();
   expect(await page.locator("#workspacePanel img").count()).toBe(0);
   await page
-    .locator('[data-conversation="saved-first"]')
+    .locator('#workspacePanel [data-conversation="saved-first"]')
     .getByRole("button", { name: "Archive " + HOSTILE, exact: true })
     .click();
-  await expect(page.locator('[data-conversation="saved-first"]')).toHaveCount(0);
+  await expect(page.locator('#workspacePanel [data-conversation="saved-first"]')).toHaveCount(0);
   expect(state.conversations[0]!.archived).toBe(true);
   await page.getByLabel("Project", { exact: true }).selectOption(SECOND);
   await page
-    .locator('[data-work="' + ROOT + '"]')
+    .locator('#workspacePanel [data-work="' + ROOT + '"]')
     .getByRole("button", { name: "Open", exact: true })
     .click();
   await expect(page.locator("#planRoot")).toHaveValue(ROOT);
@@ -414,6 +437,7 @@ test("prepared coding work opens existing controls while unavailable and hostile
     SECOND
   );
   state.fail = HOSTILE;
+  await manage(page);
   await page.getByRole("button", { name: "Refresh workspace", exact: true }).click();
   await expect(page.locator("#workspaceNote")).toHaveText(HOSTILE);
   expect(

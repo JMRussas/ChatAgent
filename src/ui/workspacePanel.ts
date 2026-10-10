@@ -111,6 +111,9 @@ export function workspacePanelScript(): string {
     select.value = selected || '';
   }
   function selectedSummary() { return snapshot && snapshot.conversations.find(function (entry) { return entry.id === selectedConversationId; }); }
+  function hasCurrentMessage() {
+    return !!document.getElementById('prompt').value.trim() || document.getElementById('composer').dataset.submitting === 'true';
+  }
   function renderSelected() {
     var conversation = selectedSummary();
     el('SelectedConversation').hidden = !conversation;
@@ -149,7 +152,7 @@ export function workspacePanelScript(): string {
   function openConversation(conversation, revealChat) {
     if (!conversation.reopenable) { note('This saved conversation cannot currently be reopened.'); return false; }
     var current = document.getElementById('conversationId').value.trim();
-    if (current !== conversation.id && (document.getElementById('prompt').value.trim() || document.getElementById('sendButton').disabled)) {
+    if (current !== conversation.id && hasCurrentMessage()) {
       note('Send or clear the current message before switching conversations.'); return false;
     }
     selectedConversationId = conversation.id;
@@ -157,7 +160,7 @@ export function workspacePanelScript(): string {
     selectedProjectId = conversation.projectId || null;
     el('Project').value = selectedProjectId || '';
     dispatch('workspace-project-selected', { projectId: selectedProjectId });
-    dispatch('workspace-conversation-selected', { conversationId: conversation.id, projectId: selectedProjectId });
+    dispatch('workspace-conversation-selected', { conversationId: conversation.id, projectId: selectedProjectId, title: conversation.title });
     renderSelected(); renderConversations(); renderWork();
     note('Opened ' + conversation.title + '.');
     if (snapshotProjectId !== selectedProjectId) requestRefresh();
@@ -170,7 +173,7 @@ export function workspacePanelScript(): string {
   }
   function openWork(work, run) {
     var conversation = work.conversationId && snapshot.conversations.find(function (entry) { return entry.id === work.conversationId; });
-    if (conversation && conversation.reopenable && !document.getElementById('prompt').value.trim() && !document.getElementById('sendButton').disabled) openConversation(conversation, false);
+    if (conversation && conversation.reopenable && !hasCurrentMessage()) openConversation(conversation, false);
     if (work.kind === 'workflow') {
       if (!document.getElementById('workflowPanel')) { note('Workflow controls are not enabled on this host.'); return; }
       dispatch('workspace-open-plan', { id: work.id, projectId: work.projectId, run: run });
@@ -254,29 +257,62 @@ export function workspacePanelScript(): string {
       if (editingProject) { input.id = editingProject.id; input.revision = editingProject.revision; input.archived = el('ProjectArchived').checked; }
       var project = await tool(editingProject ? 'update_project' : 'register_project', input);
       selectedProjectId = project.id; el('ProjectForm').hidden = true;
-      await refresh(); dispatch('workspace-project-selected', { projectId: selectedProjectId }); note('Project saved.');
+      await refresh();
+      dispatch('workspace-project-selected', { projectId: selectedProjectId });
+      dispatch('workspace-work-changed');
+      note('Project saved.');
     });
   });
   async function createConversation() {
+    if (hasCurrentMessage()) {
+      note('Send or clear the current message before starting another conversation.');
+      return;
+    }
     var input = { title: el('ConversationTitle').value.trim() || undefined };
     if (selectedProjectId) input.projectId = selectedProjectId;
     var conversation = await tool('create_conversation', input);
     el('ConversationTitle').value = ''; await refresh(); openConversation(conversation);
+    dispatch('workspace-work-changed');
     document.getElementById('prompt').focus();
   }
   el('ConversationForm').addEventListener('submit', function (event) { event.preventDefault(); operation(createConversation); });
   window.addEventListener('workspace-new-conversation', function () { operation(createConversation); });
+  window.addEventListener('workspace-select-project', function (event) {
+    if (disposed || !snapshot || !event.detail) return;
+    var id = event.detail.projectId || null;
+    if (id && !snapshot.projects.some(function (project) { return project.id === id; })) return;
+    if (busy) { note('Wait for the current workspace action to finish.'); return; }
+    el('Project').value = id || '';
+    el('Project').dispatchEvent(new Event('change'));
+  });
+  window.addEventListener('workspace-open-conversation', function (event) {
+    if (!event.detail || typeof event.detail.conversationId !== 'string') return;
+    if (busy) { note('Wait for the current workspace action to finish.'); return; }
+    operation(async function () {
+      var conversation = snapshot && snapshot.conversations.find(function (row) { return row.id === event.detail.conversationId; });
+      if (!conversation) {
+        await refresh();
+        conversation = snapshot.conversations.find(function (row) { return row.id === event.detail.conversationId; });
+      }
+      if (!conversation) { note('This conversation is no longer available.'); return; }
+      openConversation(conversation);
+    });
+  });
   el('ConversationEditForm').addEventListener('submit', function (event) {
     event.preventDefault(); operation(async function () {
       var conversation = await tool('update_conversation', { id: selectedConversationId, title: el('EditConversationTitle').value.trim(), projectId: el('ConversationProject').value || null });
-      await refresh(); openConversation(conversation, false); note('Conversation saved.');
+      await refresh(); openConversation(conversation, false);
+      dispatch('workspace-work-changed');
+      note('Conversation saved.');
     });
   });
   function archiveConversation(conversation) {
     if (!conversation) return;
     operation(async function () {
       await tool('update_conversation', { id: conversation.id, archived: !conversation.archived });
-      await refresh(); note(conversation.archived ? 'Conversation restored.' : 'Conversation archived.');
+      await refresh();
+      dispatch('workspace-work-changed');
+      note(conversation.archived ? 'Conversation restored.' : 'Conversation archived.');
     });
   }
   el('ArchiveConversation').addEventListener('click', function () { archiveConversation(selectedSummary()); });
@@ -298,7 +334,7 @@ export function workspacePanelScript(): string {
       var saved = JSON.parse(sessionStorage.getItem('chatagent-active-conversation') || 'null');
       if (saved && saved.workspaceConversationId === saved.conversationId) {
         var conversation = snapshot.conversations.find(function (entry) { return entry.id === saved.conversationId; });
-        if (conversation && conversation.reopenable && !document.getElementById('prompt').value.trim() && !document.getElementById('sendButton').disabled) openConversation(conversation);
+        if (conversation && conversation.reopenable && !hasCurrentMessage()) openConversation(conversation);
       }
     } catch (_) {}
   });

@@ -1,7 +1,8 @@
 # ChatAgent — responsive chat and background AI workflows
 
-The home page starts with a Workspace: register existing repositories, browse
-saved conversations and project work, reopen a thread, or open and run a plan.
+The home page is a Workspace with projects in the sidebar and separate Work and
+Conversations views. Register existing repositories, browse saved conversations
+and project work, continue a thread, or open and run a plan in the same page.
 Conversations have editable titles, project assignments and an archive control.
 Opening or refreshing records performs no execution. History and navigation
 metadata are saved by default in `data/conversations.json` and
@@ -9,8 +10,8 @@ metadata are saved by default in `data/conversations.json` and
 override those locations. `WORKSPACE_ENABLED=false` disables the workspace.
 
 Open `/design` for the proposed workspace layout using the same authenticated
-project, conversation and work records. The preview only reads data; its buttons
-open the selected conversation or plan in the current application's controls.
+project, conversation and work records. This reference preview only reads data;
+use the home page for live chat, project management and plan execution.
 
 Bind a project to its existing Hekate project in **Project integration** to
 discover its workflows and coding plans. `WORKFLOW_PROJECT_ID` remains an optional

@@ -29,14 +29,16 @@ cleanup must not become a prerequisite for useful product progress.
 
 ### Active delivery plan — shared tools and editable workflows (2026-10-10)
 
-**Current UI proposal:** `/design` presents an alternate workspace layout using
-the authenticated application's real project, conversation, plan and run records.
-Projects form a sidebar; Work and Conversations are separate views, with a focused
-detail panel for goals, step inputs/outputs, results and needed decisions. The
-proposal is read-only. Its Open controls and Continue actions navigate to the
-existing application with the selected work/thread; navigation never starts a run.
-No sample tasks or simulated run states are substituted for unavailable data.
-The proposed layout is for review before replacing the current presentation.
+**Working workspace UI:** the approved layout is the default home when Workspace
+is enabled. Projects form a sidebar; Work and Conversations are separate views,
+with a focused detail panel for goals, step inputs/outputs, results and needed
+decisions. Conversations continue through the existing live chat and saved-owner
+bridge in the same page. Project management and workflow/coding controls open in
+an action dialog using the existing tools. Opening records does not execute them;
+running, stopping, supplying human results and responding to agent requests remain
+explicit actions. Existing draft and in-flight conversation guards still apply.
+No sample tasks or simulated states replace unavailable records. `/design` retains
+the read-only proposal as a visual reference.
 
 **Implemented increment — workspace home:** provide one view of registered code
 projects, saved conversations and observed outstanding work. The directory
@@ -65,9 +67,9 @@ refresh saved state before repeating a write. Conversation persistence remains a
 single-writer bounded snapshot rather than a scalable append log. Completed history
 retains the existing expiry policy.
 
-The preceding native-agent increment passed the hosted Linux release/browser and
-Windows test jobs on `9e6098a` in
-[run 38071355702](https://github.com/JMRussas/ChatAgent/actions/runs/38071355702).
+The workspace directory and live-data proposal passed the hosted Linux
+release/browser and Windows test jobs on `73ae07d` in
+[run 38077542187](https://github.com/JMRussas/ChatAgent/actions/runs/38077542187).
 Local workspace verification covers owner isolation, legacy and v1 history
 continuation, default-enabled startup persistence, restart without replay, project
 routing, revision-aware outstanding work, coding read failures, metadata rollback
@@ -78,14 +80,16 @@ Documentation checks retain formatting, links and execution prerequisites. Histo
 persistence is verified through actual startup/restart rather than a frozen prose
 digest; the independent reviewed read-only verifier's source pin remains intact.
 
-An actual backend/UI walkthrough reopened saved history, registered the existing
-ChatAgent repository, created a project conversation and ran configured report
-retrieval → human review → completion. The actual HTTP result, completed Hekate
-plan, conversation link and reload/reopen were inspected; no model call or browser
-mock was needed for those direct actions. Preserved evidence is under the external
-`shared-workflows-20261010/workspace-proof` directory. This verifies the working
-controls, not user acceptance or general model planning reliability. Source-pinned
-Linux release/browser and Windows gates run on the published branch.
+The working-home walkthrough used the registered ChatAgent repository, created a
+project conversation with a real Ollama reply, and ran report retrieval → human
+review → completion through the new UI. The actual HTTP result, completed Hekate
+plan, conversation association, restored history and absence of replay on reload
+were inspected. Mobile observation found no horizontal overflow. No browser mocks
+were used. Preserved evidence is under the external
+`shared-workflows-20261010/workspace-live-ui-proof` directory; the earlier directory
+walkthrough remains in `workspace-proof`. These observations verify the working
+controls and one live conversation, not general model planning reliability.
+Source-pinned Linux release/browser and Windows gates run on the published branch.
 
 **Delivered increment — native agent tasks:** add one data-defined agent step with
 objective, context, references, selected tools, completion criteria and a total

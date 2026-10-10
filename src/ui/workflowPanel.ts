@@ -430,7 +430,6 @@ export function workflowPanelScript(): string {
   });
   controls();
   operation(async function () {
-    await listPlans();
     var result = await tool('list_actions', {});
     availableExecutors = result.executors || [];
     el('AgentExecutor').replaceChildren();
@@ -448,6 +447,7 @@ export function workflowPanelScript(): string {
     });
     el('Actions').textContent = 'Available tool actions: ' + (result.actions.map(function (action) { return action.name; }).join(', ') || 'none') +
       '. Model execution: ' + (result.modelAvailable ? 'configured.' : 'not configured.');
+    await listPlans();
     note('Choose a saved plan or create one.');
   });
 })();
