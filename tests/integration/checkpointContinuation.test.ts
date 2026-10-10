@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runContinuationCli } from "../../scripts/continueCheckpoint";
 import {
   claimKeyOf,
@@ -16,6 +16,8 @@ import { RUN_ID } from "../helpers/checkpointFixtures";
 import { git, makeFixture, type Fixture } from "../helpers/continuationFixtures";
 
 const T = 120_000;
+// Every case here allocates a real Git fixture, which can exceed the 5s default under host load.
+vi.setConfig({ testTimeout: 30_000 });
 const fixtures: Fixture[] = [];
 afterEach(async () => {
   for (const f of fixtures.splice(0)) {

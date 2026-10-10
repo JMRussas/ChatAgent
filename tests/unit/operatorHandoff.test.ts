@@ -9,6 +9,9 @@ import * as handoff from "../../src/checkpoint/operatorHandoff";
 import { SOURCE_REF } from "../helpers/checkpointFixtures";
 import { git, makeFixture, type Fixture } from "../helpers/continuationFixtures";
 
+// Every case here allocates a real Git fixture, which can exceed the 5s default under host load.
+vi.setConfig({ testTimeout: 30_000 });
+
 // Test seam: module mocking replaces only the maintained `runContinuation` here, to inject
 // controlled results and exceptions. It proves classification and registry rules, nothing about
 // the real coordinator; the integration suite delegates to the actual one.
