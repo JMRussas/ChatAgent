@@ -93,6 +93,8 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-046 | Continuation authority and publication checks are incomplete | defect | acceptance blocker | closed | Hermes / scoped repair |
 | CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 | CA-ISSUE-048 | Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps | defect | acceptance blocker | closed / verified scoped repair | Hermes / lead verification |
+| CA-ISSUE-049 | Formatter proposal rejects required config and contradicts unsupported-file gate | planning defect | acceptance blocker | closed / contract repaired | Athena / lead review |
+| CA-ISSUE-050 | Hosted Windows CI failures hidden by advisory job | verification defect | P1 | open / repair queued | Mimir / CI repair |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1563,3 +1565,36 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   attempt rather than a relabelled model run. No atomic filesystem-to-HTTP stop
   guarantee, authenticated actor or power-loss durability claim is added.
   CA-ISSUE-004 (independent wake, delivery, unattended recovery) remains open.
+
+### CA-ISSUE-049 — Formatter planning contradictions
+
+- **Observed:** proposal `0a7643e` forbids required root config/package files and
+  claims unsupported-file success while leaving the independent Prettier check
+  over unsupported paths. Its broad UI schema expansion also exceeds the runtime MVP.
+- **Resolution:** rejected original task/queue retained. Repair `66fea48` allows
+  pinned required root files, uses the same eligible set and pinned flags for opt-in
+  write/check, retains legacy behavior, and defers UI enrichment. Lead `18bde4d`
+  clarifies no-op raw=final and requires the two failure-reason enum additions.
+- **Status:** closed for contract review only; formatter runtime is not implemented.
+  Real repair task: `313f2fab-8f89-523c-b746-22f9c5361e23`.
+  Evidence: `cleanup-loop-001/format-plan-001/lead-rejection.json`,
+  `format-plan-repair-001/lead-review.json` and exact finalization receipts.
+
+### CA-ISSUE-050 — Hosted Windows CI failures hidden by advisory job
+
+- **Observed:** workflow `38011515598` reports success for `c7402cc`, while
+  `windows-tests` job `114092355915` fails 38 cases. Thirty-six identity/privacy cases
+  supplied `RUNNER~1` temp aliases that differ from the canonical path, which the
+  existing privacy guard rejects; two continuation refusal tests exceed a shared
+  five-second limit across multiple Git fixtures. The required Linux job passes.
+- **Expected repair:** use the canonical native temp directory in the hosted CI
+  harness; keep production alias/link/privacy refusal unchanged. Split the two
+  multi-fixture tests into independently bounded cases retaining exact refusal and
+  zero-worker assertions. Make Windows CI required and prove both real jobs green.
+  Do not repair fixture ACLs to hide a guard failure, skip failures or widen global
+  test timeouts.
+- **Status / owner:** open, bounded Mimir task `2cfc6fba-56bd-510d-a901-1dc39062631e`. Formatter
+  implementation remains blocked on this immediate verification repair.
+- **Evidence:** `cleanup-loop-001/queue-github-ci.json`,
+  `queue-ci-windows-failure.log` and corrected `queue-final-delivery-bundle.json`.
+  The initial workflow-only success classification is retained separately.

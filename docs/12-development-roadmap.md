@@ -39,16 +39,23 @@ attempt with no inherited model counters. Lead review, exact finalization receip
 checks and paired inline review evidence are external under `cleanup-loop-001`;
 the live proof is `queue-live-001/reviewed-proof.json`.
 
-**Next checkpoint:** freeze and deliver scoped formatting before checkpoint finish
-(real task `2c9aa7ef-c42a-5927-9212-24edb08ed585`): preserve the raw functional commit, run pinned
-Prettier only on declared supported files, commit any formatting separately, then
-finish once against the final source and run unchanged external checks. This avoids
-the two observed operator recoveries caused by a restricted worker's inability to
-run the formatter. Do not add automatic semantic acceptance or merge authority.
-After this gate, prepare independently based useful backlog tasks for bounded queue
-execution. Code-dependent tasks need explicit baseline integration between queues.
-CA-ISSUE-004 remains open for wake, delivered notifications and unattended recovery;
-the queue is a bounded operator invocation, not a continuously running manager.
+**Next execution order:** repair hosted Windows verification first (CA-ISSUE-050,
+real task `2cfc6fba-56bd-510d-a901-1dc39062631e`). The exact queue source's required Linux verification passed,
+but 38 Windows cases failed while the advisory job allowed an overall green workflow.
+Canonical hosted temp paths and independently bounded multi-fixture refusal cases
+must be verified without weakening production privacy or skipping failures. Promote
+the Windows job to required only with a reviewed change and real green-job proof.
+
+The scoped formatter runtime contract is lead-reviewed in
+[document 27](implementation/27-scoped-checkpoint-formatting.md), after rejecting
+proposal `0a7643e`, accepting repair `66fea48` and lead clarification `18bde4d`.
+Original planning finalization is separately fenced; no runtime is claimed delivered.
+Implementation task `2c9aa7ef-c42a-5927-9212-24edb08ed585` follows the accepted contract
+and CI repair. Preserve raw functional source, a separate formatting-only commit,
+and one finish against final source. Then deliver explicit same-page formatter facts
+as a separate checkpoint and prepare useful independently based backlog tasks.
+CA-ISSUE-004 remains open for wake, notifications and unattended recovery; bounded
+queues do not provide a continuously running AI manager.
 
 Repository cleanup preserved all unfinished local Hekate bytes and retired only
 archived/reviewed bridge branches. Hekate now reports public in GitHub through an
