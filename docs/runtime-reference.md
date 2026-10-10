@@ -1268,3 +1268,35 @@ state, and a stalled disk can still delay shutdown until its timeout.
 Discovery listing and retained-observation bounds and completeness rules are in
 [the inventory contract](implementation/03-inventory.md). A failed listing never
 renews the previous evidence's expiry; absent observations fail closed.
+
+## Bounded checkpoint queue service
+
+`npx tsx scripts/runCheckpointQueue.ts --manifest <file> --arm|--resume|--stop|--show`
+sequences at most four pinned coding checkpoints (contract:
+[doc 26](implementation/26-persistent-checkpoint-queue.md)). The strict manifest
+(`checkpoint-queue-service-manifest/v1`, at most 32 KiB) pins each item's
+continuation manifest by SHA-256 and sets the queue wall, poll, review-wait and
+total admission limits. Items run one at a time: a node-specific start
+(`POST .../nodes/{nodeId}/transition`) of only the next approved node, the unchanged
+finite continuation, then a bounded wait for an independently recorded exact
+acceptance of that source and fence by an allowlisted `decidedBy`. Waiting and
+blocked nodes stay TODO; the global `/claims` route is never called.
+
+- The start uses the frozen template: TODO at the exact content revision, previous
+  epoch and previous node revision. A 409, timeout or other failure never replays or
+  launches; the intent and worst-case admission are durable before the POST.
+- Records: `<queueId>.queue.json` (`checkpoint-queue-service/v1`, at most 32 KiB, at
+  most 64 transitions; overflow stops) and an exclusive `<queueId>.service.lock`.
+  The lock is never taken over by PID or age. Provider caps are rounded up to micros
+  and are configured, not verified enforcement.
+- Exit codes: 0 every item accepted (also `--stop`/`--show`); 1 `needs_operator`;
+  2 refusal before any effect; 3 cleanly stopped; 4 persistence or lock failure.
+- `--stop` creates the queue's sentinel: the current child settles, nothing else
+  starts. `--resume` needs no lock and a cleanly stopped waiting or pending boundary,
+  revalidates every pin and prior acceptance, and keeps admission and history. Uncertain,
+  `starting`/`running` and `needs_operator` records are never resumed. At most four
+  invocations.
+- `--show` reads retained metadata only: no plan API request, writer liveness unknown.
+- Actor strings are supplied, not authenticated. Mechanical checks never accept
+  source, and acceptance does not prove integration or deployment. CA-ISSUE-004
+  (independent AI wake, delivery, unattended recovery) stays open.
