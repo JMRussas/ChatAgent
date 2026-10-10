@@ -101,6 +101,8 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-054 | Owner-wrapper candidate test seam typed as Record<string, unknown> | test defect | P1 | closed / precise fixture type verified | Codex lead |
 | CA-ISSUE-055 | Remaining multi-fixture lease refusals exceeded hosted test allowance | test harness defect | P1 | closed / both required hosted jobs passed | Codex lead |
 | CA-ISSUE-056 | Operator validation launches used incomplete tool/environment profiles | operator defect | P1 | closed / corrected owned checker verified | Codex lead |
+| CA-ISSUE-057 | Budget record write failure hides its stage and errno | operator defect | P1 | open / repair pending gates | Codex lead |
+| CA-ISSUE-058 | Single real-Git fixture exceeded hosted default allowance | test harness defect | P1 | closed / required hosted jobs passed | Codex lead |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1760,3 +1762,57 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   succeeds with it. Old runs are not adopted as passes or model budget evidence.
 - **Evidence:** `cleanup-loop-001/owner-validation-profile-defect.json` and
   `owner-repair-full-owned-3-exit.json`. CA-ISSUE-051 and CA-ISSUE-004 stay open.
+
+### CA-ISSUE-057 — Budget record write failure hides its stage and errno
+
+- **Observed:** the operator mutator attempt (`operator-mutator-001`, evidence
+  `lead-review.json`) ended after 10 distinct message IDs, 125,574 ms and 235,144
+  bytes, far under its 40 IDs, 540 s and 4 MiB hard limits, with `record_write_failed`.
+  There were no edits, no finish and no gate. The owned queue closed one and the
+  baseline `0dc` is unchanged and unmodified; the attempt was rejected on that
+  evidence. `replaceBudgetRecord` discarded the failing stage and errno, and the
+  runner's flush catch reported nothing, so the filesystem cause is **unknown**. No
+  antivirus, share-lock or code-failure cause is established, and nothing retries.
+- **Planned repair (delivered in source, not yet verified by the lead):**
+  `CheckpointRecordError` keeps in memory only a fixed stage (serialize, open, write,
+  close, rename, unknown) and an allowlisted symbolic errno (EPERM, EACCES, EBUSY,
+  ENOENT, EIO, ENOSPC, EMFILE, ENFILE, EEXIST, UNKNOWN). The runner emits at most one
+  `checkpoint-record-write-diagnostic/v1` JSON line (run ID, stage, errno) per run on
+  its own stderr. It is observation only, not authority, and never becomes a record
+  field. Budget wire, argv, counter, stop, lease, privacy, cleanup and no-retry
+  behavior are unchanged.
+- **CA059 repair (open, awaiting gates):** the first diagnostic candidate (baseline
+  `c23023b`, original 24 IDs, 173,661 ms, 1,455,798 bytes) is rejected: TypeScript failed
+  (TS2352 casts in the record test) and a cast `CheckpointRecordError` echoed unallowlisted
+  strings. The repair revalidates stage and errno against the fixed allowlists at
+  serialization (unknown/`UNKNOWN` otherwise, no message, path or stack read), and the
+  runner uses one bounded synchronous `fs.writeSync(2, line)` in the best-effort path.
+  Source gate and counters are unchanged. CA057 stays an unknown initial filesystem failure
+  (10 IDs, 125,574 ms, 235,144 bytes, no edits); isolated 100 writes succeeding does not
+  resolve it, and this fix only reveals the next cause, never claims storage resolved.
+  CA058's file-local 30 s real-Git allowance is a separate task (assertions and bounds
+  unchanged; local gate passes, host CI pending).
+- **Gates pending:** lead review and verification. CA-ISSUE-051 mutator is **not**
+  delivered and CA-ISSUE-004 stays open. Foundation `0dc` was accepted on the jobs
+  branch run `38021480354`; main run `38022091406` independently failed a single Git
+  fixture at the default 5 s, tracked by the separate CA058 harness task (no
+  assertion or product timer changed here). The root-owned local baseline is 3,490
+  tests with ten skips; no new test count, CI result or acceptance is claimed.
+
+### CA-ISSUE-058 — Single real-Git fixture exceeded the default hosted allowance
+
+- **Observed:** `38022091406` at `0dcfd4f` failed only Windows's record-directory
+  refusal at the default 5,000 ms; the same source passed branch `38021480354`.
+- **Repair and gate:** `9755b5c` sets a file-local 30-second default for the
+  continuation integration and ownership unit files, which create real Git
+  fixtures. Existing longer explicit bounds, production timeouts, assertions and
+  skips are unchanged. Both required jobs passed in `38023594725`; main is pushed
+  and its temporary remote retired after exact readback.
+- **Evidence:** `cleanup-loop-001/windows-git-budgets-001/hosted-ci.json`,
+  `lead-review.json`, `events.json` and `published-main.json`.
+
+Independent operator verification of the diagnostic repair: TypeScript and all 71
+focused cases pass. The old malformed-detail control emits a sentinel; the
+repaired helper emits only `unknown` / `UNKNOWN`. Old failed gates and both model
+budgets remain unchanged. Full exact hosted acceptance and the original
+CA-ISSUE-057 filesystem cause are separate outstanding gates.

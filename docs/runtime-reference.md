@@ -748,6 +748,15 @@ schema's only value, not because a lead reviewed anything. Exit codes: 0 only fo
 `review_pending`, 1 stored operator outcome, 2 input or preflight refusal, 4 persistence or cleanup
 failure. Zero is never acceptance.
 
+A budget-record write failure in `runCheckpoint` (exit 4, `record_write_failed`) additionally
+writes at most one `checkpoint-record-write-diagnostic/v1` line (`runId`, `operation`,
+`systemCode`) to the runner's own stderr, never the worker's. The operation is one of `serialize`,
+`open`, `write`, `close`, `rename`, `unknown`; `systemCode` is one of a fixed errno allowlist or
+`UNKNOWN`. It is supplied observation only (CA-ISSUE-057, pending gates): it adds no record field and
+changes no stop, exit code, lease or cleanup behavior; normal runs print nothing extra. The line is
+the runner's own validated output written with one synchronous `fs.writeSync(2, ...)`, never provider
+or worker text.
+
 Limits: the lease is cooperative and a crash retains it (recovery is a separate operator step);
 a fresh invocation never resumes. In-flight filesystem and process operations can settle after a
 deadline and are then not followed by a later phase. A terminal `needs_operator` record is the one

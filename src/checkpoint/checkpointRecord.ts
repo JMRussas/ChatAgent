@@ -441,12 +441,94 @@ export function parseRunInput(bytes: Uint8Array): RunInput {
 
 export type CheckpointRecordErrorCode =
   "INPUT_INVALID" | "RECORD_INVALID" | "RECORD_TOO_LARGE" | "RECORD_EXISTS" | "RECORD_WRITE_FAILED";
+/** Fixed write stages and symbolic errnos; the only filesystem detail a write failure may carry. */
+export const RECORD_WRITE_OPERATIONS = [
+  "serialize",
+  "open",
+  "write",
+  "close",
+  "rename",
+  "unknown"
+] as const;
+export type RecordWriteOperation = (typeof RECORD_WRITE_OPERATIONS)[number];
+export const RECORD_SYSTEM_CODES = [
+  "EPERM",
+  "EACCES",
+  "EBUSY",
+  "ENOENT",
+  "EIO",
+  "ENOSPC",
+  "EMFILE",
+  "ENFILE",
+  "EEXIST",
+  "UNKNOWN"
+] as const;
+export type RecordSystemCode = (typeof RECORD_SYSTEM_CODES)[number];
+
+/** Maps any thrown value onto the allowlist; the original code string is never carried over. */
+export function systemCodeOf(error: unknown): RecordSystemCode {
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  return RECORD_SYSTEM_CODES.find((known) => known === code && known !== "UNKNOWN") ?? "UNKNOWN";
+}
+
 export class CheckpointRecordError extends Error {
-  constructor(readonly code: CheckpointRecordErrorCode) {
+  readonly operation?: RecordWriteOperation;
+  readonly systemCode?: RecordSystemCode;
+  constructor(
+    readonly code: CheckpointRecordErrorCode,
+    detail?: { operation: RecordWriteOperation; systemCode: RecordSystemCode }
+  ) {
     super(code);
     this.name = "CheckpointRecordError";
+    if (detail) {
+      this.operation = detail.operation;
+      this.systemCode = detail.systemCode;
+    }
   }
 }
+
+export const RECORD_WRITE_DIAGNOSTIC_SCHEMA = "checkpoint-record-write-diagnostic/v1";
+const RUN_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * One fixed-shape line for the trusted runner's own stderr. Observational only: it holds a
+ * validated run id and two allowlisted symbols, never a message, path, stack or record data.
+ */
+export function recordWriteDiagnosticLine(runId: string, error: unknown): string | null {
+  if (!RUN_ID_SHAPE.test(runId)) return null;
+  let operation: RecordWriteOperation = "unknown";
+  let systemCode: RecordSystemCode = "UNKNOWN";
+  try {
+    // Types are not runtime validation: each field is read once and re-checked against the
+    // fixed allowlists. A throwing getter or malformed detail degrades to unknown/UNKNOWN.
+    if (error instanceof CheckpointRecordError) {
+      const code: unknown = error.code;
+      if (code === "RECORD_INVALID" || code === "RECORD_TOO_LARGE") operation = "serialize";
+      else {
+        const rawOperation: unknown = error.operation;
+        const rawSystemCode: unknown = error.systemCode;
+        const knownOperation = RECORD_WRITE_OPERATIONS.find((known) => known === rawOperation);
+        const knownSystemCode = RECORD_SYSTEM_CODES.find((known) => known === rawSystemCode);
+        if (knownOperation && knownSystemCode) {
+          operation = knownOperation;
+          systemCode = knownSystemCode;
+        }
+      }
+    }
+  } catch {
+    operation = "unknown";
+    systemCode = "UNKNOWN";
+  }
+  return `${JSON.stringify({
+    schema: RECORD_WRITE_DIAGNOSTIC_SCHEMA,
+    runId,
+    operation,
+    systemCode
+  })}\n`;
+}
+
+const writeFailure = (operation: RecordWriteOperation, error: unknown) =>
+  new CheckpointRecordError("RECORD_WRITE_FAILED", { operation, systemCode: systemCodeOf(error) });
 
 export const budgetRecordPath = (dir: string, runId: string) => join(dir, `${runId}.budget.json`);
 export const gateRecordPath = (dir: string, runId: string) => join(dir, `${runId}.gate.json`);
@@ -467,14 +549,14 @@ export async function reserveBudgetRecord(dir: string, record: BudgetRecord): Pr
   try {
     handle = await open(budgetRecordPath(dir, record.runId), "wx");
   } catch (error) {
-    throw new CheckpointRecordError(
-      (error as NodeJS.ErrnoException).code === "EEXIST" ? "RECORD_EXISTS" : "RECORD_WRITE_FAILED"
-    );
+    throw (error as NodeJS.ErrnoException).code === "EEXIST"
+      ? new CheckpointRecordError("RECORD_EXISTS")
+      : writeFailure("open", error);
   }
   try {
     await handle.writeFile(text, "utf8");
-  } catch {
-    throw new CheckpointRecordError("RECORD_WRITE_FAILED");
+  } catch (error) {
+    throw writeFailure("write", error);
   } finally {
     await handle.close().catch(() => undefined);
   }
@@ -485,16 +567,22 @@ export async function replaceBudgetRecord(dir: string, record: BudgetRecord): Pr
   const text = serializeBudgetRecord(record);
   const finalPath = budgetRecordPath(dir, record.runId);
   const temp = `${finalPath}.${randomBytes(6).toString("hex")}.tmp`;
+  let operation: RecordWriteOperation = "open";
   try {
     const handle = await open(temp, "wx");
     try {
+      operation = "write";
       await handle.writeFile(text, "utf8");
     } finally {
+      const writeStage = operation;
+      operation = "close";
       await handle.close();
+      operation = writeStage;
     }
+    operation = "rename";
     await rename(temp, finalPath);
-  } catch {
+  } catch (error) {
     await unlink(temp).catch(() => undefined);
-    throw new CheckpointRecordError("RECORD_WRITE_FAILED");
+    throw writeFailure(operation, error);
   }
 }

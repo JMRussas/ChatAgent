@@ -1,16 +1,45 @@
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+type FsPromises = typeof import("node:fs/promises");
+type OpenHook = (
+  path: Parameters<FsPromises["open"]>[0],
+  flags?: Parameters<FsPromises["open"]>[1],
+  mode?: Parameters<FsPromises["open"]>[2]
+) => ReturnType<FsPromises["open"]>;
+type RenameHook = (
+  oldPath: Parameters<FsPromises["rename"]>[0],
+  newPath: Parameters<FsPromises["rename"]>[1]
+) => ReturnType<FsPromises["rename"]>;
+const hooks = vi.hoisted(() => ({
+  open: undefined as OpenHook | undefined,
+  rename: undefined as RenameHook | undefined
+}));
+// Test-only fault injection; the production writer has no hook.
+vi.mock("node:fs/promises", async (original) => {
+  const actual = await original<FsPromises>();
+  return {
+    ...actual,
+    open: ((path, flags, mode) =>
+      hooks.open ? hooks.open(path, flags, mode) : actual.open(path, flags, mode)) as OpenHook,
+    rename: ((oldPath, newPath) =>
+      hooks.rename ? hooks.rename(oldPath, newPath) : actual.rename(oldPath, newPath)) as RenameHook
+  };
+});
 import {
   CHECKPOINT_LIMITS,
   CheckpointRecordError,
+  RECORD_SYSTEM_CODES,
+  RECORD_WRITE_OPERATIONS,
   budgetRecordPath,
   deriveGateOutcome,
   parseBoundedJson,
   parseBudgetRecord,
   parseGateRecord,
   parseRunInput,
+  recordWriteDiagnosticLine,
   replaceBudgetRecord,
   reserveBudgetRecord,
   serializeBudgetRecord
@@ -208,6 +237,159 @@ describe("record files", () => {
     await replaceBudgetRecord(dir, makeRecord());
     expect(JSON.parse(await readFile(budgetRecordPath(dir, RUN_ID), "utf8")).state).toBe("ended");
     expect(await readdir(dir)).toEqual([`${RUN_ID}.budget.json`]);
+  });
+});
+
+describe("record write diagnostics", () => {
+  const SECRET = "C:\\secret\\token-sk-123\\records AV share lock";
+  const failure = (code: string) =>
+    Object.assign(new Error(`${code} ${SECRET}`), { code, path: SECRET, syscall: SECRET });
+  const running = () =>
+    makeRecord({
+      state: "running",
+      stop: { kind: "none", code: "none" },
+      endedAt: null,
+      exit: null
+    });
+  afterEach(() => {
+    hooks.open = undefined;
+    hooks.rename = undefined;
+  });
+
+  it("keeps only the fixed stage and symbolic errno when replace fails at rename", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "ckpt-rec-"));
+    dirs.push(dir);
+    await reserveBudgetRecord(dir, running());
+    const before = await readFile(budgetRecordPath(dir, RUN_ID), "utf8");
+    hooks.rename = () => Promise.reject(failure("EBUSY"));
+    // Negative counterexample: the old writer threw a bare RECORD_WRITE_FAILED with neither field.
+    const error = await replaceBudgetRecord(dir, makeRecord()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(CheckpointRecordError);
+    expect(error).toMatchObject({
+      code: "RECORD_WRITE_FAILED",
+      operation: "rename",
+      systemCode: "EBUSY",
+      message: "RECORD_WRITE_FAILED"
+    });
+    expect(JSON.stringify(error)).not.toMatch(/secret|token|AV|share/);
+    expect((error as Error).stack).not.toMatch(/secret|token|share/);
+    // The original record survives and the temp file is removed.
+    expect(await readFile(budgetRecordPath(dir, RUN_ID), "utf8")).toBe(before);
+    expect(await readdir(dir)).toEqual([`${RUN_ID}.budget.json`]);
+  });
+
+  it("maps open failures for replace and reserve, and unknown codes to UNKNOWN", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "ckpt-rec-"));
+    dirs.push(dir);
+    hooks.open = () => Promise.reject(failure("EACCES"));
+    await expect(reserveBudgetRecord(dir, running())).rejects.toMatchObject({
+      code: "RECORD_WRITE_FAILED",
+      operation: "open",
+      systemCode: "EACCES"
+    });
+    hooks.open = () => Promise.reject(failure("EWEIRD_SECRET"));
+    const error = await replaceBudgetRecord(dir, makeRecord()).catch((e: unknown) => e);
+    expect(error).toMatchObject({ operation: "open", systemCode: "UNKNOWN" });
+    expect(JSON.stringify(error)).not.toMatch(/WEIRD|secret/);
+    hooks.open = () => Promise.reject("not an error object");
+    await expect(replaceBudgetRecord(dir, makeRecord())).rejects.toMatchObject({
+      systemCode: "UNKNOWN"
+    });
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("does not turn an existing run id into a write failure", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "ckpt-rec-"));
+    dirs.push(dir);
+    await reserveBudgetRecord(dir, running());
+    const error = await reserveBudgetRecord(dir, running()).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: "RECORD_EXISTS" });
+    expect((error as CheckpointRecordError).operation).toBeUndefined();
+  });
+
+  it("identifies serialization failures without leaking record data", () => {
+    const bad = { ...makeRecord(), runId: "SECRET-not-a-guid" } as never;
+    const error = (() => {
+      try {
+        serializeBudgetRecord(bad);
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(error).toMatchObject({ code: "RECORD_INVALID" });
+    const line = recordWriteDiagnosticLine(RUN_ID, error)!;
+    expect(JSON.parse(line)).toEqual({
+      schema: "checkpoint-record-write-diagnostic/v1",
+      runId: RUN_ID,
+      operation: "serialize",
+      systemCode: "UNKNOWN"
+    });
+    expect(line).not.toMatch(/SECRET/);
+  });
+
+  it("emits a single fixed line and refuses an unvalidated run id", () => {
+    const error = new CheckpointRecordError("RECORD_WRITE_FAILED", {
+      operation: "write",
+      systemCode: "ENOSPC"
+    });
+    const line = recordWriteDiagnosticLine(RUN_ID, error)!;
+    expect(line.endsWith("\n")).toBe(true);
+    expect(line.trimEnd()).not.toContain("\n");
+    expect(Object.keys(JSON.parse(line))).toEqual(["schema", "runId", "operation", "systemCode"]);
+    expect(JSON.parse(line)).toMatchObject({ operation: "write", systemCode: "ENOSPC" });
+    expect(JSON.parse(recordWriteDiagnosticLine(RUN_ID, new Error(SECRET))!)).toMatchObject({
+      operation: "unknown",
+      systemCode: "UNKNOWN"
+    });
+    expect(recordWriteDiagnosticLine(`${SECRET}\n{"x":1}`, error)).toBeNull();
+  });
+
+  it("revalidates detail at serialization instead of trusting the public typing", () => {
+    const SENTINEL = "SYNTHETIC_SECRET_SENTINEL";
+    // Negative counterexample: a real instance whose fields were cast in used to be echoed verbatim.
+    const forged = Object.assign(new CheckpointRecordError("RECORD_WRITE_FAILED"), {
+      operation: SENTINEL,
+      systemCode: SENTINEL
+    });
+    const forgedLine = recordWriteDiagnosticLine(RUN_ID, forged)!;
+    expect(forgedLine).not.toContain(SENTINEL);
+    expect(JSON.parse(forgedLine)).toMatchObject({ operation: "unknown", systemCode: "UNKNOWN" });
+    // One valid and one malformed field must not yield a half-trusted pair.
+    const mixed = Object.assign(new CheckpointRecordError("RECORD_WRITE_FAILED"), {
+      operation: "rename",
+      systemCode: null
+    });
+    expect(JSON.parse(recordWriteDiagnosticLine(RUN_ID, mixed)!)).toMatchObject({
+      operation: "unknown",
+      systemCode: "UNKNOWN"
+    });
+    // Secret message and an unrecognized code never reach the line.
+    const secretMessage = Object.assign(new CheckpointRecordError("RECORD_WRITE_FAILED"), {
+      message: SENTINEL,
+      operation: "write",
+      systemCode: `E${SENTINEL}`
+    });
+    expect(recordWriteDiagnosticLine(RUN_ID, secretMessage)).not.toContain(SENTINEL);
+    // A throwing getter degrades to unknown instead of throwing or manufacturing detail.
+    const hostile = new CheckpointRecordError("RECORD_WRITE_FAILED");
+    Object.defineProperty(hostile, "operation", {
+      get() {
+        throw new Error(SENTINEL);
+      }
+    });
+    const hostileLine = recordWriteDiagnosticLine(RUN_ID, hostile)!;
+    expect(hostileLine).not.toContain(SENTINEL);
+    expect(JSON.parse(hostileLine)).toMatchObject({ operation: "unknown", systemCode: "UNKNOWN" });
+    // Positive control: every allowlisted pair survives.
+    for (const operation of RECORD_WRITE_OPERATIONS)
+      for (const systemCode of RECORD_SYSTEM_CODES) {
+        const line = recordWriteDiagnosticLine(
+          RUN_ID,
+          new CheckpointRecordError("RECORD_WRITE_FAILED", { operation, systemCode })
+        )!;
+        expect(JSON.parse(line)).toMatchObject({ operation, systemCode });
+        expect(line.length).toBeLessThan(256);
+      }
   });
 });
 

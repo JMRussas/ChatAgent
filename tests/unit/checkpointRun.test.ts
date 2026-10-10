@@ -5,7 +5,36 @@ import { readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+const hooks = vi.hoisted(() => ({
+  failTemp: undefined as (() => Error) | undefined,
+  // Observes (or fails) only the runner's fd 2 diagnostic; every other writeSync is untouched.
+  stderrWrite: undefined as ((text: string) => void) | undefined
+}));
+vi.mock("node:fs", async (original) => {
+  const actual = await original<typeof import("node:fs")>();
+  return {
+    ...actual,
+    writeSync: (fd: number, ...rest: unknown[]): number => {
+      if (fd !== 2 || !hooks.stderrWrite) return Reflect.apply(actual.writeSync, undefined, [fd, ...rest]);
+      const text = String(rest[0]);
+      hooks.stderrWrite(text);
+      return text.length;
+    }
+  };
+});
+// Test-only fault injection: temp-record opens fail; reservation and lease opens are untouched.
+vi.mock("node:fs/promises", async (original) => {
+  const actual = await original<typeof import("node:fs/promises")>();
+  return {
+    ...actual,
+    open: (...args: Parameters<typeof actual.open>) =>
+      hooks.failTemp && String(args[0]).endsWith(".tmp")
+        ? Promise.reject(hooks.failTemp())
+        : actual.open(...args)
+  };
+});
 import {
   budgetRecordPath,
   parseBudgetRecord,
@@ -502,6 +531,88 @@ describe("no autorun, retry, mutation or leaked content", () => {
     ])
       expect(everything).not.toContain(sentinel);
   });
+});
+
+describe("record write diagnostics", () => {
+  const SECRET = "C:\\secret\\token-sk-123 antivirus share lock";
+  // Captures what the runner hands to fs.writeSync(2, ...); nothing reaches the real stderr.
+  const captured: string[] = [];
+  const captureStderr = () => {
+    captured.length = 0;
+    hooks.stderrWrite = (text) => void captured.push(text);
+  };
+  const diagnosticLines = () => captured.filter((text) => text.includes("record-write-diagnostic"));
+
+  afterEach(() => {
+    hooks.failTemp = undefined;
+    hooks.stderrWrite = undefined;
+    captured.length = 0;
+    vi.restoreAllMocks();
+  });
+
+  it("emits one fixed line and still terminates the owned child when every write fails", async () => {
+    const env = await setup();
+    captureStderr();
+    hooks.failTemp = () => Object.assign(new Error(SECRET), { code: "EIO", path: SECRET });
+    const result = await runCheckpoint(env.input, env.deps("wait"));
+    const pids = await env.pids();
+    // Negative counterexample: the old runner swallowed both failures and reported nothing.
+    const lines = diagnosticLines();
+    expect(captured).toHaveLength(1);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.length).toBeLessThan(256);
+    expect(JSON.parse(lines[0]!)).toEqual({
+      schema: "checkpoint-record-write-diagnostic/v1",
+      runId: env.input.runId,
+      operation: "open",
+      systemCode: "EIO"
+    });
+    expect(lines[0]).not.toMatch(/secret|token|antivirus|share|PROMPT_SENTINEL/);
+    expect(result.exitCode).toBe(4);
+    expect(result.record?.stop).toEqual({ kind: "failed", code: "record_write_failed" });
+    await expectGone(pids);
+    expect(await env.spawns()).toBe(1);
+    // Only the reserved record and the lease remain; the original reservation is untouched.
+    expect((await readdir(env.recordDir)).filter((f) => f.endsWith(".tmp"))).toEqual([]);
+    expect((await env.onDisk()).state).toBe("running");
+  }, 30_000);
+
+  it("maps unknown error codes to UNKNOWN", async () => {
+    const env = await setup();
+    captureStderr();
+    hooks.failTemp = () => Object.assign(new Error(SECRET), { code: "ESECRETCODE" });
+    const result = await runCheckpoint(env.input, env.deps("wait"));
+    await env.pids();
+    expect(result.exitCode).toBe(4);
+    const lines = diagnosticLines();
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!)).toMatchObject({ operation: "open", systemCode: "UNKNOWN" });
+    expect(lines[0]).not.toMatch(/SECRET/i);
+  }, 30_000);
+
+  it("does not hide the primary failure when the synchronous stderr write throws", async () => {
+    const env = await setup();
+    let attempts = 0;
+    hooks.stderrWrite = () => {
+      attempts += 1;
+      throw new Error("stderr closed");
+    };
+    hooks.failTemp = () => Object.assign(new Error(SECRET), { code: "ENOSPC" });
+    const result = await runCheckpoint(env.input, env.deps("wait"));
+    const pids = await env.pids();
+    expect(attempts).toBe(1);
+    expect(result.exitCode).toBe(4);
+    expect(result.record?.stop).toEqual({ kind: "failed", code: "record_write_failed" });
+    await expectGone(pids);
+  }, 30_000);
+
+  it("adds no output to a normal run", async () => {
+    const env = await setup();
+    captureStderr();
+    const result = await runCheckpoint(env.input, env.deps("slow_ok"));
+    expect(result.exitCode).toBe(0);
+    expect(diagnosticLines()).toEqual([]);
+  }, 30_000);
 });
 
 describe("profile constants", () => {

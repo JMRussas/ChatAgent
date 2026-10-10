@@ -1,6 +1,6 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, writeSync } from "node:fs";
 import { lstat, open, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -18,6 +18,7 @@ import {
   CheckpointRecordError,
   budgetRecordPath,
   parseBoundedJson,
+  recordWriteDiagnosticLine,
   replaceBudgetRecord,
   reserveBudgetRecord,
   type BudgetRecord,
@@ -360,6 +361,21 @@ export async function runCheckpoint(
   const elapsed = () => Math.max(0, Math.floor(monotonicNow() - elapsedStart));
   const iso = (ms: number) => new Date(ms).toISOString();
 
+  // At most one fixed diagnostic line per run, on the runner's own stderr (never the worker's).
+  // Observational only; a failing stderr must neither hide the primary failure nor skip cleanup.
+  let diagnosed = false;
+  const reportRecordFailure = (error: unknown) => {
+    if (diagnosed) return;
+    diagnosed = true;
+    try {
+      const line = recordWriteDiagnosticLine(input.runId, error);
+      // Fixed fd 2, synchronous: a throw is caught here, unlike an async Writable error event.
+      if (line) writeSync(2, line);
+    } catch {
+      /* the diagnostic is best effort */
+    }
+  };
+
   const baseRecord = (): BudgetRecord => ({
     schema: BUDGET_SCHEMA,
     runId: input.runId,
@@ -423,6 +439,7 @@ export async function runCheckpoint(
       await reserveBudgetRecord(input.recordDir, record);
     } catch (error) {
       const existing = error instanceof CheckpointRecordError && error.code === "RECORD_EXISTS";
+      if (!existing) reportRecordFailure(error);
       return {
         exitCode: existing ? 2 : 4,
         record: null,
@@ -513,6 +530,7 @@ export async function runCheckpoint(
   } catch (error) {
     if (error instanceof CheckpointRecordError && error.code === "RECORD_EXISTS")
       return { exitCode: 2, record: null, refusal: "run_exists" };
+    reportRecordFailure(error);
     return { exitCode: 4, record: null };
   }
 
@@ -605,7 +623,8 @@ export async function runCheckpoint(
       lastWrite = now();
       try {
         await replaceBudgetRecord(input.recordDir, snapshot(undefined));
-      } catch {
+      } catch (error) {
+        reportRecordFailure(error);
         recordFailed = true;
         trip({ kind: "failed", code: "record_write_failed" });
       }
@@ -656,7 +675,8 @@ export async function runCheckpoint(
     const record = snapshot({ kind: "cancelled", code: "cancelled" });
     try {
       await replaceBudgetRecord(input.recordDir, record);
-    } catch {
+    } catch (error) {
+      reportRecordFailure(error);
       return { exitCode: 4, record };
     }
     return { exitCode: 3, record };
@@ -731,7 +751,8 @@ export async function runCheckpoint(
   const record = snapshot(stop);
   try {
     await replaceBudgetRecord(input.recordDir, record);
-  } catch {
+  } catch (error) {
+    reportRecordFailure(error);
     return { exitCode: 4, record };
   }
   return { exitCode: (recordFailed as boolean) ? 4 : exitCodeOf(stop), record };

@@ -30,6 +30,18 @@ each task has exactly one start, finish and acceptance event; A's acceptance pre
 B's start. Both real restricted Claude workers produced independently checked toy
 artifacts. This proves queue sequencing, not arbitrary feature correctness.
 
+**Open repair CA-ISSUE-057 (pending gates):** the operator mutator attempt failed
+`record_write_failed` after 10 message IDs, 125,574 ms and 235,144 bytes with no edits,
+finish or gate; baseline `0dc` is unmodified and the filesystem cause is unknown. Stage and
+errno are now planned as safe in-memory observations plus one fixed runner-stderr line only.
+CA059 (open, gates pending) repairs the rejected diagnostic candidate: allowlist revalidation at
+serialization and a synchronous `writeSync(2)` line; delivery awaits lead review and does not
+resolve the CA057 cause.
+The CA-ISSUE-051 mutator is not delivered and CA-ISSUE-004 stays open. Foundation `0dc` was
+accepted on jobs run `38021480354`; main run `38022091406` failed one Git fixture at the
+default 5 s, handled by the separate CA058 harness task. No new test count, CI result or
+acceptance is claimed before lead review.
+
 The original queue candidate `13598a9` is rejected and preserved. CA-ISSUE-048's
 five gaps are repaired at `a1e6c2`, followed by separate formatting commit `de518fc`.
 Six regression assertions fail against the original production source. Final checks
@@ -55,6 +67,33 @@ restored/fsck-verified local history bundle preserves rejected partial work. The
 paired primary viewer at port 5133 loaded this maintained source; a headless check
 confirmed the accepted live formatter proof and current planning attempt in place.
 This is source delivery, not an NSSM deployment.
+
+**Owned completion foundation is accepted and delivered:** source `0dcfd4f`,
+local 3,490 passes with ten existing skips, and both required jobs passed in
+`38021480354`. The temporary remote is retired after exact main readback. It proves
+only same-process completion provenance; it grants no source mutation.
+
+The next mutator generation ended after ten IDs / 125.574 s / 235,144 bytes with
+`record_write_failed`, below its hard limits and without edits, finish or gate
+(CA-ISSUE-057). The unchanged baseline and failed attempt are preserved. The
+original filesystem cause is unknown: an isolated 100-write probe succeeded but
+does not rule out an intermittent failure. Bounded diagnostic observations are
+now locally verified (71 focused cases and TypeScript); exact full hosted delivery
+is pending. A supplied diagnostic never grants retry or mutation authority.
+
+The first diagnostic candidate `c23023b` is rejected: two test-hook casts failed
+TypeScript, and a concrete malformed-error counterexample emitted unallowlisted
+detail strings (CA-ISSUE-059). The repaired bytes at snapshot `8d00fff` use precise
+fixture types, runtime enum checks and a safely caught synchronous fd 2 write. Its
+13-ID / 75.136 s / 1,107,398-byte model run hit the 1 MiB output cap after editing;
+all eight declared edits were preserved, bundled and restore/fsck-verified. A new
+non-model operator epoch performs verification, with no inherited model counters.
+
+Main's follow-up `38022091406` at `0dcfd4f` exposed a single Git fixture exceeding
+its default five seconds (CA-ISSUE-058). Source `9755b5c` applies the existing
+30-second default locally to those two real-Git test files, preserving longer
+explicit bounds and every assertion. Both required jobs passed in `38023594725`;
+main is pushed and the temporary remote retired.
 
 **Next execution order:** CA-ISSUE-051 (operator mutation handoff guard, task
 `4071b736-67ef-5f87-b180-d357356d15b5`) remains OPEN: the product source guard

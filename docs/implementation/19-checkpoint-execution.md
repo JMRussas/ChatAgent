@@ -133,6 +133,22 @@ checks, with no model call. A fixed bounded authority re-read at least every fiv
 
 The runner exit code is `0` only for observed zero worker exit (still unverified), `1` for nonzero worker/spawn/cleanup failure, `3` tripwire or cancel, `2` refused, `4` record write failure. None of them is a gate result.
 
+**Record-write diagnostic (CA-ISSUE-057, planned safe observation only).** A failed write keeps
+only a fixed stage (`serialize`, `open`, `write`, `close`, `rename`, `unknown`) and an allowlisted
+symbolic errno (`EPERM`, `EACCES`, `EBUSY`, `ENOENT`, `EIO`, `ENOSPC`, `EMFILE`, `ENFILE`, `EEXIST`,
+`UNKNOWN`) in the in-memory `CheckpointRecordError`; the original message, path, stack and any other
+code string are dropped. The runner writes at most one `checkpoint-record-write-diagnostic/v1`
+line (`runId`, `operation`, `systemCode`) to its own stderr per run, even if the final write also
+fails, and never to the worker's stderr. The line is the runner's own safe diagnostic, not provider
+or worker text. Both fields are revalidated against the fixed allowlists at serialization, so a
+cast or malformed error instance, a hostile getter or an unrecognized code yields only
+`unknown`/`UNKNOWN`; message, path and stack are never read. The line is emitted by one bounded
+synchronous `fs.writeSync(2, line)` inside the best-effort path, so a failing stderr cannot raise an
+async error event or skip owned cleanup. It is observation, not authority: it adds no budget field,
+changes no stop, exit code, cleanup, lease or no-retry behavior, and a throwing write cannot hide the
+primary failure. Open repair CA059 awaits lead review and verification; the cause of the
+`operator-mutator-001` write failure remains unknown, and this fix can only reveal the next cause.
+
 ## Record: `checkpoint-budget/v1`
 
 Atomic write (temp file in `recordDir` then rename) of at most 16 KiB. Written at start, after a
