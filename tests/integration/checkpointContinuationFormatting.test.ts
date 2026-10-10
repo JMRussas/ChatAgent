@@ -137,9 +137,10 @@ describe("scoped formatting commits", () => {
     expect(git(f.wt, "show", "--name-status", "--format=", raw).split(/\r?\n/).sort()).toEqual(
       ["A\tsrc/new.ts", "D\tdocs/x.md", "M\tsrc/a.ts"].sort()
     );
-    expect(git(f.wt, "show", "--name-status", "--format=", final).split(/\r?\n/).sort()).toEqual(
-      ["M\tsrc/a.ts", "M\tsrc/new.ts"]
-    );
+    expect(git(f.wt, "show", "--name-status", "--format=", final).split(/\r?\n/).sort()).toEqual([
+      "M\tsrc/a.ts",
+      "M\tsrc/new.ts"
+    ]);
     expect(git(f.wt, "diff-tree", "--no-commit-id", "--raw", "-r", "HEAD")).not.toMatch(
       /:100644 100755|:100755 100644|:120000/
     );
@@ -176,7 +177,12 @@ describe("scoped formatting commits", () => {
     ]);
     expect(check.slice(0, 5)).toEqual(write.slice(0, 5));
     expect(check.slice(5)).toEqual(["--check", "--ignore-unknown", "src/a.ts", "src/new.ts"]);
-    expect(f.toolLog().map((e) => e.tool)).toEqual(["prettier", "prettier", "typescript", "vitest"]);
+    expect(f.toolLog().map((e) => e.tool)).toEqual([
+      "prettier",
+      "prettier",
+      "typescript",
+      "vitest"
+    ]);
   });
 
   it("finishes once on the raw commit when the formatter changes nothing", async () => {
@@ -293,17 +299,20 @@ describe("formatter tamper, failure and ownership", () => {
     ]
   ];
 
-  it.each(tampers)("fails closed when the %s changes after the raw commit", async (_n, tamper, reason) => {
-    const f = fixture();
-    const result = await runContinuation(f.manifest, f.deps(afterRaw(f, () => tamper(f))));
-    expect(result.exitCode).toBe(1);
-    const record = asV2(await stored(f));
-    expect(record).toMatchObject({ phase: "needs_operator", reason, finish: "not_attempted" });
-    expect(record.sourceRef).toBeNull();
-    expect(prettierRuns(f)).toEqual([]);
-    expect(f.plan.posts).toHaveLength(0);
-    expect(gateExists(f)).toBe(false);
-  });
+  it.each(tampers)(
+    "fails closed when the %s changes after the raw commit",
+    async (_n, tamper, reason) => {
+      const f = fixture();
+      const result = await runContinuation(f.manifest, f.deps(afterRaw(f, () => tamper(f))));
+      expect(result.exitCode).toBe(1);
+      const record = asV2(await stored(f));
+      expect(record).toMatchObject({ phase: "needs_operator", reason, finish: "not_attempted" });
+      expect(record.sourceRef).toBeNull();
+      expect(prettierRuns(f)).toEqual([]);
+      expect(f.plan.posts).toHaveLength(0);
+      expect(gateExists(f)).toBe(false);
+    }
+  );
 
   it("stops when an eligible file gains bytes between the formatter and git add", async () => {
     const f = fixture();

@@ -761,7 +761,9 @@ export async function checkFormatGuard(
     for (let i = 1; i <= segments.length; i++) directories.add(segments.slice(0, i).join("/"));
   }
   for (const directory of directories)
-    if (!(await noShadowConfig(join(cwd, ...directory.split("/").filter(Boolean)), directory === "")))
+    if (
+      !(await noShadowConfig(join(cwd, ...directory.split("/").filter(Boolean)), directory === ""))
+    )
       return "shadow_config";
   try {
     if ((await baseDiff()) !== "") return "package_changed";

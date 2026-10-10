@@ -132,13 +132,7 @@ describe("eligible partition and fixed formatter arguments", () => {
   it("writes and checks with the same explicit config, ignore file and file list, no globs", () => {
     const write = formatArguments("write", PINNED, ["src/a.ts", "src/b.ts"]);
     const check = formatArguments("check", PINNED, ["src/a.ts", "src/b.ts"]);
-    const shared = [
-      "--config",
-      PINNED.config,
-      "--no-editorconfig",
-      "--ignore-path",
-      PINNED.ignore
-    ];
+    const shared = ["--config", PINNED.config, "--no-editorconfig", "--ignore-path", PINNED.ignore];
     expect(write.slice(1, 6)).toEqual(shared);
     expect(check.slice(1, 6)).toEqual(shared);
     expect(write.slice(6)).toEqual([
@@ -191,9 +185,9 @@ describe("format result classification", () => {
     const staged = [{ x: "M", y: " ", path: "src/a.ts" }];
     expect(classifyFormatResult(staged, [diff("src/a.ts")], eligible, true).ok).toBe(true);
     expect(classifyFormatResult(staged, [diff("src/a.ts")], eligible).ok).toBe(false);
-    expect(classifyFormatResult([unstaged("src/a.ts")], [diff("src/a.ts")], eligible, true).ok).toBe(
-      false
-    );
+    expect(
+      classifyFormatResult([unstaged("src/a.ts")], [diff("src/a.ts")], eligible, true).ok
+    ).toBe(false);
   });
 
   it("rejects untracked, outside, deleted, retyped, linked, duplicated and mismatched entries", () => {
@@ -290,9 +284,9 @@ describe("record versions", () => {
     expect(accepts(reviewPending("unchanged", SOURCE_REF, OTHER_REF))).toBe(false);
     expect(accepts(reviewPending("committed", SOURCE_REF, OTHER_REF))).toBe(true);
     expect(accepts(reviewPending("committed", SOURCE_REF, SOURCE_REF))).toBe(false);
-    expect(accepts(v2({ ...reviewPending("committed", SOURCE_REF, OTHER_REF), rawRef: null }))).toBe(
-      false
-    );
+    expect(
+      accepts(v2({ ...reviewPending("committed", SOURCE_REF, OTHER_REF), rawRef: null }))
+    ).toBe(false);
     const pending = reviewPending("committed", SOURCE_REF, OTHER_REF);
     expect(accepts({ ...pending, formatting: { ...pending.formatting, state: "failed" } })).toBe(
       false
