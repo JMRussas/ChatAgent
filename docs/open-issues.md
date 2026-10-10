@@ -98,6 +98,9 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-051 | Operator source mutation overlapped independent verification | operator defect | P1 | open / handoff guard queued | Codex lead |
 | CA-ISSUE-052 | Formatter generation stopped at hard output budget | generation defect | P1 | closed / verified scoped repair | Codex lead |
 | CA-ISSUE-053 | Operator handoff proposal accepted supplied exits as ownership proof | planning defect | P1 | closed / contract repaired; implementation open | Codex lead |
+| CA-ISSUE-054 | Owner-wrapper candidate test seam typed as Record<string, unknown> | test defect | P1 | closed / precise fixture type verified | Codex lead |
+| CA-ISSUE-055 | Remaining multi-fixture lease refusals exceeded hosted test allowance | test harness defect | P1 | closed / both required hosted jobs passed | Codex lead |
+| CA-ISSUE-056 | Operator validation launches used incomplete tool/environment profiles | operator defect | P1 | closed / corrected owned checker verified | Codex lead |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1635,6 +1638,10 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   and exit assertions cannot authorize mutation. Completion evidence and the fixed
   mutator are separate checkpoints. Neither the plan nor wrapper acceptance closes
   this defect without the real mutation and retained-store proof.
+- **Candidate unit 1 (pending lead acceptance and independent checks):**
+  `src/checkpoint/operatorHandoff.ts` adds only the owner wrapper and one-use
+  provenance consume. It authorizes no source write; the fenced operator leaf,
+  fresh source checks, worktree conflict lease and mutator remain open (unit 2).
 
 ### CA-ISSUE-052 — Formatter generation stopped at the hard output budget
 
@@ -1699,3 +1706,57 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   implementation and the live gates pass.
 - **Evidence:** `cleanup-loop-001/handoff-contract-002/lead-review.json` and
   `handoff-contract-repair-001/lead-review.json`, plus their preserved records.
+
+### CA-ISSUE-054 — Owner-wrapper test seam failed the TypeScript gate
+
+- **Observed:** candidate `93c21f65d4dda92e71e19172430fed37ec5416f0` failed the external
+  TypeScript gate at `tests/integration/operatorHandoff.test.ts` line 36 (TS2322):
+  `ContinuationDeps` is not assignable to `Record<string, unknown>` because it has no
+  string index signature. Prettier and all focused Vitest runs passed.
+- **Repair:** the `vi.hoisted` `seam.deps` is typed as the maintained
+  `ContinuationDeps` through an erased import type. No production type or factory
+  change, no added production index signature or suppression; module-mock delegation and the
+  actual coordinator/process assertions are unchanged.
+- **Status:** the original failed gate is preserved and not relabelled. The repair
+  passes TypeScript and the full local suite (3,490 passes, ten existing skips),
+  lint, formatting and documentation checks. Foundation source delivery still
+  requires its exact hosted gates; this does not deliver a mutator or close
+  CA-ISSUE-051.
+  The narrow model repair hit its 512 KiB output tripwire after editing (3 IDs,
+  14.589 s, 613,284 observed bytes, including the final overshooting chunk). All
+  three declared edits were byte-preserved, bundled and restore/fsck-verified at
+  `9cc3f67`. A separate operator epoch 2 performs verification; it does not inherit
+  that model budget or claim a model finish/gate.
+  CA-ISSUE-051 and CA-ISSUE-004 remain open.
+
+### CA-ISSUE-055 — Remaining combined refusal fixtures timed out on hosted Windows
+
+- **Observed:** required Windows run `38017847007` at `9f0a88e` failed the
+  existing-instance/runner-claim refusal group at its default 5,000 ms. The group
+  created an extra fixture for a key and two actual Git fixtures. The existing
+  record/budget/gate group also shared that short allowance across three fixtures.
+- **Repair:** `dcbd795` uses independent parameterized cases, one actual fixture
+  per case and the existing 30-second Git-test allowance. The exact refusal helper
+  and all no-worker/no-POST/no-tool/no-new-gate/existing-gate-byte assertions are
+  unchanged. No production deadline or skips changed.
+- **Gate:** both real required jobs passed at that source in `38019266115` and
+  main run `38019994391`. The temporary remote was retired only after exact main
+  readback; local source remains preserved.
+- **Evidence:** `cleanup-loop-001/windows-lease-refusals-001/hosted-ci.json`,
+  `lead-review.json`, `events.json` and `published-main.json`.
+
+### CA-ISSUE-056 — Operator validation launch profile was incomplete
+
+- **Observed:** an npm child resolved refused Node 24.15.0; a 300-second launch
+  stopped without a terminal full-suite result; a direct wrapper treated the
+  maintained terminator object as a factory; and missing Windows `PATHEXT` caused
+  six fixture imports to fail before running their tests. These were operator
+  launch errors, not model-source failures. Every failed attempt is preserved.
+- **Repair and gate:** direct pinned Node 24.21.0 through the maintained
+  `runOwned`, explicit Windows PATH/PATHEXT, a 600-second allowance, 16 MiB
+  output ceiling and awaited cleanup. The corrected full run passed 3,490 tests
+  with ten existing skips in 316.515 seconds; no timeout, output stop or cleanup
+  failure. A separate negative probe proves `where git` fails without PATHEXT and
+  succeeds with it. Old runs are not adopted as passes or model budget evidence.
+- **Evidence:** `cleanup-loop-001/owner-validation-profile-defect.json` and
+  `owner-repair-full-owned-3-exit.json`. CA-ISSUE-051 and CA-ISSUE-004 stay open.

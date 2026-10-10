@@ -65,7 +65,14 @@ standalone adoption of supplied exit/record metadata. Original proposal `9ab5bfd
 passed external syntax checks but was semantically rejected; repair `9913adf`
 passed external checks and separate lead review (CA-ISSUE-053). Implementation is
 split into actual-invocation completion evidence first, then a fixed sequential
-scoped mutator and retained-store proof. Both CA-ISSUE-051 and CA-ISSUE-004 remain
+scoped mutator and retained-store proof. The ownership foundation is independently checked locally: 3,490 tests pass
+with ten existing skips, plus TypeScript, lint, formatting and documentation
+validation. It wraps the actual invocation in a private, same-process completion
+handle; pending, forged, foreign and reused handles cannot provide provenance.
+This does not authorize source writes. The fixture-type defect CA-ISSUE-054 is
+repaired without changing production code or process assertions. Clean source
+integration and both required hosted jobs remain the delivery gate; the fixed
+scoped mutator and retained-store proof are still next. Both CA-ISSUE-051 and CA-ISSUE-004 remain
 open. Old attempt budgets and failed gates are never relabelled.
 
 The scoped formatter runtime contract is lead-reviewed in
@@ -92,6 +99,21 @@ model counters are relabelled. Exact acceptance and integration mappings are
 external under `cleanup-loop-001`; source delivery and required GitHub CI are
 separately recorded passed gates. Evidence includes `formatter-live-001/lead-review.json`,
 `events.json`, `proof-review_pending-ui-proof.json` and retained check logs.
+
+The remaining multi-fixture lease/record refusal harness is repaired at `dcbd795`
+(CA-ISSUE-055). Both required hosted jobs passed on that exact source in branch run
+`38019266115` and main run `38019994391`. Each case now uses one real Git fixture
+with the existing 30-second test allowance; no product deadline, refusal
+assertion, skip or workflow requirement changed. Its temporary remote is retired
+after exact main readback. The bounded queue ended its five-minute review wait
+while external hosted CI was pending; lead acceptance occurred separately after
+that CI, without restarting or rewriting the queue.
+
+Operator validation profile errors (CA-ISSUE-056) are recorded separately from
+model failures: the corrected full checker uses the maintained owned-process
+runner, Node 24.21.0, explicit Windows PATH/PATHEXT and awaited cleanup. Its
+316.515-second successful run is the accepted local measurement; earlier refused
+or timed-out runs are preserved and never counted as passes.
 
 CA-ISSUE-004 remains open for wake, notifications and unattended recovery; bounded
 queues do not provide a continuously running AI manager.
@@ -211,7 +233,7 @@ remain separate work rather than delaying the useful first slice.
 | Execution contract          | Freeze bounded enforcement, counter units and objective gates                       | `2f54ab05-7d58-5cc3-aa4f-0bd64c9f684d` | Accepted `0e75f03`, integrated `6524c7f`                                                  |
 | Enforcement                 | Maintained budget tripwires, owned cleanup and bounded typed checkpoint evidence    | `94438651-ed00-5656-803d-d6097d4a4e40` | Accepted `ff9230d`, integrated `6f9f288`                                                  |
 | Enforcement delivery        | Real maintained CLI and paired inline current budget/gate evidence                  | `c22d6e63-171b-5751-9e91-203a2e55f874` | Accepted `ff9230d`; real source `6f9f288` on `localhost:5133`                             |
-| Recovery contract           | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract, implementation pending                           |
+| Recovery contract           | Freeze one executive exception summary and fenced local operator handoff            | `2fd0efc9-fdf7-50c5-ba88-1a7a17e039fe` | Accepted `f4a7bee`; integrated contract; owner-wrapper candidate pending lead acceptance  |
 | Recovery handoff            | Independently verified implementation, same-page detail and restart/fence negatives | `e2adb990-cffe-5129-81be-4ba202dac1f9` | Accepted `17ebec2`, integrated `2b4289e`; maintained paired attention/local handoff proof |
 | Review queue contract       | Independently frozen finite manager/review continuation boundary                    | `ac55a6f7-0502-54f7-bdc1-654057c8cc92` | Accepted `0535a4e`, integrated `8df3130`; read-only durable ledger scope                  |
 | Review queue implementation | Durable exact-fence state, no duplicate/retry/adoption and real idle/review proof   | `2d9e65de-80d8-5de3-a853-6f407240732b` | Accepted `cd609ba`, integrated `93d72a1`; 3,263 full passes and real CLI/UI proof         |

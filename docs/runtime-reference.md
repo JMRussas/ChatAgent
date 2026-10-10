@@ -798,6 +798,28 @@ gate; raw and formatting facts are available from the CLI record. Enrichment of 
 those facts is not delivered. This section is a behavioral contract for verification, not an
 acceptance or live-proof claim.
 
+#### Owned completion provenance (candidate foundation)
+
+`src/checkpoint/operatorHandoff.ts` is an owner-wrapper foundation locally verified and pending hosted delivery
+and independent lead acceptance and checks; no runtime or source delivery is claimed. `startOwnedContinuation(manifest,
+{ signal? })` copies and parses the manifest, canonicalizes the worktree and itself calls the
+unchanged `runContinuation` once. It accepts no result, record, promise, `runWorker` or other
+dependency. The returned frozen handle is a key into private module state; a result, record,
+promise or structurally identical object is `forged`. `settled` is a notification only and never
+rejects; `summary()` returns a fresh frozen copy of bounded facts and confers no authority.
+
+A handle is eligible only after the real invocation returned an exact terminal result for the
+bound run, fence and base with a confirmed finish, a written gate and a source: exit 0
+`checks_passed` or exit 1 `check_failed`. Exit codes 2 and 4, a null record, aborts, deadlines,
+`cleanup_failed`, `lease_changed`, `internal_error`, unavailable checks, unknown finish and thrown
+or unparseable outcomes settle `refused`. `inspectOwnedContinuation` and the one-use
+`consumeOwnedContinuation` additionally require the expected canonical worktree, run, base and
+source. Consuming is provenance only: it is not source-mutation authorization and grants no
+fenced operator leaf, fresh Git/source/index/tool/config/scope check or worktree conflict
+lease. A settled handle means the awaited root children closed or a cleanup failure was
+reported, not that every descendant exited. Provenance is cooperative and same-process, with no
+actor authentication, sandbox or global lock.
+
 ## Provider configuration
 
 The validated inventory lives in [data/model-catalog.json](../data/model-catalog.json).
