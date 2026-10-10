@@ -17,7 +17,8 @@ vi.mock("node:fs", async (original) => {
   return {
     ...actual,
     writeSync: (fd: number, ...rest: unknown[]): number => {
-      if (fd !== 2 || !hooks.stderrWrite) return Reflect.apply(actual.writeSync, undefined, [fd, ...rest]);
+      if (fd !== 2 || !hooks.stderrWrite)
+        return Reflect.apply(actual.writeSync, undefined, [fd, ...rest]);
       const text = String(rest[0]);
       hooks.stderrWrite(text);
       return text.length;
