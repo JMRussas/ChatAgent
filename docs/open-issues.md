@@ -97,6 +97,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-050 | Hosted Windows CI failures hidden by advisory job | verification defect | P1 | closed / verified harness repair | Mimir / CI repair |
 | CA-ISSUE-051 | Operator source mutation overlapped independent verification | operator defect | P1 | open / handoff guard queued | Codex lead |
 | CA-ISSUE-052 | Formatter generation stopped at hard output budget | generation defect | P1 | closed / verified scoped repair | Codex lead |
+| CA-ISSUE-053 | Operator handoff proposal accepted supplied exits as ownership proof | planning defect | P1 | closed / contract repaired; implementation open | Codex lead |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1625,7 +1626,15 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   gate adoption is claimed. Do not call the product guard defective for refusing
   the changed source.
 - **Evidence:** `cleanup-loop-001/windows-ci-001/operator-ordering-defect.json`
-  and original continuation record.
+  and original continuation record. A second operator sequencing failure treated a
+  yielded Git invocation as completed and raced the index lock; readback confirmed
+  the isolated integration copy stayed clean before the sequential owner repaired
+  ordering. Its evidence is `operator-integration-async-defect.json`.
+- **Reviewed plan:** [document 29](implementation/29-operator-source-handoff.md)
+  requires an actual-invocation in-process completion handle; supplied prior files
+  and exit assertions cannot authorize mutation. Completion evidence and the fixed
+  mutator are separate checkpoints. Neither the plan nor wrapper acceptance closes
+  this defect without the real mutation and retained-store proof.
 
 ### CA-ISSUE-052 — Formatter generation stopped at the hard output budget
 
@@ -1673,3 +1682,20 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   `2c9aa7ef-c42a-5927-9212-24edb08ed585`. Evidence is external under
   `cleanup-loop-001/formatter-live-001` and retained source/check bundles.
   CA-ISSUE-051 (handoff guard) and CA-ISSUE-004 (wake, unattended recovery) remain open.
+
+### CA-ISSUE-053 — Handoff proposal confused supplied exits with owned completion
+
+- **Observed:** proposal `9ab5bfd` passed external checks but allowed a standalone
+  mutator to trust an operator-asserted exit and supplied terminal record. Its plain
+  `deps.prior` result was also forgeable, and its single commit mixed functional and
+  formatting changes. This contradicted its ownership and repository contracts.
+- **Disposition:** the lead rejected that exact artifact; its gate and counters
+  remain unchanged (11 message IDs, 133.811 s, 368,216 output bytes). A separate
+  actual Hekate repair produced `9913adf` (7 IDs, 43.027 s, 128,578 bytes), passed
+  external checks and independent semantic review. No runtime is claimed.
+- **Repair:** the reviewed contract excludes standalone prior-file adoption, uses
+  an owner-created in-process handle, separates raw/format commits and requires
+  fresh source, scope, lease and current-claim checks. CA-ISSUE-051 stays open until
+  implementation and the live gates pass.
+- **Evidence:** `cleanup-loop-001/handoff-contract-002/lead-review.json` and
+  `handoff-contract-repair-001/lead-review.json`, plus their preserved records.

@@ -47,10 +47,26 @@ passes, 23 existing platform skips; no skips added. Production privacy is unchan
 and the Windows job is now required. Evidence is external under
 `cleanup-loop-001/windows-ci-001/` (`reviewed-delivery.json`, `hosted-ci.json`).
 
+**Formatter source delivery is complete:** reviewed candidate `4a924e8` maps to
+integrated `3c6afd82cd6104590a2945f2259e7cd20ed173d8`, with the same exact Git tree.
+Both required hosted jobs (`verify`, `windows-tests`) passed in run `38016816376`;
+main is pushed, the temporary remote is retired at its verified tip, and the
+restored/fsck-verified local history bundle preserves rejected partial work. The
+paired primary viewer at port 5133 loaded this maintained source; a headless check
+confirmed the accepted live formatter proof and current planning attempt in place.
+This is source delivery, not an NSSM deployment.
+
 **Next execution order:** CA-ISSUE-051 (operator mutation handoff guard, task
 `4071b736-67ef-5f87-b180-d357356d15b5`) remains OPEN: the product source guard
 correctly refused the old mutated candidate, and the cooperative handoff guard that
-refuses nonterminal or stale verification is not yet delivered.
+refuses nonterminal or stale verification is not yet delivered. Its
+[lead-reviewed contract](implementation/29-operator-source-handoff.md) excludes
+standalone adoption of supplied exit/record metadata. Original proposal `9ab5bfd`
+passed external syntax checks but was semantically rejected; repair `9913adf`
+passed external checks and separate lead review (CA-ISSUE-053). Implementation is
+split into actual-invocation completion evidence first, then a fixed sequential
+scoped mutator and retained-store proof. Both CA-ISSUE-051 and CA-ISSUE-004 remain
+open. Old attempt budgets and failed gates are never relabelled.
 
 The scoped formatter runtime contract is lead-reviewed in
 [document 27](implementation/27-scoped-checkpoint-formatting.md), after rejecting
@@ -73,8 +89,8 @@ new race assertions fail against older source `539af6f`. Separate formatting com
 `2c9aa7ef-c42a-5927-9212-24edb08ed585` and immediate repair `8666b9f3-a9c8-5cb0-8c71-37c91cb7f314`
 use separately fenced operator finalization for the reviewed final source; no old
 model counters are relabelled. Exact acceptance and integration mappings are
-external under `cleanup-loop-001`; source delivery and required GitHub CI remain
-separately recorded gates. Evidence includes `formatter-live-001/lead-review.json`,
+external under `cleanup-loop-001`; source delivery and required GitHub CI are
+separately recorded passed gates. Evidence includes `formatter-live-001/lead-review.json`,
 `events.json`, `proof-review_pending-ui-proof.json` and retained check logs.
 
 CA-ISSUE-004 remains open for wake, notifications and unattended recovery; bounded
