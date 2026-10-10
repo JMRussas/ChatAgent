@@ -94,8 +94,9 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 | CA-ISSUE-048 | Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps | defect | acceptance blocker | closed / verified scoped repair | Hermes / lead verification |
 | CA-ISSUE-049 | Formatter proposal rejects required config and contradicts unsupported-file gate | planning defect | acceptance blocker | closed / contract repaired | Athena / lead review |
-| CA-ISSUE-050 | Hosted Windows CI failures hidden by advisory job | verification defect | P1 | open / repair queued | Mimir / CI repair |
+| CA-ISSUE-050 | Hosted Windows CI failures hidden by advisory job | verification defect | P1 | closed / verified harness repair | Mimir / CI repair |
 | CA-ISSUE-051 | Operator source mutation overlapped independent verification | operator defect | P1 | open / handoff guard queued | Codex lead |
+| CA-ISSUE-052 | Formatter generation stopped at hard output budget | generation defect | P1 | open / repair under review | Codex lead |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1576,7 +1577,9 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   pinned required root files, uses the same eligible set and pinned flags for opt-in
   write/check, retains legacy behavior, and defers UI enrichment. Lead `18bde4d`
   clarifies no-op raw=final and requires the two failure-reason enum additions.
-- **Status:** closed for contract review only; formatter runtime is not implemented.
+- **Status:** closed for contract review only. The runtime is an implementation
+  candidate (task `2c9aa7ef-c42a-5927-9212-24edb08ed585`) under external verification
+  and lead review; it is not accepted, pushed or live-proved.
   Real repair task: `313f2fab-8f89-523c-b746-22f9c5361e23`.
   Evidence: `cleanup-loop-001/format-plan-001/lead-rejection.json`,
   `format-plan-repair-001/lead-review.json` and exact finalization receipts.
@@ -1594,11 +1597,17 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   zero-worker assertions. Make Windows CI required and prove both real jobs green.
   Do not repair fixture ACLs to hide a guard failure, skip failures or widen global
   test timeouts.
-- **Status / owner:** open, bounded Mimir task `2cfc6fba-56bd-510d-a901-1dc39062631e`. Formatter
-  implementation remains blocked on this immediate verification repair.
+- **Status / owner:** closed for this harness repair only. Verified and accepted at
+  operator epoch 2, source `26169e321cf0446889ea48797374e74cb3f81114`, with both real
+  hosted jobs successful in run `38012851847`. Windows: 3,414 passes and 13 existing
+  host-capability skips; Linux: 3,404 passes and 23 existing platform skips; no skips
+  were added. Production privacy is unchanged and the Windows job is now required.
+  Bounded Mimir task `2cfc6fba-56bd-510d-a901-1dc39062631e`.
 - **Evidence:** `cleanup-loop-001/queue-github-ci.json`,
-  `queue-ci-windows-failure.log` and corrected `queue-final-delivery-bundle.json`.
-  The initial workflow-only success classification is retained separately.
+  `queue-ci-windows-failure.log` and corrected `queue-final-delivery-bundle.json`;
+  repair evidence `cleanup-loop-001/windows-ci-001/reviewed-delivery.json` and
+  `hosted-ci.json`. The initial workflow-only success classification is retained
+  separately.
 
 ### CA-ISSUE-051 — Operator source mutation overlapped independent verification
 
@@ -1610,10 +1619,48 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
 - **Immediate handling:** preserve the old candidate, counters and invalidated
   gate; use an explicitly fenced operator attempt for the complete workflow source
   and real CI. Wait for terminal verification before later source mutations.
-- **Next guard / status:** open task `4071b736-67ef-5f87-b180-d357356d15b5`: freeze and verify a
+- **Next guard / status:** remains OPEN (real task-find source issue register) as task `4071b736-67ef-5f87-b180-d357356d15b5`: freeze and verify a
   cooperative operator handoff that refuses nonterminal or stale verification and
   requires current ownership/source fences. No global filesystem lock or automatic
   gate adoption is claimed. Do not call the product guard defective for refusing
   the changed source.
 - **Evidence:** `cleanup-loop-001/windows-ci-001/operator-ordering-defect.json`
   and original continuation record.
+
+### CA-ISSUE-052 — Formatter generation stopped at the hard output budget
+
+- **Observed:** the original formatter generation (36 role IDs, 385.669 s,
+  4,259,400 bytes) hit the fixed 4 MiB source budget without a finite candidate,
+  finish or gate. The operator preserved, restored and fsck-checked 7 partial files
+  at `1e2ead6`. The original task is rejected as incomplete generation, not accepted
+  code. The partial source also failed type checking: `ContinuationRecord` still
+  aliased the v1 record while the parser returned the v1/v2 union, the state producer
+  built v2, and the queue and view readers used v2 fields or passed the union to
+  v1-typed consumers. No formatter tests existed. A second generation also stopped
+  (37 role IDs, 298.936 s, hard unit budget of 36) at `539af6f` with no finite
+  candidate or finish; both raw snapshots are preserved, restored and fsck-checked.
+  TypeScript failed on the first partial source and passed on the second; the
+  focused run of the second partial source was 163 cases, 160 passing and 3 failing.
+- **Diagnosed defects:** two unit tests still used `checkpoint-continuation/v2` as
+  the unknown schema although v2 is now supported; one integration test sliced the
+  recorded formatter argv (`process.argv.slice(2)`) one index too far. An independent
+  source finding showed the pre-`git add` fence checked only that each changed entry
+  was a regular file, so bytes appended to an eligible file after the formatter and
+  before `git add` could be committed as formatter output.
+- **Repair under review:** `ContinuationRecord` is now the union and run-state updates
+  narrow on the `schema` literal without casts. The strict v1 wire schema, old
+  manifests and v1 output are unchanged. Unknown-schema tests use v3 and keep the
+  `unsupported_schema` guards; argv assertions use the corrected indices with the
+  same exact lists. The changed files' bigint size, mtime, inode and device are
+  captured before the leaf check and `git add` and rechecked after staging; a mismatch
+  stops with `scope_violation` before the commit, retaining raw, dirty and index data
+  with no POST, gate or rollback. The current claim is re-read immediately before the
+  formatter spawn and before the formatting commit. This is cooperative detection, not
+  an atomic filesystem lock. A real Git/process regression injects bytes through the
+  `fetchStatus` seam, and a second test supersedes the claim after staging. The repair
+  is not verified by the independent coordinator. No closed-implementation,
+  acceptance, full-suite, live-proof or push claim is made.
+- **Status:** remains OPEN. The repair task ID is assigned by the root and is not
+  recorded here. Independent real-model proof of the formatter is still later work.
+  CA-ISSUE-051 (handoff guard) and CA-ISSUE-004 (wake, unattended recovery) remain
+  open; CA-ISSUE-050 is closed at `26169e3`.

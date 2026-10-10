@@ -15,7 +15,7 @@ import {
   parseStatusZ,
   serializeContinuationRecord,
   validRelativePath,
-  type ContinuationRecord
+  type ContinuationRecordV1
 } from "../../src/checkpoint/checkpointContinuation";
 import { gateRecordSchema } from "../../src/checkpoint/checkpointRecord";
 import { BASE_REF, FENCE, RUN_ID, SOURCE_REF, STAMP } from "../helpers/checkpointFixtures";
@@ -122,7 +122,7 @@ describe("continuation manifest", () => {
   });
 });
 
-const record = (over: Partial<ContinuationRecord> = {}): ContinuationRecord => ({
+const record = (over: Partial<ContinuationRecordV1> = {}): ContinuationRecordV1 => ({
   schema: CONTINUATION_RECORD_SCHEMA,
   runId: RUN_ID,
   identity: { ...FENCE, observedStateRevision: 4, executorRef: "exec-1" },
@@ -185,7 +185,7 @@ describe("continuation record", () => {
       return parseContinuationRecord(Buffer.from(JSON.stringify(value)));
     };
     expect(bad((v) => (v.command = "x")).ok).toBe(false);
-    expect(bad((v) => (v.schema = "checkpoint-continuation/v2"))).toEqual({
+    expect(bad((v) => (v.schema = "checkpoint-continuation/v3"))).toEqual({
       ok: false,
       reason: "unsupported_schema"
     });

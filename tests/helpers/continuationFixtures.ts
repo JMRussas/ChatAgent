@@ -34,15 +34,36 @@ const gitSha = () => (gitHash ??= sha(readFileSync(GIT_PATH)));
 export const git = (cwd: string, ...args: string[]) =>
   execFileSync(GIT_PATH, ["-C", cwd, ...args], { encoding: "utf8" }).trim();
 
+/**
+ * LABELLED STUB, not Prettier. Modes: fail, hang, flood apply to every run. `write-fail`,
+ * `write-hang` and `write-flood` apply only to a `--write` run. `format*` modes act only on a
+ * `--write` run and edit, in place, the file arguments after the last flag: `format` appends a
+ * marker line, the others also tamper (untracked file, deletion, extra file, config, shadow
+ * config, staging).
+ */
 const STUB = (name: string, esm: boolean, ctl: string) => `${
   esm
-    ? 'import fs from "node:fs"; import { spawn } from "node:child_process";'
-    : 'const fs = require("node:fs"); const { spawn } = require("node:child_process");'
+    ? 'import fs from "node:fs"; import { spawn, spawnSync } from "node:child_process";'
+    : 'const fs = require("node:fs"); const { spawn, spawnSync } = require("node:child_process");'
 }
 const CTL = ${JSON.stringify(ctl)};
 fs.appendFileSync(CTL + "/tools.log", JSON.stringify({ tool: ${JSON.stringify(name)}, argv: process.argv.slice(2), at: Date.now() }) + "\\n");
 const file = CTL + "/mode-${name}";
-const mode = fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim() : "ok";
+const raw = fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim() : "ok";
+const writing = process.argv.includes("--write");
+const mode = raw.startsWith("write-") ? (writing ? raw.slice(6) : "ok") : raw;
+if (mode.startsWith("format")) {
+  if (!writing) process.exit(0);
+  const files = process.argv.slice(process.argv.indexOf("--no-error-on-unmatched-pattern") + 1);
+  for (const f of files) if (fs.existsSync(f)) fs.appendFileSync(f, "// formatted\\n");
+  if (mode === "format-untracked") fs.writeFileSync("src/stray.ts", "export {};\\n");
+  if (mode === "format-delete") fs.rmSync(files[0]);
+  if (mode === "format-extra") fs.appendFileSync("src/b.ts", "// outside\\n");
+  if (mode === "format-config") fs.appendFileSync(".prettierrc.json", " ");
+  if (mode === "format-shadow") fs.writeFileSync("src/.prettierrc", "{}");
+  if (mode === "format-stage") spawnSync("git", ["add", "-A"], { stdio: "ignore", windowsHide: true });
+  process.exit(0);
+}
 if (mode === "fail") { process.stdout.write("SECRET_TOOL_TEXT\\n"); process.exit(1); }
 if (mode === "hang") {
   const grand = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore", windowsHide: true });
@@ -111,9 +132,19 @@ export interface Fixture {
   workerExits: () => number[];
   setMode: (tool: string, mode: string) => void;
   write: (rel: string, text: string) => void;
+  /** Runs after the worker returns and before the snapshot, to shape what the worker "left". */
+  afterWorker: () => void;
 }
 
-export function makeFixture(scenario = "edit"): Fixture {
+export interface FixtureOptions {
+  /** Seeds the pinned root config and ignore file and opts the manifest into `formatting`. */
+  formatting?: boolean;
+}
+
+export const FORMAT_CONFIG_TEXT = '{\n  "semi": true,\n  "printWidth": 100\n}\n';
+export const FORMAT_IGNORE_TEXT = "dist/\n";
+
+export function makeFixture(scenario = "edit", options: FixtureOptions = {}): Fixture {
   const root = realpathSync.native(mkdtempSync(join(realpathSync.native(tmpdir()), "ckpt-cont-")));
   const main = join(root, "main");
   const wt = join(root, "wt");
@@ -138,7 +169,12 @@ export function makeFixture(scenario = "edit"): Fixture {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text);
   };
-  seed(".gitignore", "node_modules/\n");
+  // Opted in, a git-ignored `.prettierrc` is a deliberately hidden shadow-config hiding place.
+  seed(".gitignore", options.formatting ? "node_modules/\n.prettierrc\n" : "node_modules/\n");
+  if (options.formatting) {
+    seed(".prettierrc.json", FORMAT_CONFIG_TEXT);
+    seed(".prettierignore", FORMAT_IGNORE_TEXT);
+  }
   seed("package.json", '{"name":"fixture"}\n');
   seed("tsconfig.json", "{}\n");
   seed("src/a.ts", "export const a = 1;\n");
@@ -188,6 +224,17 @@ export function makeFixture(scenario = "edit"): Fixture {
     focusedTests: ["tests/a.test.ts"],
     nodeExecutable: { path: NODE_PATH, sha256: nodeSha() },
     toolingSha256: toolingSha256 as ContinuationManifest["toolingSha256"],
+    ...(options.formatting
+      ? {
+          formatting: {
+            mode: "prettier_write_declared/v1" as const,
+            configSha256: sha(FORMAT_CONFIG_TEXT),
+            ignoreSha256: sha(FORMAT_IGNORE_TEXT),
+            wallMs: 20_000,
+            outputBytes: 4096
+          }
+        }
+      : {}),
     limits: { wallMs: 180_000, verifierWallMs: 60_000, verifierOutputBytes: 1024 * 1024 }
   };
 
@@ -202,17 +249,20 @@ export function makeFixture(scenario = "edit"): Fixture {
     workerCalls: 0,
     scenario,
     write,
+    afterWorker: () => undefined,
     deps: (extra = {}) => ({
       fetchStatus: plan.fetchStatus,
       post: plan.post,
-      runWorker: (input, deps) => {
+      runWorker: async (input, deps) => {
         fixture.workerCalls++;
-        return runCheckpoint(input, {
+        const result = await runCheckpoint(input, {
           ...deps,
           fetchStatus: plan.fetchStatus,
           launchArgs: [WORKER_SCRIPT, fixture.scenario],
           tickMs: 200
         });
+        fixture.afterWorker();
+        return result;
       },
       ...extra
     }),

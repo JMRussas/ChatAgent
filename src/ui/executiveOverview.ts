@@ -111,7 +111,7 @@ export function executiveOverviewScript(): string {
   };
   var MAX_ATTENTION = 32;
   var CONT_PHASES = ['reserved', 'running', 'snapshotting', 'verifying', 'review_pending', 'needs_operator'];
-  var CONT_REASONS = ['in_progress', 'checks_passed', 'worker_not_clean', 'authority_changed', 'authority_unavailable', 'scope_violation', 'no_source_change', 'snapshot_failed', 'finish_conflict', 'finish_uncertain', 'finish_unconfirmed', 'check_failed', 'check_unavailable', 'source_changed', 'deadline_exceeded', 'cancelled', 'cleanup_failed', 'gate_write_failed', 'lease_changed', 'internal_error'];
+  var CONT_REASONS = ['in_progress', 'checks_passed', 'worker_not_clean', 'authority_changed', 'authority_unavailable', 'scope_violation', 'no_source_change', 'snapshot_failed', 'finish_conflict', 'finish_uncertain', 'finish_unconfirmed', 'check_failed', 'check_unavailable', 'source_changed', 'deadline_exceeded', 'cancelled', 'cleanup_failed', 'gate_write_failed', 'lease_changed', 'internal_error', 'format_failed', 'format_unavailable'];
   var CONT_UNAVAILABLE = ['missing', 'unreadable', 'too_large', 'invalid', 'unsupported_schema', 'stale_identity', 'stale_source', 'stale_state', 'run_mismatch', 'run_unverified', 'timeout'];
   var CONT_FINISH = ['not_attempted', 'attempted', 'confirmed', 'conflict', 'uncertain'];
   var CONT_CHECKS = ['prettier', 'typescript', 'vitest'];

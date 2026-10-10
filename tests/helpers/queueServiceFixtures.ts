@@ -309,7 +309,20 @@ export interface QueueFixtureOptions {
   unrelated?: number;
   /** The after-start attempt epoch named by the manifests (default 1). */
   epoch?: number;
+  /** Opts every item into scoped formatting with a labelled stub that rewrites `--write` files. */
+  formatting?: boolean;
 }
+
+export const QUEUE_FORMAT_CONFIG = '{\n  "semi": true\n}\n';
+export const QUEUE_FORMAT_IGNORE = "dist/\n";
+/** LABELLED STUB, not Prettier: appends a marker to every file named after the last flag. */
+const FORMAT_STUB = `const fs = require("node:fs");
+if (process.argv.includes("--write")) {
+  const at = process.argv.indexOf("--no-error-on-unmatched-pattern") + 1;
+  for (const f of process.argv.slice(at)) fs.appendFileSync(f, "// formatted\\n");
+}
+process.exit(0);
+`;
 
 export async function makeQueueFixture(
   count: number,
@@ -333,7 +346,11 @@ export async function makeQueueFixture(
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text);
   };
-  seed(".gitignore", "node_modules/\n");
+  seed(".gitignore", options.formatting ? "node_modules/\n.prettierrc\n" : "node_modules/\n");
+  if (options.formatting) {
+    seed(".prettierrc.json", QUEUE_FORMAT_CONFIG);
+    seed(".prettierignore", QUEUE_FORMAT_IGNORE);
+  }
   seed("package.json", '{"name":"fixture"}\n');
   seed("tsconfig.json", "{}\n");
   seed("src/a.ts", "export const a = 1;\n");
@@ -365,7 +382,7 @@ export async function makeQueueFixture(
     git(main, "worktree", "add", "-q", "-b", `work${n}`, wt);
     const toolingSha256: Record<string, string> = {};
     for (const [name, rel] of Object.entries(entries)) {
-      const text = "process.exit(0);\n";
+      const text = options.formatting && name === "prettier" ? FORMAT_STUB : "process.exit(0);\n";
       const path = join(wt, ...rel.split("/"));
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, text);
@@ -419,6 +436,17 @@ process.stdin.on("end", () => {
       focusedTests: ["tests/a.test.ts"],
       nodeExecutable: { path: NODE_PATH, sha256: nodeHash },
       toolingSha256: toolingSha256 as ContinuationManifest["toolingSha256"],
+      ...(options.formatting
+        ? {
+            formatting: {
+              mode: "prettier_write_declared/v1" as const,
+              configSha256: sha(QUEUE_FORMAT_CONFIG),
+              ignoreSha256: sha(QUEUE_FORMAT_IGNORE),
+              wallMs: 20_000,
+              outputBytes: 4096
+            }
+          }
+        : {}),
       limits: { wallMs: 180_000, verifierWallMs: 60_000, verifierOutputBytes: 1024 * 1024 }
     };
     const bytes = Buffer.from(JSON.stringify(manifest));

@@ -14,8 +14,9 @@ import type { LeafState } from "./devCoordination";
 import type { ExecutiveRootView } from "./executiveOverview";
 
 /**
- * Bounded, read-only view of one explicitly configured `checkpoint-continuation/v1` record
- * (doc 24). The file is supplied and unauthenticated and the writer's liveness is unknown. Only a
+ * Bounded, read-only view of one explicitly configured `checkpoint-continuation/v1` or `/v2`
+ * record (doc 24, 27). A v2 record projects to the same shape: no raw ref or formatter fact is
+ * copied (a formatter run shows as `snapshotting`; the CLI record has the detail). The file is supplied and unauthenticated and the writer's liveness is unknown. Only a
  * regular file within the closed size bound is read; the closed record parser is the only reader.
  * A record is shown only when it still describes the task's exact root, node, attempt, epoch,
  * content, run and (for source-bearing phases) candidate source; anything else stays explicitly

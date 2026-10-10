@@ -12,7 +12,10 @@ import { processTreeTerminator, type ProcessTreeTerminator } from "../providers/
 import {
   CHECK_NAMES,
   CONTINUATION_LIMITS,
+  CONTINUATION_RECORD_SCHEMA,
+  CONTINUATION_RECORD_SCHEMA_V2,
   TOOLING_ENTRIES,
+  checkFormatGuard,
   claimKeyOf,
   continuationLeasePath,
   continuationRecordPath,
@@ -430,6 +433,22 @@ export async function runQueueService(
         return false;
       const status = await git(m, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
       if (status !== "") return false;
+      // Opted in, the pinned config and ignore files and the no-shadow guard are part of the pins.
+      if (
+        (await checkFormatGuard(run.worktree, m, () =>
+          git(m, [
+            "diff",
+            "--raw",
+            "-z",
+            "--no-renames",
+            "--no-abbrev",
+            run.identity.baseRef,
+            "--",
+            "package.json"
+          ])
+        )) !== "ok"
+      )
+        return false;
       if (freshRun) {
         const claimKey = claimKeyOf(run.identity);
         for (const path of [
@@ -732,6 +751,35 @@ export async function runQueueService(
         !fenceHolds(g.identity)
       )
         return null;
+      const authority = m.formatting;
+      const record = stored.value;
+      if (authority === undefined) {
+        // Legacy manifests accept only the unchanged v1 wire shape.
+        if (
+          record.schema !== CONTINUATION_RECORD_SCHEMA ||
+          returned.schema !== CONTINUATION_RECORD_SCHEMA
+        )
+          return null;
+      } else {
+        if (
+          record.schema !== CONTINUATION_RECORD_SCHEMA_V2 ||
+          returned.schema !== CONTINUATION_RECORD_SCHEMA_V2
+        )
+          return null;
+        const facts = record.formatting;
+        const consistent =
+          record.rawRef !== null &&
+          returned.rawRef === record.rawRef &&
+          ((facts.state === "unchanged" && record.rawRef === record.sourceRef) ||
+            (facts.state === "committed" && record.rawRef !== record.sourceRef));
+        if (
+          !consistent ||
+          facts.mode !== authority.mode ||
+          facts.configSha256 !== authority.configSha256 ||
+          facts.ignoreSha256 !== authority.ignoreSha256
+        )
+          return null;
+      }
       return returned.sourceRef;
     } catch {
       return null;

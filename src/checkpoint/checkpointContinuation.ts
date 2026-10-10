@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { link, lstat, open, realpath, rename, stat, unlink } from "node:fs/promises";
+import { link, lstat, open, opendir, realpath, rename, stat, unlink } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
@@ -30,8 +30,10 @@ import {
  * Finite checkpoint verification continuation (doc 22). One operator-invoked process owns one
  * already claimed coding checkpoint: it reserves a cooperative lease, runs the existing fixed
  * worker runner once, snapshots only operator-declared source edits into an isolated candidate
- * commit, issues one finish-only PlanStore transition, then runs fixed external Prettier,
- * TypeScript and Vitest processes and stores a supplied gate. It ends at `review_pending` or
+ * commit (with optional `formatting` authority: a pinned Prettier write over the changed supported
+ * files and a separate formatting-only commit, doc 27), issues one finish-only PlanStore transition
+ * against the final commit, then runs fixed external Prettier, TypeScript and Vitest processes and
+ * stores a supplied gate. It ends at `review_pending` or
  * `needs_operator`. It never claims, releases, revises, decides, accepts, integrates, retries,
  * calls a model, notifies or supervises beyond its own lifetime. Records are supplied evidence,
  * not authenticated authority, and fixed tooling execution is host-owned, not a sandbox.
@@ -39,6 +41,9 @@ import {
 
 export const CONTINUATION_MANIFEST_SCHEMA = "checkpoint-continuation-run/v1";
 export const CONTINUATION_RECORD_SCHEMA = "checkpoint-continuation/v1";
+/** Written only when the manifest opts into `formatting`; v1 records are never rewritten. */
+export const CONTINUATION_RECORD_SCHEMA_V2 = "checkpoint-continuation/v2";
+export const FORMATTING_MODE = "prettier_write_declared/v1";
 
 export const CONTINUATION_LIMITS = {
   maxManifestBytes: 32 * 1024,
@@ -58,8 +63,19 @@ export const CONTINUATION_LIMITS = {
   finishTimeoutMs: 10_000,
   finishResponseBytes: 64 * 1024,
   closeGraceMs: 10_000,
-  leaseBytes: 512
+  leaseBytes: 512,
+  maxFormatWallMs: 120_000,
+  maxFormatOutputBytes: 256 * 1024,
+  maxFormatConfigBytes: 16 * 1024,
+  maxDirectoryEntries: 4096
 } as const;
+
+/** Fixed in code: only these extensions ever reach the formatter or its `--check`. */
+export const FORMAT_EXTENSIONS = [".ts", ".js", ".mjs", ".cjs", ".json", ".md"] as const;
+const FORMAT_CONFIG_FILE = ".prettierrc.json";
+const FORMAT_IGNORE_FILE = ".prettierignore";
+/** Any Prettier or editor configuration name that could shadow the pinned root config. */
+const SHADOW_CONFIG_NAME = /^(?:\.prettierrc(?:\..*)?|prettier\.config\..*|\.editorconfig)$/i;
 
 /** Fixed tooling entry paths, resolved only from the linked worktree. */
 export const TOOLING_ENTRIES = {
@@ -72,6 +88,7 @@ export type CheckName = (typeof CHECK_NAMES)[number];
 
 const FINISH_ACTOR = "checkpoint-continuation";
 const COMMIT_MESSAGE = "checkpoint: candidate snapshot";
+const FORMAT_COMMIT_MESSAGE = "checkpoint: format candidate";
 const SOURCE_ROOTS = ["src", "scripts", "tests", "docs"];
 
 // ----- schemas -----
@@ -116,6 +133,42 @@ const focusedPath = z
 const unique = (values: string[]) =>
   new Set(values.map((value) => value.toLowerCase())).size === values.length;
 
+const formattingAuthoritySchema = z
+  .object({
+    mode: z.literal(FORMATTING_MODE),
+    configSha256: sha256,
+    ignoreSha256: sha256,
+    wallMs: safe(1).max(CONTINUATION_LIMITS.maxFormatWallMs),
+    outputBytes: safe(1).max(CONTINUATION_LIMITS.maxFormatOutputBytes)
+  })
+  .strict();
+export type FormattingAuthority = z.infer<typeof formattingAuthoritySchema>;
+
+/** Scalar-only Prettier options: no plugins, overrides, extends or code can be expressed. */
+const prettierConfigSchema = z
+  .object({
+    printWidth: safe(20).max(400),
+    tabWidth: safe(1).max(16),
+    useTabs: z.boolean(),
+    semi: z.boolean(),
+    singleQuote: z.boolean(),
+    jsxSingleQuote: z.boolean(),
+    bracketSpacing: z.boolean(),
+    bracketSameLine: z.boolean(),
+    singleAttributePerLine: z.boolean(),
+    experimentalTernaries: z.boolean(),
+    quoteProps: z.enum(["as-needed", "consistent", "preserve"]),
+    trailingComma: z.enum(["all", "es5", "none"]),
+    arrowParens: z.enum(["always", "avoid"]),
+    proseWrap: z.enum(["always", "never", "preserve"]),
+    endOfLine: z.enum(["lf", "crlf", "cr", "auto"]),
+    embeddedLanguageFormatting: z.enum(["auto", "off"]),
+    htmlWhitespaceSensitivity: z.enum(["css", "strict", "ignore"]),
+    objectWrap: z.enum(["preserve", "collapse"])
+  })
+  .partial()
+  .strict();
+
 export const continuationManifestSchema = z
   .object({
     schema: z.literal(CONTINUATION_MANIFEST_SCHEMA),
@@ -128,6 +181,7 @@ export const continuationManifestSchema = z
       .refine(unique),
     nodeExecutable: z.object({ path: absolutePath, sha256 }).strict(),
     toolingSha256: z.object({ prettier: sha256, typescript: sha256, vitest: sha256 }).strict(),
+    formatting: formattingAuthoritySchema.optional(),
     limits: z
       .object({
         wallMs: safe(1).max(CONTINUATION_LIMITS.maxWallMs),
@@ -140,7 +194,16 @@ export const continuationManifestSchema = z
   .refine((m) => m.run.profile === "coding")
   .refine(
     (m) =>
-      m.limits.wallMs > m.run.hard.wallMs + m.limits.verifierWallMs + CONTINUATION_LIMITS.reservedMs
+      m.limits.wallMs >
+      m.run.hard.wallMs +
+        m.limits.verifierWallMs +
+        CONTINUATION_LIMITS.reservedMs +
+        (m.formatting?.wallMs ?? 0)
+  )
+  .refine(
+    (m) =>
+      m.formatting === undefined ||
+      m.files.every((file) => !SHADOW_CONFIG_NAME.test(file.slice(file.lastIndexOf("/") + 1)))
   );
 export type ContinuationManifest = z.infer<typeof continuationManifestSchema>;
 
@@ -152,7 +215,8 @@ export const CONTINUATION_PHASES = [
   "review_pending",
   "needs_operator"
 ] as const;
-export const CONTINUATION_REASONS = [
+/** The v1 record vocabulary; v1 records never carry a formatter reason. */
+export const CONTINUATION_V1_REASONS = [
   "in_progress",
   "checks_passed",
   "worker_not_clean",
@@ -174,7 +238,18 @@ export const CONTINUATION_REASONS = [
   "lease_changed",
   "internal_error"
 ] as const;
+export const FORMAT_REASONS = ["format_failed", "format_unavailable"] as const;
+/** Every reason any supported record version can carry. */
+export const CONTINUATION_REASONS = [...CONTINUATION_V1_REASONS, ...FORMAT_REASONS] as const;
 export type ContinuationReason = (typeof CONTINUATION_REASONS)[number];
+export const FORMAT_STATES = [
+  "pending",
+  "running",
+  "unchanged",
+  "committed",
+  "failed",
+  "unavailable"
+] as const;
 export const FINISH_STATES = [
   "not_attempted",
   "attempted",
@@ -233,7 +308,7 @@ const workerSchema = z
   })
   .strict();
 
-export const continuationRecordSchema = z
+const recordObject = z
   .object({
     schema: z.literal(CONTINUATION_RECORD_SCHEMA),
     runId: guid,
@@ -250,7 +325,7 @@ export const continuationRecordSchema = z
       .strict(),
     baseRef: gitRef,
     phase: z.enum(CONTINUATION_PHASES),
-    reason: z.enum(CONTINUATION_REASONS),
+    reason: z.enum(CONTINUATION_V1_REASONS),
     startedAt: timestamp,
     updatedAt: timestamp,
     endedAt: timestamp.nullable(),
@@ -269,23 +344,92 @@ export const continuationRecordSchema = z
     recordTrust: z.literal("supplied_not_authenticated"),
     writerLiveness: z.literal("unknown")
   })
+  .strict();
+
+/** Bounded formatter facts: no paths and no output, only counts, exit facts and pinned hashes. */
+const formattingFactsSchema = z
+  .object({
+    mode: z.literal(FORMATTING_MODE),
+    state: z.enum(FORMAT_STATES),
+    ran: z.boolean(),
+    eligible: safe(),
+    unsupported: safe(),
+    changed: safe(),
+    exitCode: exitCodeSchema,
+    signal: signalSchema,
+    timedOut: z.boolean(),
+    outputLimited: z.boolean(),
+    outputBytes: safe(),
+    configSha256: sha256,
+    ignoreSha256: sha256
+  })
+  .strict();
+export type FormattingFacts = z.infer<typeof formattingFactsSchema>;
+
+type PhaseFacts = Pick<
+  z.infer<typeof recordObject>,
+  "phase" | "endedAt" | "gate" | "checks" | "sourceRef"
+> & { reason: ContinuationReason };
+
+const endedMatchesPhase = (r: PhaseFacts) =>
+  (r.phase === "review_pending" || r.phase === "needs_operator") === (r.endedAt !== null);
+const phaseMatchesReason = (r: PhaseFacts) => {
+  if (r.phase === "review_pending")
+    return (
+      r.reason === "checks_passed" &&
+      r.gate === "written" &&
+      r.checks.length === CHECK_NAMES.length &&
+      r.checks.every((c) => c.result === "pass")
+    );
+  if (r.phase === "needs_operator")
+    return r.reason !== "in_progress" && r.reason !== "checks_passed";
+  return r.reason === "in_progress" && r.gate === "not_written";
+};
+
+/** The strict v1 record: it rejects every formatter-only field and reason. */
+export const continuationRecordSchema = recordObject
+  .refine(endedMatchesPhase)
+  .refine(phaseMatchesReason);
+export type ContinuationRecordV1 = z.infer<typeof continuationRecordSchema>;
+
+export const continuationRecordV2Schema = recordObject
+  .extend({
+    schema: z.literal(CONTINUATION_RECORD_SCHEMA_V2),
+    reason: z.enum(CONTINUATION_REASONS),
+    rawRef: gitRef.nullable(),
+    formatting: formattingFactsSchema
+  })
   .strict()
-  .refine(
-    (r) => (r.phase === "review_pending" || r.phase === "needs_operator") === (r.endedAt !== null)
-  )
+  .refine(endedMatchesPhase)
+  .refine(phaseMatchesReason)
+  // The final source exists only after the raw commit does.
+  .refine((r) => r.sourceRef === null || r.rawRef !== null)
+  .refine((r) => r.reason !== "format_failed" || r.formatting.state === "failed")
+  .refine((r) => r.reason !== "format_unavailable" || r.formatting.state === "unavailable")
   .refine((r) => {
-    if (r.phase === "review_pending")
-      return (
-        r.reason === "checks_passed" &&
-        r.gate === "written" &&
-        r.checks.length === CHECK_NAMES.length &&
-        r.checks.every((c) => c.result === "pass")
-      );
-    if (r.phase === "needs_operator")
-      return r.reason !== "in_progress" && r.reason !== "checks_passed";
-    return r.reason === "in_progress" && r.gate === "not_written";
+    if (r.phase !== "review_pending") return true;
+    const f = r.formatting;
+    if (r.rawRef === null || r.sourceRef === null) return false;
+    return (
+      (f.state === "unchanged" && r.rawRef === r.sourceRef) ||
+      (f.state === "committed" && r.rawRef !== r.sourceRef)
+    );
   });
-export type ContinuationRecord = z.infer<typeof continuationRecordSchema>;
+export type ContinuationRecordV2 = z.infer<typeof continuationRecordV2Schema>;
+
+/** Every supported record version; common readers (parse, view, queue, gate) handle the union. */
+export type ContinuationRecordUnion = ContinuationRecordV1 | ContinuationRecordV2;
+/** What the parser returns: narrow on `schema` before reading v2-only fields. */
+export type ContinuationRecord = ContinuationRecordUnion;
+export type ContinuationV1Reason = (typeof CONTINUATION_V1_REASONS)[number];
+export const isV1Reason = (reason: ContinuationReason): reason is ContinuationV1Reason =>
+  (CONTINUATION_V1_REASONS as readonly string[]).includes(reason);
+export const continuationRecordAnySchema = z.union([
+  continuationRecordSchema,
+  continuationRecordV2Schema
+]);
+const SUPPORTED_RECORD_SCHEMAS = [CONTINUATION_RECORD_SCHEMA, CONTINUATION_RECORD_SCHEMA_V2];
+const SUPPORTED_MANIFEST_SCHEMAS = [CONTINUATION_MANIFEST_SCHEMA];
 
 export class ContinuationRecordError extends Error {
   constructor(readonly code: "INPUT_INVALID" | "RECORD_INVALID" | "RECORD_TOO_LARGE") {
@@ -300,6 +444,7 @@ type ParseOutcome<T> =
 function parseClosed<T>(
   bytes: Uint8Array,
   family: string,
+  supported: readonly string[],
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
   maxBytes: number
 ): ParseOutcome<T> {
@@ -316,7 +461,7 @@ function parseClosed<T>(
     typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
       ? (parsed as { schema?: unknown }).schema
       : undefined;
-  if (typeof named === "string" && named.startsWith(family) && !named.endsWith("/v1"))
+  if (typeof named === "string" && named.startsWith(family) && !supported.includes(named))
     return { ok: false, reason: "unsupported_schema" };
   const checked = schema.safeParse(parsed);
   return checked.success ? { ok: true, value: checked.data } : { ok: false, reason: "invalid" };
@@ -327,6 +472,7 @@ export function parseContinuationManifest(bytes: Uint8Array): ContinuationManife
   const result = parseClosed(
     bytes,
     "checkpoint-continuation-run/",
+    SUPPORTED_MANIFEST_SCHEMAS,
     continuationManifestSchema,
     CONTINUATION_LIMITS.maxManifestBytes
   );
@@ -338,12 +484,13 @@ export const parseContinuationRecord = (bytes: Uint8Array) =>
   parseClosed(
     bytes,
     "checkpoint-continuation/",
-    continuationRecordSchema,
+    SUPPORTED_RECORD_SCHEMAS,
+    continuationRecordAnySchema,
     CONTINUATION_LIMITS.maxRecordBytes
   );
 
-export function serializeContinuationRecord(record: ContinuationRecord): string {
-  const checked = continuationRecordSchema.safeParse(record);
+export function serializeContinuationRecord(record: ContinuationRecordUnion): string {
+  const checked = continuationRecordAnySchema.safeParse(record);
   if (!checked.success) throw new ContinuationRecordError("RECORD_INVALID");
   const text = `${JSON.stringify(checked.data)}\n`;
   if (Buffer.byteLength(text, "utf8") > CONTINUATION_LIMITS.maxRecordBytes)
@@ -432,17 +579,196 @@ const REGULAR_MODES = new Set(["000000", "100644", "100755"]);
 export function checkArguments(
   name: CheckName,
   existingChanged: readonly string[],
-  focusedTests: readonly string[]
+  focusedTests: readonly string[],
+  pinned?: PinnedFormatFiles
 ): string[] {
   const entry = TOOLING_ENTRIES[name];
   switch (name) {
     case "prettier":
-      return [entry, "--check", "--ignore-unknown", ...existingChanged];
+      return pinned
+        ? formatArguments("check", pinned, existingChanged)
+        : [entry, "--check", "--ignore-unknown", ...existingChanged];
     case "typescript":
       return [entry, "--project", "tsconfig.json", "--noEmit"];
     case "vitest":
       return [entry, "run", "--maxWorkers=1", ...focusedTests];
   }
+}
+
+// ----- scoped formatting helpers (pure) -----
+
+export interface PinnedFormatFiles {
+  config: string;
+  ignore: string;
+}
+
+/** The explicit pinned config and ignore files at the worktree root. */
+export const pinnedFormatFiles = (cwd: string): PinnedFormatFiles => ({
+  config: join(cwd, FORMAT_CONFIG_FILE),
+  ignore: join(cwd, FORMAT_IGNORE_FILE)
+});
+
+export const isFormatSupported = (path: string) => {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const dot = name.lastIndexOf(".");
+  return dot > 0 && (FORMAT_EXTENSIONS as readonly string[]).includes(name.slice(dot));
+};
+
+export interface EligiblePartition {
+  /** Existing changed files with a supported extension: the only paths a formatter may see. */
+  eligible: string[];
+  /** Existing changed files with an unsupported extension; they are counted, never formatted. */
+  unsupported: number;
+  deleted: number;
+}
+
+export function partitionEligible(changes: readonly ChangedFile[]): EligiblePartition {
+  const eligible: string[] = [];
+  let unsupported = 0;
+  let deleted = 0;
+  for (const change of changes) {
+    if (change.deleted) deleted++;
+    else if (isFormatSupported(change.path)) eligible.push(change.path);
+    else unsupported++;
+  }
+  return { eligible, unsupported, deleted };
+}
+
+/** Explicit config, no EditorConfig, pinned ignore file; the same flags for write and check. */
+export function formatArguments(
+  mode: "write" | "check",
+  pinned: PinnedFormatFiles,
+  eligible: readonly string[]
+): string[] {
+  const common = [
+    TOOLING_ENTRIES.prettier,
+    "--config",
+    pinned.config,
+    "--no-editorconfig",
+    "--ignore-path",
+    pinned.ignore
+  ];
+  return mode === "write"
+    ? [...common, "--write", "--ignore-unknown", "--no-error-on-unmatched-pattern", ...eligible]
+    : [...common, "--check", "--ignore-unknown", ...eligible];
+}
+
+export type FormatClassification =
+  { ok: true; changed: string[] } | { ok: false; reason: "scope_violation" };
+
+/**
+ * Classifies a post-write (or staged) state: status entries and `git diff --raw` against HEAD must
+ * describe exactly the same modifications of eligible regular files with unchanged regular modes.
+ * Anything staged, untracked, outside the eligible set, deleted, retyped or linked is a violation.
+ */
+export function classifyFormatResult(
+  status: readonly StatusEntry[],
+  diff: readonly RawDiffEntry[],
+  eligible: readonly string[],
+  staged = false
+): FormatClassification {
+  const allowed = new Set(eligible);
+  const fail: FormatClassification = { ok: false, reason: "scope_violation" };
+  const changed = new Set<string>();
+  for (const entry of status) {
+    const expected = staged ? ["M", " "] : [" ", "M"];
+    if (entry.x !== expected[0] || entry.y !== expected[1]) return fail;
+    if (!allowed.has(entry.path) || changed.has(entry.path)) return fail;
+    changed.add(entry.path);
+  }
+  const seen = new Set<string>();
+  for (const entry of diff) {
+    if (
+      entry.status !== "M" ||
+      entry.oldMode !== entry.newMode ||
+      !REGULAR_MODES.has(entry.newMode) ||
+      entry.newMode === "000000" ||
+      !changed.has(entry.path) ||
+      seen.has(entry.path)
+    )
+      return fail;
+    seen.add(entry.path);
+  }
+  return seen.size === changed.size ? { ok: true, changed: [...changed].sort() } : fail;
+}
+
+// ----- pinned formatter guard -----
+
+export type FormatGuardOutcome = "ok" | "pin_mismatch" | "shadow_config" | "package_changed";
+
+const sha256Of = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+
+async function pinnedRootFile(cwd: string, name: string, expected: string): Promise<Buffer | null> {
+  try {
+    const bytes = await readSmall(join(cwd, name), CONTINUATION_LIMITS.maxFormatConfigBytes);
+    return sha256Of(bytes) === expected ? bytes : null;
+  } catch {
+    return null;
+  }
+}
+
+/** One bounded directory read; false when the directory holds a shadowing configuration name. */
+async function noShadowConfig(dir: string, root: boolean): Promise<boolean> {
+  let handle;
+  try {
+    const info = await lstat(dir);
+    if (info.isSymbolicLink() || !info.isDirectory()) return false;
+    handle = await opendir(dir);
+  } catch (error) {
+    // A directory a new file will be created in need not exist yet.
+    return (error as NodeJS.ErrnoException).code === "ENOENT";
+  }
+  try {
+    let count = 0;
+    for await (const entry of handle) {
+      if (++count > CONTINUATION_LIMITS.maxDirectoryEntries) return false;
+      if (!SHADOW_CONFIG_NAME.test(entry.name)) continue;
+      if (!(root && entry.name === FORMAT_CONFIG_FILE)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
+}
+
+/**
+ * The formatter configuration guard: pinned safe-scalar root config and ignore file, no competing
+ * root or ancestor configuration (read from the directories, so ignored and untracked names count),
+ * and a root `package.json` that still equals the base blob. `baseDiff` returns the raw
+ * `git diff` output of the base ref against the worktree for `package.json`.
+ */
+export async function checkFormatGuard(
+  cwd: string,
+  manifest: Pick<ContinuationManifest, "files" | "formatting">,
+  baseDiff: () => Promise<string>
+): Promise<FormatGuardOutcome> {
+  const formatting = manifest.formatting;
+  if (!formatting) return "ok";
+  const config = await pinnedRootFile(cwd, FORMAT_CONFIG_FILE, formatting.configSha256);
+  if (!config || !(await pinnedRootFile(cwd, FORMAT_IGNORE_FILE, formatting.ignoreSha256)))
+    return "pin_mismatch";
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(config);
+    if (!prettierConfigSchema.safeParse(JSON.parse(text)).success) return "pin_mismatch";
+  } catch {
+    return "pin_mismatch";
+  }
+  const directories = new Set<string>([""]);
+  for (const file of manifest.files) {
+    const segments = file.split("/").slice(0, -1);
+    for (let i = 1; i <= segments.length; i++) directories.add(segments.slice(0, i).join("/"));
+  }
+  for (const directory of directories)
+    if (!(await noShadowConfig(join(cwd, ...directory.split("/").filter(Boolean)), directory === "")))
+      return "shadow_config";
+  try {
+    if ((await baseDiff()) !== "") return "package_changed";
+  } catch {
+    return "package_changed";
+  }
+  return "ok";
 }
 
 const ENV_ALLOW = [
@@ -831,6 +1157,11 @@ export type ContinuationRefusal =
   | "cancelled"
   | "cleanup_failed";
 
+/** Fields a run may change; the v2-only ones are rejected while the record is still v1. */
+type RecordPatch = Partial<Omit<ContinuationRecordV2, "schema" | "reason">> & {
+  reason?: ContinuationReason;
+};
+
 export interface ContinuationResult {
   /** 0 stored review_pending; 1 stored operator outcome; 2 refusal; 4 persistence/cleanup failure. */
   exitCode: 0 | 1 | 2 | 4;
@@ -924,8 +1255,8 @@ export async function runContinuation(
   let candidate: string | null = null;
   let changes: ChangedFile[] = [];
   const startedAt = iso(now());
-  let state: ContinuationRecord = {
-    schema: CONTINUATION_RECORD_SCHEMA,
+  const formatting = manifest.formatting;
+  const base: Omit<ContinuationRecordV1, "schema"> = {
     runId: input.runId,
     identity: {
       rootId: input.identity.rootId,
@@ -957,8 +1288,42 @@ export async function runContinuation(
     recordTrust: "supplied_not_authenticated",
     writerLiveness: "unknown"
   };
-  const set = (patch: Partial<ContinuationRecord>) => {
-    state = { ...state, ...patch };
+  let state: ContinuationRecord = formatting
+    ? {
+        ...base,
+        schema: CONTINUATION_RECORD_SCHEMA_V2,
+        rawRef: null,
+        formatting: {
+          mode: formatting.mode,
+          state: "pending",
+          ran: false,
+          eligible: 0,
+          unsupported: 0,
+          changed: 0,
+          exitCode: null,
+          signal: null,
+          timedOut: false,
+          outputLimited: false,
+          outputBytes: 0,
+          configSha256: formatting.configSha256,
+          ignoreSha256: formatting.ignoreSha256
+        }
+      }
+    : { ...base, schema: CONTINUATION_RECORD_SCHEMA };
+  const set = (patch: RecordPatch) => {
+    if (state.schema === CONTINUATION_RECORD_SCHEMA_V2) {
+      state = { ...state, ...patch };
+      return;
+    }
+    // A v1 record can carry neither the v2-only fields nor a formatter reason.
+    const { rawRef, formatting: facts, reason, ...common } = patch;
+    if (rawRef !== undefined || facts !== undefined) throw new PersistenceFailure();
+    if (reason !== undefined && !isV1Reason(reason)) throw new PersistenceFailure();
+    state = reason === undefined ? { ...state, ...common } : { ...state, ...common, reason };
+  };
+  const setFormatting = (patch: Partial<FormattingFacts>) => {
+    if (state.schema === CONTINUATION_RECORD_SCHEMA_V2)
+      set({ formatting: { ...state.formatting, ...patch } });
   };
   let leaseToken = "";
 
@@ -977,7 +1342,7 @@ export async function runContinuation(
   };
 
   /** Atomic publish through this instance's exclusive temp file; the lease is checked first. */
-  const publish = async (patch: Partial<ContinuationRecord>, final = false) => {
+  const publish = async (patch: RecordPatch, final = false) => {
     const terminal = patch.phase === "review_pending" || patch.phase === "needs_operator";
     const stamp = iso(now());
     set({ ...patch, updatedAt: stamp, endedAt: terminal ? stamp : null });
@@ -1061,6 +1426,26 @@ export async function runContinuation(
       await git(["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"])
     );
 
+  const formatGuard = () =>
+    checkFormatGuard(cwd, manifest, async () =>
+      (
+        await git([
+          "diff",
+          "--raw",
+          "-z",
+          "--no-renames",
+          "--no-abbrev",
+          input.identity.baseRef,
+          "--",
+          "package.json"
+        ])
+      ).toString("utf8")
+    );
+  /** Recheck of the pinned configuration; a moved or shadowed config is never attributed to the model. */
+  const holdFormatGuard = async () => {
+    if (formatting && (await formatGuard()) !== "ok") throw new Stop("source_changed");
+  };
+
   const readLeaf = async (timeoutMs: number): Promise<LeafStatus | undefined> => {
     live();
     const status = await fetchStatus(input.planApiUrl, input.identity.rootId, {
@@ -1119,6 +1504,11 @@ export async function runContinuation(
       if ((await head()).toLowerCase() !== input.identity.baseRef)
         throw new Refusal("pin_mismatch");
       if ((await statusEntries()).length > 0) throw new Refusal("worktree_dirty");
+      if (formatting) {
+        const outcome = await formatGuard();
+        if (outcome !== "ok")
+          throw new Refusal(outcome === "pin_mismatch" ? "pin_mismatch" : "source_invalid");
+      }
     } catch (error) {
       if (error instanceof Refusal) throw error;
       if (error instanceof Stop && error.reason !== "snapshot_failed") throw error;
@@ -1180,6 +1570,7 @@ export async function runContinuation(
   });
 
   const runWorkerStep = async () => {
+    await holdFormatGuard();
     await publish({ phase: "running" });
     const runWorker = deps.runWorker ?? runCheckpoint;
     const result = await runWorker(input, { ...deps.workerDeps, signal: abort.signal });
@@ -1198,6 +1589,7 @@ export async function runContinuation(
       record.exit.signal !== null
     )
       throw new Stop("worker_not_clean");
+    await holdFormatGuard();
   };
 
   const collectChanges = async (): Promise<ChangedFile[]> => {
@@ -1267,8 +1659,12 @@ export async function runContinuation(
     const sha = (await head()).toLowerCase();
     if (!gitRef.safeParse(sha).success || sha === input.identity.baseRef)
       throw new Stop("snapshot_failed");
-    candidate = sha;
-    set({ sourceRef: sha });
+    // With formatting the functional commit is only the raw ref; the final source comes later.
+    if (formatting) set({ rawRef: sha });
+    else {
+      candidate = sha;
+      set({ sourceRef: sha });
+    }
     const parent = (await git(["rev-parse", "--verify", "HEAD^"])).toString("utf8").trim();
     const committed = parseRawDiffZ(
       await git([
@@ -1291,7 +1687,184 @@ export async function runContinuation(
       (await statusEntries()).length > 0
     )
       throw new Stop("snapshot_failed");
+    if (!formatting) return publish({ sourceRef: sha });
+    await publish({ rawRef: sha });
+    await formatStep(sha);
+  };
+
+  const holdsLeaf = async () => {
+    let leaf: LeafStatus | undefined;
+    try {
+      leaf = await readLeaf(CONTINUATION_LIMITS.authorityTimeoutMs);
+    } catch (error) {
+      if (error instanceof Stop) throw error;
+      throw new Stop("authority_unavailable");
+    }
+    if (!matchesLeaf(leaf, input, false)) throw new Stop("authority_changed");
+  };
+
+  /** Lease, current claim, HEAD, clean tree and the pinned configuration before a formatter effect. */
+  const formatPrecheck = async (expectedHead: string, expectedParent: string) => {
+    await verifyLease();
+    await holdsLeaf();
+    if ((await head()).toLowerCase() !== expectedHead) throw new Stop("source_changed");
+    const parent = (await git(["rev-parse", "--verify", "HEAD^"])).toString("utf8").trim();
+    if (parent.toLowerCase() !== expectedParent) throw new Stop("source_changed");
+    if ((await statusEntries()).length > 0) throw new Stop("source_changed");
+    await holdFormatGuard();
+  };
+
+  /**
+   * Regular-file entry plus its size, mtime and inode/device, read with bigint stats so Windows file
+   * IDs keep their precision. Cooperative detection around `git add`, not an atomic lock.
+   */
+  const fileIdentities = async (paths: readonly string[]) => {
+    const identities: string[] = [];
+    for (const path of paths) {
+      if ((await entryState(cwd, path)) !== "file") throw new Stop("scope_violation");
+      let info;
+      try {
+        info = await lstat(join(cwd, path), { bigint: true });
+      } catch {
+        throw new Stop("scope_violation");
+      }
+      if (!info.isFile() || info.isSymbolicLink()) throw new Stop("scope_violation");
+      identities.push(`${path}\0${info.size}\0${info.mtimeNs}\0${info.ino}\0${info.dev}`);
+    }
+    return identities;
+  };
+
+  const formatFailed = (reason: "scope_violation" | "snapshot_failed") => {
+    setFormatting({ state: "failed" });
+    return new Stop(reason);
+  };
+
+  /**
+   * Runs the pinned formatter over the eligible set and commits any byte change as a separate
+   * formatting-only commit on top of the raw commit. Failure keeps the raw commit and dirty tree.
+   */
+  const formatStep = async (raw: string) => {
+    const { eligible, unsupported } = partitionEligible(changes);
+    setFormatting({ eligible: eligible.length, unsupported });
+    await formatPrecheck(raw, input.identity.baseRef);
+    const keepRaw = async () => {
+      setFormatting({ state: "unchanged" });
+      candidate = raw;
+      await publish({ sourceRef: raw });
+    };
+    if (eligible.length === 0) return keepRaw();
+    if (!(await hashesHold("prettier"))) {
+      setFormatting({ state: "unavailable" });
+      throw new Stop("format_unavailable");
+    }
+    setFormatting({ state: "running" });
+    await publish({});
+    await verifyLease();
+    await holdsLeaf();
+    live();
+    const result = await runOwned(
+      manifest.nodeExecutable.path,
+      formatArguments("write", pinnedFormatFiles(cwd), eligible),
+      {
+        cwd,
+        timeoutMs: Math.min(formatting!.wallMs, remaining()),
+        maxOutputBytes: formatting!.outputBytes,
+        capture: false,
+        signal: abort.signal,
+        terminator,
+        closeGraceMs
+      }
+    );
+    setFormatting({
+      ran: !result.launchFailed,
+      exitCode: result.exitCode,
+      signal: result.signal && /^SIG[A-Z0-9]{1,12}$/.test(result.signal) ? result.signal : null,
+      timedOut: result.timedOut,
+      outputLimited: result.outputLimited,
+      outputBytes: result.outputBytes
+    });
+    if (result.cleanupFailed) throw new Stop("cleanup_failed");
+    live();
+    if (result.launchFailed || result.timedOut || result.outputLimited || result.aborted) {
+      setFormatting({ state: "unavailable" });
+      throw new Stop("format_unavailable");
+    }
+    if (result.exitCode !== 0) {
+      setFormatting({ state: "failed" });
+      throw new Stop("format_failed");
+    }
+
+    await holdFormatGuard();
+    if ((await head()).toLowerCase() !== raw) throw new Stop("source_changed");
+    const written = classifyFormatResult(
+      await statusEntries(),
+      parseRawDiffZ(await git(["diff", "--raw", "-z", "--no-renames", "--no-abbrev", "HEAD"])),
+      eligible
+    );
+    if (!written.ok) throw formatFailed("scope_violation");
+    const changed = written.changed;
+    setFormatting({ changed: changed.length });
+    if (changed.length === 0) return keepRaw();
+
+    const before = await fileIdentities(changed);
+    await holdsLeaf();
+    await git(["add", "--", ...changed], false, true);
+    const staged = classifyFormatResult(
+      await statusEntries(),
+      parseRawDiffZ(await git(["diff", "--cached", "--raw", "-z", "--no-renames", "--no-abbrev"])),
+      changed,
+      true
+    );
+    if (!staged.ok || !sameSet(staged.changed, changed)) throw formatFailed("scope_violation");
+    const after = await fileIdentities(changed);
+    if (after.some((identity, index) => identity !== before[index]))
+      throw formatFailed("scope_violation");
+    if ((await head()).toLowerCase() !== raw) throw new Stop("source_changed");
+    await holdFormatGuard();
+    await holdsLeaf();
+    await git(
+      ["commit", "--no-verify", "--no-gpg-sign", "--quiet", "-m", FORMAT_COMMIT_MESSAGE],
+      false,
+      true
+    );
+    const sha = (await head()).toLowerCase();
+    if (!gitRef.safeParse(sha).success || sha === raw) throw formatFailed("snapshot_failed");
+    const parent = (await git(["rev-parse", "--verify", "HEAD^"])).toString("utf8").trim();
+    const committed = parseRawDiffZ(
+      await git([
+        "diff-tree",
+        "--no-commit-id",
+        "--raw",
+        "-r",
+        "-z",
+        "--no-renames",
+        "--no-abbrev",
+        "HEAD"
+      ])
+    );
+    if (
+      parent.toLowerCase() !== raw ||
+      !sameSet(
+        committed.map((e) => e.path),
+        changed
+      ) ||
+      committed.some(
+        (e) => e.status !== "M" || e.oldMode !== e.newMode || !REGULAR_MODES.has(e.newMode)
+      ) ||
+      (await statusEntries()).length > 0
+    )
+      throw formatFailed("snapshot_failed");
+    setFormatting({ state: "committed" });
+    candidate = sha;
     await publish({ sourceRef: sha });
+  };
+
+  /** Final source, tree and configuration are rechecked before the only finish transition. */
+  const preFinish = async () => {
+    if (!formatting) return;
+    await holdFormatGuard();
+    if ((await head()).toLowerCase() !== candidate || (await statusEntries()).length > 0)
+      throw new Stop("source_changed");
   };
 
   const finishStep = async (sha: string) => {
@@ -1353,14 +1926,16 @@ export async function runContinuation(
     await publish({ phase: "verifying", checks });
     const verifierEnd = mono() + manifest.limits.verifierWallMs;
     const existingChanged = changes.filter((c) => !c.deleted).map((c) => c.path);
+    // Opted in, Prettier sees only the eligible set through the same pinned options as the write.
+    const prettierPaths = formatting ? partitionEligible(changes).eligible : existingChanged;
     let outputUsed = 0;
     let stopped = false;
     for (let i = 0; i < CHECK_NAMES.length; i++) {
       const name = CHECK_NAMES[i];
       live();
       if (stopped) continue;
-      if (name === "prettier" && existingChanged.length === 0) {
-        // Deletion-only change: nothing exists to format. Recorded as not run, never as run.
+      if (name === "prettier" && prettierPaths.length === 0) {
+        // Nothing eligible to format. Recorded as not run, never as run.
         checks[i] = { ...checks[i], result: "pass" };
         await publish({ checks });
         continue;
@@ -1379,10 +1954,16 @@ export async function runContinuation(
       }
       await verifyLease();
       live();
+      if (name === "prettier") await holdFormatGuard();
       const began = iso(now());
       const result = await runOwned(
         manifest.nodeExecutable.path,
-        checkArguments(name, existingChanged, manifest.focusedTests),
+        checkArguments(
+          name,
+          prettierPaths,
+          manifest.focusedTests,
+          formatting ? pinnedFormatFiles(cwd) : undefined
+        ),
         {
           cwd,
           timeoutMs: Math.min(verifierEnd - mono(), remaining()),
@@ -1482,6 +2063,7 @@ export async function runContinuation(
     await reserve();
     await runWorkerStep();
     await snapshotStep();
+    await preFinish();
     await finishStep(candidate!);
     await verifyStep();
     await gateStep(candidate!);

@@ -6,7 +6,7 @@ import {
   CONTINUATION_LIMITS,
   continuationRecordPath,
   serializeContinuationRecord,
-  type ContinuationRecord
+  type ContinuationRecordV1
 } from "../../src/checkpoint/checkpointContinuation";
 import { budgetRecordPath } from "../../src/checkpoint/checkpointRecord";
 import type { CheckpointRecordEntry } from "../../src/config/checkpointRecordsConfig";
@@ -45,7 +45,7 @@ const NAMES = ["prettier", "typescript", "vitest"] as const;
 const check = (
   name: (typeof NAMES)[number],
   result: "pass" | "fail" | "unavailable" = "pass"
-): ContinuationRecord["checks"][number] => ({
+): ContinuationRecordV1["checks"][number] => ({
   name,
   result,
   ran: result !== "unavailable",
@@ -60,7 +60,7 @@ const check = (
 });
 
 /** A record that satisfies the closed continuation schema; `over` selects the phase. */
-function continuation(over: Partial<ContinuationRecord> = {}): ContinuationRecord {
+function continuation(over: Partial<ContinuationRecordV1> = {}): ContinuationRecordV1 {
   return {
     schema: "checkpoint-continuation/v1",
     runId: RUN_ID,
@@ -97,7 +97,7 @@ const TERMINAL = { endedAt: STAMP } as const;
 /** One record per phase, with the task state that phase legitimately follows. */
 const PHASES: Record<
   string,
-  { record: Partial<ContinuationRecord>; task: Partial<ContinuationTask> }
+  { record: Partial<ContinuationRecordV1>; task: Partial<ContinuationTask> }
 > = {
   reserved: { record: {}, task: IN_FLIGHT },
   running: { record: { phase: "running" }, task: IN_FLIGHT },
@@ -141,7 +141,7 @@ const reportedBudget = (runId = RUN_ID): CheckpointBudgetView => ({
 });
 
 interface Spec {
-  record?: Partial<ContinuationRecord>;
+  record?: Partial<ContinuationRecordV1>;
   task?: Partial<ContinuationTask>;
   budget?: CheckpointBudgetView;
   options?: ReadContinuationOptions;
@@ -364,7 +364,7 @@ describe("unavailable files stay explicit", () => {
     });
     const base = JSON.parse(serializeContinuationRecord(continuation()));
     const raw = (patch: object) => JSON.stringify({ ...base, ...patch });
-    expect((await run({ raw: raw({ schema: "checkpoint-continuation/v2" }) })).view).toEqual({
+    expect((await run({ raw: raw({ schema: "checkpoint-continuation/v3" }) })).view).toEqual({
       state: "unavailable",
       reason: "unsupported_schema"
     });

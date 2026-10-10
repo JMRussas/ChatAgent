@@ -39,24 +39,37 @@ attempt with no inherited model counters. Lead review, exact finalization receip
 checks and paired inline review evidence are external under `cleanup-loop-001`;
 the live proof is `queue-live-001/reviewed-proof.json`.
 
-**Next execution order:** repair hosted Windows verification first (CA-ISSUE-050,
-real task `2cfc6fba-56bd-510d-a901-1dc39062631e`). The exact queue source's required Linux verification passed,
-but 38 Windows cases failed while the advisory job allowed an overall green workflow.
-CA-ISSUE-051 also records the lead mutation overlapping verification: the source
-guard correctly withheld the original gate. Complete CI source uses a new operator
-attempt; the nonterminal-mutation handoff guard is a separately queued repair.
-Canonical hosted temp paths and independently bounded multi-fixture refusal cases
-must be verified without weakening production privacy or skipping failures. Promote
-the Windows job to required only with a reviewed change and real green-job proof.
+**Hosted Windows verification (CA-ISSUE-050) is closed for that harness repair only.**
+Verified and accepted at operator epoch 2, source
+`26169e321cf0446889ea48797374e74cb3f81114`; both real hosted jobs succeeded in run
+`38012851847`. Windows: 3,414 passes, 13 existing host-capability skips; Linux: 3,404
+passes, 23 existing platform skips; no skips added. Production privacy is unchanged
+and the Windows job is now required. Evidence is external under
+`cleanup-loop-001/windows-ci-001/` (`reviewed-delivery.json`, `hosted-ci.json`).
+
+**Next execution order:** CA-ISSUE-051 (operator mutation handoff guard, task
+`4071b736-67ef-5f87-b180-d357356d15b5`) remains OPEN: the product source guard
+correctly refused the old mutated candidate, and the cooperative handoff guard that
+refuses nonterminal or stale verification is not yet delivered.
 
 The scoped formatter runtime contract is lead-reviewed in
 [document 27](implementation/27-scoped-checkpoint-formatting.md), after rejecting
 proposal `0a7643e`, accepting repair `66fea48` and lead clarification `18bde4d`.
-Original planning finalization is separately fenced; no runtime is claimed delivered.
-Implementation task `2c9aa7ef-c42a-5927-9212-24edb08ed585` follows the accepted contract
-and CI repair. Preserve raw functional source, a separate formatting-only commit,
-and one finish against final source. Then deliver explicit same-page formatter facts
-as a separate checkpoint and prepare useful independently based backlog tasks.
+The current formatter checkpoint (task `2c9aa7ef-c42a-5927-9212-24edb08ed585`) is an
+implementation candidate under external verification and lead review; it is not
+accepted, pushed or live-proved. It preserves raw functional source, a separate
+formatting-only commit, and one finish against final source. Explicit same-page
+formatter facts remain a separate later checkpoint, followed by useful independently
+based backlog tasks.
+CA-ISSUE-052 (formatter generation stopped at budget tripwires) is open with its
+repair under review: two generations (36 IDs/385.669 s/4 MiB output, then 37 IDs/298.936 s
+at the 36-unit limit) were rejected as incomplete, with partial sources preserved at
+`1e2ead6` and `539af6f`. TypeScript failed on the first and passed on the second, whose
+focused run was 163 cases with 160 passing and 3 failing. The bounded repair narrows the
+record union, corrects two schema fixtures and the argv indices, and adds a cooperative
+size/mtime/inode/device fence around `git add` plus fresh claim checks before the
+formatter spawn and commit. It has not been verified by the independent coordinator and
+is not accepted, full-suite verified, live-proved or pushed.
 CA-ISSUE-004 remains open for wake, notifications and unattended recovery; bounded
 queues do not provide a continuously running AI manager.
 

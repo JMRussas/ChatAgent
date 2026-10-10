@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   continuationRecordPath,
   serializeContinuationRecord,
-  type ContinuationRecord
+  type ContinuationRecordV1
 } from "../../src/checkpoint/checkpointContinuation";
 import { budgetRecordPath } from "../../src/checkpoint/checkpointRecord";
 import type { CheckpointRecordEntry } from "../../src/config/checkpointRecordsConfig";
@@ -418,7 +418,7 @@ describe("collectExecutiveOverview with continuation records", () => {
     leaf(2, "accepted", { ...fenced, artifactRef: SOURCE_REF }),
     leaf(3, "in_progress", fenced)
   ];
-  const record = (n: number, over: Partial<ContinuationRecord>): ContinuationRecord => ({
+  const record = (n: number, over: Partial<ContinuationRecordV1>): ContinuationRecordV1 => ({
     schema: "checkpoint-continuation/v1",
     runId: runs[n - 1],
     identity: {

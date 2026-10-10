@@ -762,6 +762,42 @@ codes: 0 only for `all_accepted`; 1 for any other stored outcome; 2 usage or con
 4 ownership, ledger or publication failure. No gate outcome mutates PlanStore or retries a model,
 and the tool adds no claim, dispatch, notification, wake, route or UI. CA-ISSUE-004 stays open.
 
+#### Scoped formatting (opt-in manifest section)
+
+A manifest may add a strict `formatting` object; without it, behavior and the v1 record are
+unchanged. Fields: `mode` (only `prettier_write_declared/v1`), `configSha256`, `ignoreSha256`,
+`wallMs` (1 to 120,000) and `outputBytes` (1 to 262,144). The pinned Prettier config
+(at most 16 KiB) and ignore file must match their hashes, the Prettier entry hash is re-verified
+before it runs, and a changed pin stops with `format_unavailable`. A manifest with formatting
+writes a v2 record (`checkpoint-continuation/v2`, with `rawRef`, `sourceRef` and a `formatting`
+object); the parser supports v1 and v2, and any other schema is `unsupported_schema`.
+
+Flow: the worker's change is committed as the **raw** functional commit (`rawRef`); the
+formatter then runs once over the eligible changed files with explicit pinned options
+(`--config`, `--no-editorconfig`, `--ignore-path`, then `--write --ignore-unknown
+--no-error-on-unmatched-pattern` and the paths); a byte change is committed as a separate
+formatting-only commit on top of the raw commit, and that **final** commit is the single
+`sourceRef`, checked and finished once. Checks run against the final source; the independent
+check pass uses the same pinned options with `--check --ignore-unknown`. If the formatter
+changes nothing (or no file is eligible), no second commit exists and the raw commit is the
+final source (`unchanged`). Unsupported file types are counted, not formatted.
+
+Partial failure: a formatter that exits non-zero, times out, exceeds its output limit or cannot
+launch records its reason and stops at `needs_operator` with the raw commit and dirty tree kept.
+Untracked, extra, deleted, staged or config-shadow results are `scope_violation` or
+`source_changed`. Nothing is reset, cleaned, retried or POSTed, and no gate is written. Before
+`git add`, each changed file's regular-file status, size, mtime and inode/device (read as
+bigint) is captured; after staging it is compared again, and a mismatch is `scope_violation`
+before any commit. The current claim is also re-read just before the formatter spawns and before
+the formatting commit. These are cooperative detections, not an atomic filesystem lock or API
+guarantee.
+
+Support boundary: the bounded queue service continues to accept only legacy (no-formatting)
+manifests' behavior unchanged. For a v2 record, the current v4 detail view shows only the phase and
+gate; raw and formatting facts are available from the CLI record. Enrichment of a future page with
+those facts is not delivered. This section is a behavioral contract for verification, not an
+acceptance or live-proof claim.
+
 ## Provider configuration
 
 The validated inventory lives in [data/model-catalog.json](../data/model-catalog.json).
