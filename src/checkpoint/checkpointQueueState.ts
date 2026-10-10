@@ -258,9 +258,7 @@ export const queueRecordSchema = z
     admissionLimit: z
       .object({ units: safe(1), outputBytes: safe(1), providerCapMicros: safe(1) })
       .strict(),
-    admitted: z
-      .object({ units: safe(), outputBytes: safe(), providerCapMicros: safe() })
-      .strict(),
+    admitted: z.object({ units: safe(), outputBytes: safe(), providerCapMicros: safe() }).strict(),
     providerCap: z.literal("configured_enforcement_unverified"),
     items: z.array(itemSchema).min(1).max(QUEUE_LIMITS.maxItems),
     transitions: z.array(transitionSchema).max(QUEUE_LIMITS.maxTransitions),
@@ -290,11 +288,10 @@ export const queueRecordSchema = z
       ) &&
       (r.phase === "completed") === (r.index === r.items.length)
   )
-  .refine(
-    (r) =>
-      (["units", "outputBytes", "providerCapMicros"] as const).every(
-        (key) => r.admitted[key] === sum(r.items, key) && r.admitted[key] <= r.admissionLimit[key]
-      )
+  .refine((r) =>
+    (["units", "outputBytes", "providerCapMicros"] as const).every(
+      (key) => r.admitted[key] === sum(r.items, key) && r.admitted[key] <= r.admissionLimit[key]
+    )
   );
 export type QueueRecord = z.infer<typeof queueRecordSchema>;
 
@@ -550,12 +547,7 @@ export const startedAtFrozenFence = (leaf: LeafStatus | undefined, fence: Fence)
   !leaf.upstreamChanged;
 
 export type ReviewVerdict =
-  | "accepted"
-  | "pending"
-  | "rejected"
-  | "moved"
-  | "artifact_mismatch"
-  | "acceptor_not_allowed";
+  "accepted" | "pending" | "rejected" | "moved" | "artifact_mismatch" | "acceptor_not_allowed";
 
 /**
  * Exact acceptance of the recorded source for the recorded fence. Historical decisions, another

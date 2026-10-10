@@ -228,10 +228,7 @@ describe("queue manifest", () => {
   it("accepts the closed shape and rejects unknown, duplicate and out-of-range fields", () => {
     expect(parseQueueManifest(text(queueManifest())).items).toHaveLength(2);
     expect(() => parseQueueManifest(text({ ...queueManifest(), extra: 1 }))).toThrow();
-    const duplicate = JSON.stringify(queueManifest()).replace(
-      '"actor"',
-      '"actor":"x","actor"'
-    );
+    const duplicate = JSON.stringify(queueManifest()).replace('"actor"', '"actor":"x","actor"');
     expect(() => parseQueueManifest(Buffer.from(duplicate))).toThrow();
     const bad = (patch: Partial<QueueManifest["limits"]>) =>
       text({ ...queueManifest(), limits: { ...queueManifest().limits, ...patch } });

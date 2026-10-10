@@ -214,24 +214,27 @@ describe("uncertain starts never replay", () => {
   it.each([
     ["drop", "start_uncertain", "uncertain"],
     ["conflict", "start_conflict", "conflict"]
-  ] as const)("a %s response keeps the intent and launches nothing", async (mode, reason, start) => {
-    const fx = await make(1);
-    fx.plan.startMode = mode;
-    const result = await arm(fx);
-    expect(result.exitCode).toBe(1);
-    expect(result.record).toMatchObject({ phase: "needs_operator", reason });
-    expect(result.record!.items[0]).toMatchObject({ state: "needs_operator", start });
-    expect(result.record!.admitted.units).toBe(10);
-    expect(fx.workerLog()).toEqual([]);
-    expect(mutations(fx)).toEqual(["0:in_progress"]);
+  ] as const)(
+    "a %s response keeps the intent and launches nothing",
+    async (mode, reason, start) => {
+      const fx = await make(1);
+      fx.plan.startMode = mode;
+      const result = await arm(fx);
+      expect(result.exitCode).toBe(1);
+      expect(result.record).toMatchObject({ phase: "needs_operator", reason });
+      expect(result.record!.items[0]).toMatchObject({ state: "needs_operator", start });
+      expect(result.record!.admitted.units).toBe(10);
+      expect(fx.workerLog()).toEqual([]);
+      expect(mutations(fx)).toEqual(["0:in_progress"]);
 
-    // Neither a second arm nor a resume may send another start.
-    fx.plan.startMode = "ok";
-    expect((await arm(fx)).refusal).toBe("record_exists");
-    expect((await resume(fx)).refusal).toBe("not_resumable");
-    expect(mutations(fx)).toEqual(["0:in_progress"]);
-    expect(fx.plan.nodes[0].work).toBe("todo");
-  });
+      // Neither a second arm nor a resume may send another start.
+      fx.plan.startMode = "ok";
+      expect((await arm(fx)).refusal).toBe("record_exists");
+      expect((await resume(fx)).refusal).toBe("not_resumable");
+      expect(mutations(fx)).toEqual(["0:in_progress"]);
+      expect(fx.plan.nodes[0].work).toBe("todo");
+    }
+  );
 
   it("a record left at starting after a crash cannot be resumed or replayed", async () => {
     const fx = await make(1);

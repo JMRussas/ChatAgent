@@ -648,15 +648,11 @@ export async function runQueueService(
     }
     const sourceRef = await confirmedCandidate(m, running, result);
     if (sourceRef === null)
-      return operator(
-        result.record ? "continuation_failed" : "continuation_refused",
-        running,
-        {
-          continuation: result.record ? "needs_operator" : "refused",
-          continuationReason: result.record?.reason ?? null,
-          sourceRef: result.record?.sourceRef ?? null
-        }
-      );
+      return operator(result.record ? "continuation_failed" : "continuation_refused", running, {
+        continuation: result.record ? "needs_operator" : "refused",
+        continuationReason: result.record?.reason ?? null,
+        sourceRef: result.record?.sourceRef ?? null
+      });
     await commit({
       items: replaceItem(rec!, {
         ...running,
