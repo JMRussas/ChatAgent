@@ -42,6 +42,9 @@ the live proof is `queue-live-001/reviewed-proof.json`.
 **Next execution order:** repair hosted Windows verification first (CA-ISSUE-050,
 real task `2cfc6fba-56bd-510d-a901-1dc39062631e`). The exact queue source's required Linux verification passed,
 but 38 Windows cases failed while the advisory job allowed an overall green workflow.
+CA-ISSUE-051 also records the lead mutation overlapping verification: the source
+guard correctly withheld the original gate. Complete CI source uses a new operator
+attempt; the nonterminal-mutation handoff guard is a separately queued repair.
 Canonical hosted temp paths and independently bounded multi-fixture refusal cases
 must be verified without weakening production privacy or skipping failures. Promote
 the Windows job to required only with a reviewed change and real green-job proof.

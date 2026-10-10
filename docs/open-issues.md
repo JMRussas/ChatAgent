@@ -95,6 +95,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-048 | Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps | defect | acceptance blocker | closed / verified scoped repair | Hermes / lead verification |
 | CA-ISSUE-049 | Formatter proposal rejects required config and contradicts unsupported-file gate | planning defect | acceptance blocker | closed / contract repaired | Athena / lead review |
 | CA-ISSUE-050 | Hosted Windows CI failures hidden by advisory job | verification defect | P1 | open / repair queued | Mimir / CI repair |
+| CA-ISSUE-051 | Operator source mutation overlapped independent verification | operator defect | P1 | open / handoff guard queued | Codex lead |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1598,3 +1599,21 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
 - **Evidence:** `cleanup-loop-001/queue-github-ci.json`,
   `queue-ci-windows-failure.log` and corrected `queue-final-delivery-bundle.json`.
   The initial workflow-only success classification is retained separately.
+
+### CA-ISSUE-051 — Operator source mutation overlapped independent verification
+
+- **Observed:** operator workflow commit `db87e93` at 01:18:36 UTC preceded the
+  terminal verification of worker candidate `9d6ac40` at 01:18:53 UTC. All three
+  independent checks passed, but the final source guard correctly stopped with
+  `source_changed` and withheld the gate. This is an operator sequencing defect,
+  not a worker source failure.
+- **Immediate handling:** preserve the old candidate, counters and invalidated
+  gate; use an explicitly fenced operator attempt for the complete workflow source
+  and real CI. Wait for terminal verification before later source mutations.
+- **Next guard / status:** open task `4071b736-67ef-5f87-b180-d357356d15b5`: freeze and verify a
+  cooperative operator handoff that refuses nonterminal or stale verification and
+  requires current ownership/source fences. No global filesystem lock or automatic
+  gate adoption is claimed. Do not call the product guard defective for refusing
+  the changed source.
+- **Evidence:** `cleanup-loop-001/windows-ci-001/operator-ordering-defect.json`
+  and original continuation record.
