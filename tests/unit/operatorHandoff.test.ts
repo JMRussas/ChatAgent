@@ -312,7 +312,11 @@ describe("terminal classification (controlled results; forged-policy counterexam
     ["cleanup_failed", (f) => failed(f, { reason: "cleanup_failed" }), "outcome_excluded"],
     ["lease_changed", (f) => failed(f, { reason: "lease_changed" }), "outcome_excluded"],
     ["internal_error", (f) => failed(f, { reason: "internal_error" }), "outcome_excluded"],
-    ["an abort", (f) => failed(f, { reason: "cancelled", gate: "not_written" }), "closure_not_clean"],
+    [
+      "an abort",
+      (f) => failed(f, { reason: "cancelled", gate: "not_written" }),
+      "closure_not_clean"
+    ],
     ["a deadline", (f) => failed(f, { reason: "deadline_exceeded" }), "outcome_excluded"],
     ["an unavailable check", (f) => failed(f, { reason: "check_unavailable" }), "outcome_excluded"],
     ["an unknown finish", (f) => failed(f, { finish: "attempted" }), "closure_not_clean"],
@@ -320,7 +324,13 @@ describe("terminal classification (controlled results; forged-policy counterexam
     ["no source", (f) => failed(f, { sourceRef: null }), "closure_not_clean"],
     [
       "a non-terminal phase",
-      (f) => failed(f, { phase: "verifying", reason: "in_progress", endedAt: null, gate: "not_written" }),
+      (f) =>
+        failed(f, {
+          phase: "verifying",
+          reason: "in_progress",
+          endedAt: null,
+          gate: "not_written"
+        }),
       "closure_not_clean"
     ],
     [
@@ -331,7 +341,8 @@ describe("terminal classification (controlled results; forged-policy counterexam
     ["a different base", (f) => failed(f, { baseRef: "8".repeat(40) }), "record_mismatch"],
     [
       "a different fence",
-      (f) => failed(f, { identity: { ...(record(f.manifest).identity as object), attemptEpoch: 99 } }),
+      (f) =>
+        failed(f, { identity: { ...(record(f.manifest).identity as object), attemptEpoch: 99 } }),
       "record_mismatch"
     ],
     [

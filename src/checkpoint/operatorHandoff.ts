@@ -81,8 +81,7 @@ export interface OwnedProvenance {
 }
 
 export type OwnedCheck =
-  | { ok: true; provenance: OwnedProvenance }
-  | { ok: false; refusal: OwnedCheckRefusal };
+  { ok: true; provenance: OwnedProvenance } | { ok: false; refusal: OwnedCheckRefusal };
 
 interface HandleState {
   status: OwnedStatus;
@@ -136,8 +135,7 @@ function classify(
     record.identity.executorRef === id.executorRef;
   if (!matches) return "record_mismatch";
   const terminal = record.phase === "review_pending" || record.phase === "needs_operator";
-  if (!terminal || record.endedAt === null || record.sourceRef === null)
-    return "closure_not_clean";
+  if (!terminal || record.endedAt === null || record.sourceRef === null) return "closure_not_clean";
   if (record.finish !== "confirmed" || record.gate !== "written") return "closure_not_clean";
   if (result.exitCode === 0)
     return record.phase === "review_pending" && record.reason === "checks_passed"
