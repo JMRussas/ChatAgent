@@ -92,6 +92,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-044 | Checkpoint ledger deadline and ownership publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 | CA-ISSUE-046 | Continuation authority and publication checks are incomplete | defect | acceptance blocker | closed | Hermes / scoped repair |
 | CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | closed | codex-chatagent / operator repair |
+| CA-ISSUE-048 | Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps | defect | acceptance blocker | in review / open | Hermes / scoped repair |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1518,3 +1519,41 @@ External checks pass **3,376 full cases** with ten capability skips, ten browser
 cases, lint/docs and real paired same-page phase proof. Original Claude epoch 1,
 its automatic failed checks, source negative and first full timeout remain history.
 CA-ISSUE-004 unattended supervision is separate and remains open.
+
+### CA-ISSUE-048 — Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps
+
+- **Observed / priority:** P1 acceptance blocker. Candidate `13598a97c30a759638aee11cfb5e9b67e8eca209`
+  of the bounded checkpoint queue service is rejected. Its raw gate failed Prettier,
+  passed TypeScript and failed focused Vitest: 29 passed and 4 failed, where the
+  success, duplicate-owner, resume and graceful-stop success paths each expected exit
+  0 and received 4.
+- **Defects:**
+  1. Final completion: the last acceptance committed `index == items.length` while the
+     phase stayed `running`; the record schema correctly requires `completed` exactly
+     then, so serialization threw `RECORD_INVALID` and completion never succeeded.
+  2. Conservative cap: `providerCapMicros` applied `toPrecision(12)` before the ceiling,
+     so USD 5.0000000000001 admitted 5,000,000 micros instead of 5,000,001.
+  3. Historical review: a current `review_pending` leaf at the exact source and fence
+     with an older attempt's decision (`acceptanceHistorical`) was treated as moved and
+     ended the wait.
+  4. Fresh run slot: the pre-start check omitted the unchanged runner's
+     `.claim-<key>.lease`.
+  5. Stop boundary: the stop sentinel was checked only before the long authority and
+     source preflight, not again before the durable start intent.
+- **Expected:** publish the final acceptance, `completed` and `all_accepted` as one
+  record with a single terminal transition; never round declared worst-case admission
+  down; keep waiting on an exact current pending review while an older decision can
+  never grant acceptance; refuse a fresh start when the runner claim lease exists
+  without removing it; recheck stop, wall and signal after preflight and before the
+  intent. No atomic filesystem-to-HTTP guarantee is claimed for the stop boundary.
+- **Owner / real task:** Hermes repair under the real Hekate repair task named in the
+  coordinator's instruction for this checkpoint; its identifier is recorded by the
+  coordinator, not restated here.
+- **Evidence:** the rejected candidate's raw gate (Prettier failure, TypeScript pass,
+  Vitest 29 passed / 4 failed) is retained unchanged, with its counters.
+- **Status:** in review / open. The repair source and regressions exist in this
+  worktree but are not accepted. Pending external gates: independent Prettier,
+  TypeScript and focused Vitest, old-candidate negative regressions, the full suite,
+  independent source review and a retained-store live proof. The coordinator closes
+  this issue only after those pass. CA-ISSUE-004 (independent wake, delivery,
+  unattended recovery) is separate and remains open.

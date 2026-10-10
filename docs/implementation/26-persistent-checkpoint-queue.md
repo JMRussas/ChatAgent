@@ -70,7 +70,9 @@ caps are configured but enforcement and usage remain unverified provider metadat
 
 Pin item bytes before effects; verify executable, prompt, tooling and source pins
 before starting a node, using bounded reads and fixed shell-free Git checks.
-Reject invalid/dirty/moved sources without a start POST. A later race is also checked
+Reject invalid/dirty/moved sources without a start POST. A fresh run slot also requires
+no budget, gate, continuation record or continuation lease and no unchanged-runner
+`.claim-<key>.lease`; no lease is ever removed. A later race is also checked
 by unchanged continuation preflight and becomes needs_operator, never a retry.
 
 Record `checkpoint-queue-service/v1`: strict, <= 32 KiB, queue/manifest identity,
@@ -104,9 +106,15 @@ start CAS and existing continuation/runner leases. No global lock claim is made.
    malformed records or moved fences enter needs_operator. No automatic retry.
 5. Poll bounded GETs. Exact accepted source advances; rejection, wrong artifact,
    stale attempt/content/pins or a nonallowlisted reviewer stop with a typed reason.
+   An older attempt's decision is history: beside an exact current review_pending
+   source it neither accepts nor ends the wait, and any other historical decision
+   never advances. The final acceptance publishes the last accepted item, phase
+   `completed` and `all_accepted` as one record (one terminal transition).
    Unavailable reads advance nothing. Review timeout cleanly stops for attention.
 6. Stop sentinel permits the current bounded continuation to settle, then starts
-   nothing else. Signals/deadline abort only owned work. Finally release only the
+   nothing else. Stop, wall and signal are rechecked after the source preflight and
+   before the durable intent; this narrows but is not an atomic filesystem-to-HTTP
+   guarantee. Signals/deadline abort only owned work. Finally release only the
    owned lock. Preserve the record and all child evidence.
 
 `--manifest <path>` plus exactly one of `--arm`, `--resume`, `--stop`, `--show`.

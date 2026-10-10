@@ -1288,7 +1288,12 @@ blocked nodes stay TODO; the global `/claims` route is never called.
 - Records: `<queueId>.queue.json` (`checkpoint-queue-service/v1`, at most 32 KiB, at
   most 64 transitions; overflow stops) and an exclusive `<queueId>.service.lock`.
   The lock is never taken over by PID or age. Provider caps are rounded up to micros
-  and are configured, not verified enforcement.
+  from the raw product (never down) and are configured, not verified enforcement.
+  The final acceptance, `completed` phase and `all_accepted` reason publish as one record.
+  A preexisting runner claim lease refuses a fresh start and is never removed. Stop,
+  wall and signal are rechecked just before the start intent (not an atomic guarantee).
+  An older attempt's decision never accepts and does not end a wait on a current
+  pending review.
 - Exit codes: 0 every item accepted (also `--stop`/`--show`); 1 `needs_operator`;
   2 refusal before any effect; 3 cleanly stopped; 4 persistence or lock failure.
 - `--stop` creates the queue's sentinel: the current child settles, nothing else

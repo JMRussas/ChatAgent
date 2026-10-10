@@ -3,8 +3,12 @@ import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runQueueCli } from "../../scripts/runCheckpointQueue";
-import type { ContinuationResult } from "../../src/checkpoint/checkpointContinuation";
+import {
+  claimKeyOf,
+  type ContinuationResult
+} from "../../src/checkpoint/checkpointContinuation";
 import { runQueueService, type QueueDeps } from "../../src/checkpoint/checkpointQueueService";
+import { fetchCoordinationStatus } from "../../src/integrations/hekate/devCoordination";
 import {
   initialRecord,
   queueLockPath,
@@ -93,6 +97,16 @@ describe("successful sequencing", () => {
       wake: "none"
     });
     expect(result.record!.items.map((i) => i.state)).toEqual(["accepted", "accepted"]);
+    // Final acceptance and completion were one publication: exactly one terminal transition,
+    // the persisted record parses as completed, and the accepted items match the returned ones.
+    const terminal = result.record!.transitions.filter((t) => t.phase === "completed");
+    expect(terminal).toHaveLength(1);
+    expect(terminal[0]).toMatchObject({ reason: "all_accepted", index: 2 });
+    expect(result.record!.transitions[result.record!.transitions.length - 1]).toBe(terminal[0]);
+    expect(fx.record()).toEqual(result.record);
+    expect(fx.plan.posts(0)).toHaveLength(2);
+    expect(fx.plan.posts(1)).toHaveLength(2);
+    expect(fx.workerLog()).toHaveLength(2);
     // Never the global first-ready claim route, and the unrelated sibling was never mutated.
     expect(fx.plan.log.some((r) => r.path.includes("claims"))).toBe(false);
     expect(fx.plan.posts(2)).toEqual([]);
@@ -173,6 +187,81 @@ describe("authority before any effect", () => {
     // The successor became ready in PlanStore, but nothing exact was accepted: no start.
     expect(fx.plan.nodes[1].work).toBe("todo");
     expect(fx.plan.posts(1)).toEqual([]);
+  });
+});
+
+describe("repair regressions", () => {
+  const claimLease = (fx: QueueFixture, index: number) =>
+    join(
+      fx.items[index].run.recordDir,
+      `.claim-${claimKeyOf(fx.items[index].run.identity)}.lease`
+    );
+
+  it("waits on a current pending review beside an older decision until a new exact acceptance", async () => {
+    const fx = await make(1, { epoch: 2 });
+    const running = arm(fx);
+    const pending = await waitForRecord(fx, waiting(0));
+    fx.plan.recordOlderDecision(0);
+    // Several polls see review_pending plus acceptanceHistorical; none may end or advance the wait.
+    await new Promise((done) => setTimeout(done, 400));
+    expect(fx.record()).toEqual(pending);
+    expect(fx.record()!.phase).toBe("running");
+    fx.plan.accept(0);
+    const result = await running;
+    expect(result.exitCode).toBe(0);
+    expect(result.record).toMatchObject({ phase: "completed", reason: "all_accepted", index: 1 });
+    expect(result.record!.items[0]).toEqual({ ...pending.items[0], state: "accepted" });
+    expect(mutations(fx)).toEqual(["0:in_progress", "0:done"]);
+  });
+
+  it("refuses a preexisting runner claim lease without a start, a worker or removing it", async () => {
+    const armed = await make(1);
+    writeFileSync(claimLease(armed, 0), '{"marker":true}');
+    expect((await arm(armed)).refusal).toBe("source_invalid");
+    expect(armed.plan.posts()).toEqual([]);
+    expect(armed.workerLog()).toEqual([]);
+    expect(readFileSync(claimLease(armed, 0), "utf8")).toBe('{"marker":true}');
+
+    // The same slot check guards the pre-start refusal of a later item.
+    const fx = await make(2, { after: { 1: [0] } });
+    const running = arm(fx);
+    await waitForRecord(fx, waiting(0));
+    writeFileSync(claimLease(fx, 1), '{"marker":true}');
+    fx.plan.accept(0);
+    const result = await running;
+    expect(result.exitCode).toBe(1);
+    expect(result.record).toMatchObject({ phase: "needs_operator", reason: "source_invalid" });
+    expect(result.record!.items[1]).toMatchObject({ state: "pending", start: "not_attempted" });
+    expect(fx.plan.posts(1)).toEqual([]);
+    expect(mutations(fx)).toEqual(["0:in_progress", "0:done"]);
+    expect(fx.workerLog()).toHaveLength(1);
+    expect(readFileSync(claimLease(fx, 1), "utf8")).toBe('{"marker":true}');
+  });
+
+  it("stops cleanly when the sentinel appears during the final preflight authority read", async () => {
+    const fx = await make(1);
+    let reads = 0;
+    const result = await arm(fx, {
+      // Read 1 is the arm-time TODO check; read 2 is the start preflight for the only item.
+      fetchStatus: async (...args) => {
+        const status = await fetchCoordinationStatus(...args);
+        if (++reads === 2) writeFileSync(queueStopPath(fx.queueDir, fx.queue.queueId), "");
+        return status;
+      }
+    });
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(result.exitCode).toBe(3);
+    expect(result.record).toMatchObject({
+      phase: "stopped",
+      reason: "stop_requested",
+      admitted: { units: 0, outputBytes: 0, providerCapMicros: 0 }
+    });
+    expect(result.record!.items[0]).toMatchObject({ state: "pending", start: "not_attempted" });
+    expect(fx.plan.posts()).toEqual([]);
+    expect(fx.workerLog()).toEqual([]);
+    // Only the owned lock was removed; the operator's sentinel is left for the operator.
+    expect(existsSync(lockFile(fx))).toBe(false);
+    expect(existsSync(queueStopPath(fx.queueDir, fx.queue.queueId))).toBe(true);
   });
 });
 
@@ -333,6 +422,9 @@ describe("bounded waits, stop and resume", () => {
     const second = await resume(fx);
     expect(second.exitCode).toBe(0);
     expect(second.record).toMatchObject({ phase: "completed", invocations: 2 });
+    expect(second.record!.transitions.filter((t) => t.phase === "completed")).toHaveLength(1);
+    expect(second.record!.items[0]).toEqual({ ...first.record!.items[0], state: "accepted" });
+    expect(fx.record()).toEqual(second.record);
     // Persisted admission was kept, not reset or double counted, and no second start or worker ran.
     expect(second.record!.admitted).toEqual(first.record!.admitted);
     expect(mutations(fx)).toEqual(["0:in_progress", "0:done"]);

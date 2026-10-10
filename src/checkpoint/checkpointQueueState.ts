@@ -314,9 +314,12 @@ export const queueStopPath = (dir: string, queueId: string) => join(dir, `${queu
 
 // ----- admission and item validation -----
 
-/** Provider caps are rounded UP to whole micro-USD; the decimal is not accumulated as a float. */
-export const providerCapMicros = (usd: number) =>
-  Math.ceil(Number((usd * 1_000_000).toPrecision(12)));
+/**
+ * Provider caps are rounded UP to whole micro-USD from the raw product, so declared worst-case
+ * admission is never rounded down. A binary-float product just above a whole micro may round one
+ * micro up; that is the conservative direction.
+ */
+export const providerCapMicros = (usd: number) => Math.ceil(usd * 1_000_000);
 
 export function itemAdmission(manifest: ContinuationManifest): Admission {
   return {
@@ -570,13 +573,15 @@ export function reviewVerdict(
     leaf.executorRef !== item.executorRef ||
     leaf.attemptPins !== "current" ||
     !leaf.gatesHold ||
-    leaf.upstreamChanged ||
-    leaf.acceptanceHistorical
+    leaf.upstreamChanged
   )
     return "moved";
-  if (leaf.state === "rejected") return "rejected";
+  // A current pending review stays pending beside an older attempt's decision: that history can
+  // neither grant acceptance nor end the wait.
   if (leaf.state === "review_pending")
     return leaf.artifactRef === item.sourceRef ? "pending" : "artifact_mismatch";
+  if (leaf.acceptanceHistorical) return "moved";
+  if (leaf.state === "rejected") return "rejected";
   if (leaf.state !== "accepted") return "moved";
   const decision = leaf.acceptance;
   if (

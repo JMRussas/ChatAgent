@@ -203,6 +203,18 @@ describe("review verdict", () => {
     expect(verdict(leaf(1, "review_pending", base))).toBe("pending");
   });
 
+  it("keeps a current pending review pending beside an older attempt's decision", () => {
+    const older = { ...base, acceptanceHistorical: true as const };
+    expect(verdict(leaf(1, "review_pending", older))).toBe("pending");
+    // The history never makes a different artifact, moved pins or a stale epoch pending.
+    expect(verdict(leaf(1, "review_pending", { ...older, artifactRef: OTHER_REF }))).toBe(
+      "artifact_mismatch"
+    );
+    expect(verdict(leaf(1, "review_pending", { ...older, attemptPins: "stale" }))).toBe("moved");
+    expect(verdict(leaf(1, "review_pending", { ...older, attemptEpoch: 2 }))).toBe("moved");
+    expect(verdict(leaf(1, "review_pending", { ...older, upstreamChanged: true }))).toBe("moved");
+  });
+
   it("never advances on another artifact, epoch, actor, history or moved pins", () => {
     expect(verdict(leaf(1, "review_pending", { ...base, artifactRef: OTHER_REF }))).toBe(
       "artifact_mismatch"
@@ -213,6 +225,7 @@ describe("review verdict", () => {
     expect(verdict(accepted({ attemptEpoch: 2 }, { attemptEpoch: 2 }))).toBe("moved");
     expect(verdict(accepted({}, { decidedBy: "intruder" }))).toBe("acceptor_not_allowed");
     expect(verdict(accepted({ acceptanceHistorical: true }))).toBe("moved");
+    expect(verdict(leaf(1, "rejected", { ...base, acceptanceHistorical: true }))).toBe("moved");
     expect(verdict(accepted({ attemptPins: "stale" }))).toBe("moved");
     expect(verdict(accepted({ upstreamChanged: true }))).toBe("moved");
     expect(verdict(accepted({ contentRevision: 2 }))).toBe("moved");
@@ -251,10 +264,14 @@ describe("item validation and admission", () => {
     expect(validateQueueItems(queue, two)).toBeNull();
   });
 
-  it("rounds provider caps up to micros without float drift", () => {
+  it("rounds provider caps up to micros and never rounds declared worst case down", () => {
     expect(providerCapMicros(0.1)).toBe(100_000);
     expect(providerCapMicros(0.0000011)).toBe(2);
     expect(providerCapMicros(1.2345678)).toBe(1_234_568);
+    // Exact boundary: a cap just above 5 USD must admit at least 5_000_001 micros, never 5_000_000.
+    expect(providerCapMicros(5)).toBe(5_000_000);
+    expect(providerCapMicros(5.0000000000001)).toBe(5_000_001);
+    expect(providerCapMicros(5.000001)).toBeGreaterThanOrEqual(5_000_001);
   });
 
   it("refuses shared identity, overlapping scope, wrong API, missing cap and small wall", () => {

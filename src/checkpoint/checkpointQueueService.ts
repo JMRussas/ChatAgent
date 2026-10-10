@@ -436,7 +436,9 @@ export async function runQueueService(
           budgetRecordPath(run.recordDir, run.runId),
           gateRecordPath(run.recordDir, run.runId),
           continuationRecordPath(run.recordDir, run.runId),
-          continuationLeasePath(run.recordDir, claimKey)
+          continuationLeasePath(run.recordDir, claimKey),
+          // The unchanged runner's own claim lease (its module keeps this path private).
+          join(run.recordDir, `.claim-${claimKey}.lease`)
         ])
           if (await exists(path)) return false;
       }
@@ -598,6 +600,14 @@ export async function runQueueService(
       return operator("admission_exceeded");
     if (!(await sourcesHold(m, item.baseRef, true))) return operator("source_invalid");
 
+    // The preflight above is long; recheck stop and the wall/signal bounds right before the intent.
+    // This narrows, but does not atomically close, the gap between the sentinel and the HTTP effect.
+    const lateHalt = halted();
+    if (lateHalt) return stopClean(lateHalt);
+    if (await stopRequested()) return stopClean("stop_requested");
+    if (remaining() < m.limits.wallMs + QUEUE_LIMITS.itemWallReserveMs)
+      return stopClean("wall_exceeded");
+
     // The intent and worst-case admission are durable before the only mutation of this item.
     await commit({
       items: replaceItem(rec!, { ...item, state: "starting", start: "attempted" }),
@@ -735,9 +745,15 @@ export async function runQueueService(
       if (read.ok) {
         const verdict = reviewVerdict(read.leaf, item, queue.acceptors);
         if (verdict === "accepted") {
+          const index = item.index + 1;
+          // The last acceptance, the completed phase and all_accepted publish as one record,
+          // because the schema requires completed exactly when index equals the item count.
           await commit({
             items: replaceItem(rec!, { ...item, state: "accepted" }),
-            index: item.index + 1
+            index,
+            ...(index === rec!.items.length
+              ? { phase: "completed" as const, reason: "all_accepted" as const }
+              : {})
           });
           return true;
         }
@@ -764,7 +780,7 @@ export async function runQueueService(
         return;
       }
     }
-    await commit({ phase: "completed", reason: "all_accepted" });
+    // Completion was already published atomically with the final acceptance.
   };
 
   const exitOf = (record: QueueRecord): QueueResult["exitCode"] =>

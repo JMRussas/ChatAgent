@@ -39,6 +39,8 @@ interface ServerNode {
   executorRef: string | null;
   decidedBy: string | null;
   accepted: boolean;
+  /** An acceptance recorded for a strictly older attempt epoch (history, never current). */
+  older: boolean;
   /** Indexes of predecessor nodes whose acceptance gates this node. */
   after: number[];
 }
@@ -59,7 +61,11 @@ export class PlanServer {
   url = "";
   private server!: Server;
 
-  static async start(count: number, after: Record<number, number[]> = {}): Promise<PlanServer> {
+  static async start(
+    count: number,
+    after: Record<number, number[]> = {},
+    epoch = 0
+  ): Promise<PlanServer> {
     const plan = new PlanServer();
     for (let i = 0; i < count; i++)
       plan.nodes.push({
@@ -69,11 +75,12 @@ export class PlanServer {
         contentRevision: 1,
         stateRevision: 0,
         attemptId: null,
-        attemptEpoch: 0,
+        attemptEpoch: epoch,
         artifactRef: null,
         executorRef: null,
         decidedBy: null,
         accepted: false,
+        older: false,
         after: after[i] ?? []
       });
     plan.server = createServer((req, res) => {
@@ -111,6 +118,11 @@ export class PlanServer {
     node.decidedBy = over.decidedBy ?? ACCEPTOR;
     if (over.artifactRef) node.artifactRef = over.artifactRef;
     if (over.epochBump) node.attemptEpoch += 1;
+  }
+
+  /** Records an acceptance for an older attempt epoch on the (done) node, as after a re-run. */
+  recordOlderDecision(index: number) {
+    this.nodes[index].older = true;
   }
 
   private view() {
@@ -161,8 +173,22 @@ export class PlanServer {
             decidedBy: n.decidedBy,
             evidenceRef: null
           }
-        : null,
-      effectiveAcceptance: n.accepted ? "accepted" : "none"
+        : n.older && n.work === "done"
+          ? {
+              decision: "accepted",
+              contentRevision: n.contentRevision,
+              artifactRef: "older-artifact",
+              attemptId: "at-older",
+              attemptEpoch: n.attemptEpoch - 1,
+              decidedBy: ACCEPTOR,
+              evidenceRef: null
+            }
+          : null,
+      effectiveAcceptance: n.accepted
+        ? "accepted"
+        : n.older && n.work === "done"
+          ? "stale"
+          : "none"
     }));
     return {
       contractVersion: "plan-contract/v1",
@@ -285,6 +311,8 @@ export interface QueueFixtureOptions {
   reviewWaitMs?: number;
   totalUnits?: number;
   unrelated?: number;
+  /** The after-start attempt epoch named by the manifests (default 1). */
+  epoch?: number;
 }
 
 export async function makeQueueFixture(
@@ -319,7 +347,8 @@ export async function makeQueueFixture(
   const baseRef = git(main, "rev-parse", "HEAD");
 
   // Extra nodes are ready TODO siblings that are not part of the queue and must never be touched.
-  const plan = await PlanServer.start(count + (options.unrelated ?? 0), options.after);
+  const epoch = options.epoch ?? 1;
+  const plan = await PlanServer.start(count + (options.unrelated ?? 0), options.after, epoch - 1);
   const workerLogPath = join(root, "worker.log");
   nodeHash ??= sha(readFileSync(NODE_PATH));
   gitHash ??= sha(readFileSync(GIT_PATH));
@@ -372,7 +401,7 @@ process.stdin.on("end", () => {
           rootId: ROOT,
           nodeId: plan.nodes[i].id,
           attemptId: `at-${n}`,
-          attemptEpoch: 1,
+          attemptEpoch: epoch,
           contentRevision: 1,
           stateRevision: 1,
           executorRef: "exec-1",
