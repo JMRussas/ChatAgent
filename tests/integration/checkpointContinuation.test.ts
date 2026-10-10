@@ -372,11 +372,7 @@ describe("continuation refusals launch no worker", () => {
   // The 30s figure is a test-runner allowance for real Git, not a product timeout.
   const GIT_CASE_MS = 30_000;
 
-  it.each([
-    `${RUN_ID}.continuation.json`,
-    `${RUN_ID}.budget.json`,
-    `${RUN_ID}.gate.json`
-  ])(
+  it.each([`${RUN_ID}.continuation.json`, `${RUN_ID}.budget.json`, `${RUN_ID}.gate.json`])(
     "refuses an existing record file %s",
     async (name) => {
       const f = fixture();
