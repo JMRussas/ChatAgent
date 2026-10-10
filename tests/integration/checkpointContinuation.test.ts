@@ -367,31 +367,38 @@ describe("continuation refusals launch no worker", () => {
     else expect(await readFile(gateRecordPath(f.rec, RUN_ID), "utf8")).toBe(gateBytes);
   };
 
-  it("refuses an existing continuation record, budget record or gate", async () => {
-    for (const name of [
-      `${RUN_ID}.continuation.json`,
-      `${RUN_ID}.budget.json`,
-      `${RUN_ID}.gate.json`
-    ]) {
+  // One real Git fixture per case, so each has its own bounded test budget rather
+  // than sharing one default five seconds across several fixtures on a Windows host.
+  // The 30s figure is a test-runner allowance for real Git, not a product timeout.
+  const GIT_CASE_MS = 30_000;
+
+  it.each([
+    `${RUN_ID}.continuation.json`,
+    `${RUN_ID}.budget.json`,
+    `${RUN_ID}.gate.json`
+  ])(
+    "refuses an existing record file %s",
+    async (name) => {
       const f = fixture();
       await writeFile(join(f.rec, name), "{}");
       await refusal(f, "run_exists", f.deps(), name.endsWith(".gate.json") ? "{}" : undefined);
-    }
-  });
+    },
+    GIT_CASE_MS
+  );
 
-  it("refuses an existing instance or runner claim lease", async () => {
-    const key = claimKeyOf(fixture().manifest.run.identity);
-    for (const name of [`.continuation-${key}.lease`, `.claim-${key}.lease`]) {
+  it.each([
+    { kind: "instance", prefix: ".continuation-" },
+    { kind: "runner claim", prefix: ".claim-" }
+  ])(
+    "refuses an existing $kind lease",
+    async ({ prefix }) => {
       const f = fixture();
-      await writeFile(join(f.rec, name), "{}");
+      const key = claimKeyOf(f.manifest.run.identity);
+      await writeFile(join(f.rec, `${prefix}${key}.lease`), "{}");
       await refusal(f, "lease_exists");
-    }
-  });
-
-  // One real Git fixture per case, so each has its own bounded test budget rather
-  // than sharing one default five seconds across three fixtures on a Windows host.
-  // The 30s figure is a test-runner allowance for real Git, not a product timeout.
-  const GIT_CASE_MS = 30_000;
+    },
+    GIT_CASE_MS
+  );
 
   it.each([
     {
