@@ -4,6 +4,7 @@ import { WorkflowError, type WorkflowToolService } from "./workflows/types";
 import { handleWorkflowMcp } from "./workflows/mcp";
 import { createWorkflowApplication } from "./workflows/application";
 import { workflowModelAction } from "./workflows/modelAction";
+import { configuredTaskExecutors } from "./tasks/configuration";
 import { ConversationPersistence } from "./app/conversationPersistence";
 import {
   DevCoordinationError,
@@ -2101,6 +2102,10 @@ export async function startServer(
         projectId: process.env.WORKFLOW_PROJECT_ID,
         runDir: resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs"),
         endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
+        executors: configuredTaskExecutors(
+          process.env,
+          resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs")
+        ),
         model: workflowModelAction(
           providers.fastProvider,
           contextBudget,

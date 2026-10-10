@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TaskExecutor } from "../tasks/types";
 import { SafeCapabilityError, type CapabilityTool } from "../app/capabilityChat";
 import type { UserMessage } from "../domain/types";
 import { WorkflowService } from "./service";
@@ -35,7 +36,11 @@ export function formatWorkflowResult(tool: string, result: unknown): string | un
       plan.definition.steps.map((step, index) => `${index + 1}. ${step.name}`).join("\n")
     );
   }
-  if (["run_plan", "stop_run", "submit_step_result", "get_run"].includes(tool)) {
+  if (
+    ["run_plan", "stop_run", "submit_step_result", "respond_to_task_request", "get_run"].includes(
+      tool
+    )
+  ) {
     const parsed = runResultSchema.safeParse(result);
     if (!parsed.success) return undefined;
     const status = {
@@ -157,7 +162,11 @@ export class WorkflowApplication implements WorkflowToolService {
     this.actions = new Map(actions.map((action) => [action.name, action]));
     if (
       this.actions.size !== actions.length ||
-      actions.some((action) => service.tools.some((tool) => tool.name === action.name))
+      actions.some(
+        (action) =>
+          service.tools.some((tool) => tool.name === action.name) ||
+          ["request_context", "request_tool", "list_available_tools"].includes(action.name)
+      )
     )
       throw new WorkflowError(
         "DUPLICATE_ACTION",
@@ -218,14 +227,21 @@ export function createWorkflowApplication(options: {
   runDir: string;
   endpoints?: string;
   model?: (prompt: string, inputs: unknown, context: WorkflowContext) => Promise<unknown>;
+  executors?: TaskExecutor[];
 }) {
   const actions = workflowHttpActions(options.endpoints);
-  return new WorkflowApplication(
-    new WorkflowService(
-      new HekateWorkflowStore(options.apiUrl, options.projectId),
-      options.runDir,
-      { actions, model: options.model }
-    ),
-    actions
+  let application: WorkflowApplication;
+  const service = new WorkflowService(
+    new HekateWorkflowStore(options.apiUrl, options.projectId),
+    options.runDir,
+    {
+      actions,
+      model: options.model,
+      executors: options.executors,
+      taskTools: () => application.tools,
+      callTaskTool: (name, input, context) => application.call(name, input, context)
+    }
   );
+  application = new WorkflowApplication(service, actions);
+  return application;
 }

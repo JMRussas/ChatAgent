@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Principal } from "../../src/auth/authenticator";
+import type { TaskExecutor } from "../../src/tasks/types";
 import { WorkflowRunStore } from "../../src/workflows/runStore";
 import { WorkflowService } from "../../src/workflows/service";
 import {
@@ -154,6 +155,357 @@ describe("WorkflowService", () => {
     (await service.call("get_run", { id }, ctx())) as WorkflowRun;
   const start = async (service: WorkflowService, p: StoredWorkflowPlan) =>
     (await service.call("run_plan", { id: p.id, revision: p.revision }, ctx())) as WorkflowRun;
+
+  const agentStep = (executor = "native", tools: string[] = []) => ({
+    id: "task",
+    name: "Review report",
+    action: {
+      type: "agent",
+      executor,
+      task: {
+        objective: "Review the report",
+        context: "Use the supplied reporting period",
+        references: [{ id: "policy", label: "Review guidance", content: "Cite the report." }],
+        completionCriteria: ["Report actual results"],
+        tools,
+        limits: { maxTurns: 8 }
+      }
+    }
+  });
+
+  it("resumes an agent after restart with supplied context and a granted tool without replaying prior work", async () => {
+    const read = vi.fn(async () => ({ count: 7 }));
+    const write = vi.fn(async () => ({ saved: true }));
+    const execute: TaskExecutor["execute"] = vi.fn(async (task, host, checkpoint) => {
+      if (!checkpoint) {
+        expect(task.references[0]?.content).toBe("Cite the report.");
+        await host.callTool("read", {});
+        await host.requestContext("Which period?");
+        return { text: "Need period", checkpoint: { stage: 1 } };
+      }
+      if ((checkpoint as { stage: number }).stage === 1) {
+        expect(task.context).toContain("October");
+        await host.requestTool("write", "Save the reviewed count");
+        return { text: "Need save access", checkpoint: { stage: 2 } };
+      }
+      expect(task.tools).toEqual(["read", "write"]);
+      expect(await host.callTool("write", { count: 7 })).toEqual({ saved: true });
+      return { text: "Seven records reviewed and saved." };
+    });
+    const options = {
+      actions: [action("read", read), action("write", write)],
+      executors: [{ id: "native", execute }]
+    };
+    const first = make(options);
+    const p = await plan(first, [
+      agentStep("native", ["read"]),
+      {
+        id: "review",
+        name: "Final review",
+        action: { type: "human", instructions: "Review the result" }
+      }
+    ]);
+    const started = await start(first, p);
+    const parked = await until(
+      () => getRun(first, started.id),
+      (run) => run.status === "waiting_input"
+    );
+    expect(parked.steps[0]?.output).toBeUndefined();
+    expect((await store.get(principal().principalId, p.id)).work).toBe("in_progress");
+    await first.close();
+    const second = make(options);
+    await expect(
+      second.call(
+        "submit_step_result",
+        { id: started.id, stepId: "task", output: "October" },
+        ctx()
+      )
+    ).rejects.toMatchObject({ code: "wrong_response_type" });
+    const contextRequest = parked.steps[0]!.agent!.requests[0]!;
+    await second.call(
+      "respond_to_task_request",
+      { id: started.id, stepId: "task", requestId: contextRequest.id, response: "October" },
+      ctx()
+    );
+    const toolWait = await until(
+      () => getRun(second, started.id),
+      (run) => run.status === "waiting_input" && run.steps[0]?.agent?.requests.length === 2
+    );
+    const toolRequest = toolWait.steps[0]!.agent!.requests[1]!;
+    await expect(
+      second.call(
+        "respond_to_task_request",
+        { id: started.id, stepId: "task", requestId: contextRequest.id, response: "November" },
+        ctx()
+      )
+    ).rejects.toMatchObject({ code: "request_not_pending" });
+    await expect(
+      second.call(
+        "respond_to_task_request",
+        { id: started.id, stepId: "task", requestId: toolRequest.id, response: { approved: true } },
+        ctx(principal(["operator"], "other"))
+      )
+    ).rejects.toMatchObject({ code: "run_not_found" });
+    await second.call(
+      "respond_to_task_request",
+      { id: started.id, stepId: "task", requestId: toolRequest.id, response: { approved: true } },
+      ctx()
+    );
+    const review = await until(
+      () => getRun(second, started.id),
+      (run) => run.steps[1]?.status === "waiting_input"
+    );
+    expect(review.steps[0]?.output).toEqual({
+      text: "Seven records reviewed and saved.",
+      executor: "native"
+    });
+    expect(read).toHaveBeenCalledOnce();
+    expect(write).toHaveBeenCalledExactlyOnceWith(
+      { count: 7 },
+      expect.objectContaining({ principal: expect.objectContaining({ principalId: "local:A" }) })
+    );
+    expect(review.steps[0]?.agent?.events.map((event) => event.type)).toContain("tool_finished");
+    await second.call(
+      "submit_step_result",
+      { id: started.id, stepId: "review", output: { accepted: true } },
+      ctx()
+    );
+    expect(
+      (
+        await until(
+          () => getRun(second, started.id),
+          (run) => run.status === "completed"
+        )
+      ).status
+    ).toBe("completed");
+  });
+
+  it("declining a requested tool resumes with access still denied and the decision visible", async () => {
+    const write = vi.fn(async () => ({ ok: true }));
+    const executor: TaskExecutor = {
+      id: "native",
+      execute: async (task, host, checkpoint) => {
+        if (!checkpoint) {
+          await host.requestTool("write", "May I save?");
+          return { text: "", checkpoint: { requested: true } };
+        }
+        expect(task.context).toContain("declined");
+        await expect(host.callTool("write", {})).rejects.toMatchObject({
+          code: "tool_not_allowed"
+        });
+        return { text: "Save declined. Report only." };
+      }
+    };
+    const service = make({ actions: [action("write", write)], executors: [executor] });
+    const started = await start(service, await plan(service, [agentStep()]));
+    const waiting = await until(
+      () => getRun(service, started.id),
+      (run) => run.status === "waiting_input"
+    );
+    await service.call(
+      "respond_to_task_request",
+      {
+        id: started.id,
+        stepId: "task",
+        requestId: waiting.steps[0]!.agent!.requests[0]!.id,
+        response: { approved: false }
+      },
+      ctx()
+    );
+    const completed = await until(
+      () => getRun(service, started.id),
+      (run) => run.status === "completed"
+    );
+    expect(completed.steps[0]?.agent?.allowedTools).toEqual([]);
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("waits for agent cleanup on stop before allowing another attempt", async () => {
+    let entered!: () => void, cleanup!: () => void;
+    const startedExecution = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const cleaned = new Promise<void>((resolve) => {
+      cleanup = resolve;
+    });
+    const executor: TaskExecutor = {
+      id: "native",
+      execute: async (_task, host) => {
+        entered();
+        await new Promise<void>((resolve) =>
+          host.signal.addEventListener("abort", () => resolve(), { once: true })
+        );
+        await cleaned;
+        host.signal.throwIfAborted();
+        return { text: "late result" };
+      }
+    };
+    const service = make({ executors: [executor] });
+    const p = await plan(service, [agentStep()]);
+    const started = await start(service, p);
+    await startedExecution;
+    const stopping = service.call("stop_run", { id: started.id }, ctx());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect((await store.get(principal().principalId, p.id)).work).toBe("in_progress");
+    await expect(start(service, p)).rejects.toMatchObject({ code: "not_runnable" });
+    cleanup();
+    expect(await stopping).toMatchObject({ status: "stopped" });
+    expect((await store.get(principal().principalId, p.id)).work).toBe("todo");
+    expect((await getRun(service, started.id)).steps[0]?.output).toBeUndefined();
+  });
+
+  it("retains the attempt when native cleanup cannot be confirmed", async () => {
+    const service = make({
+      executors: [
+        {
+          id: "native",
+          execute: async () => {
+            throw new WorkflowError(
+              "task_cleanup_uncertain",
+              "Cleanup could not be confirmed",
+              502
+            );
+          }
+        }
+      ]
+    });
+    const p = await plan(service, [agentStep()]);
+    const started = await start(service, p);
+    const failed = await until(
+      () => getRun(service, started.id),
+      (run) => run.status !== "running"
+    );
+    expect(failed.status).toBe("uncertain");
+    expect((await store.get(principal().principalId, p.id)).work).toBe("in_progress");
+  });
+
+  it("does not advance when a scoped MCP client catches a persistence failure", async () => {
+    const operation = vi.fn(async () => ({ saved: true }));
+    const service = make({
+      actions: [action("save", operation)],
+      executors: [
+        {
+          id: "native",
+          execute: async (_task, host) => {
+            const write = WorkflowRunStore.prototype.write;
+            const spy = vi
+              .spyOn(WorkflowRunStore.prototype, "write")
+              .mockImplementation(async function (this: WorkflowRunStore, run) {
+                if (run.steps[0]?.agent?.events.some((event) => event.type === "tool_finished"))
+                  throw new Error("disk failed");
+                return write.call(this, run);
+              });
+            try {
+              await expect(host.callTool("save", {})).rejects.toMatchObject({
+                code: "task_outcome_uncertain"
+              });
+            } finally {
+              spy.mockRestore();
+            }
+            return { text: "Pretend finished" };
+          }
+        }
+      ]
+    });
+    const p = await plan(service, [agentStep("native", ["save"]), tool("next", "save")]);
+    const started = await start(service, p);
+    const failed = await until(
+      () => getRun(service, started.id),
+      (run) => run.status !== "running"
+    );
+    expect(failed.status).toBe("uncertain");
+    expect(failed.steps[1]?.status).toBe("pending");
+    expect(operation).toHaveBeenCalledOnce();
+    expect((await store.get(principal().principalId, p.id)).work).toBe("in_progress");
+  });
+
+  it("parks a final reply with unresolved operation failures instead of advancing, then resumes with operator guidance", async () => {
+    const read = vi
+      .fn()
+      .mockRejectedValueOnce(new WorkflowError("report_refused", "Report unavailable", 404))
+      .mockResolvedValue({ count: 7 });
+    const next = vi.fn(async () => ({ recorded: true }));
+    const service = make({
+      actions: [{ ...action("read", read), readOnly: true }, action("record", next)],
+      executors: [
+        {
+          id: "native",
+          execute: async (task, host, checkpoint) => {
+            if (!checkpoint) {
+              await expect(host.callTool("read", {})).rejects.toMatchObject({
+                code: "report_refused"
+              });
+              return { text: "I could not retrieve the report.", checkpoint: { stage: 1 } };
+            }
+            expect(task.context).toContain("Try the report again");
+            const result = await host.callTool("read", {});
+            return { text: `Report count: ${(result as { count: number }).count}` };
+          }
+        }
+      ]
+    });
+    const p = await plan(service, [agentStep("native", ["read"]), tool("next", "record")]);
+    const started = await start(service, p);
+    const parked = await until(
+      () => getRun(service, started.id),
+      (run) => run.status !== "running"
+    );
+    expect(parked.status).toBe("waiting_input");
+    expect(parked.steps[0]?.output).toBeUndefined();
+    expect(next).not.toHaveBeenCalled();
+    const request = parked.steps[0]!.agent!.requests[0]!;
+    expect(request).toMatchObject({ kind: "context", origin: "runtime", status: "pending" });
+    await service.call(
+      "respond_to_task_request",
+      {
+        id: started.id,
+        stepId: "task",
+        requestId: request.id,
+        response: "Try the report again; the service is available."
+      },
+      ctx()
+    );
+    const finished = await until(
+      () => getRun(service, started.id),
+      (run) => run.status === "completed"
+    );
+    expect(finished.steps[0]?.output).toMatchObject({ text: "Report count: 7" });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("holds an unconfirmed write outcome even if a model catches its error and reports success", async () => {
+    const write = vi.fn(async () => {
+      throw new Error("Private upstream detail");
+    });
+    const service = make({
+      actions: [action("write", write)],
+      executors: [
+        {
+          id: "native",
+          execute: async (_task, host) => {
+            await expect(host.callTool("write", {})).rejects.toMatchObject({
+              code: "task_outcome_uncertain"
+            });
+            await expect(host.callTool("write", {})).rejects.toMatchObject({
+              code: "task_outcome_uncertain"
+            });
+            return { text: "Claimed success" };
+          }
+        }
+      ]
+    });
+    const p = await plan(service, [agentStep("native", ["write"])]);
+    const started = await start(service, p);
+    const failed = await until(
+      () => getRun(service, started.id),
+      (run) => run.status !== "running"
+    );
+    expect(failed.status).toBe("uncertain");
+    expect(write).toHaveBeenCalledOnce();
+    expect(JSON.stringify(failed)).not.toContain("Private upstream detail");
+    expect((await store.get(principal().principalId, p.id)).work).toBe("in_progress");
+  });
 
   it("passes outputs through tool, model, human and a following tool, waiting for the human", async () => {
     const record = vi.fn(async (input: unknown) => ({ stored: input }));

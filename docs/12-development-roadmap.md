@@ -29,6 +29,68 @@ cleanup must not become a prerequisite for useful product progress.
 
 ### Active delivery plan — shared tools and editable workflows (2026-10-10)
 
+**Current increment — native agent tasks:** add one data-defined agent step with
+objective, context, references, selected tools, completion criteria and a total
+model-turn allowance. Claude's native CLI and Ollama's native API translate the
+same task package into their own protocols. The existing application registry,
+plan store, execution artifacts and UI remain the operational boundary. A scoped
+MCP gateway serves Claude; Ollama receives native tool schemas. Additional context
+and access requests park the step for an operator response. Configured executors
+are opt-in; JSON cannot supply an implementation or install capabilities.
+
+The direct task form and resource-response controls are implemented. Focused
+behavioral checks cover actual input/output flow, scope denial, decline, pause and
+resume across restart, cleanup before stopping, and uncertain persistence. Native
+executor tests cover protocol results, turn bounds, cleanup and cancellation; UI
+journeys cover context supply, grant/completion and decline/stop. The stable final
+affected gate passes 93 cases across 10 files, including the local identity case
+that encountered a Windows sharing failure in the broad run. The 120 browser
+journeys passed before the final completion-label refinement. Test the observable
+behavior, not variable names, source spelling or a model's exact prose.
+
+Actual Claude and Ollama executors completed the same task package (SHA-256
+`f31df82096d96cd4442ab81398be24f43515bb11548e2645ac57004ba5523c9e`), each with
+two model turns and one actual configured report call. Claude's authenticated
+application run is `6db6900f-fc61-45bd-99af-d98afd2c66b7`; Ollama's direct shared
+application run is `efb4d58c-14b4-405e-9472-ba07241d128d`. Both native Hekate
+attempts finished. The endpoint is a controlled local report, not external data.
+Ollama loosely described changed file paths as code changes; execution evidence
+does not certify every answer's quality. Evidence is retained under the existing
+external `agent-executor-proof` directory.
+
+The real UI walkthrough also exposed useful failures. Windows task-directory
+privacy failed before any model/tool effect; a configurable private workspace and
+safe error now handle that environment. Then Claude requested context and resumed,
+but the sample endpoint refused its period query. Claude honestly reported a
+blocker while the old runtime marked its final reply complete. That failed proof
+is preserved. The runtime now pauses final replies with unresolved actual tool
+failures for operator guidance; a later successful call or an operator's reviewed
+guidance resolves that guard. Unconfirmed write outcomes remain uncertain and
+hold the attempt. Valid bad tool choices receive safe native feedback within the
+turn budget rather than failing on a prescribed model pattern. The sample endpoint
+now accepts query parameters. A fresh actual UI run
+`d81f9655-bf79-4787-a406-a4da4a772119` completed form creation → native Claude
+context request → plain-text response → native session resume → actual HTTP 200
+report → grounded summary. Its events and screenshots are retained under
+`agent-executor-proof/ui-native-retry-2`; this is operator verification, not user
+acceptance or certification of general model quality.
+
+The first broad local suite passed 3,594 cases, skipped one, and failed six: an
+existing identity-file sharing failure and five new recovery cases against a
+module cached before the recovery edit during the run. It is not a passing final
+source gate. Fresh affected checks pass; final hosted source-pinned gates remain
+required.
+
+Limits: completion criteria are guidance, not independent quality certification;
+use explicit success checks or human review. Claude's explicit budget is per CLI
+invocation, including resume, and does not certify included-only usage. Its native
+session files stay in the task workspace; Ollama checkpoints contain model
+history. Waiting tasks can resume; interrupted active work stays uncertain without
+automatic replay. Workflow execution remains sequential and tool access is drawn
+from registered application operations. `stop_run` is reserved for outer callers
+to avoid synchronous agent-to-agent stop cycles. General conversational planning
+with the local Qwen model remains a separate, unaccepted reliability limitation.
+
 This sequence supersedes treating test-suite reclassification or further checkpoint
 machinery as prerequisites for product delivery. All five increments now have a
 local implementation. Local lint, documentation contracts and all 118 browser

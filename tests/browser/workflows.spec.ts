@@ -5,6 +5,7 @@ import type {
   WorkflowRun
 } from "../../src/workflows/types";
 import { test, expect } from "./fixture";
+import type { TaskState } from "../../src/tasks/types";
 
 const PLAN_ID = "11111111-2222-4333-8444-555555555555";
 const RUN_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -56,7 +57,12 @@ function execution(status: WorkflowRun["status"] = "waiting_input"): WorkflowRun
 }
 async function tools(page: Page, plans = [stored()]) {
   const seen: { name: string; input: Record<string, unknown>; method: string }[] = [];
-  const state = { plans, run: execution(), error: "" };
+  const state = {
+    plans,
+    run: execution(),
+    error: "",
+    taskResponse: null as ((input: Record<string, unknown>) => WorkflowRun) | null
+  };
   await page.route("**/workflows/tools/*", async (route) => {
     const name = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const input = route.request().postDataJSON() as Record<string, unknown>;
@@ -70,8 +76,12 @@ async function tools(page: Page, plans = [stored()]) {
         break;
       case "list_actions":
         result = {
-          actions: [{ name: "fetch_json", description: "Retrieve JSON", inputSchema: {} }],
-          modelAvailable: true
+          actions: [
+            { name: "fetch_json", description: "Retrieve JSON", inputSchema: {} },
+            { name: "archive_report", description: "Save a report", inputSchema: {} }
+          ],
+          modelAvailable: true,
+          executors: ["claude", "ollama"]
         };
         break;
       case "get_plan":
@@ -113,6 +123,10 @@ async function tools(page: Page, plans = [stored()]) {
         human.output = input.output;
         state.plans = state.plans.map((plan) => ({ ...plan, work: "done", attemptId: RUN_ID }));
         result = state.run;
+        break;
+      case "respond_to_task_request":
+        if (!state.taskResponse) throw new Error("Unexpected task response");
+        result = state.taskResponse(input);
         break;
       default:
         return route.fulfill({ status: 404, json: { error: "Unknown tool" } });
@@ -295,4 +309,186 @@ test.describe("workflow controls", () => {
     ).toBeUndefined();
     await expect(page.locator("#workflowPanel img, #workflowPanel script")).toHaveCount(0);
   });
+
+  for (const approved of [true, false]) {
+    test(`creates an agent task, provides context, and ${approved ? "allows its tool and completes" : "declines its tool and stops"}`, async ({
+      page,
+      app
+    }) => {
+      const stub = await tools(page, []);
+      await app.pair(page);
+      await page.getByRole("button", { name: "New agent task", exact: true }).click();
+      await page.getByLabel("Task name", { exact: true }).fill("Summarize the current report");
+      await page
+        .getByLabel("Objective", { exact: true })
+        .fill("Read the report, summarize the useful changes, and ask for missing context.");
+      await page.getByLabel("Executor", { exact: true }).selectOption("claude");
+      await page
+        .getByLabel("Task context (optional)")
+        .fill("Keep the summary useful to an operator.");
+      await page.getByText("Add a reference", { exact: true }).click();
+      await page.getByLabel("Reference label", { exact: true }).fill("Current report");
+      await page
+        .getByLabel("Reference content", { exact: true })
+        .fill("The report describes shared workflow tools.");
+      await page.getByRole("checkbox", { name: "fetch_json — Retrieve JSON" }).check();
+      await page
+        .getByLabel("Completion criteria (one per line)")
+        .fill("Describe the useful changes\nState remaining limitations");
+      await page.getByRole("button", { name: "Create agent task", exact: true }).click();
+      await expect(page.locator("#workflowNote")).toHaveText(
+        "Agent task saved. Review it and click Run when ready."
+      );
+      expect(stub.seen.some((call) => call.name === "run_plan")).toBe(false);
+      const created = stub.state.plans[0].definition;
+      expect(created.steps[0].action).toMatchObject({
+        type: "agent",
+        executor: "claude",
+        task: {
+          objective: "Read the report, summarize the useful changes, and ask for missing context.",
+          context: "Keep the summary useful to an operator.",
+          references: [
+            {
+              id: "reference",
+              label: "Current report",
+              content: "The report describes shared workflow tools."
+            }
+          ],
+          tools: ["fetch_json"],
+          completionCriteria: ["Describe the useful changes", "State remaining limitations"],
+          limits: { maxTurns: 12 }
+        }
+      });
+      await expect(page.locator("#workflowPlanSteps")).toContainText("State remaining limitations");
+      await expect(page.locator("#workflowPlanSteps")).toContainText("Reference: Current report");
+      const contextRequest = "11111111-2222-4333-8444-555555555551";
+      const toolRequest = "11111111-2222-4333-8444-555555555552";
+      const agent: TaskState = {
+        executor: "claude",
+        allowedTools: ["fetch_json"],
+        requests: [
+          {
+            id: contextRequest,
+            kind: "context",
+            prompt: "Which reporting period should I use?",
+            status: "pending",
+            requestedAt: "2026-10-10T12:00:00Z"
+          }
+        ],
+        events: [
+          {
+            type: "message",
+            message: "I found the report and need its reporting period.",
+            at: "2026-10-10T12:00:00Z"
+          }
+        ],
+        checkpoint: { private: "PRIVATE_CHECKPOINT_DO_NOT_RENDER" }
+      };
+      stub.state.run = {
+        ...execution(),
+        definition: created,
+        steps: [
+          Object.assign(
+            { id: "task", name: created.name, status: "waiting_input" as const },
+            { agent }
+          )
+        ]
+      };
+      stub.state.taskResponse = (input) => {
+        const request = agent.requests.find((request) => request.id === input.requestId)!;
+        request.response = input.response;
+        if (request.kind === "context") {
+          request.status = "answered";
+          agent.events.push({
+            type: "provided",
+            message: "Reporting period supplied.",
+            at: "2026-10-10T12:01:00Z"
+          });
+          agent.requests.push({
+            id: toolRequest,
+            kind: "tool",
+            tool: "archive_report",
+            prompt: "May I save the summary?",
+            status: "pending",
+            requestedAt: "2026-10-10T12:01:00Z"
+          });
+        } else {
+          request.status = approved ? "answered" : "declined";
+          if (approved) {
+            agent.allowedTools.push("archive_report");
+            agent.events.push({
+              type: "tool_finished",
+              tool: "archive_report",
+              message: "Summary saved.",
+              arguments: { title: "Current report" },
+              result: { saved: true },
+              at: "2026-10-10T12:02:00Z"
+            });
+            stub.state.run.status = "completed";
+            stub.state.run.steps[0].status = "completed";
+            stub.state.run.steps[0].output = {
+              text: "The workflow tools are shared. Deployment verification remains outstanding."
+            };
+            stub.state.plans = stub.state.plans.map((plan) => ({ ...plan, work: "done" }));
+          } else {
+            agent.events.push({
+              type: "provided",
+              message: "Archive permission declined; preparing an alternative.",
+              at: "2026-10-10T12:02:00Z"
+            });
+            stub.state.run.status = "running";
+            stub.state.run.steps[0].status = "running";
+          }
+        }
+        return stub.state.run;
+      };
+      await page.getByRole("button", { name: "Run saved plan" }).click();
+      await expect(page.locator("#workflowAgentRequestPrompt")).toHaveText(
+        "Which reporting period should I use?"
+      );
+      await expect(page.locator("#workflowHumanForm")).toBeHidden();
+      await page.clock.install();
+      await page.getByLabel("Additional context", { exact: true }).fill("Use this week's report.");
+      await page.clock.fastForward(2000);
+      await expect(page.locator("#workflowNote")).toHaveText("Execution state refreshed.");
+      await expect(page.getByLabel("Additional context", { exact: true })).toHaveValue(
+        "Use this week's report."
+      );
+      await page.getByRole("button", { name: "Provide context", exact: true }).click();
+      await expect(page.locator("#workflowAgentRequestPrompt")).toContainText(
+        "May I save the summary?"
+      );
+      await page
+        .getByRole("button", { name: approved ? "Allow tool" : "Decline tool", exact: true })
+        .click();
+      const responses = stub.seen.filter((call) => call.name === "respond_to_task_request");
+      expect(responses.map((call) => call.input)).toEqual([
+        {
+          id: RUN_ID,
+          stepId: "task",
+          requestId: contextRequest,
+          response: "Use this week's report."
+        },
+        { id: RUN_ID, stepId: "task", requestId: toolRequest, response: { approved } }
+      ]);
+      if (approved) {
+        await expect(page.locator("#workflowRunStatus")).toHaveAttribute(
+          "data-status",
+          "completed"
+        );
+        await expect(page.locator("#workflowSteps")).toContainText("Summary saved.");
+        await expect(page.locator("#workflowSteps")).toContainText(
+          "Deployment verification remains outstanding."
+        );
+        await expect(page.locator("#workflowList")).toContainText("Completed");
+      } else {
+        await expect(page.locator("#workflowSteps")).toContainText("Archive permission declined");
+        await page.getByRole("button", { name: "Stop execution", exact: true }).click();
+        await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", "stopped");
+      }
+      await expect(page.locator("#workflowPanel")).not.toContainText(
+        "PRIVATE_CHECKPOINT_DO_NOT_RENDER"
+      );
+    });
+  }
 });

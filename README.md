@@ -4,6 +4,10 @@ The Plans panel supports opening, creating and editing JSON workflows, running
 them, inspecting step inputs/results, stopping work and supplying human results.
 UI controls, conversation actions and MCP clients use the same application tools.
 Steps may invoke registered tools/APIs, call the configured model or wait for input.
+An agent step supplies an objective, context, references, selected tools and
+completion criteria to a configured native executor. The Plans panel's **New agent
+task** form creates that step without editing JSON. Its activity shows actual tool
+calls and results; missing context or tool access pauses for a visible response.
 
 To enable this increment, configure an existing Hekate PlanStore project:
 
@@ -20,6 +24,38 @@ plan, configure its API endpoint and select a real model through the existing
 provider settings. API actions use operator-configured endpoints; plans do not
 supply arbitrary executable code. Model steps use the existing provider/context
 and resource-admission adapters. Mock provider output remains mock output.
+
+Enable native task executors independently of chat providers:
+
+```dotenv
+TASK_CLAUDE_EXECUTABLE=<absolute-path-to-native-claude-executable>
+TASK_CLAUDE_MODEL=sonnet
+TASK_CLAUDE_BUDGET_USD=1
+TASK_OLLAMA_MODEL=qwen3:8b
+TASK_OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+Claude uses its native conversation and a temporary, scoped MCP gateway; Ollama
+uses native API tool calls. Both receive the same [task definition](data/workflows/agent-review.example.json).
+Claude requires an explicit CLI cost cap for each invocation, including each
+resume; this does not establish included-only usage or change the existing chat
+bridge's admission policy. The task turn allowance spans resumes. Only selected
+application tools are callable; an agent may discover other registered tools and
+request a person's grant. Stopping runs remains an outer UI/chat/MCP operation.
+Tasks cannot install tools or supply executable code through plan JSON.
+
+Completion criteria guide the executor; a final answer alone does not prove its
+quality. Add a human review step or a machine-checkable `success` condition where
+needed. A final reply with unresolved tool failures pauses for operator guidance;
+it does not advance the plan. Invalid tool choices receive safe feedback, allowing
+the model to adjust within its turn budget. Unconfirmed write outcomes stay
+uncertain and hold the plan attempt. Durable context/tool waits resume after restart; interrupted active work
+is labelled uncertain and is not replayed. Claude session state stays in the
+configured task workspace; Ollama stores bounded message history in the run record.
+`TASK_CLAUDE_WORK_DIR` overrides the default `WORKFLOW_RUN_DIR/agent-work` when
+necessary. Use a persistent directory your user can make private; the adapter
+checks permissions before writing its temporary MCP credential. Some Windows
+shared drives require a user-owned directory under your profile instead.
 
 MCP clients connect to this server's `/mcp` endpoint using Streamable HTTP and the
 installation's operator bearer credential. A typical client server entry is:

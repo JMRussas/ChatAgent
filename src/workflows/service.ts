@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { TaskRuntime, boundedTaskValue, resumedTask } from "../tasks/runtime";
+import { type TaskExecutor } from "../tasks/types";
 import { WorkflowRunStore, type RunClaim } from "./runStore";
 import {
   WorkflowError,
@@ -74,6 +76,16 @@ const definitionJson = {
                 type: "object",
                 required: ["type", "prompt"],
                 properties: { type: { const: "model" }, prompt: { type: "string" } }
+              },
+              {
+                type: "object",
+                required: ["type", "executor", "task"],
+                additionalProperties: false,
+                properties: {
+                  type: { const: "agent" },
+                  executor: { type: "string" },
+                  task: zodTaskJson()
+                }
               },
               {
                 type: "object",
@@ -168,6 +180,34 @@ const TOOL_SPECS: Array<WorkflowTool & { schema: z.ZodTypeAny }> = [
     schema: z.object({ id: uuid, stepId, output: z.unknown() }).strict()
   },
   {
+    name: "respond_to_task_request",
+    description:
+      "Provide context or approve/decline one pending agent tool request, then resume its step.",
+    readOnly: false,
+    inputSchema: obj({
+      ...idProps,
+      stepId: { type: "string" },
+      requestId: { type: "string", format: "uuid" },
+      response: {
+        oneOf: [
+          { type: "string", minLength: 1, maxLength: 16000 },
+          obj({ approved: { type: "boolean" } })
+        ]
+      }
+    }),
+    schema: z
+      .object({
+        id: uuid,
+        stepId,
+        requestId: uuid,
+        response: z.union([
+          z.string().trim().min(1).max(16000),
+          z.object({ approved: z.boolean() }).strict()
+        ])
+      })
+      .strict()
+  },
+  {
     name: "list_actions",
     description:
       "List registered tool actions available to workflow steps and whether a model is available.",
@@ -182,17 +222,51 @@ export class WorkflowService {
   private readonly runs: WorkflowRunStore;
   private readonly actions = new Map<string, WorkflowAction>();
   private readonly model?: Model;
+  private readonly executors = new Map<string, TaskExecutor>();
+  private readonly taskTools: () => readonly WorkflowTool[];
+  private readonly callTaskTool: (
+    name: string,
+    input: unknown,
+    context: WorkflowContext
+  ) => Promise<unknown>;
   private readonly active = new Map<string, Active>();
   private closed = false;
 
   constructor(
     private readonly store: WorkflowPlanStore,
     runDir: string,
-    options: { actions?: WorkflowAction[]; model?: Model } = {}
+    options: {
+      actions?: WorkflowAction[];
+      model?: Model;
+      executors?: TaskExecutor[];
+      taskTools?: () => readonly WorkflowTool[];
+      callTaskTool?: (name: string, input: unknown, context: WorkflowContext) => Promise<unknown>;
+    } = {}
   ) {
     this.runs = new WorkflowRunStore(runDir);
     for (const action of options.actions ?? []) this.actions.set(action.name, action);
     this.model = options.model;
+    for (const executor of options.executors ?? []) {
+      if (this.executors.has(executor.id))
+        throw new WorkflowError("executor_conflict", "Task executor IDs must be unique.");
+      this.executors.set(executor.id, executor);
+    }
+    this.taskTools =
+      options.taskTools ??
+      (() =>
+        [...this.actions.values()].map(({ name, description, inputSchema, readOnly }) => ({
+          name,
+          description,
+          inputSchema,
+          readOnly: readOnly ?? false
+        })));
+    this.callTaskTool =
+      options.callTaskTool ??
+      ((name, input, context) => {
+        const action = this.actions.get(name);
+        if (!action) throw new WorkflowError("tool_unavailable", "Task tool is unavailable.", 404);
+        return action.execute(input, context);
+      });
   }
 
   async call(name: string, input: unknown, context: WorkflowContext): Promise<unknown> {
@@ -251,6 +325,15 @@ export class WorkflowService {
         return this.stopRun(owner, args.id as string);
       case "submit_step_result":
         return this.submit(owner, args.id as string, args.stepId as string, args.output, context);
+      case "respond_to_task_request":
+        return this.submit(
+          owner,
+          args.id as string,
+          args.stepId as string,
+          args.response,
+          context,
+          args.requestId as string
+        );
       default:
         return {
           actions: [...this.actions.values()].map(({ name, description, inputSchema }) => ({
@@ -258,7 +341,9 @@ export class WorkflowService {
             description,
             inputSchema
           })),
-          modelAvailable: this.model !== undefined
+          modelAvailable: this.model !== undefined,
+          taskTools: this.taskTools().filter((tool) => tool.name !== "stop_run"),
+          executors: [...this.executors.keys()]
         };
     }
   }
@@ -308,6 +393,24 @@ export class WorkflowService {
           `Step ${step.id} uses an unregistered tool`,
           400
         );
+      if (step.action.type === "agent") {
+        if (!this.executors.has(step.action.executor))
+          throw new WorkflowError(
+            "executor_unavailable",
+            `Step ${step.id} uses an unavailable agent executor.`,
+            422
+          );
+        if (
+          step.action.task.tools.some(
+            (name) => name === "stop_run" || !this.taskTools().some((tool) => tool.name === name)
+          )
+        )
+          throw new WorkflowError(
+            "tool_unavailable",
+            `Step ${step.id} requests an unavailable task tool.`,
+            422
+          );
+      }
       mapInputs(step.inputs, (ref) => {
         if (!earlier.has(ref.step))
           throw new WorkflowError(
@@ -463,7 +566,8 @@ export class WorkflowService {
     id: string,
     stepIdValue: string,
     output: unknown,
-    context: WorkflowContext
+    context: WorkflowContext,
+    requestId?: string
   ): Promise<WorkflowRun> {
     const lock = await this.runs.claim(id);
     let launched = false;
@@ -480,9 +584,48 @@ export class WorkflowService {
       )
         throw new WorkflowError("not_waiting", "Run is not waiting for that step", 409);
       this.validateBindings(run.definition);
-      const result = normalizeJson(output);
       const definition = run.definition.steps[index];
-      if (!meetsSuccess(definition, result))
+      if ((requestId !== undefined) !== (definition.action.type === "agent"))
+        throw new WorkflowError(
+          "wrong_response_type",
+          "Use the matching human or agent response tool for this step.",
+          409
+        );
+      const result = normalizeJson(output);
+      const agent = run.steps[index].agent;
+      const request = requestId
+        ? agent?.requests.find((item) => item.id === requestId && item.status === "pending")
+        : undefined;
+      if (requestId && !request)
+        throw new WorkflowError(
+          "request_not_pending",
+          "That task request is no longer pending.",
+          409
+        );
+      if (request?.kind === "context" && typeof result !== "string")
+        throw new WorkflowError(
+          "invalid_response",
+          "A context request needs a text response.",
+          422
+        );
+      if (
+        request?.kind === "tool" &&
+        (!result ||
+          typeof result !== "object" ||
+          typeof (result as { approved?: unknown }).approved !== "boolean")
+      )
+        throw new WorkflowError(
+          "invalid_response",
+          "A tool request needs an approval decision.",
+          422
+        );
+      if (request?.kind === "tool" && !this.taskTools().some((tool) => tool.name === request.tool))
+        throw new WorkflowError(
+          "tool_unavailable",
+          "The requested tool is no longer registered.",
+          422
+        );
+      if (!request && !meetsSuccess(definition, result))
         throw new WorkflowError(
           "success_not_met",
           "Submitted output does not satisfy the step's success condition",
@@ -498,7 +641,35 @@ export class WorkflowService {
         throw new WorkflowError("fence_lost", "Plan no longer shows this run's attempt", 409);
       }
       const now = new Date().toISOString();
-      Object.assign(run.steps[index], { status: "completed", output: result, endedAt: now });
+      if (request && agent) {
+        if (agent.events.length >= 100)
+          throw new WorkflowError("task_event_limit", "Task activity limit reached.", 422);
+        if (request.kind === "tool" && (result as { approved: boolean }).approved) {
+          if (agent.allowedTools.length >= 30)
+            throw new WorkflowError("task_tool_limit", "Task tool limit reached.", 422);
+          if (!agent.allowedTools.includes(request.tool!)) agent.allowedTools.push(request.tool!);
+        }
+        Object.assign(request, {
+          status:
+            request.kind === "tool" && !(result as { approved: boolean }).approved
+              ? "declined"
+              : "answered",
+          response: result,
+          answeredAt: now
+        });
+        agent.events.push({
+          type: "provided",
+          requestId: request.id,
+          at: now,
+          message:
+            request.kind === "context"
+              ? "Operator supplied context"
+              : `Operator ${request.status === "declined" ? "declined" : "allowed"} ${request.tool}`,
+          ...(request.tool ? { tool: request.tool } : {}),
+          result
+        });
+        run.steps[index].status = "pending";
+      } else Object.assign(run.steps[index], { status: "completed", output: result, endedAt: now });
       run.status = "running";
       await this.save(run);
       const a: Active = {
@@ -575,7 +746,11 @@ export class WorkflowService {
           return found.value;
         });
         normalizeJson(inputs);
-        Object.assign(result, { status: "running", inputs, startedAt: new Date().toISOString() });
+        Object.assign(result, {
+          status: "running",
+          inputs,
+          startedAt: result.startedAt ?? new Date().toISOString()
+        });
         delete result.error;
         if (step.action.type === "human") {
           result.status = "waiting_input";
@@ -586,6 +761,16 @@ export class WorkflowService {
         }
         await this.save(run);
         const output = await this.execute(a, step, inputs);
+        if (
+          step.action.type === "agent" &&
+          result.agent?.requests.some((request) => request.status === "pending")
+        ) {
+          result.status = "waiting_input";
+          run.status = "waiting_input";
+          await this.save(run);
+          if (a.controller.signal.aborted) throw new StepAbort(String(a.controller.signal.reason));
+          return;
+        }
         if (!meetsSuccess(step, output))
           throw new WorkflowError(
             "success_not_met",
@@ -618,6 +803,8 @@ export class WorkflowService {
     if (a.controller.signal.aborted) forward();
     else a.controller.signal.addEventListener("abort", forward, { once: true });
     const timer = setTimeout(() => ctl.abort("timeout"), step.timeoutMs);
+    let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+    let cleanupAbort: (() => void) | undefined;
     const context: WorkflowContext = { ...a.ctx, signal: ctl.signal };
     try {
       if (ctl.signal.aborted) throw new StepAbort(String(ctl.signal.reason));
@@ -626,6 +813,73 @@ export class WorkflowService {
           return this.actions.get(step.action.tool)!.execute(inputs, context);
         if (step.action.type === "model" && this.model)
           return this.model(step.action.prompt, inputs, context);
+        if (step.action.type === "agent") {
+          const result = a.run.steps.find((result) => result.id === step.id)!;
+          const state = (result.agent ??= {
+            executor: step.action.executor,
+            allowedTools: [...step.action.task.tools],
+            requests: [],
+            events: []
+          });
+          const host = new TaskRuntime(
+            ctl.signal,
+            a.run.id,
+            step.id,
+            state,
+            this.taskTools,
+            (name, input) =>
+              this.callTaskTool(name, input, { ...context, operationId: randomUUID() }),
+            () => this.save(a.run)
+          );
+          try {
+            const response = await this.executors
+              .get(step.action.executor)!
+              .execute(resumedTask({ ...step.action.task, inputs }, state), host, state.checkpoint);
+            await host.drain();
+            ctl.signal.throwIfAborted();
+            if (response.checkpoint !== undefined)
+              state.checkpoint = boundedTaskValue(response.checkpoint);
+            else delete state.checkpoint;
+            if (response.text && state.events.at(-1)?.message !== response.text.slice(0, 4000))
+              await host.emit({ type: "message", message: response.text.slice(0, 4000) });
+            // A provider's final reply ends its turn; actual failed operations still need resolution.
+            const failed = new Set<string>();
+            for (const event of state.events) {
+              if (
+                event.type === "provided" &&
+                state.requests.some(
+                  (request) =>
+                    request.id === event.requestId &&
+                    request.origin === "runtime" &&
+                    request.status === "answered"
+                )
+              )
+                failed.clear();
+              if (event.type === "tool_failed" && event.tool) failed.add(event.tool);
+              if (event.type === "tool_finished" && event.tool) failed.delete(event.tool);
+            }
+            if (!host.waiting() && failed.size) {
+              if (state.checkpoint === undefined)
+                throw new WorkflowError(
+                  "task_tool_failed",
+                  "The executor ended with unresolved tool failures and cannot resume.",
+                  422
+                );
+              await host.requestGuidance(
+                `Execution ended with unresolved failures from ${[...failed].join(", ").slice(0, 1800)}. Review the activity and provide guidance to continue, or stop this run.`
+              );
+            }
+            if (host.waiting() && state.checkpoint === undefined)
+              throw new WorkflowError(
+                "task_outcome_uncertain",
+                "The executor did not save a resumable task checkpoint.",
+                500
+              );
+            return { text: response.text, executor: state.executor };
+          } finally {
+            await host.drain();
+          }
+        }
         throw new WorkflowError("unavailable", "Step action is unavailable", 422);
       })();
       const aborted = new Promise<never>((_, reject) => {
@@ -635,11 +889,45 @@ export class WorkflowService {
       });
       work.catch(() => undefined);
       aborted.catch(() => undefined);
-      const value = await Promise.race([work, aborted]);
+      const cleanupExpired = new Promise<never>((_, reject) => {
+        cleanupAbort = () => {
+          cleanupTimer = setTimeout(
+            () =>
+              reject(
+                new WorkflowError(
+                  "task_cleanup_uncertain",
+                  "Agent cleanup did not finish within 15 seconds; its attempt remains held.",
+                  500
+                )
+              ),
+            15000
+          );
+        };
+        if (ctl.signal.aborted) cleanupAbort();
+        else ctl.signal.addEventListener("abort", cleanupAbort, { once: true });
+      });
+      cleanupExpired.catch(() => undefined);
+      // Native agent adapters must finish owned process/tool cleanup before releasing the attempt.
+      let value: unknown;
+      try {
+        value = await Promise.race([work, step.action.type === "agent" ? cleanupExpired : aborted]);
+      } catch (error) {
+        if (
+          ctl.signal.aborted &&
+          !(
+            error instanceof WorkflowError &&
+            ["task_outcome_uncertain", "task_cleanup_uncertain"].includes(error.code)
+          )
+        )
+          throw new StepAbort(String(ctl.signal.reason));
+        throw error;
+      }
       if (ctl.signal.aborted) throw new StepAbort(String(ctl.signal.reason)); // late results are never accepted
       return normalizeJson(value);
     } finally {
       clearTimeout(timer);
+      clearTimeout(cleanupTimer);
+      if (cleanupAbort) ctl.signal.removeEventListener("abort", cleanupAbort);
       a.controller.signal.removeEventListener("abort", forward);
     }
   }
@@ -667,13 +955,22 @@ export class WorkflowService {
       run.steps.find((s) => s.status === "pending");
     const now = new Date().toISOString();
     const reason = error instanceof StepAbort ? error.reason : undefined;
-    if (reason === "close" || (error instanceof WorkflowError && error.code === "run_store_io")) {
+    if (
+      reason === "close" ||
+      (error instanceof WorkflowError &&
+        ["run_store_io", "task_outcome_uncertain", "task_cleanup_uncertain"].includes(
+          error.code
+        )) ||
+      (error as { code?: string } | null)?.code === "CLI_CLEANUP_FAILED"
+    ) {
       if (current) Object.assign(current, { status: "uncertain", endedAt: now });
       await this.markUncertain(
         a,
         reason === "close"
           ? "Service closed during the run; outcome is unknown"
-          : "Run state could not be persisted; outcome is unknown"
+          : error instanceof WorkflowError && error.code !== "run_store_io"
+            ? error.message
+            : "Run state or cleanup could not be confirmed; outcome is unknown"
       );
       return;
     }
@@ -748,6 +1045,49 @@ export class WorkflowService {
 }
 
 // --- helpers -----------------------------------------------------------------------
+
+function zodTaskJson(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["objective", "completionCriteria"],
+    properties: {
+      objective: { type: "string", minLength: 1, maxLength: 16000 },
+      context: { type: "string", maxLength: 16000 },
+      references: {
+        type: "array",
+        maxItems: 8,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "label", "content"],
+          properties: {
+            id: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$" },
+            label: { type: "string", minLength: 1, maxLength: 200 },
+            content: { type: "string", maxLength: 16000 }
+          }
+        }
+      },
+      tools: {
+        type: "array",
+        maxItems: 30,
+        uniqueItems: true,
+        items: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$" }
+      },
+      completionCriteria: {
+        type: "array",
+        minItems: 1,
+        maxItems: 10,
+        items: { type: "string", minLength: 1, maxLength: 2000 }
+      },
+      limits: {
+        type: "object",
+        additionalProperties: false,
+        properties: { maxTurns: { type: "integer", minimum: 1, maximum: 30 } }
+      }
+    }
+  };
+}
 
 function holdsFence(plan: StoredWorkflowPlan, run: WorkflowRun): boolean {
   return (

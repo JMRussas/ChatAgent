@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Principal } from "../auth/authenticator";
+import { taskSpecSchema, taskToolName, type TaskState } from "../tasks/types";
 
 const identifier = z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/);
 export const workflowStepSchema = z
@@ -10,6 +11,7 @@ export const workflowStepSchema = z
     action: z.discriminatedUnion("type", [
       z.object({ type: z.literal("tool"), tool: identifier }).strict(),
       z.object({ type: z.literal("model"), prompt: z.string().min(1).max(16000) }).strict(),
+      z.object({ type: z.literal("agent"), executor: taskToolName, task: taskSpecSchema }).strict(),
       z.object({ type: z.literal("human"), instructions: z.string().min(1).max(4000) }).strict()
     ]),
     timeoutMs: z.number().int().min(100).max(300000).default(120000),
@@ -99,6 +101,7 @@ export interface WorkflowPlanStore {
 export type WorkflowRunStatus =
   "running" | "waiting_input" | "completed" | "failed" | "stopped" | "uncertain";
 export interface WorkflowStepResult {
+  agent?: TaskState;
   id: string;
   name: string;
   status:

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { link, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { taskStateSchema } from "../tasks/types";
 import { WorkflowError, workflowDefinitionSchema, type WorkflowRun } from "./types";
 
 export const MAX_RUN_RECORD_BYTES = 1024 * 1024;
@@ -32,6 +33,7 @@ const runSchema = z
           id: z.string(),
           name: z.string(),
           status: stepStatus,
+          agent: taskStateSchema.optional(),
           inputs: z.unknown().optional(),
           output: z.unknown().optional(),
           error: z.string().optional(),
