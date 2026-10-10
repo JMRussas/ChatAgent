@@ -32,7 +32,9 @@ cleanup must not become a prerequisite for useful product progress.
 This sequence supersedes treating test-suite reclassification or further checkpoint
 machinery as prerequisites for product delivery. All five increments now have a
 local implementation. Local lint, documentation contracts and all 118 browser
-journeys pass; hosted CI has not yet verified this change.
+journeys pass. Hosted Linux release/browser checks and Windows tests passed on
+`cafc0a4` in run `38066345632`; the subsequent action-observability fix awaits its
+own hosted checks.
 
 **Architecture:** UI, model and workflow runner invoke the same registered
 application tools. Each tool declares inputs, outputs and required permissions;
@@ -95,8 +97,8 @@ completed API result preserved. The final UI walkthrough confirms collapsed raw
 details, readable results and the completed first plan's refreshed list status.
 The full browser gate passed all 118 journeys.
 
-**Remaining delivery work:** verify hosted CI and reload the preview with the
-readable conversation action results. Final local affected checks pass 139 cases
+**Remaining delivery work:** verify hosted CI for the action-observability fix.
+The local preview now includes readable action results. Final local affected checks pass 139 cases
 across 12 files; lint and documentation contracts also pass. Their actual structured
 results retain the plan/run references needed for follow-up model requests without
 showing internal attempt metadata in normal chat. Broader test-suite cleanup and
@@ -109,6 +111,21 @@ action results with usable follow-up references, and persistence of those result
 Three isolated model-action cases cover complete output, truncation refusal and
 discarding a late answer after cancellation. Preserve the initial failed run; do
 not report it as a passing full delivery gate.
+
+A subsequent real chat update saved revision 2 with a readable reply, but “run that
+saved plan” failed with a generic tool error. Direct execution with the current
+revision succeeded. That exposed a monitoring gap: failed action arguments and
+their safe application reason were not retained. The follow-up change records the
+validated action before execution and its failure reason, preserves privacy for
+unknown provider errors, and tells the planner to use the newest actual returned
+revision. No effect is automatically retried or silently corrected. All 24 affected
+action/chat cases pass. A fresh local Qwen follow-up failed executable-plan
+validation before any tool call; this model's ordinary conversational follow-up is
+not accepted as reliable, and the failed response is preserved. Direct UI operation
+remains available. Native Claude Code, using MCP discovery and returned records,
+successfully read, updated, ran, inspected and stopped that same saved plan. It did
+not submit a human approval or claim the human task completed. This proves the
+shared operation boundary across clients, not reliable planning by every model.
 
 Initial tool names are `list_plans`, `get_plan`, `create_plan`, `update_plan`,
 `run_plan`, `get_run`, `stop_run` and `submit_step_result`. Names may follow existing

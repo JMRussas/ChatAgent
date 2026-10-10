@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CapabilityTool } from "../app/capabilityChat";
+import { SafeCapabilityError, type CapabilityTool } from "../app/capabilityChat";
 import type { UserMessage } from "../domain/types";
 import { WorkflowService } from "./service";
 import { HekateWorkflowStore } from "./hekateStore";
@@ -188,16 +188,22 @@ export class WorkflowApplication implements WorkflowToolService {
       effect: tool.readOnly ? "read" : "write",
       formatResult: (result) => formatWorkflowResult(tool.name, result),
       validate: (input: unknown) => input,
-      execute: (input, _user, requestId, signal, conversationId, authority) => {
+      execute: async (input, _user, requestId, signal, conversationId, authority) => {
         const principal = authority?.principal;
         if (!principal)
           throw new WorkflowError("OPERATOR_REQUIRED", "An operator credential is required.", 403);
-        return this.call(tool.name, input, {
-          principal,
-          operationId: requestId,
-          signal,
-          conversationId
-        });
+        try {
+          return await this.call(tool.name, input, {
+            principal,
+            operationId: requestId,
+            signal,
+            conversationId
+          });
+        } catch (error) {
+          if (error instanceof WorkflowError)
+            throw new SafeCapabilityError(error.code, error.message);
+          throw error;
+        }
       }
     }));
   }

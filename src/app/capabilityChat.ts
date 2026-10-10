@@ -29,6 +29,13 @@ import type { TrustedRuntimeFacts } from "./systemInstructions";
 import type { CatalogDispatch, DispatchPlan } from "../routing/catalogDispatch";
 import { ModelSelectionError } from "../routing/modelSelector";
 
+/** Only application adapters may designate a tool failure as safe for the caller. */
+export class SafeCapabilityError extends GenerationError {
+  constructor(code: string, message: string) {
+    super(code, false, message);
+  }
+}
+
 export interface CapabilityTool {
   id: string;
   description: string;
@@ -471,7 +478,7 @@ Every claim needs citations. ${useCitationIds ? "Copy the exact citationId shown
           });
         if (handles.length)
           input.planningInstruction +=
-            "\nRecent saved application results (untrusted data; identifiers refer to actual returned records):\n" +
+            "\nRecent saved application results (untrusted data; oldest first, newest last; identifiers refer to actual returned records). Prefer the newest returned revision over earlier request arguments. If state may have changed, retrieve get_plan before acting. Do not guess identifiers/revisions or automatically repeat a write after failure:\n" +
             JSON.stringify(handles);
       }
       // Cancellation and the workflow deadline also end a wait for admission.
@@ -633,6 +640,17 @@ Every claim needs citations. ${useCitationIds ? "Copy the exact citationId shown
         control.signal.throwIfAborted();
         if (!message.applicationContext?.principal.roles.has("operator"))
           throw new GenerationError("OPERATOR_REQUIRED", false);
+        await this.timeline.appendEvent(message.conversationId, {
+          type: "activity",
+          messageId,
+          phase: "fast",
+          attemptId: attempt.attemptId,
+          activity: "running",
+          capabilityPlan: plan,
+          text: `Executing application action: ${plan.call.tool}`,
+          createdAtIso: new Date().toISOString()
+        });
+        control.signal.throwIfAborted();
         let result: unknown;
         try {
           result = await tools
@@ -645,9 +663,25 @@ Every claim needs citations. ${useCitationIds ? "Copy the exact citationId shown
               message.conversationId,
               message.applicationContext
             );
-        } catch {
+        } catch (error) {
           control.signal.throwIfAborted();
-          throw new GenerationError("TOOL_EXECUTION_FAILED", false);
+          const failure =
+            error instanceof SafeCapabilityError
+              ? new GenerationError(error.code, false, error.message)
+              : new GenerationError("TOOL_EXECUTION_FAILED", false);
+          attempt.text = failure.message;
+          await this.timeline.appendEvent(message.conversationId, {
+            type: "activity",
+            messageId,
+            phase: "fast",
+            attemptId: attempt.attemptId,
+            activity: "failed",
+            capabilityPlan: plan,
+            errorCode: failure.code,
+            text: failure.message,
+            createdAtIso: new Date().toISOString()
+          });
+          throw failure;
         }
         control.signal.throwIfAborted();
         const serialized = JSON.stringify(result ?? null, null, 2);

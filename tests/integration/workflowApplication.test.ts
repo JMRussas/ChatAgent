@@ -383,4 +383,56 @@ describe("shared workflow application", () => {
     const list = await a.tool<{ plans: StoredWorkflowPlan[] }>("list_plans", {});
     expect(list.plans).toHaveLength(1);
   });
+  it("records the attempted application call and its safe conflict without reporting success", async () => {
+    const a = await setup();
+    const saved = await a.tool<StoredWorkflowPlan>("create_plan", { definition });
+    const action = {
+      action: "act",
+      call: {
+        tool: "update_plan",
+        arguments: {
+          id: saved.id,
+          revision: saved.revision + 1,
+          definition: { ...definition, name: "Stale edit" }
+        }
+      }
+    };
+    a.setPlanner(action);
+    const response = await fetch(`${a.base}/messages`, {
+      method: "POST",
+      headers: { ...a.auth.headers("operator"), "content-type": "application/json" },
+      body: JSON.stringify({
+        conversationId: "report-chat",
+        userId: "operator",
+        messageId: randomUUID(),
+        text: "Edit the plan"
+      })
+    });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      code: "revision_conflict"
+    });
+    const events = await a.timeline.getEvents("report-chat");
+    expect(
+      events.find((event) => event.type === "activity" && event.capabilityPlan)?.capabilityPlan
+    ).toEqual(action);
+    expect(events.at(-1)).toMatchObject({
+      finishReason: "error",
+      errorCode: "revision_conflict",
+      text: "Plan changed or is running"
+    });
+    expect(
+      events.find((event) => event.type === "activity" && event.activity === "failed")
+    ).toMatchObject({
+      capabilityPlan: action,
+      errorCode: "revision_conflict",
+      text: "Plan changed or is running"
+    });
+    expect(
+      events.some((event) => event.applicationResult || event.processingStatus === "complete")
+    ).toBe(false);
+    expect((await a.tool<StoredWorkflowPlan>("get_plan", { id: saved.id })).revision).toBe(
+      saved.revision
+    );
+  });
 });

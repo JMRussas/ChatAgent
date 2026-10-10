@@ -5,6 +5,7 @@ import { ContextManager } from "../../src/app/contextManager";
 import { InMemoryConversationTimelineStore } from "../../src/app/timelineStore";
 import { InMemoryTaskQueue, type FastModelProvider } from "../../src/providers/interfaces";
 import type { UserMessage } from "../../src/domain/types";
+import { GenerationError } from "../../src/domain/generation";
 
 const message: UserMessage = {
   messageId: "create-one",
@@ -124,17 +125,39 @@ describe("application action dispatch", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it("reports failure without inventing a saved result or disclosing private tool errors", async () => {
-    const execute = vi.fn(async () => {
-      throw Error("private service connection details");
-    });
-    const a = app(action, execute);
-    await expect(a.chat.handleUserMessage(message)).rejects.toThrow("TOOL_EXECUTION_FAILED");
-    expect(execute).toHaveBeenCalledTimes(1);
-    const terminal = (await a.timeline.getEvents(message.conversationId)).at(-1);
-    expect(terminal?.finishReason).toBe("error");
-    expect(terminal?.text).not.toContain("private service connection details");
-  });
+  it.each([
+    ["ordinary error", new Error("private service connection details")],
+    [
+      "provider error",
+      new GenerationError("PROVIDER_UNAVAILABLE", true, "private service connection details")
+    ]
+  ])(
+    "reports %s without inventing a saved result or disclosing private tool errors",
+    async (_name, error) => {
+      const execute = vi.fn(async () => {
+        throw error;
+      });
+      const a = app(action, execute);
+      const pending = a.chat.handleUserMessage(message);
+      await expect(pending).rejects.toThrow("TOOL_EXECUTION_FAILED");
+      await expect(pending).rejects.toMatchObject({
+        code: "TOOL_EXECUTION_FAILED",
+        retryable: false
+      });
+      expect(execute).toHaveBeenCalledTimes(1);
+      const terminal = (await a.timeline.getEvents(message.conversationId)).at(-1);
+      expect(terminal?.finishReason).toBe("error");
+      expect(terminal?.text).not.toContain("private service connection details");
+      const events = await a.timeline.getEvents(message.conversationId);
+      expect(JSON.stringify(events)).not.toContain("private service connection details");
+      expect(
+        events.find((event) => event.type === "activity" && event.capabilityPlan)?.capabilityPlan
+      ).toEqual(action);
+      expect(
+        events.some((event) => event.applicationResult || event.processingStatus === "complete")
+      ).toBe(false);
+    }
+  );
 
   it("propagates cancellation and does not publish a late successful action", async () => {
     let release!: () => void;
