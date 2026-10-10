@@ -1272,6 +1272,39 @@ export function renderHomePageHtml(
   </script>
 ${documentTasks ? documentTaskScript() : ""}
 ${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}${workflows ? `\n${workflowPanelScript()}` : ""}${workspace ? `\n${workspacePanelScript()}` : ""}
+${
+  workspace
+    ? `<script>
+(function () {
+  try {
+    var raw = sessionStorage.getItem('chatagent-design-open-work');
+    if (!raw) return;
+    sessionStorage.removeItem('chatagent-design-open-work');
+    var requested = JSON.parse(raw);
+    if (!requested || typeof requested.id !== 'string') return;
+    if (requested.kind === 'workflow') {
+      setTimeout(function () {
+        window.dispatchEvent(new CustomEvent('workspace-open-plan', {
+          detail: {id: requested.id, projectId: requested.projectId}
+        }));
+      }, 0);
+    } else if (requested.kind === 'coding') {
+      var input = document.getElementById('planRoot');
+      var refresh = document.getElementById('planRefresh');
+      var panel = document.getElementById('planStatusPanel');
+      if (input && refresh && panel) {
+        input.value = requested.id;
+        input.dispatchEvent(new Event('change'));
+        panel.open = true;
+        refresh.click();
+        panel.scrollIntoView({block:'nearest'});
+      }
+    }
+  } catch (_) {}
+})();
+</script>`
+    : ""
+}
 </body>
 </html>`;
 }

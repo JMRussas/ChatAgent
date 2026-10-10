@@ -9,6 +9,7 @@ import { ConversationPersistence } from "./app/conversationPersistence";
 import { WorkspaceCatalog } from "./workspace/catalog";
 import { ProjectWorkflowRouter } from "./workspace/projectWorkflows";
 import { WorkspaceService } from "./workspace/service";
+import { readFileSync } from "node:fs";
 import {
   DevCoordinationError,
   fetchCoordinationStatus,
@@ -1051,6 +1052,13 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             options.workspaceTools !== undefined
           )
         );
+        return;
+      }
+      if (method === "GET" && url.pathname === "/design") {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(readFileSync(resolve("docs/design/workspace-proposal.html"), "utf8"));
         return;
       }
 

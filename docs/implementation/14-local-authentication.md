@@ -144,7 +144,7 @@ The server uses these on every request.
 
 ### Route inventory
 
-The current route policy contains 65 routes: 4 public, 21 client and 40 operator.
+The current route policy contains 66 routes: 5 public, 21 client and 40 operator.
 The independent inventory in `tests/unit/authPrimitives.test.ts` verifies every
 route's required role and complete coverage without freezing the route count.
 Each handler is a
@@ -181,6 +181,10 @@ v1 internal IDs. `X-Workspace-Conversation-Id` on a tool call is validated again
 the same owner before invoking an operation. It supplies navigation context,
 not authority. Retiring a conversation clears its metadata and plan associations
 through the existing coordinated retirement path.
+
+`GET /design` serves the proposed UI shell. It embeds no conversation, project or
+work data. The proposal reads live records through the same authenticated operator
+tools and conversation bridge; loading its HTML grants no access to those records.
 
 The workflow tools and MCP routes require operator credentials for discovery and
 execution. Direct UI operations use `POST /workflows/tools/:name`; MCP clients use

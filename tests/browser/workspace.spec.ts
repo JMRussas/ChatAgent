@@ -318,6 +318,24 @@ test("opening work selects its plan and explicit Run forwards the project and or
   const created = seen.find((entry) => entry.name === "create_plan")!;
   expect(created.input.projectId).toBe(FIRST);
   expect(created.conversation).toBe("saved-first");
+  const runsBeforeHandoff = seen.filter((entry) => entry.name === "run_plan").length;
+  await page.evaluate(
+    ({ id, projectId }) =>
+      sessionStorage.setItem(
+        "chatagent-design-open-work",
+        JSON.stringify({ id, projectId, kind: "workflow" })
+      ),
+    { id: PLAN, projectId: FIRST }
+  );
+  await page.reload();
+  await expect(page.locator("#workflowTitle")).toHaveText("Review report");
+  await expect
+    .poll(() => seen.filter((entry) => entry.name === "get_plan").at(-1)?.input.projectId)
+    .toBe(FIRST);
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(runsBeforeHandoff);
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("chatagent-design-open-work"))
+  ).toBeNull();
 });
 
 test("prepared coding work opens existing controls while unavailable and hostile records stay inert", async ({

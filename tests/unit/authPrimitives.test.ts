@@ -13,6 +13,7 @@ const principal = (...roles: Role[]): Principal => ({
 /** One concrete request per inventoried route (docs/implementation/14-local-authentication.md). */
 const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
   ["GET", "/", "public"],
+  ["GET", "/design", "public"],
   ["GET", "/pair", "public"],
   ["POST", "/pair", "public"],
   ["GET", "/auth/session", "public"],

@@ -29,6 +29,15 @@ cleanup must not become a prerequisite for useful product progress.
 
 ### Active delivery plan — shared tools and editable workflows (2026-10-10)
 
+**Current UI proposal:** `/design` presents an alternate workspace layout using
+the authenticated application's real project, conversation, plan and run records.
+Projects form a sidebar; Work and Conversations are separate views, with a focused
+detail panel for goals, step inputs/outputs, results and needed decisions. The
+proposal is read-only. Its Open controls and Continue actions navigate to the
+existing application with the selected work/thread; navigation never starts a run.
+No sample tasks or simulated run states are substituted for unavailable data.
+The proposed layout is for review before replacing the current presentation.
+
 **Implemented increment — workspace home:** provide one view of registered code
 projects, saved conversations and observed outstanding work. The directory
 reuses existing histories, Hekate plans and execution artifacts. It adds titles,
@@ -65,6 +74,9 @@ routing, revision-aware outstanding work, coding read failures, metadata rollbac
 and conversation links for creation/edit/run. The full local browser gate passed
 124 journeys; the final focused ten journeys also cover bounded lists and keeping
 an open plan in its original project after the dashboard selection changes.
+Documentation checks retain formatting, links and execution prerequisites. History
+persistence is verified through actual startup/restart rather than a frozen prose
+digest; the independent reviewed read-only verifier's source pin remains intact.
 
 An actual backend/UI walkthrough reopened saved history, registered the existing
 ChatAgent repository, created a project conversation and ran configured report

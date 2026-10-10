@@ -8,6 +8,10 @@ metadata are saved by default in `data/conversations.json` and
 `data/workspace.json`; `CONVERSATION_STATE_FILE` and `WORKSPACE_STATE_FILE`
 override those locations. `WORKSPACE_ENABLED=false` disables the workspace.
 
+Open `/design` for the proposed workspace layout using the same authenticated
+project, conversation and work records. The preview only reads data; its buttons
+open the selected conversation or plan in the current application's controls.
+
 Bind a project to its existing Hekate project in **Project integration** to
 discover its workflows and coding plans. `WORKFLOW_PROJECT_ID` remains an optional
 default binding. Conversation actions use the conversation's assigned project

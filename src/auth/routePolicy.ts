@@ -38,6 +38,8 @@ const rule = (
  */
 export const ROUTES: readonly RouteRule[] = [
   rule("GET", "/", "public"),
+  // The design shell contains no private data; its reads use the same authenticated tools.
+  rule("GET", "/design", "public"),
   rule("GET", "/pair", "public"),
   rule("POST", "/pair", "public"),
   // Reports only whether the caller's own credentials are valid.
