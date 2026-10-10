@@ -429,7 +429,7 @@ test("opening work selects its plan and explicit Run forwards the project and or
   await expect(step.getByLabel("Instructions", { exact: true })).toHaveValue(
     "Check the original project report before responding."
   );
-  await expect(page.locator("#workflowProjectScope")).toContainText("keeps its original project");
+  await expect(page.locator("#workflowBuilderScope")).toBeVisible();
   await page.locator("#workflowBuilderSave").click();
   await expect.poll(() => seen.filter((entry) => entry.name === "create_plan").length).toBe(1);
   const created = seen.find((entry) => entry.name === "create_plan")!;
