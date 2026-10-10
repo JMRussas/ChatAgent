@@ -29,7 +29,53 @@ cleanup must not become a prerequisite for useful product progress.
 
 ### Active delivery plan — shared tools and editable workflows (2026-10-10)
 
-**Current increment — native agent tasks:** add one data-defined agent step with
+**Implemented increment — workspace home:** provide one view of registered code
+projects, saved conversations and observed outstanding work. The directory
+reuses existing histories, Hekate plans and execution artifacts. It adds titles,
+project assignment, archive state and conversation-to-plan links, with a project
+router over the existing application tools. Direct controls, conversation and MCP
+use the same operations. Conversation actions default to their assigned project;
+explicit project inputs remain available. Reopening uses the saved owner namespace
+instead of guessing an old user label or creating a replacement conversation.
+
+The workspace is enabled by default. Its catalog and conversation snapshot are
+separate bounded atomic files. Project bindings are immutable once established;
+additional bindings receive separate run directories. Opening records never
+launches work or replays model calls. A waiting human step can resume through the
+existing controls. The view shows recorded state, next steps, partial-read errors
+and truncation; it does not infer whether an external worker is currently alive.
+
+Outstanding limits: external CLI/IDE conversation histories require an explicit
+importer/connection. Only registered projects are discovered. Coding execution
+still requires the configured prepared-plan host; adding a repository does not
+install or authorize a worker. Project discovery has a ten-second deadline, four
+concurrent projects and at most 500 displayed work items; coding observation reads
+the first 100 listed roots and reports truncation. Navigation associations and
+backend plan writes are not a single transaction: after a metadata write failure,
+refresh saved state before repeating a write. Conversation persistence remains a
+single-writer bounded snapshot rather than a scalable append log. Completed history
+retains the existing expiry policy.
+
+The preceding native-agent increment passed the hosted Linux release/browser and
+Windows test jobs on `9e6098a` in
+[run 38071355702](https://github.com/JMRussas/ChatAgent/actions/runs/38071355702).
+Local workspace verification covers owner isolation, legacy and v1 history
+continuation, default-enabled startup persistence, restart without replay, project
+routing, revision-aware outstanding work, coding read failures, metadata rollback
+and conversation links for creation/edit/run. The full local browser gate passed
+124 journeys; the final focused ten journeys also cover bounded lists and keeping
+an open plan in its original project after the dashboard selection changes.
+
+An actual backend/UI walkthrough reopened saved history, registered the existing
+ChatAgent repository, created a project conversation and ran configured report
+retrieval → human review → completion. The actual HTTP result, completed Hekate
+plan, conversation link and reload/reopen were inspected; no model call or browser
+mock was needed for those direct actions. Preserved evidence is under the external
+`shared-workflows-20261010/workspace-proof` directory. This verifies the working
+controls, not user acceptance or general model planning reliability. Source-pinned
+Linux release/browser and Windows gates run on the published branch.
+
+**Delivered increment — native agent tasks:** add one data-defined agent step with
 objective, context, references, selected tools, completion criteria and a total
 model-turn allowance. Claude's native CLI and Ollama's native API translate the
 same task package into their own protocols. The existing application registry,

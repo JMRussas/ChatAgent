@@ -6,6 +6,9 @@ import { createWorkflowApplication } from "./workflows/application";
 import { workflowModelAction } from "./workflows/modelAction";
 import { configuredTaskExecutors } from "./tasks/configuration";
 import { ConversationPersistence } from "./app/conversationPersistence";
+import { WorkspaceCatalog } from "./workspace/catalog";
+import { ProjectWorkflowRouter } from "./workspace/projectWorkflows";
+import { WorkspaceService } from "./workspace/service";
 import {
   DevCoordinationError,
   fetchCoordinationStatus,
@@ -207,6 +210,8 @@ interface ServerOptions {
   documentTasks?: DocumentTasks;
   /** Shared plan/work operations exposed to direct controls, conversation and MCP. */
   workflowTools?: WorkflowToolService;
+  /** Saved project/conversation navigation; shares the same tools with chat and MCP. */
+  workspaceTools?: WorkflowToolService;
   conversationPersistence?: ConversationPersistence;
   /** Operator status and restart of the document sidecar; absent when it is disabled. */
   documentTaskControl?: DocumentTaskControl;
@@ -823,8 +828,43 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         }
       }
 
+      // Operator navigation reuses the original saved owner namespace. Legacy and
+      // v1 client contracts stay separate; the bridge cannot select a foreign owner.
+      const workspaceConversation =
+        /^\/workspace\/conversations\/([^/]+)\/(events(?:\/stream)?|messages(?:\/[^/]+\/cancel)?|context(?:\/detach)?)$/.exec(
+          url.pathname
+        );
+      if (workspaceConversation) {
+        if (!options.workspaceTools)
+          return json(res, 404, {
+            code: "WORKSPACE_DISABLED",
+            error: "Workspace is not configured."
+          });
+        const conversationId = decodeURIComponent(workspaceConversation[1]);
+        const owner = service.conversationOwner(conversationId);
+        if (!ownerBelongsToPrincipal(owner, principal!.principalId))
+          return conversationNotFound(res);
+        const suffix = workspaceConversation[2];
+        if (suffix === "messages" || suffix.startsWith("context")) {
+          const body = requireObjectBody(await readBody());
+          if (body.conversationId !== undefined && body.conversationId !== conversationId)
+            return json(res, 400, {
+              code: "CONVERSATION_MISMATCH",
+              error: "Conversation does not match the selected thread."
+            });
+          parseBody = async () => ({ ...body, conversationId, userId: owner });
+          url.pathname =
+            suffix === "messages"
+              ? "/messages"
+              : suffix === "context"
+                ? "/conversation-context"
+                : "/conversation-context/detach";
+        } else url.pathname = `/conversations/${encodeURIComponent(conversationId)}/${suffix}`;
+      }
+
       if (url.pathname === "/mcp") {
-        if (!options.workflowTools)
+        const tools = options.workspaceTools ?? options.workflowTools;
+        if (!tools)
           return json(res, 404, {
             code: "WORKFLOWS_DISABLED",
             error: "Workflows are not configured."
@@ -834,24 +874,31 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
           return json(res, 405, { error: "This MCP endpoint accepts POST requests." });
         }
         return await handleWorkflowMcp(
-          options.workflowTools,
+          tools,
           { principal: principal!, operationId: randomUUID() },
           req,
           res,
           await parseBody()
         );
       }
-      if (method === "GET" && url.pathname === "/workflows/tools") {
-        if (!options.workflowTools)
+      if (method === "GET" && ["/workflows/tools", "/workspace/tools"].includes(url.pathname)) {
+        const tools = url.pathname.startsWith("/workspace/")
+          ? options.workspaceTools
+          : options.workflowTools;
+        if (!tools)
           return json(res, 404, {
             code: "WORKFLOWS_DISABLED",
             error: "Workflows are not configured."
           });
-        return json(res, 200, { tools: options.workflowTools.tools });
+        return json(res, 200, { tools: tools.tools });
       }
-      const workflowTool = /^\/workflows\/tools\/([a-z][a-z0-9_-]{0,63})$/.exec(url.pathname);
+      const workflowTool = /^\/(workflows|workspace)\/tools\/([a-z][a-z0-9_-]{0,63})$/.exec(
+        url.pathname
+      );
       if (method === "POST" && workflowTool) {
-        if (!options.workflowTools)
+        const tools =
+          workflowTool[1] === "workspace" ? options.workspaceTools : options.workflowTools;
+        if (!tools)
           return json(res, 404, {
             code: "WORKFLOWS_DISABLED",
             error: "Workflows are not configured."
@@ -865,12 +912,23 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             code: "INVALID_OPERATION_ID",
             error: "Operation ID must be a UUID."
           });
+        const conversationId = req.headers["x-workspace-conversation-id"];
+        if (
+          conversationId !== undefined &&
+          (typeof conversationId !== "string" ||
+            !ownerBelongsToPrincipal(
+              service.conversationOwner(conversationId),
+              principal!.principalId
+            ))
+        )
+          return conversationNotFound(res);
         return json(
           res,
           200,
-          await options.workflowTools.call(workflowTool[1], await parseBody(), {
+          await tools.call(workflowTool[2], await parseBody(), {
             principal: principal!,
-            operationId: operation ?? randomUUID()
+            operationId: operation ?? randomUUID(),
+            ...(conversationId !== undefined ? { conversationId } : {})
           })
         );
       }
@@ -989,7 +1047,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             planApiUrl !== undefined && dispatchHost !== undefined,
             attemptProgress !== undefined,
             executiveRoots !== undefined,
-            options.workflowTools !== undefined
+            options.workflowTools !== undefined,
+            options.workspaceTools !== undefined
           )
         );
         return;
@@ -1553,7 +1612,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         url.pathname.endsWith("/events")
       ) {
         const parts = url.pathname.split("/");
-        const conversationId = parts[2];
+        const conversationId = decodeURIComponent(parts[2]);
         const events = await service.getTimeline(conversationId);
         if (!visibleTo(conversationId, principal!.principalId, events.length))
           return conversationNotFound(res);
@@ -1566,7 +1625,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         url.pathname.endsWith("/events/stream")
       ) {
         const parts = url.pathname.split("/");
-        const conversationId = parts[2];
+        const conversationId = decodeURIComponent(parts[2]);
 
         // Admitted before any timeline read, header or timer; refused at capacity.
         const stream = eventStreams.open(res);
@@ -1806,7 +1865,10 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       options.documentTasks?.close();
       options.briefings?.close();
     }
-    shutdown ??= Promise.all([options.shutdown?.(), options.workflowTools?.close?.()]).then(() => {
+    shutdown ??= Promise.all([
+      options.shutdown?.(),
+      (options.workspaceTools ?? options.workflowTools)?.close?.()
+    ]).then(() => {
       options.conversationPersistence?.close();
     });
     close((error) => {
@@ -2096,24 +2158,31 @@ export async function startServer(
   const roleCatalog = await loadRoleCatalog(process.env.ROLE_CATALOG_PATH);
   if (process.env.WORKFLOW_PROJECT_ID && !process.env.HEKATE_PLAN_API_URL)
     throw new Error("WORKFLOW_PROJECT_ID requires HEKATE_PLAN_API_URL.");
-  const workflowTools = process.env.WORKFLOW_PROJECT_ID
-    ? createWorkflowApplication({
-        apiUrl: process.env.HEKATE_PLAN_API_URL!,
-        projectId: process.env.WORKFLOW_PROJECT_ID,
-        runDir: resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs"),
-        endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
-        executors: configuredTaskExecutors(
-          process.env,
-          resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs")
-        ),
-        model: workflowModelAction(
-          providers.fastProvider,
-          contextBudget,
-          trustedFactsProvider,
-          dispatch
+  const workspaceEnabled = parseBooleanEnv(process.env.WORKSPACE_ENABLED, true);
+  let workspaceTools: WorkspaceService | undefined;
+  const workflowRunDir = resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs");
+  const workflowModel = workflowModelAction(
+    providers.fastProvider,
+    contextBudget,
+    trustedFactsProvider,
+    dispatch
+  );
+  const workflowApplication = (projectId: string, runDir: string) =>
+    createWorkflowApplication({
+      apiUrl: process.env.HEKATE_PLAN_API_URL!,
+      projectId,
+      runDir,
+      endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
+      executors: configuredTaskExecutors(process.env, runDir),
+      model: workflowModel
+    });
+  const workflowTools =
+    process.env.HEKATE_PLAN_API_URL && (workspaceEnabled || process.env.WORKFLOW_PROJECT_ID)
+      ? workflowApplication(
+          process.env.WORKFLOW_PROJECT_ID ?? "00000000-0000-0000-0000-000000000000",
+          workflowRunDir
         )
-      })
-    : undefined;
+      : undefined;
   const orchestrator =
     config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
       ? new ChatOrchestrator(
@@ -2134,7 +2203,7 @@ export async function startServer(
           trustedFactsProvider,
           (message) => [
             ...(briefings?.tools() ?? []),
-            ...(workflowTools?.capabilities(message) ?? [])
+            ...((workspaceTools ?? workflowTools)?.capabilities(message) ?? [])
           ],
           dispatch,
           roleCatalog,
@@ -2159,14 +2228,61 @@ export async function startServer(
     adaptiveRouting,
     turnAdmission
   );
-  const conversationPersistence =
-    process.env.CONVERSATION_STATE_FILE || workflowTools
-      ? new ConversationPersistence(
-          resolve(process.env.CONVERSATION_STATE_FILE ?? "data/conversations.json"),
-          timeline,
-          service
-        )
-      : undefined;
+  // Validate the installation identity before opening its durable workspace.
+  let auth: LocalAuthenticator;
+  try {
+    auth = new LocalAuthenticator(await loadOrCreateIdentity());
+  } catch (error) {
+    await workflowTools?.close();
+    briefings?.close();
+    recorder?.invalidate("EVAL_STARTUP_FAILED");
+    throw error;
+  }
+  let conversationPersistence: ConversationPersistence | undefined;
+  try {
+    conversationPersistence =
+      process.env.CONVERSATION_STATE_FILE || workflowTools || workspaceEnabled
+        ? new ConversationPersistence(
+            resolve(process.env.CONVERSATION_STATE_FILE ?? "data/conversations.json"),
+            timeline,
+            service
+          )
+        : undefined;
+    if (workspaceEnabled) {
+      const catalog = new WorkspaceCatalog(
+        resolve(process.env.WORKSPACE_STATE_FILE ?? "data/workspace.json")
+      );
+      const workflows = workflowTools
+        ? new ProjectWorkflowRouter({
+            catalog,
+            legacy: workflowTools,
+            ...(process.env.WORKFLOW_PROJECT_ID
+              ? {
+                  legacyProject: {
+                    name: "Default project",
+                    hekateProjectId: process.env.WORKFLOW_PROJECT_ID
+                  }
+                }
+              : {}),
+            runDir: workflowRunDir,
+            factory: (project, runDir) => workflowApplication(project.hekateProjectId!, runDir)
+          })
+        : undefined;
+      workspaceTools = new WorkspaceService({
+        catalog,
+        chat: service,
+        workflows,
+        apiUrl: process.env.HEKATE_PLAN_API_URL,
+        persistenceEnabled: conversationPersistence !== undefined
+      });
+    }
+  } catch (error) {
+    conversationPersistence?.close();
+    await workflowTools?.close();
+    briefings?.close();
+    recorder?.invalidate("EVAL_STARTUP_FAILED");
+    throw error;
+  }
 
   const saveTelemetry = () =>
     telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
@@ -2181,18 +2297,6 @@ export async function startServer(
     }
   };
 
-  // The installation identity is loaded, or created once, after configuration has
-  // been validated (a misconfigured start creates no credentials), before the
-  // document sidecar starts and before the port is bound. An identity that is not
-  // private to this user stops startup, releasing what was already opened.
-  let auth: LocalAuthenticator;
-  try {
-    auth = new LocalAuthenticator(await loadOrCreateIdentity());
-  } catch (error) {
-    briefings?.close();
-    recorder?.invalidate("EVAL_STARTUP_FAILED");
-    throw error;
-  }
   const runtimeMode = resolveRuntimeModeInfo(config);
   // Each generation is a fresh child on the same store; only an operator restarts one.
   // The configuration is fixed here, so a later change to the environment or working
@@ -2223,7 +2327,8 @@ export async function startServer(
       ? { reloadRoles: () => reloadRoleCatalog(roleCatalog, rolePath) }
       : {}),
     documentTasks,
-    workflowTools,
+    workflowTools: workflowTools ? (workspaceTools ?? workflowTools) : undefined,
+    workspaceTools,
     conversationPersistence,
     documentTaskControl: documentTasks,
     planApiUrl: process.env.HEKATE_PLAN_API_URL,

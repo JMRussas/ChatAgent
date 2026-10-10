@@ -87,6 +87,8 @@ export interface ConversationTimelineSnapshot {
 }
 
 export interface ConversationTimelineStore {
+  /** Directory metadata only; reading it neither copies full histories nor renews idle retention. */
+  conversationSummaries?(): ConversationSummary[];
   reserveTerminal?(
     conversationId: string,
     identity: ChatTimelineEvent
@@ -131,6 +133,14 @@ export interface ConversationTimelineStore {
   lastSequence?(conversationId: string): number;
 }
 
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  preview: string;
+  lastActivityAt: string;
+  status: "ready" | "running" | "needs_attention" | "expired";
+}
+
 /** A read budget must be a positive safe integer; anything else is a caller error. */
 export function assertReadBudget(maxBytes: number | undefined) {
   if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1))
@@ -151,6 +161,38 @@ export class NoopConversationTimelineStore implements ConversationTimelineStore 
  * Expiry alone never allows an old identity to be reused: the tombstone stays
  * until an operator explicitly retires it through the coordinated service path. */
 export class InMemoryConversationTimelineStore implements ConversationTimelineStore {
+  conversationSummaries(): ConversationSummary[] {
+    this.prune();
+    return [...this.records].map(([id, row]) => {
+      const first = row.events.find((event) => event.type === "user");
+      const last = row.events.at(-1);
+      const phases = new Map<string, boolean>();
+      for (const event of row.events) {
+        if (!event.messageId) continue;
+        const key = JSON.stringify([event.messageId, event.phase ?? "fast"]);
+        if (event.type === "terminal") phases.set(key, !!event.retrying);
+        else if (event.type === "user" || event.type === "activity" || event.type === "delta")
+          phases.set(key, true);
+        else if (event.processingStatus === "complete") phases.set(key, false);
+      }
+      const recent = [...row.events]
+        .reverse()
+        .find((event) => ["user", "provisional", "refined", "terminal"].includes(event.type));
+      return {
+        id,
+        title: first?.text.trim().slice(0, 120) || "New conversation",
+        preview: recent?.text.slice(0, 240) ?? "",
+        lastActivityAt: last?.createdAtIso ?? new Date(row.at).toISOString(),
+        status: row.expired
+          ? "expired"
+          : [...phases.values()].some(Boolean)
+            ? "running"
+            : last?.type === "terminal" && ["error", "cancelled"].includes(last.finishReason ?? "")
+              ? "needs_attention"
+              : "ready"
+      };
+    });
+  }
   private readonly records = new Map<
     string,
     {

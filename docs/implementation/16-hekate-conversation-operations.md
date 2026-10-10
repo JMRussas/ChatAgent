@@ -143,8 +143,10 @@ is not incremental: each read starts over and does not continue from the last on
 Acceptance is not integration. A worker result accepted by the recorded decision has
 not been merged. Integration is the lead's separate step: review the exact Git SHA,
 run the relevant checks, perform the exact merge, then do a controlled reload or
-restart. Conversation history is process-local, so a restart does not preserve it.
-Do not describe a reload as persistence.
+restart. Conversation history is saved by default in the maintained workspace;
+keep the conversation snapshot, workspace catalog and installation identity across
+restart. Disabling the workspace without configuring conversation persistence
+leaves history process-local. A page reload alone does not establish persistence.
 
 ## 7. Read-only verifier
 

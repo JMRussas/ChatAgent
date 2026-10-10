@@ -96,7 +96,8 @@ async function runtime(
   planRunControls = false,
   attemptProgress = false,
   executiveOverview = false,
-  workflows = false
+  workflows = false,
+  workspace = false
 ) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
@@ -356,6 +357,17 @@ async function runtime(
           }
         }
       : {}),
+    ...(workspace
+      ? {
+          workspaceTools: {
+            tools: [],
+            call: async () => {
+              throw new Error("Browser workspace requests must be routed");
+            },
+            close: async () => {}
+          }
+        }
+      : {}),
     // Opt-in progress route and panel; specs stub the browser's requests with page.route and
     // the server's own observer can only reach the never-listening discard port.
     ...(attemptProgress ? { attemptProgress: true } : {}),
@@ -447,6 +459,7 @@ export const test = base.extend<{
   attemptProgress: boolean;
   executiveOverview: boolean;
   workflows: boolean;
+  workspace: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
@@ -456,6 +469,7 @@ export const test = base.extend<{
   attemptProgress: [false, { option: true }],
   executiveOverview: [false, { option: true }],
   workflows: [false, { option: true }],
+  workspace: [false, { option: true }],
   app: async (
     {
       streamCap,
@@ -464,7 +478,8 @@ export const test = base.extend<{
       planRunControls,
       attemptProgress,
       executiveOverview,
-      workflows
+      workflows,
+      workspace
     },
     use
   ) => {
@@ -475,7 +490,8 @@ export const test = base.extend<{
       planRunControls,
       attemptProgress,
       executiveOverview,
-      workflows
+      workflows,
+      workspace
     );
     try {
       await use(app);

@@ -144,7 +144,7 @@ The server uses these on every request.
 
 ### Route inventory
 
-The current route policy contains 57 routes: 4 public, 21 client and 32 operator.
+The current route policy contains 65 routes: 4 public, 21 client and 40 operator.
 The independent inventory in `tests/unit/authPrimitives.test.ts` verifies every
 route's required role and complete coverage without freezing the route count.
 Each handler is a
@@ -169,6 +169,18 @@ expired sessions are `401`, a client credential is `403 OPERATOR_REQUIRED`, and 
 the plan API. It accepts no query, `POST`/`DELETE` and sibling paths are default-deny `404`, and
 without `HEKATE_EXECUTIVE_OVERVIEW=1` it answers `404 EXECUTIVE_OVERVIEW_DISABLED`. The strict
 route inventory in `tests/unit/authPrimitives.test.ts` lists it.
+
+Workspace routes also require the operator role: `GET /workspace/tools`,
+`POST /workspace/tools/:name`, and `/workspace/conversations/:c/` with `GET events`,
+`GET events/stream`, `POST messages`, `POST messages/:m/cancel`, `POST context`,
+or `POST context/detach`. Discovery, title/project/archive changes and reopening
+are scoped to the authenticated principal. Reopening uses the stored conversation
+owner; caller-supplied user labels cannot change that identity. The bridge supports
+saved legacy and v1 conversations while the legacy client API continues to refuse
+v1 internal IDs. `X-Workspace-Conversation-Id` on a tool call is validated against
+the same owner before invoking an operation. It supplies navigation context,
+not authority. Retiring a conversation clears its metadata and plan associations
+through the existing coordinated retirement path.
 
 The workflow tools and MCP routes require operator credentials for discovery and
 execution. Direct UI operations use `POST /workflows/tools/:name`; MCP clients use

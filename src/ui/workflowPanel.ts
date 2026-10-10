@@ -7,6 +7,7 @@ export function workflowPanelHtml(): string {
       <button type="button" id="workflowNew">New plan</button>
       <button type="button" id="workflowNewAgent">New agent task</button></div>
     <p id="workflowNote" role="status" aria-live="polite">Loading plans…</p>
+    <p id="workflowProjectScope" hidden></p>
     <ul id="workflowList" aria-label="Saved plans"></ul>
     <details><summary>Available actions</summary><p id="workflowActions"></p></details>
     <form id="workflowAgentCreateForm" hidden>
@@ -74,6 +75,8 @@ export function workflowPanelScript(): string {
   var plan = null, run = null, saved = '', dirty = false, busy = false;
   var timer = null, requests = new Set(), disposed = false, selection = 0, pollingFailed = false;
   var latestRuns = new Map();
+  var selectedProjectId = null, planProjectId = null, selectedConversationId = null, conversationProjectId = null;
+  var pendingWorkspaceOpen = null, projectRefreshPending = false;
   var availableExecutors = [], pendingAgentRequest = null, pendingAgentStep = null;
   var actionDescriptions = new Map();
   var renderedRunId = null, expandedDetails = new Set();
@@ -141,18 +144,27 @@ export function workflowPanelScript(): string {
     el('AgentRespond').disabled = busy || !pendingAgentRequest;
     el('AgentAllow').disabled = busy || !pendingAgentRequest;
     el('AgentDecline').disabled = busy || !pendingAgentRequest;
+    el('ProjectScope').hidden = !(plan || dirty) || planProjectId === selectedProjectId;
+    el('ProjectScope').textContent = 'This open plan keeps its original project while you browse another project. Create a new plan to use the selected project.';
     el('SavedState').textContent = !plan ? 'Draft — save before running.' :
       dirty ? 'Unsaved changes — save before running.' : 'Saved revision ' + plan.revision + '.';
   }
-  async function tool(name, input) {
+  async function tool(name, input, projectScope) {
+    var scope = projectScope === undefined ? (name === 'list_plans' || name === 'list_actions' ? selectedProjectId : planProjectId) : projectScope;
+    var payload = Object.assign({}, input);
+    if (scope) payload.projectId = scope;
+    var headers = { 'Content-Type': 'application/json' };
+    if (selectedConversationId && conversationProjectId === scope && ['create_plan', 'update_plan', 'run_plan'].includes(name)) {
+      headers['X-Workspace-Conversation-Id'] = selectedConversationId;
+    }
     var controller = new AbortController();
     requests.add(controller);
     var deadline = setTimeout(function () { controller.abort(); }, 15000);
     try {
       var response = await fetch('/workflows/tools/' + name, {
         method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input), signal: controller.signal
+        headers: headers,
+        body: JSON.stringify(payload), signal: controller.signal
       });
       var text = await response.text();
       if (text.length > 1048576) throw new Error('Workflow response is too large.');
@@ -242,7 +254,9 @@ export function workflowPanelScript(): string {
     renderRun(); controls();
   }
   async function listPlans() {
-    var result = await tool('list_plans', {});
+    var listScope = selectedProjectId;
+    var result = await tool('list_plans', {}, listScope);
+    if (listScope !== selectedProjectId) { projectRefreshPending = true; return; }
     el('List').replaceChildren();
     if (!result.plans.length) add(el('List'), 'li', 'No saved plans yet.');
     result.plans.forEach(function (entry) {
@@ -250,7 +264,8 @@ export function workflowPanelScript(): string {
       item.dataset.plan = entry.id;
       var button = add(item, 'button', entry.definition.name);
       button.type = 'button';
-      button.addEventListener('click', function () { openPlan(entry.id); });
+      var entryProjectId = listScope;
+      button.addEventListener('click', function () { openPlan(entry.id, entryProjectId); });
       add(item, 'span', ' — ' + statusLabel(entry.work));
     });
   }
@@ -262,23 +277,34 @@ export function workflowPanelScript(): string {
     plan.attemptId = next.attemptId; plan.attemptEpoch = next.attemptEpoch;
     plan.latestRunId = next.latestRunId;
     await listPlans();
+    window.dispatchEvent(new CustomEvent('workspace-work-changed'));
   }
   async function operation(action) {
     if (busy || disposed) return;
     busy = true; stopPolling(); controls();
     try { await action(); }
     catch (error) { pollingFailed = true; note(error.message || 'Workflow operation failed.'); stopPolling(); }
-    finally { busy = false; controls(); poll(); }
+    finally {
+      busy = false; controls(); poll();
+      if (pendingWorkspaceOpen) {
+        var requested = pendingWorkspaceOpen; pendingWorkspaceOpen = null;
+        setTimeout(function () { window.dispatchEvent(new CustomEvent('workspace-open-plan', { detail: requested })); }, 0);
+      } else if (projectRefreshPending) {
+        projectRefreshPending = false;
+        setTimeout(function () { operation(listPlans); }, 0);
+      }
+    }
   }
-  async function openPlan(id) {
+  async function openPlan(id, projectId) {
     if (dirty && !window.confirm('Discard unsaved plan changes?')) return;
     await operation(async function () {
-      var next = await tool('get_plan', { id: id });
-      selection++;
+      var scope = projectId === undefined ? selectedProjectId : projectId;
+      var next = await tool('get_plan', { id: id }, scope);
+      planProjectId = scope; selection++;
       showPlan(next);
       var runId = next.latestRunId || next.attemptId || latestRuns.get(next.id);
       if (runId) { run = await tool('get_run', { id: runId }); renderRun(); }
-      note('Opened saved plan.');
+      await listPlans(); note('Opened saved plan.');
     });
   }
   async function refreshRun() {
@@ -298,7 +324,7 @@ export function workflowPanelScript(): string {
   });
   el('New').addEventListener('click', function () {
     if (dirty && !window.confirm('Discard unsaved plan changes?')) return;
-    selection++; plan = null; run = null; saved = ''; dirty = true;
+    selection++; plan = null; run = null; saved = ''; dirty = true; planProjectId = selectedProjectId;
     el('AgentCreateForm').hidden = true;
     el('Definition').value = JSON.stringify({ version: 1, name: 'New plan', description: '', steps: [
       { id: 'review', name: 'Review', inputs: {}, action: { type: 'human', instructions: 'Review the work and provide a result.' } }
@@ -309,7 +335,7 @@ export function workflowPanelScript(): string {
   });
   el('NewAgent').addEventListener('click', function () {
     if (dirty && !window.confirm('Discard unsaved plan changes?')) return;
-    selection++; plan = null; run = null; saved = ''; dirty = false;
+    selection++; plan = null; run = null; saved = ''; dirty = false; planProjectId = selectedProjectId;
     el('Editor').hidden = true;
     el('AgentCreateForm').reset(); el('AgentCreateForm').hidden = false;
     renderRun(); controls(); note('Describe the task, choose its executor and tools, then save it.');
@@ -331,7 +357,7 @@ export function workflowPanelScript(): string {
         { id: 'task', name: name, inputs: {}, action: { type: 'agent', executor: el('AgentExecutor').value, task: task }, timeoutMs: 300000 }
       ] };
       showPlan(await tool('create_plan', { definition: definition }));
-      await listPlans(); note('Agent task saved. Review it and click Run when ready.');
+      await listPlans(); window.dispatchEvent(new CustomEvent('workspace-work-changed')); note('Agent task saved. Review it and click Run when ready.');
     });
   });
   async function respondToAgent(response) {
@@ -356,7 +382,7 @@ export function workflowPanelScript(): string {
       catch (_) { throw new Error('Plan definition must be valid JSON.'); }
       var next = await tool(plan ? 'update_plan' : 'create_plan', plan ?
         { id: plan.id, revision: plan.revision, definition: definition } : { definition: definition });
-      showPlan(next); await listPlans(); note('Plan saved.');
+      showPlan(next); await listPlans(); window.dispatchEvent(new CustomEvent('workspace-work-changed')); note('Plan saved.');
     });
   });
   el('Run').addEventListener('click', function () {
@@ -379,6 +405,23 @@ export function workflowPanelScript(): string {
       run = await tool('submit_step_result', { id: run.id, stepId: step.id, output: output });
       renderRun(); await refreshPlanState(); note('Step result saved.');
     });
+  });
+  window.addEventListener('workspace-project-selected', function (event) {
+    selectedProjectId = event.detail && event.detail.projectId || null;
+    if (busy) projectRefreshPending = true;
+    else setTimeout(function () { operation(listPlans); }, 0);
+  });
+  window.addEventListener('workspace-conversation-selected', function (event) {
+    selectedConversationId = event.detail && event.detail.conversationId || null;
+    conversationProjectId = event.detail && event.detail.projectId || null;
+  });
+  window.addEventListener('workspace-open-plan', async function (event) {
+    if (!event.detail || typeof event.detail.id !== 'string') return;
+    if (busy) { pendingWorkspaceOpen = event.detail; return; }
+    selectedProjectId = event.detail.projectId || null;
+    panel.open = true;
+    await openPlan(event.detail.id, selectedProjectId);
+    if (event.detail.run && plan && plan.id === event.detail.id && !dirty && !busy && !active()) el('Run').click();
   });
   panel.addEventListener('toggle', poll);
   document.addEventListener('visibilitychange', poll);

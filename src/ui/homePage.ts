@@ -5,6 +5,7 @@ import { planRunControlsHtml, planRunControlsScript } from "./planRunControls";
 import { attemptProgressHtml, attemptProgressScript } from "./attemptProgress";
 import { executiveOverviewHtml, executiveOverviewScript } from "./executiveOverview";
 import { workflowPanelHtml, workflowPanelScript } from "./workflowPanel";
+import { workspacePanelHtml, workspacePanelScript } from "./workspacePanel";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -21,7 +22,8 @@ export function renderHomePageHtml(
   planRunControls = false,
   attemptProgress = false,
   executiveOverview = false,
-  workflows = false
+  workflows = false,
+  workspace = false
 ): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
@@ -413,7 +415,7 @@ export function renderHomePageHtml(
   </style>
 </head>
 <body>
-  <main class="app">
+  <main class="app">${workspace ? workspacePanelHtml() : ""}
     <section class="panel chat-shell" aria-label="chat">${workflows ? `\n      ${workflowPanelHtml()}` : ""}${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
       <header class="panel-header">
         <h1>ChatAgent Fast + Deep Thread</h1>
@@ -451,6 +453,7 @@ export function renderHomePageHtml(
           <button type="button" id="detachTeam">Detach team reference</button>
           <p id="referenceStatus" role="status">No table rows attached.</p>
         </fieldset>
+        ${workspace ? '<details id="conversationIdentifiers"><summary>Conversation identifiers</summary>' : ""}
         <div class="meta-grid">
           <label>
             Conversation ID
@@ -461,6 +464,7 @@ export function renderHomePageHtml(
             <input id="userId" value="user-demo" required minlength="1" />
           </label>
         </div>
+        ${workspace ? "</details>" : ""}
         <p id="selectedConversationContext" role="status">Conversation scope: general</p>
         <label>
           Prompt
@@ -548,6 +552,7 @@ export function renderHomePageHtml(
 
     const state = {
       conversationId: "conv-ui-demo",
+      workspaceConversationId: null,
       userId: "user-demo",
       routeDecision: null,
       confidence: null,
@@ -574,14 +579,19 @@ export function renderHomePageHtml(
       if (saved && typeof saved.conversationId === "string" && typeof saved.userId === "string") {
         conversationIdInput.value = state.conversationId = saved.conversationId;
         userIdInput.value = state.userId = saved.userId;
+        if (${workspace} && saved.workspaceConversationId === saved.conversationId) state.workspaceConversationId = saved.conversationId;
       }
     } catch { /* Storage may be disabled. */ }
-    const saveConversation = () => { try { sessionStorage.setItem("chatagent-active-conversation", JSON.stringify({conversationId:conversationIdInput.value.trim(),userId:userIdInput.value.trim()})); } catch {} };
+    const saveConversation = () => { try { sessionStorage.setItem("chatagent-active-conversation", JSON.stringify({conversationId:conversationIdInput.value.trim(),userId:userIdInput.value.trim(),workspaceConversationId:state.workspaceConversationId})); } catch {} };
+    function conversationBase(conversationId = state.conversationId) {
+      return (${workspace} && state.workspaceConversationId === conversationId ? "/workspace/conversations/" : "/conversations/") + encodeURIComponent(conversationId);
+    }
     const promptInput = $("prompt");
     const sendButton = $("sendButton");
     const thread = $("thread");
     const status = $("status");
     let timelineStream = null;
+    let workspaceLastTerminal = null;
     // Unpaired or no longer valid: go to the pairing page and stop everything here.
     let leavingForPairing = false;
     function goPair() {
@@ -663,7 +673,7 @@ export function renderHomePageHtml(
     }
     async function checkConversationExpiry(conversationId) {
       try {
-        const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/events");
+        const res = await fetch(conversationBase(conversationId) + "/events");
         if (res.status === 410) markConversationExpired(conversationId);
       } catch { /* Offline: the reconnecting status already says so. */ }
       return state.expired;
@@ -699,7 +709,7 @@ export function renderHomePageHtml(
     async function stopTurn(messageId, retry = false) {
       const conversationId = state.conversationId;
       try {
-        const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/messages/" + encodeURIComponent(messageId) + "/cancel", { method: "POST" });
+        const res = await fetch(conversationBase(conversationId) + "/messages/" + encodeURIComponent(messageId) + "/cancel", { method: "POST" });
         if (conversationId !== state.conversationId) return;
         if (res.status === 404 && !retry) {
           if (state.events.some(e => e.type === "user" && e.messageId === messageId)) void stopTurn(messageId, true);
@@ -896,7 +906,7 @@ export function renderHomePageHtml(
       if (!state.conversationId || state.expired) return;
 
       const conversationId = state.conversationId;
-      const streamUrl = "/conversations/" + encodeURIComponent(conversationId) + "/events/stream";
+      const streamUrl = conversationBase(conversationId) + "/events/stream";
       const source = new EventSource(streamUrl);
       timelineStream = source;
 
@@ -909,6 +919,14 @@ export function renderHomePageHtml(
         try {
           const payload = JSON.parse(event.data);
           state.events = Array.isArray(payload.events) ? payload.events : [];
+          if (${workspace} && state.workspaceConversationId === conversationId) {
+            const terminal = state.events.findLast((item) => item.type === "terminal");
+            const terminalKey = terminal && JSON.stringify(terminal);
+            if (terminalKey && terminalKey !== workspaceLastTerminal) {
+              workspaceLastTerminal = terminalKey;
+              window.dispatchEvent(new CustomEvent("workspace-work-changed"));
+            }
+          }
 
           state.reconnecting = false;
           streamRetryDelayMs = 1000;
@@ -918,6 +936,7 @@ export function renderHomePageHtml(
           }
 
           renderThread();
+          if (${workspace} && state.workspaceConversationId === conversationId) window.dispatchEvent(new CustomEvent("workspace-conversation-rendered", { detail: { conversationId } }));
         } catch {
           // Ignore malformed stream events and wait for next update.
         }
@@ -985,7 +1004,7 @@ export function renderHomePageHtml(
         sendButton.disabled = true;
         setStatus("Sending message...");
 
-        const res = await fetch("/messages", {
+        const res = await fetch(state.workspaceConversationId === conversationId ? conversationBase(conversationId) + "/messages" : "/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1019,6 +1038,7 @@ export function renderHomePageHtml(
         renderThread();
 
         setStatus("Message accepted. Progress is shown in its reply bubble.");
+        if (${workspace} && state.workspaceConversationId === conversationId) window.dispatchEvent(new CustomEvent("workspace-work-changed"));
       } catch (error) {
         if (conversationId !== state.conversationId || userId !== userIdInput.value.trim()) return;
         state.pendingUserText = "";
@@ -1038,6 +1058,7 @@ export function renderHomePageHtml(
     });
 
     $("newConversation").addEventListener("click", () => {
+      if (${workspace}) { window.dispatchEvent(new CustomEvent("workspace-new-conversation")); return; }
       conversationIdInput.value = "conv-" + crypto.randomUUID();
       conversationIdInput.dispatchEvent(new Event("change"));
       promptInput.focus();
@@ -1045,6 +1066,7 @@ export function renderHomePageHtml(
 
     conversationIdInput.addEventListener("change", () => {
       state.conversationId = String(conversationIdInput.value || "").trim();
+      if (state.workspaceConversationId !== state.conversationId) state.workspaceConversationId = null;
       clearConversationNotice();
       cancelRetries.clear();
       state.reconnecting = false;
@@ -1056,6 +1078,14 @@ export function renderHomePageHtml(
       openTimelineStream();
       renderThread();
       void fetchTelemetry();
+    });
+
+    window.addEventListener("workspace-conversation-selected", (event) => {
+      if (!${workspace} || !event.detail || typeof event.detail.conversationId !== "string") return;
+      state.workspaceConversationId = event.detail.conversationId;
+      conversationIdInput.value = event.detail.conversationId;
+      conversationIdInput.dispatchEvent(new Event("change"));
+      saveConversation();
     });
 
     userIdInput.addEventListener("change", () => {
@@ -1109,7 +1139,7 @@ export function renderHomePageHtml(
       const conversationId = $("conversationId").value.trim(), userId = $("userId").value.trim();
       showConversationContext(null);
       try {
-        const r = await fetch("/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
+        const r = await fetch(state.workspaceConversationId === conversationId ? conversationBase(conversationId) + "/context" : "/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
         const data = await r.json();
         if (requestVersion !== contextRequestVersion || conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) return;
         if (r.status === 410) { $("selectedConversationContext").textContent = "Conversation expired."; markConversationExpired(conversationId); return; }
@@ -1148,7 +1178,7 @@ export function renderHomePageHtml(
     $("detachRows").onclick=()=>{selectedReferences.delete($("referenceResult").value);loadReferenceRows();referenceSummary();};
     $("detachTeam").onclick=async()=>{
       const conversationId=conversationIdInput.value.trim(),userId=userIdInput.value.trim();
-      const response=await fetch("/conversation-context/detach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})}).catch(()=>null);
+      const response=await fetch(state.workspaceConversationId === conversationId ? conversationBase(conversationId) + "/context/detach" : "/conversation-context/detach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})}).catch(()=>null);
       if(conversationId!==conversationIdInput.value.trim() || userId!==userIdInput.value.trim())return;
       if(!response?.ok){$("referenceStatus").textContent="Could not detach team reference.";return;}
       await refreshConversationContext();
@@ -1241,7 +1271,7 @@ export function renderHomePageHtml(
     });
   </script>
 ${documentTasks ? documentTaskScript() : ""}
-${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}${workflows ? `\n${workflowPanelScript()}` : ""}
+${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}${workflows ? `\n${workflowPanelScript()}` : ""}${workspace ? `\n${workspacePanelScript()}` : ""}
 </body>
 </html>`;
 }

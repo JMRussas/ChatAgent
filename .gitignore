@@ -16,6 +16,8 @@ data/document-tasks/
 data/workflow-runs/
 data/conversations.json
 data/conversations.json.*
+data/workspace.json
+data/workspace.json.*
 
 # Local Python environment for the optional documentation worker
 .venv/

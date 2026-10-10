@@ -1,4 +1,5 @@
 import { createServer, request } from "node:http";
+import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -19,7 +20,99 @@ beforeEach(async () => {
   vi.stubEnv("EVAL_RECORDING", "false");
   vi.stubEnv("MODEL_DISPATCH_CONFIG_PATH", "");
   vi.stubEnv("HEKATE_CLI_ROOT", "");
+  vi.stubEnv("WORKSPACE_ENABLED", "false");
 });
+
+// Real startup and private installation identity are exercised twice. The enclosing
+// bound includes Windows ACL validation; all state remains in this test's directory.
+it("enables the workspace by default and restores a saved conversation after runtime restart", async () => {
+  vi.stubEnv("WORKSPACE_ENABLED", undefined);
+  vi.stubEnv("CONVERSATION_STATE_FILE", join(identityDir, "conversations.json"));
+  vi.stubEnv("WORKSPACE_STATE_FILE", join(identityDir, "workspace.json"));
+  vi.stubEnv("TELEMETRY_STORE_PATH", join(identityDir, "telemetry.json"));
+  for (const phase of ["FAST", "DEEP"]) {
+    vi.stubEnv(`CHAT_${phase}_PROVIDER`, "mock");
+    vi.stubEnv(`CHAT_${phase}_MODEL`, "mock-v1");
+  }
+  for (const key of ["HEKATE_PLAN_API_URL", "WORKFLOW_PROJECT_ID", "ROLE_CATALOG_PATH"])
+    vi.stubEnv(key, undefined);
+  vi.stubEnv("SPORTS_BRIEFING_CONFIG_PATH", "");
+  vi.stubEnv("DOC_TASK_PYTHON", "");
+  vi.stubEnv("CONTEXT_SUMMARY_MODE", "off");
+  vi.stubEnv("DEEP_WORKER_AUTO_RUN", "false");
+  vi.stubEnv("SHUTDOWN_GRACE_MS", "0");
+  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  let runtime: Awaited<ReturnType<typeof startServer>> | undefined;
+  try {
+    runtime = await startServer(0);
+    let base = `http://127.0.0.1:${runtime.address.port}`;
+    const headers = await clientAuthHeaders(base, "operator");
+    const post = async (path: string, body: unknown) => {
+      const response = await fetch(base + path, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+    const conversation = await post("/workspace/tools/create_conversation", {
+      title: "Saved discussion"
+    });
+    expect(conversation.id).toEqual(expect.any(String));
+    const text = "Remember this discussion for tomorrow";
+    await post(`/workspace/conversations/${conversation.id}/messages`, {
+      messageId: randomUUID(),
+      text
+    });
+    await post("/workspace/tools/update_conversation", {
+      id: conversation.id,
+      title: "Tomorrow's discussion",
+      archived: true
+    });
+    const beforeResponse = await fetch(
+      base + `/workspace/conversations/${conversation.id}/events`,
+      { headers }
+    );
+    expect(beforeResponse.status).toBe(200);
+    const before = (await beforeResponse.json()).events;
+    expect(before).toContainEqual(expect.objectContaining({ type: "user", text }));
+    expect(before.some((event: { type: string }) => event.type === "terminal")).toBe(true);
+    await runtime.shutdown();
+    runtime = undefined;
+    runtime = await startServer(0);
+    base = `http://127.0.0.1:${runtime.address.port}`;
+    // The same operator token remains valid against the same saved installation identity.
+    const workspace = await post("/workspace/tools/get_workspace", {});
+    expect(workspace.persistenceEnabled).toBe(true);
+    expect(workspace.conversations).toContainEqual(
+      expect.objectContaining({
+        id: conversation.id,
+        title: "Tomorrow's discussion",
+        archived: true,
+        reopenable: true
+      })
+    );
+    const restoredResponse = await fetch(
+      base + `/workspace/conversations/${conversation.id}/events`,
+      { headers }
+    );
+    expect(restoredResponse.status).toBe(200);
+    expect((await restoredResponse.json()).events).toEqual(before);
+    await post(`/workspace/conversations/${conversation.id}/messages`, {
+      messageId: randomUUID(),
+      text: "Continue this saved discussion"
+    });
+    const continued = await fetch(base + `/workspace/conversations/${conversation.id}/events`, {
+      headers
+    });
+    expect(
+      (await continued.json()).events.filter((event: { type: string }) => event.type === "user")
+    ).toHaveLength(2);
+  } finally {
+    await runtime?.shutdown();
+  }
+}, 60_000);
 afterEach(async () => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();

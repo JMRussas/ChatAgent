@@ -1,5 +1,22 @@
 # ChatAgent — responsive chat and background AI workflows
 
+The home page starts with a Workspace: register existing repositories, browse
+saved conversations and project work, reopen a thread, or open and run a plan.
+Conversations have editable titles, project assignments and an archive control.
+Opening or refreshing records performs no execution. History and navigation
+metadata are saved by default in `data/conversations.json` and
+`data/workspace.json`; `CONVERSATION_STATE_FILE` and `WORKSPACE_STATE_FILE`
+override those locations. `WORKSPACE_ENABLED=false` disables the workspace.
+
+Bind a project to its existing Hekate project in **Project integration** to
+discover its workflows and coding plans. `WORKFLOW_PROJECT_ID` remains an optional
+default binding. Conversation actions use the conversation's assigned project
+unless an explicit project is supplied. Existing Hekate bindings cannot be
+replaced; register another project to keep active work and its history intact.
+The catalog covers registered projects and conversations saved by this app.
+External CLI/IDE histories require an importer or connection. A repository path
+registers a project; coding execution still uses the configured prepared-plan host.
+
 The Plans panel supports opening, creating and editing JSON workflows, running
 them, inspecting step inputs/results, stopping work and supplying human results.
 UI controls, conversation actions and MCP clients use the same application tools.
@@ -9,7 +26,7 @@ completion criteria to a configured native executor. The Plans panel's **New age
 task** form creates that step without editing JSON. Its activity shows actual tool
 calls and results; missing context or tool access pauses for a visible response.
 
-To enable this increment, configure an existing Hekate PlanStore project:
+To enable workflow execution, configure the Hekate PlanStore API and an optional default project:
 
 ```dotenv
 HEKATE_PLAN_API_URL=http://127.0.0.1:5111
@@ -175,7 +192,8 @@ tasks show whether the worker reports an answer or insufficient evidence; older
 results without an answer status show that the outcome is unavailable. The bridge admits up to
 eight scheduled documentation tasks and runs one at a time; foreground chat uses
 its own path. Shared inference scheduling is experimental, not enabled by default.
-Conversation history remains in memory; documentation checkpoints are durable.
+Conversation history is bounded in memory and saved when persistence is enabled;
+documentation checkpoints are independently durable.
 
 ### Development workflow
 
@@ -282,7 +300,7 @@ automatically. Node and Python must run on the same OS.
 
 Further commands and API details: [runtime reference](docs/runtime-reference.md).
 
-Conversation history is process-local and bounded. `CONVERSATION_*` settings in
+Conversation history is bounded and saved by default. `CONVERSATION_*` settings in
 `.env.example` configure history count, idle expiry, event/byte limits and lifetime
 identity capacity; changes require a restart. Expired conversations return 410 and
 require a new conversation ID. Running/queued work protects its history. Expired
