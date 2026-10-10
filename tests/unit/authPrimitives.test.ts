@@ -51,6 +51,11 @@ const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
   ["POST", "/development/plans/00000000-0000-4000-8000-000000000001/dispatch/stop", "operator"],
   ["POST", "/briefings/config/reload", "operator"],
   ["POST", "/roles/config/reload", "operator"],
+  ["GET", "/workflows/tools", "operator"],
+  ["POST", "/workflows/tools/list_plans", "operator"],
+  ["POST", "/mcp", "operator"],
+  ["GET", "/mcp", "operator"],
+  ["DELETE", "/mcp", "operator"],
   ["GET", "/workers/document-tasks/status", "operator"],
   ["POST", "/workers/document-tasks/restart", "operator"],
   ["GET", "/workers/document-tasks/recovery-candidates", "operator"],
@@ -71,9 +76,8 @@ const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
 ];
 
 describe("route policy", () => {
-  it("classifies exactly the 52 inventoried routes, each once", () => {
-    expect(ROUTES).toHaveLength(52);
-    expect(INVENTORY).toHaveLength(52);
+  it("classifies every inventoried route exactly once", () => {
+    expect(INVENTORY).toHaveLength(ROUTES.length);
     const used = new Set<string>();
     for (const [method, path, access] of INVENTORY) {
       const rule = classifyRoute(method, path);
@@ -81,6 +85,7 @@ describe("route policy", () => {
       used.add(rule!.name);
     }
     expect(used.size).toBe(ROUTES.length);
+    expect([...used].sort()).toEqual(ROUTES.map((route) => route.name).sort());
   });
 
   it("decides access by role for every route", () => {

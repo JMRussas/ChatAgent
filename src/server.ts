@@ -1,4 +1,10 @@
 import { rolePlannerEngine } from "./app/rolePlanner";
+import { randomUUID } from "node:crypto";
+import { WorkflowError, type WorkflowToolService } from "./workflows/types";
+import { handleWorkflowMcp } from "./workflows/mcp";
+import { createWorkflowApplication } from "./workflows/application";
+import { workflowModelAction } from "./workflows/modelAction";
+import { ConversationPersistence } from "./app/conversationPersistence";
 import {
   DevCoordinationError,
   fetchCoordinationStatus,
@@ -198,6 +204,9 @@ interface ServerOptions {
   /** Re-reads the configured role catalog; absent when no catalog file is configured. */
   reloadRoles?: () => unknown;
   documentTasks?: DocumentTasks;
+  /** Shared plan/work operations exposed to direct controls, conversation and MCP. */
+  workflowTools?: WorkflowToolService;
+  conversationPersistence?: ConversationPersistence;
   /** Operator status and restart of the document sidecar; absent when it is disabled. */
   documentTaskControl?: DocumentTaskControl;
   // A function, not a static value: discovery observations change over the
@@ -614,7 +623,17 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       streamStallTimeoutMs: options.streamStallTimeoutMs ?? DEFAULT_STREAM_STALL_TIMEOUT_MS
     })
   );
-  const protocolV1 = createProtocolV1Handler(service, eventStreams);
+  const protocolV1 = createProtocolV1Handler(
+    service,
+    eventStreams,
+    options.conversationPersistence
+      ? {
+          bindings: options.conversationPersistence.protocolBindings(),
+          onBindingsChanged: (bindings) =>
+            options.conversationPersistence!.setProtocolBindings(bindings)
+        }
+      : undefined
+  );
   const conversationNotFound = (res: ServerResponse) =>
     json(res, 404, { code: "CONVERSATION_NOT_FOUND", error: "No such conversation" });
   /**
@@ -761,7 +780,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
 
       if (url.pathname.startsWith("/v1/")) {
         // Every /v1 route is a client route, so a principal is present here.
-        if (await protocolV1(req, res, url, parseBody, principal!.principalId)) return;
+        if (await protocolV1(req, res, url, parseBody, principal!)) return;
       } else if (rule?.access === "client") {
         // Legacy client routes take conversation ids from the path or the body; none
         // of them may name a conversation the v1 protocol allocated internally.
@@ -801,6 +820,58 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             ]);
           parseBody = async () => body;
         }
+      }
+
+      if (url.pathname === "/mcp") {
+        if (!options.workflowTools)
+          return json(res, 404, {
+            code: "WORKFLOWS_DISABLED",
+            error: "Workflows are not configured."
+          });
+        if (method !== "POST") {
+          res.setHeader("Allow", "POST");
+          return json(res, 405, { error: "This MCP endpoint accepts POST requests." });
+        }
+        return await handleWorkflowMcp(
+          options.workflowTools,
+          { principal: principal!, operationId: randomUUID() },
+          req,
+          res,
+          await parseBody()
+        );
+      }
+      if (method === "GET" && url.pathname === "/workflows/tools") {
+        if (!options.workflowTools)
+          return json(res, 404, {
+            code: "WORKFLOWS_DISABLED",
+            error: "Workflows are not configured."
+          });
+        return json(res, 200, { tools: options.workflowTools.tools });
+      }
+      const workflowTool = /^\/workflows\/tools\/([a-z][a-z0-9_-]{0,63})$/.exec(url.pathname);
+      if (method === "POST" && workflowTool) {
+        if (!options.workflowTools)
+          return json(res, 404, {
+            code: "WORKFLOWS_DISABLED",
+            error: "Workflows are not configured."
+          });
+        const operation = req.headers["idempotency-key"];
+        if (
+          operation !== undefined &&
+          (typeof operation !== "string" || !/^[0-9a-f-]{36}$/i.test(operation))
+        )
+          return json(res, 400, {
+            code: "INVALID_OPERATION_ID",
+            error: "Operation ID must be a UUID."
+          });
+        return json(
+          res,
+          200,
+          await options.workflowTools.call(workflowTool[1], await parseBody(), {
+            principal: principal!,
+            operationId: operation ?? randomUUID()
+          })
+        );
       }
 
       if (method === "GET" && url.pathname === "/development/executive/overview") {
@@ -916,7 +987,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             planApiUrl !== undefined,
             planApiUrl !== undefined && dispatchHost !== undefined,
             attemptProgress !== undefined,
-            executiveRoots !== undefined
+            executiveRoots !== undefined,
+            options.workflowTools !== undefined
           )
         );
         return;
@@ -1161,6 +1233,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         rejectUnsupportedInputs(raw);
         const body = MessageBodySchema.parse(raw);
         const response = await service.submitMessage({
+          applicationContext: { principal: principal! },
           messageId: body.messageId,
           conversationId: body.conversationId,
           userId: body.userId,
@@ -1705,6 +1778,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         });
       }
 
+      if (error instanceof WorkflowError)
+        return json(res, error.status, { code: error.code, error: error.message });
       if (error instanceof z.ZodError) {
         return json(res, 400, { error: "Invalid request body" });
       }
@@ -1730,7 +1805,9 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       options.documentTasks?.close();
       options.briefings?.close();
     }
-    shutdown ??= options.shutdown?.() ?? Promise.resolve();
+    shutdown ??= Promise.all([options.shutdown?.(), options.workflowTools?.close?.()]).then(() => {
+      options.conversationPersistence?.close();
+    });
     close((error) => {
       void shutdown!.then(
         () => callback?.(error),
@@ -2016,6 +2093,22 @@ export async function startServer(
   });
   const plannerEngine = rolePlannerEngine();
   const roleCatalog = await loadRoleCatalog(process.env.ROLE_CATALOG_PATH);
+  if (process.env.WORKFLOW_PROJECT_ID && !process.env.HEKATE_PLAN_API_URL)
+    throw new Error("WORKFLOW_PROJECT_ID requires HEKATE_PLAN_API_URL.");
+  const workflowTools = process.env.WORKFLOW_PROJECT_ID
+    ? createWorkflowApplication({
+        apiUrl: process.env.HEKATE_PLAN_API_URL!,
+        projectId: process.env.WORKFLOW_PROJECT_ID,
+        runDir: resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs"),
+        endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
+        model: workflowModelAction(
+          providers.fastProvider,
+          contextBudget,
+          trustedFactsProvider,
+          dispatch
+        )
+      })
+    : undefined;
   const orchestrator =
     config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
       ? new ChatOrchestrator(
@@ -2034,7 +2127,10 @@ export async function startServer(
           timeline,
           contextManager,
           trustedFactsProvider,
-          () => briefings?.tools() ?? [],
+          (message) => [
+            ...(briefings?.tools() ?? []),
+            ...(workflowTools?.capabilities(message) ?? [])
+          ],
           dispatch,
           roleCatalog,
           plannerEngine,
@@ -2058,6 +2154,14 @@ export async function startServer(
     adaptiveRouting,
     turnAdmission
   );
+  const conversationPersistence =
+    process.env.CONVERSATION_STATE_FILE || workflowTools
+      ? new ConversationPersistence(
+          resolve(process.env.CONVERSATION_STATE_FILE ?? "data/conversations.json"),
+          timeline,
+          service
+        )
+      : undefined;
 
   const saveTelemetry = () =>
     telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
@@ -2114,6 +2218,8 @@ export async function startServer(
       ? { reloadRoles: () => reloadRoleCatalog(roleCatalog, rolePath) }
       : {}),
     documentTasks,
+    workflowTools,
+    conversationPersistence,
     documentTaskControl: documentTasks,
     planApiUrl: process.env.HEKATE_PLAN_API_URL,
     attemptProgress: process.env.HEKATE_PLAN_API_URL !== undefined,

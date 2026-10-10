@@ -13,6 +13,9 @@ data/latency-telemetry.json
 
 # Local task checkpoints and scope bindings
 data/document-tasks/
+data/workflow-runs/
+data/conversations.json
+data/conversations.json.*
 
 # Local Python environment for the optional documentation worker
 .venv/

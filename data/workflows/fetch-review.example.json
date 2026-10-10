@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "name": "Fetch, summarize and review",
+  "description": "Retrieve a configured report, summarize its contents, and wait for a review decision.",
+  "steps": [
+    {
+      "id": "retrieve",
+      "name": "Retrieve report",
+      "inputs": {},
+      "action": { "type": "tool", "tool": "fetch_report" },
+      "success": { "path": "status", "equals": 200 }
+    },
+    {
+      "id": "summarize",
+      "name": "Summarize report",
+      "inputs": { "report": { "$step": "retrieve", "path": "data" } },
+      "action": {
+        "type": "model",
+        "prompt": "Summarize the supplied report in three short bullets. Use only the report. Identify any missing information rather than guessing."
+      }
+    },
+    {
+      "id": "review",
+      "name": "Review summary",
+      "inputs": { "summary": { "$step": "summarize", "path": "text" } },
+      "action": {
+        "type": "human",
+        "instructions": "Inspect the summary. Submit {\"approved\":true} if it accurately describes the report. Otherwise edit the plan after stopping this run."
+      },
+      "success": { "path": "approved", "equals": true }
+    }
+  ]
+}

@@ -19,7 +19,161 @@ assistant and autonomous execution remain one product goal. Judge orchestration 
 whether it improves reliable task completion and reduces required supervision.
 The sports work remains a demonstration of the general role/tool/evidence runtime.
 
-### Today's execution order (2026-10-10)
+The product's purpose is to make AI work digestible, observable and easy for a
+human to monitor and direct. The normal view should explain the goal, current and
+next task, actual results, blockers and needed decisions. Routine monitoring
+should not require raw logs, internal identifiers or developer narration. Keep the
+execution loop simple and add machinery only for demonstrated needs. Include an
+early human walkthrough of the existing workflow; finishing the suite-wide testing
+cleanup must not become a prerequisite for useful product progress.
+
+### Active delivery plan — shared tools and editable workflows (2026-10-10)
+
+This sequence supersedes treating test-suite reclassification or further checkpoint
+machinery as prerequisites for product delivery. All five increments now have a
+local implementation. Local lint, documentation contracts and all 118 browser
+journeys pass; hosted CI has not yet verified this change.
+
+**Architecture:** UI, model and workflow runner invoke the same registered
+application tools. Each tool declares inputs, outputs and required permissions;
+the shared service validates the caller and performs the operation once. HTTP
+handlers and model adapters translate requests into that service without their own
+task-management logic. Conversation interprets complex intent and explains results;
+direct UI controls operate without a model call.
+
+MCP exposes that same service to compatible AI clients. It is a thin discovery and
+invocation boundary, not another workflow engine. Register useful operations with
+declared inputs, results and errors; an operation may use an API or a CLI underneath.
+Prefer an existing compatible MCP server where it supplies the needed operations.
+The UI and runner call the service directly. The existing restricted Claude chat
+bridge still disables MCP; configuring this new endpoint in a separate native
+Claude client was verified explicitly.
+
+A plan is editable JSON data describing steps and dependencies. A step declares
+inputs, an action, outputs and a completion condition, with optional type-specific
+settings. It may call an API/tool, invoke a model or wait for a human. A particular
+execution records the definition revision, step states and actual results. Human
+and AI executors use the same task lifecycle. Preserve completed history; apply
+edits to future work explicitly rather than silently changing an active action.
+
+| Order | Deliverable                                 | Existing pieces and implementation boundary                                                                                                                                                                                                                                                  | Acceptance                                                                                                                                                                                                                                                               |
+| ----- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Shared plan tools and a clickable plan view | Inspect the existing Hekate plan mutation/read contracts and map them through one application service. Add registered list/get/create/update operations, with input/output validation and caller scope. Reuse the current HTTP/auth and UI composition.                                      | Open a plan from a list, create/edit its steps through direct controls, and reload the saved plan. These operations need no model call or custom preparation script. Conflicting edits return a usable conflict rather than overwriting silently.                        |
+| 2     | Execute one data-defined workflow           | Add a small sequential runner using that service and a registry of actions. First handlers: an existing API/tool operation, a model invocation through an existing provider adapter, and human input. Add run/status/stop/result operations and persist step results.                        | Run API retrieval → model summary → human review. Each step receives the declared inputs, publishes validated outputs and advances only when its completion condition holds. Failure pauses clearly; stop prevents further starts. Human input resumes the waiting step. |
+| 3     | Monitor and operate work directly           | Extend the plan view with current step, relevant activity, inputs/results, blockers and permitted controls. Automatically associate records with the run. Reuse existing status refresh and conversation streaming where appropriate.                                                        | Click Run, inspect outputs, respond to the human step and stop work from the UI. Refresh/reopen restores saved state; an uncertain interrupted action is labelled rather than replayed. Routine use requires no paths, hashes or raw-log inspection.                     |
+| 4     | Let conversation use those same tools       | Extend the capability contract with explicit task actions; its current retrieval mode assumes independent read-only calls. Expose allowed shared tools to the model and return actual operation results. Link conversations to saved plans; retain the history needed to reopen those links. | Ask the model to create a plan, open that plan in the UI, edit it there, and ask the model about the updated version. Both paths see the same state. Continue chatting while work runs. A failed operation is never reported as successful.                              |
+| 5     | Prove reuse and remove displaced setup      | Configure a second ordinary workflow using the delivered actions. Remove superseded per-run preparation and manual record-registration paths from the normal workflow; retain specialized coding checks where their behavior is needed.                                                      | The second workflow requires configuration changes, no runner changes or bespoke launch script. A human can explain its current state, find results and handle a blocker without developer narration.                                                                    |
+
+**Implemented locally:** Hekate owns saved plans and their native task attempts. A
+dedicated child task holds editable workflow JSON; bounded execution artifacts hold
+step state and results. No Hekate schema change or second task database was needed.
+The same authenticated service supports the clickable plan view, conversation
+actions, sequential execution and an official-SDK MCP endpoint. The UI shows the
+goal, steps, current status and readable model results, with raw details expandable.
+Conversation events, ownership and protocol bindings have an atomic single-writer
+snapshot. A native Claude worker implemented the first runner candidate; review and
+tests corrected cancellation, uncertain persistence and Windows rename failures.
+
+**Live evidence:** an authenticated MCP client created and ran plan
+`e5bfd32e-340c-525c-a5ef-42260d11df8d`, execution
+`b68e6eee-4d69-4de8-ba4e-d828a7e6ca02`: configured HTTP retrieval, actual local
+Ollama `qwen3:8b` summary and human review. The HTTP report is a controlled local
+repository-status endpoint, not third-party retrieval. The summary matched the
+supplied report and explicitly retained its verification limitations. An operator
+completed the review through the UI; this was not user acceptance. Native Claude
+Code separately discovered and called `get_plan` and `get_run` through MCP. A
+second API → human workflow was created and started entirely through UI plan JSON,
+without runner changes, and remains waiting for review. Artifacts, failed attempts
+and screenshots are retained outside the repository under
+`D:/hekate-coordinator/runs/shared-workflows-20261010/`.
+
+Actual capability chat with the same local model created saved plan
+`b3b3fac9-678a-56db-aba8-e013c6dbf96b`. A graceful restart restored its five
+conversation events exactly and displayed that plan in the UI. It also reopened
+the second execution `004cfb31-a500-48da-ae71-bb6a03b758fa` at human input with its
+completed API result preserved. The final UI walkthrough confirms collapsed raw
+details, readable results and the completed first plan's refreshed list status.
+The full browser gate passed all 118 journeys.
+
+**Remaining delivery work:** verify hosted CI and reload the preview with the
+readable conversation action results. Final local affected checks pass 139 cases
+across 12 files; lint and documentation contracts also pass. Their actual structured
+results retain the plan/run references needed for follow-up model requests without
+showing internal attempt metadata in normal chat. Broader test-suite cleanup and
+unattended reliability are separate follow-up work. The first full
+Vitest run passed 3,558 tests and exposed three maintained-contract updates: the
+auth route inventory, the enabled workflow route fixture and the coding profile's
+lockfile pin after adding the MCP SDK. All 76 cases in those three affected files
+then passed. Three integration cases also verify shared MCP/UI/chat state, readable
+action results with usable follow-up references, and persistence of those results.
+Three isolated model-action cases cover complete output, truncation refusal and
+discarding a late answer after cancellation. Preserve the initial failed run; do
+not report it as a passing full delivery gate.
+
+Initial tool names are `list_plans`, `get_plan`, `create_plan`, `update_plan`,
+`run_plan`, `get_run`, `stop_run` and `submit_step_result`. Names may follow existing
+repository conventions during implementation. Updates carry an expected revision;
+execution operations identify their run/step and associate results with that
+execution. Model and UI calls carry the same authenticated caller scope. A tool
+definition is executable behavior supplied by the application; plan JSON selects
+and configures it, rather than supplying arbitrary implementation code.
+
+Use the existing authorization, validation, provider cancellation and result
+contracts. Separate ordinary workflow execution from coding-specific worktrees,
+source pins and Prettier/TypeScript/Vitest gates. Those belong to the coding action
+where needed, not every API call or human task. Automatic retries, parallel
+execution, arbitrary branch expressions, a workflow marketplace and autonomous
+crash recovery are later capabilities, added for demonstrated use cases. Initial
+restart behavior preserves records and clearly reports uncertain work.
+
+**Tests for these increments:** validate tool inputs/results and caller access;
+exercise saved plan CRUD/conflicts through the real service; verify sequential
+input/output flow and failure/stop/human-wait behavior with deterministic actions;
+run the direct UI journey and a conversation-to-UI consistency case; then perform
+one real API/model/human workflow. Keep quality judgment separate from execution
+success. Test observable contracts, not source spelling. Use affected checks during
+development and existing required CI at delivery. Broader testing cleanup proceeds
+alongside useful product slices, without becoming a new platform project.
+
+**Completion of the first usable release:** a person can create or discuss a plan,
+open and edit it directly, run mixed kinds of steps, keep conversing, inspect
+results and handle required input from the same application. Durable plan/run state
+must survive reopening. Conversation persistence has deterministic restart coverage;
+the final live walkthrough must also verify restored history. Report limitations
+and failed actions honestly. Initial execution is sequential, edits require stopping
+an active run, and running actions interrupted by a crash are marked uncertain
+rather than replayed. Waiting human input can resume under the retained attempt
+fence. Stale locks require explicit recovery. Configured HTTP actions currently use
+GET; other operations require a registered handler. Conversation snapshots are
+bounded to 16 MiB and support one application writer. The mock chat provider does
+not infer application actions; a configured capability-chat provider is required.
+
+### Supporting work — testing review and simplification
+
+The user requested a
+concrete plan for which tests earn their cost. The
+[active testing plan](implementation/06-verification.md#active-testing-plan--2026-10-10)
+defines test types, current keep/remove/rewrite candidates, execution frequency
+and four ordered cleanup steps. Apply that guidance to the delivery increments
+above. Each step consumes inputs, performs its action, records its result and
+allows subsequent eligible work to proceed; a model call is one action type.
+
+Review findings: the plan-status test has two redundant source-spelling assertions;
+other UI tests assert internal names and emitted syntax; a delivery-specific test
+freezes source hashes; some unit cases allocate real Git fixtures despite mocking
+the coordinator. Mock acceptance and synthetic reports do not establish useful
+model output. These findings are based on configuration, representative tests and
+retained execution evidence, not an assertion-by-assertion audit of the whole suite.
+
+The two redundant plan-status source assertions have been removed; actual request
+behavior coverage remains. Next, resolve the other named low-value checks. Classify
+and expose fast versus integration execution, simplify expensive fixtures, and
+close demonstrated gaps in the simple task loop before a small live usefulness
+check. The broader cleanup and new execution commands remain unimplemented. Current
+Linux/Windows and browser gates remain required during migration; the plan adds
+no scheduler, agent hierarchy or test framework.
+
+### Earlier execution sequence and retained evidence (2026-10-10)
 
 1. Confirm the exact source baseline and its required Linux/Windows CI results.
    Local `main` is clean at `9755b5c` before this planning edit; lint passed today.
@@ -53,7 +207,7 @@ Same-page formatting detail and additional recovery orchestration are deferred
 unless they resolve an observed interruption. CA-ISSUE-004 remains open; this
 reprioritization changes neither execution authority nor delivered capability.
 
-**Current task — automatic overview refresh (2026-10-10):** the local patch adds
+**Delivered task — automatic overview refresh (2026-10-10):** the patch adds
 an unchecked opt-in control, one overview GET at a time, and a ten-second delay
 after settlement. It pauses while hidden or collapsed, stops on errors and scope
 changes, cancels an automatic read when disabled, and resets on reload. Existing
@@ -61,8 +215,9 @@ task expansions remain in place; changed bindings invalidate their evidence.
 Fifteen real Chromium cases pass on Node 24.21.0, including five new automatic
 refresh cases. The full suite passes 3,502 tests across 212 files with one explicit
 skip on Node 24.21.0 (288.13 seconds), plus lint and documentation validation.
-This is a verified local source change; hosted verification of this patch and
-live delivery remain outstanding.
+Source `1e891e1b19f2cf3a78703e87891f6199150f7fed` is pushed to main. Both required
+hosted jobs passed in run `38056833777`; the result is retained in external
+`overview-auto-refresh-20261010/hosted-ci.json`.
 
 The observed product interruption was repeated manual refresh in retained UI
 evidence. The browser exercise now needs one opt-in and zero additional refresh
@@ -75,11 +230,22 @@ Evidence and the initial failed browser trace are external under
 `overview-auto-refresh-20261010`; maintained-interpreter check logs are under
 `cleanup-loop-001/overview-auto-refresh-*-20261010.*`.
 
-The maintained UI/API ports 5133, 5193 and 5100 refused connections during this
-session. Implementation proceeded directly in the repository with the existing
-test workflow; no managed PlanStore task, live model invocation, service restart
-or deployment is claimed. A live workflow run remains outstanding before judging
-end-to-end supervision or deciding whether the scoped mutator is needed.
+After the initial unavailable-service observation, the retained PlanStore API and
+maintained viewer were restored on ports 5111 and 5133 for a bounded live exercise.
+The overview observed task-state changes without manual refresh. This records the
+session's exercise, not a claim that those temporary services are always running.
+
+The selected live task, CA-ISSUE-025, exposed the poor test design: a source-only
+variable rename failed the static assertion while existing request-behavior checks
+still passed. The first model candidate remained brittle and was rejected; a
+second passed the independent semantic controls but added disproportionate test
+machinery. It remains unaccepted and is superseded in the implementation plan by
+the minimal cleanup above. Preserve both attempts and their evidence under
+`overview-auto-refresh-20261010/ca025-live` and `ca025-repair`; do not count this as
+a completed useful task or inherit their model counters for an operator cleanup.
+The live exercise therefore demonstrates automatic status observation and a need
+for better test judgment, not reduced end-to-end operator effort. Active operator
+time remains unmeasured. The scoped mutator remains conditional.
 
 ### Recorded implementation status (through 2026-10-09)
 

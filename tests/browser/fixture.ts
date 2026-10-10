@@ -95,7 +95,8 @@ async function runtime(
   planStatus = false,
   planRunControls = false,
   attemptProgress = false,
-  executiveOverview = false
+  executiveOverview = false,
+  workflows = false
 ) {
   const pending = new Map<string, { emit(text: string): Promise<void>; finish(): void }>();
   const controls: {
@@ -343,6 +344,18 @@ async function runtime(
         }
       : {}),
     ...(planRunControls ? { dispatchHost: inertDispatchHost() } : {}),
+    // Workflow specs route browser tool requests; this service cannot touch storage or execute work.
+    ...(workflows
+      ? {
+          workflowTools: {
+            tools: [],
+            call: async () => {
+              throw new Error("Browser workflow requests must be routed");
+            },
+            close: async () => {}
+          }
+        }
+      : {}),
     // Opt-in progress route and panel; specs stub the browser's requests with page.route and
     // the server's own observer can only reach the never-listening discard port.
     ...(attemptProgress ? { attemptProgress: true } : {}),
@@ -433,6 +446,7 @@ export const test = base.extend<{
   planRunControls: boolean;
   attemptProgress: boolean;
   executiveOverview: boolean;
+  workflows: boolean;
   app: Awaited<ReturnType<typeof runtime>>;
 }>({
   streamCap: [undefined, { option: true }],
@@ -441,6 +455,7 @@ export const test = base.extend<{
   planRunControls: [false, { option: true }],
   attemptProgress: [false, { option: true }],
   executiveOverview: [false, { option: true }],
+  workflows: [false, { option: true }],
   app: async (
     {
       streamCap,
@@ -448,7 +463,8 @@ export const test = base.extend<{
       planStatus,
       planRunControls,
       attemptProgress,
-      executiveOverview
+      executiveOverview,
+      workflows
     },
     use
   ) => {
@@ -458,7 +474,8 @@ export const test = base.extend<{
       planStatus,
       planRunControls,
       attemptProgress,
-      executiveOverview
+      executiveOverview,
+      workflows
     );
     try {
       await use(app);

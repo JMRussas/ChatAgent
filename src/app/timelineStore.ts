@@ -6,6 +6,85 @@ import {
 import { GenerationError } from "../domain/generation";
 import { randomUUID } from "node:crypto";
 import type { ChatTimelineEvent } from "../domain/types";
+import { z } from "zod";
+
+const persistedEventSchema = z
+  .object({
+    type: z.enum(["user", "provisional", "refined", "activity", "delta", "terminal"]),
+    text: z.string(),
+    createdAtIso: z.string().datetime(),
+    eventId: z.string().min(1),
+    sequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    messageId: z.string().min(1).optional(),
+    phase: z.enum(["fast", "deep"]).optional(),
+    attemptId: z.string().optional(),
+    taskId: z.string().optional(),
+    retrying: z.boolean().optional(),
+    finishReason: z.enum(["stop", "length", "cancelled", "error"]).optional(),
+    processingStatus: z
+      .enum(["provisional", "complete", "incomplete", "cancelled", "failed"])
+      .optional(),
+    activity: z
+      .enum(["queued", "thinking", "running", "generating", "retrying", "failed"])
+      .optional(),
+    routeDecision: z.enum(["direct", "deep", "clarify"]).optional(),
+    answerKind: z.enum(["acknowledgment", "substantive"]).optional(),
+    errorCode: z.string().optional(),
+    model: z
+      .object({
+        provider: z.string(),
+        model: z.string(),
+        reasoningEnabled: z.boolean().optional(),
+        bindingId: z.string().optional(),
+        task: z.string().optional(),
+        selection: z.unknown().optional()
+      })
+      .strict()
+      .optional(),
+    answerReferences: z.unknown().optional(),
+    groundedAnswer: z.unknown().optional(),
+    contextBudget: z.unknown().optional(),
+    roleExecution: z.unknown().optional(),
+    payloadResults: z.unknown().optional(),
+    attachedReferences: z.unknown().optional(),
+    selectedContext: z.unknown().optional(),
+    runControls: z.unknown().optional(),
+    capabilityPlan: z.unknown().optional(),
+    applicationResult: z
+      .object({ tool: z.string().min(1).max(500), result: z.unknown() })
+      .strict()
+      .optional(),
+    selections: z.unknown().optional()
+  })
+  .strict();
+export const conversationTimelineSnapshotSchema = z
+  .object({
+    version: z.literal(1),
+    conversations: z.array(
+      z
+        .object({
+          id: z.string().min(1).max(4096),
+          events: z.array(persistedEventSchema),
+          sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+          at: z.number().int().nonnegative().max(8640000000000000),
+          expired: z.boolean(),
+          expiredAt: z.number().int().nonnegative().max(8640000000000000).optional()
+        })
+        .strict()
+    )
+  })
+  .strict();
+export interface ConversationTimelineSnapshot {
+  version: 1;
+  conversations: {
+    id: string;
+    events: ChatTimelineEvent[];
+    sequence: number;
+    at: number;
+    expired: boolean;
+    expiredAt?: number;
+  }[];
+}
 
 export interface ConversationTimelineStore {
   reserveTerminal?(
@@ -89,6 +168,67 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
     }
   >();
   private readonly listeners: ((id: string) => void)[] = [];
+  private persistenceHook?: () => void;
+  /** An authoritative hook: unlike the passive observer, write failures propagate. */
+  setPersistenceHook(hook: (() => void) | undefined) {
+    this.persistenceHook = hook;
+  }
+  exportSnapshot(): ConversationTimelineSnapshot {
+    return {
+      version: 1,
+      conversations: [...this.records].map(([id, record]) => ({
+        id,
+        events: structuredClone(record.events),
+        sequence: record.sequence,
+        at: record.at,
+        expired: record.expired,
+        ...(record.expiredAt === undefined ? {} : { expiredAt: record.expiredAt })
+      }))
+    };
+  }
+  /** Startup only. Leases, terminal reservations and incarnation symbols are process-local. */
+  restoreSnapshot(value: unknown) {
+    const snapshot = conversationTimelineSnapshotSchema.parse(value);
+    const restored = new Map<
+      string,
+      typeof this.records extends Map<string, infer R> ? R : never
+    >();
+    let live = 0;
+    for (const row of snapshot.conversations) {
+      const events = row.events as ChatTimelineEvent[];
+      const sizes = events.map((event) => Buffer.byteLength(JSON.stringify(event)));
+      const bytes = sizes.reduce((sum, size) => sum + size, 0);
+      if (
+        restored.has(row.id) ||
+        events.some((event, index) => event.sequence !== index + 1) ||
+        (row.expired
+          ? events.length > 0 || row.expiredAt === undefined
+          : row.sequence !== events.length || row.expiredAt !== undefined) ||
+        events.length > this.retention.maxEvents * 2 ||
+        bytes > this.retention.maxBytes + this.retention.maxEvents * 1024
+      )
+        throw new Error("CONVERSATION_SNAPSHOT_INVALID");
+      if (!row.expired) live++;
+      restored.set(row.id, {
+        version: Symbol(row.id),
+        events: structuredClone(events),
+        sizes,
+        bytes,
+        sequence: row.sequence,
+        at: row.at,
+        expired: row.expired,
+        expiredAt: row.expiredAt,
+        pins: 0,
+        terminalReservations: 0
+      });
+    }
+    if (restored.size > this.retention.maxIdentities || live > this.retention.maxHistories)
+      throw new Error("CONVERSATION_SNAPSHOT_CAPACITY");
+    if ([...this.records.values()].some((record) => record.pins || record.terminalReservations))
+      throw new Error("CONVERSATION_RESTORE_WHILE_ACTIVE");
+    this.records.clear();
+    for (const [id, record] of restored) this.records.set(id, record);
+  }
   private readonly retention: ConversationRetention;
   constructor(
     private readonly observer?: (conversationId: string, event: ChatTimelineEvent) => void,
@@ -119,6 +259,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
     record.expired = true;
     record.expiredAt = this.clock();
     for (const listener of this.listeners) listener(id);
+    this.persistenceHook?.();
   }
   private prune() {
     for (const [id, r] of this.records) {
@@ -150,7 +291,9 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
   retireConversation(id: string) {
     this.prune();
     if (!this.records.get(id)?.expired) return false;
-    return this.records.delete(id);
+    const removed = this.records.delete(id);
+    if (removed) this.persistenceHook?.();
+    return removed;
   }
   private ensure(id: string) {
     this.assertConversationAvailable(id);
@@ -176,6 +319,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       terminalReservations: 0
     };
     this.records.set(id, record);
+    this.persistenceHook?.();
     return record;
   }
   retainConversation(id: string) {
@@ -186,7 +330,10 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       if (released) return;
       released = true;
       record.pins--;
-      if (!record.pins) record.at = this.clock();
+      if (!record.pins) {
+        record.at = this.clock();
+        this.persistenceHook?.();
+      }
     };
   }
   // Separate bounded emergency budget: at most maxEvents compact terminals,
@@ -219,6 +366,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
       record.sizes.push(size);
       record.bytes += size;
       record.at = this.clock();
+      this.persistenceHook?.();
       try {
         this.observer?.(id, structuredClone(stored));
       } catch {
@@ -256,6 +404,7 @@ export class InMemoryConversationTimelineStore implements ConversationTimelineSt
     record.sizes.push(bytes);
     record.bytes += bytes;
     record.at = this.clock();
+    this.persistenceHook?.();
     try {
       this.observer?.(conversationId, structuredClone(stored));
     } catch {

@@ -4,6 +4,7 @@ import { planStatusPanelHtml, planStatusScript } from "./planStatusPanel";
 import { planRunControlsHtml, planRunControlsScript } from "./planRunControls";
 import { attemptProgressHtml, attemptProgressScript } from "./attemptProgress";
 import { executiveOverviewHtml, executiveOverviewScript } from "./executiveOverview";
+import { workflowPanelHtml, workflowPanelScript } from "./workflowPanel";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -19,7 +20,8 @@ export function renderHomePageHtml(
   planStatus = false,
   planRunControls = false,
   attemptProgress = false,
-  executiveOverview = false
+  executiveOverview = false,
+  workflows = false
 ): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
@@ -412,7 +414,7 @@ export function renderHomePageHtml(
 </head>
 <body>
   <main class="app">
-    <section class="panel chat-shell" aria-label="chat">${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
+    <section class="panel chat-shell" aria-label="chat">${workflows ? `\n      ${workflowPanelHtml()}` : ""}${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
       <header class="panel-header">
         <h1>ChatAgent Fast + Deep Thread</h1>
         <div class="sub">Watch provisional replies upgrade to refined replies as deep processing completes.</div>
@@ -1239,7 +1241,7 @@ export function renderHomePageHtml(
     });
   </script>
 ${documentTasks ? documentTaskScript() : ""}
-${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}
+${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}${workflows ? `\n${workflowPanelScript()}` : ""}
 </body>
 </html>`;
 }

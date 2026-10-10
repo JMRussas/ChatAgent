@@ -1,5 +1,57 @@
 # ChatAgent — responsive chat and background AI workflows
 
+The Plans panel supports opening, creating and editing JSON workflows, running
+them, inspecting step inputs/results, stopping work and supplying human results.
+UI controls, conversation actions and MCP clients use the same application tools.
+Steps may invoke registered tools/APIs, call the configured model or wait for input.
+
+To enable this increment, configure an existing Hekate PlanStore project:
+
+```dotenv
+HEKATE_PLAN_API_URL=http://127.0.0.1:5111
+WORKFLOW_PROJECT_ID=<existing-project-uuid>
+WORKFLOW_RUN_DIR=data/workflow-runs
+WORKFLOW_HTTP_ENDPOINTS_JSON={"fetch_report":"https://your-api.example/report"}
+CONVERSATION_STATE_FILE=data/conversations.json
+```
+
+Copy [the example definition](data/workflows/fetch-review.example.json) into a new
+plan, configure its API endpoint and select a real model through the existing
+provider settings. API actions use operator-configured endpoints; plans do not
+supply arbitrary executable code. Model steps use the existing provider/context
+and resource-admission adapters. Mock provider output remains mock output.
+
+MCP clients connect to this server's `/mcp` endpoint using Streamable HTTP and the
+installation's operator bearer credential. A typical client server entry is:
+
+```json
+{
+  "type": "http",
+  "url": "http://127.0.0.1:3100/mcp",
+  "headers": { "Authorization": "Bearer <operator-token>" }
+}
+```
+
+Keep the actual credential in private client configuration. Discovery lists plan
+and execution tools plus configured API actions. The same tools are available to
+the application's live capability planner; writes use one explicit `act` operation
+per turn, while retrieval remains read-only. Direct controls operate independently
+of inference. The legacy mock chat path does not infer application actions.
+
+Definitions and attempt state live in Hekate. Execution artifacts retain step
+results under `WORKFLOW_RUN_DIR`. Conversation snapshots preserve history,
+ownership, selected scope and protocol identifiers; runtime model processes and
+queues are not replayed after restart. Running work with unconfirmed closure is
+reported as uncertain; retained execution locks require explicit recovery rather
+than automatic takeover. Saved human-input waits can resume when their task/attempt
+still matches. Active definitions require stopping before edits.
+
+Conversation storage currently assumes one application writer and atomically
+rewrites a bounded snapshot on each streaming append. This first implementation
+supports local use; write cost grows with history size. Keep conversation and run
+artifacts outside source history and preserve them during upgrades. The initial
+runner executes sequential steps; parallelism and automatic retries are follow-ups.
+
 ChatAgent explores how an AI assistant can keep a conversation available while
 background agents retrieve evidence and execute bounded work. It combines streaming
 chat, cancellation, context management, and a LangChain documentation agent with
@@ -91,7 +143,16 @@ Conversation history remains in memory; documentation checkpoints are durable.
 
 ### Development workflow
 
-Changes to this repository start with a plan: a lead breaks the work into small tasks, each with frozen acceptance tests. A supervised worker implements one task at a time against those tests, and an independent verifier and a review then accept or reject the result. An accepted result is integrated through a separately reviewed branch. The [development workflow diagrams](docs/development-workflow-uml.md) show the flow, and [how the agents coordinate](docs/agent-bridge-development-workflow.md) describes the bridge. The [plan-node contract with Hekate](docs/implementation/13-hekate-plan-node-integration.md) defines the plan side, and the [read-only check for unanswered assignments](docs/implementation/15-stall-detection.md) covers stalled work.
+Ordinary work uses the Plans panel and shared application tools described above:
+save a definition, run its steps and inspect the recorded results. Coding tasks can
+also use the existing supervised authoring path, with scoped worktrees, explicit
+acceptance checks and independent review. Those coding controls are not required
+for an API call or human step. The [development workflow diagrams](docs/development-workflow-uml.md)
+and [agent coordination guide](docs/agent-bridge-development-workflow.md) describe
+that specialized path. The [plan-node contract with Hekate](docs/implementation/13-hekate-plan-node-integration.md)
+defines its plan integration, and the [read-only check for unanswered assignments](docs/implementation/15-stall-detection.md)
+covers stalled work. Current delivery and testing priorities are maintained in the
+[development roadmap](docs/12-development-roadmap.md).
 
 #### Monitoring a plan
 
