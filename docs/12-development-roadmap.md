@@ -33,8 +33,9 @@ This sequence supersedes treating test-suite reclassification or further checkpo
 machinery as prerequisites for product delivery. All five increments now have a
 local implementation. Local lint, documentation contracts and all 118 browser
 journeys pass. Hosted Linux release/browser checks and Windows tests passed on
-`cafc0a4` in run `38066345632`; the subsequent action-observability fix awaits its
-own hosted checks.
+`cafc0a4` in run `38066345632`. The final runtime change `def7205`, including action
+observability and safe errors, also passed both jobs in
+[run `38067115330`](https://github.com/JMRussas/ChatAgent/actions/runs/38067115330).
 
 **Architecture:** UI, model and workflow runner invoke the same registered
 application tools. Each tool declares inputs, outputs and required permissions;
@@ -97,8 +98,8 @@ completed API result preserved. The final UI walkthrough confirms collapsed raw
 details, readable results and the completed first plan's refreshed list status.
 The full browser gate passed all 118 journeys.
 
-**Remaining delivery work:** verify hosted CI for the action-observability fix.
-The local preview now includes readable action results. Final local affected checks pass 139 cases
+**First increment ready for review:** hosted runtime gates pass, and the local
+preview includes readable action results. Final local affected checks pass 139 cases
 across 12 files; lint and documentation contracts also pass. Their actual structured
 results retain the plan/run references needed for follow-up model requests without
 showing internal attempt metadata in normal chat. Broader test-suite cleanup and
