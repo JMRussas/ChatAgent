@@ -54,17 +54,20 @@ jobs:
       - run: npm run test:browser
   windows-tests:
     runs-on: windows-latest
-    # Advisory until the hosted-runner differences are resolved: the full suite
-    # passes on a maintained Windows workstation with the pinned Node, while the
-    # hosted image fails ACL, loopback-HTTP and process-tree cases. A failure here
-    # is reported in the job log and does not fail the workflow.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
           cache: npm
+      - name: Canonicalize hosted temp directory
+        shell: pwsh
+        run: |
+          $p = node -e "const fs=require('node:fs'),os=require('node:os');console.log(fs.realpathSync.native(os.tmpdir()))"
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($p)) { exit 1 }
+          $p = $p.Trim()
+          "TEMP=$p" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TMP=$p" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - run: npm ci
       - run: npm run diagnose:http
       - run: npm test -- --maxWorkers=2
