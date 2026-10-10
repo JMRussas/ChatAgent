@@ -1,4 +1,10 @@
 import type { Page } from "@playwright/test";
+import { codingDigest, compactDigest, workflowDigest } from "../../src/workspace/workDigest";
+import {
+  workflowDefinitionSchema,
+  type StoredWorkflowPlan,
+  type WorkflowRun
+} from "../../src/workflows/types";
 import { test, expect } from "./fixture";
 
 const FIRST = "11111111-2222-4333-8444-555555555555";
@@ -36,6 +42,76 @@ function conversation(id: string, title: string, projectId: string | null) {
     reopenable: true
   };
 }
+function observedDigest(row: {
+  id: string;
+  projectId: string;
+  name: string;
+  kind: string;
+  status: string;
+  nextStep?: string;
+  prepared?: boolean;
+}) {
+  if (row.kind === "coding")
+    return codingDigest(
+      {
+        id: row.id,
+        name: row.name,
+        kind: "coding",
+        status: "ready",
+        prepared: row.prepared ?? false,
+        nextStep: { id: "check", name: row.nextStep || "Check changes", status: "ready" }
+      },
+      row.projectId
+    );
+  const definition = workflowDefinitionSchema.parse({
+    version: 1,
+    name: row.name,
+    steps: [
+      {
+        id: "review",
+        name: row.nextStep || "Review",
+        action: { type: "human", instructions: "Review the actual report." }
+      }
+    ]
+  });
+  const plan: StoredWorkflowPlan = {
+    id: row.id,
+    ownerId: "fixture-owner",
+    definition,
+    revision: 1,
+    stateRevision: 1,
+    taskId: row.id,
+    work: "todo",
+    attemptId: null,
+    attemptEpoch: 0,
+    artifactRef: null
+  };
+  const run: WorkflowRun | undefined =
+    row.status === "completed"
+      ? {
+          version: 1,
+          id: row.id,
+          planId: row.id,
+          ownerId: plan.ownerId,
+          revision: 1,
+          definition,
+          attemptEpoch: 1,
+          status: "completed",
+          startedAt: "2026-10-10T20:00:00Z",
+          updatedAt: "2026-10-10T20:01:00Z",
+          steps: [
+            {
+              id: "review",
+              name: definition.steps[0].name,
+              status: "completed",
+              endedAt: "2026-10-10T20:01:00Z"
+            }
+          ]
+        }
+      : undefined;
+  return workflowDigest(plan, run, row.projectId);
+}
+
 async function workspace(page: Page, historyDelayMs = 0) {
   const state = {
     projects: [project(FIRST, "First project"), project(SECOND, "Second project")],
@@ -77,8 +153,18 @@ async function workspace(page: Page, historyDelayMs = 0) {
     if (state.fail && name === "get_workspace")
       return route.fulfill({ status: 503, json: { code: "UNAVAILABLE", error: state.fail } });
     let result: unknown;
-    if (name === "get_workspace") result = state;
-    else if (name === "register_project") {
+    if (name === "get_workspace")
+      result = {
+        ...state,
+        work: state.work.map((row) => ({ ...row, digest: compactDigest(observedDigest(row)) }))
+      };
+    else if (name === "get_work_digest") {
+      const row = state.work.find(
+        (row) => row.id === input.id && row.projectId === input.projectId
+      );
+      if (!row) throw new Error("Missing scoped fixture work");
+      result = observedDigest(row);
+    } else if (name === "register_project") {
       const created = { ...project(ROOT, String(input.name)), ...input };
       state.projects.push(created);
       result = created;
@@ -328,16 +414,39 @@ test("opening work selects its plan and explicit Run forwards the project and or
   await page.locator('#projects [data-project="' + FIRST + '"]').click();
   await page.locator("#workspaceActionReopen").click();
   await page.locator("#workflowNew").click();
+  await page.locator("#workflowBuilderName").fill("Review the original project report");
+  const step = page.locator(".workflow-builder-step").first();
+  await step.getByLabel("Step name", { exact: true }).fill("Review original evidence");
+  await step
+    .getByLabel("Instructions", { exact: true })
+    .fill("Check the original project report before responding.");
   await page.locator("#workspaceActionClose").click();
   await page.locator('#projects [data-project="' + SECOND + '"]').click();
   await page.locator("#workspaceActionReopen").click();
-  await expect(page.locator("#workflowSavedState")).toContainText("Draft");
+  await expect(page.locator("#workflowBuilderName")).toHaveValue(
+    "Review the original project report"
+  );
+  await expect(step.getByLabel("Instructions", { exact: true })).toHaveValue(
+    "Check the original project report before responding."
+  );
   await expect(page.locator("#workflowProjectScope")).toContainText("keeps its original project");
-  await page.locator("#workflowSave").click();
-  await expect(page.locator("#workflowSavedState")).toContainText("Saved revision");
+  await page.locator("#workflowBuilderSave").click();
+  await expect.poll(() => seen.filter((entry) => entry.name === "create_plan").length).toBe(1);
   const created = seen.find((entry) => entry.name === "create_plan")!;
   expect(created.input.projectId).toBe(FIRST);
   expect(created.conversation).toBe("saved-first");
+  expect(created.input.definition).toMatchObject({
+    name: "Review the original project report",
+    steps: [
+      {
+        name: "Review original evidence",
+        action: {
+          type: "human",
+          instructions: "Check the original project report before responding."
+        }
+      }
+    ]
+  });
   const runsBeforeHandoff = seen.filter((entry) => entry.name === "run_plan").length;
   await page.evaluate(
     ({ id, projectId }) =>

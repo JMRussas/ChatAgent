@@ -426,7 +426,7 @@ const WORKSPACE_DOCUMENT = String.raw`
       }
       .summary-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
         gap: 13px;
         margin-bottom: 24px;
       }
@@ -582,10 +582,16 @@ const WORKSPACE_DOCUMENT = String.raw`
         margin-bottom: 6px;
       }
       .row-description {
-        color: #8994a5;
+        color: #5f6e84;
         font-size: 11px;
         display: block;
         margin-bottom: 10px;
+      }
+      .row-allocation {
+        display: block;
+        margin: 0 0 8px;
+        font-size: 11px;
+        color: #5f6e84;
       }
       .row-meta {
         display: flex;
@@ -607,7 +613,8 @@ const WORKSPACE_DOCUMENT = String.raw`
         background: #f0f3f8;
         padding: 3px 7px;
         border-radius: 5px;
-        white-space: nowrap;
+        white-space: normal;
+        max-width: 100%;
       }
       .badge:before {
         content: "";
@@ -620,7 +627,8 @@ const WORKSPACE_DOCUMENT = String.raw`
         color: var(--amber);
         background: var(--amber-soft);
       }
-      .badge.running {
+      .badge.running,
+      .badge.in_progress {
         color: #4879c8;
         background: #edf4ff;
       }
@@ -1062,11 +1070,13 @@ const WORKSPACE_DOCUMENT = String.raw`
         flex: 1;
       }
       .plan-chip strong {
+        display: block;
         font-size: 11px;
         margin: 0;
         color: #5c6e8c;
       }
       .plan-chip small {
+        display: block;
         color: #8f9caf;
         font-size: 10px;
       }
@@ -1212,7 +1222,12 @@ const WORKSPACE_DOCUMENT = String.raw`
           grid-template-columns: 1fr;
         }
         .work-list {
-          max-height: 350px;
+          max-height: 60vh;
+        }
+        .work-row.selected {
+          position: sticky;
+          top: 0;
+          z-index: 1;
         }
         .detail-head {
           padding: 20px 23px;
@@ -1315,6 +1330,7 @@ const WORKSPACE_DOCUMENT = String.raw`
           font-size: 10px;
         }
         .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 7px;
         }
         .summary {
@@ -1334,10 +1350,25 @@ const WORKSPACE_DOCUMENT = String.raw`
           font-size: 20px;
         }
         .summary span {
-          font-size: 9px;
+          font-size: 11px;
         }
         .work-row {
           padding: 15px 16px;
+        }
+        .row-description,
+        .row-meta,
+        .badge,
+        .row-time {
+          font-size: 11px;
+        }
+        .now-strip {
+          grid-template-columns: 1fr;
+        }
+        .work-list {
+          scroll-padding: 8px;
+        }
+        .row-time {
+          min-width: 45px;
         }
         .detail-content {
           padding: 17px 19px;
@@ -1356,6 +1387,139 @@ const WORKSPACE_DOCUMENT = String.raw`
         }
       }
 
+      .now-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--line);
+      }
+      .now-cell {
+        min-width: 0;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .now-cell > strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+      }
+      .now-cell p {
+        margin: 5px 0 0;
+        overflow-wrap: anywhere;
+      }
+      .evidence-link {
+        margin-top: 6px;
+        text-align: left;
+        padding: 0;
+        color: var(--blue);
+        background: none;
+        font-size: 10px;
+        overflow-wrap: anywhere;
+      }
+      .decision-card {
+        margin: 14px 0;
+        padding: 14px;
+        border: 1px solid #ecdab3;
+        border-radius: 9px;
+        background: #fffaf0;
+      }
+      .decision-card h3 {
+        margin: 0 0 8px;
+        font-size: 13px;
+      }
+      .decision-prompt {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 150px;
+        overflow: auto;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .decision-card .button {
+        margin-top: 12px;
+      }
+      .decision-history {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+      .decision-history li {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      .decision-history p {
+        margin: 6px 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .decision-history time {
+        color: #64748b;
+        font-size: 11px;
+      }
+      .row-time {
+        align-self: center;
+        margin-left: auto;
+        white-space: nowrap;
+        color: #64748b;
+        font-size: 10px;
+      }
+      .row-time.historical {
+        white-space: normal;
+        max-width: 7rem;
+        text-align: right;
+      }
+      .badge.attention {
+        background: #fff0ec;
+        color: #ac3d2c;
+      }
+      .summary.attention .summary-icon {
+        background: #fff0ec;
+        color: #ac3d2c;
+      }
+      .updated-label {
+        font-size: 10px;
+        color: #64748b;
+        max-width: 165px;
+      }
+      #conversationLinkedWork {
+        padding: 12px 18px 0;
+        display: grid;
+        gap: 8px;
+      }
+      #conversationLinkedWork:empty {
+        display: none;
+      }
+      @media (max-width: 650px) {
+        .now-strip {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        .now-cell > strong {
+          margin-bottom: 2px;
+        }
+        .now-cell p {
+          margin-top: 3px;
+        }
+        .decision-card {
+          margin: 12px;
+        }
+        .row-description,
+        .row-meta,
+        .badge,
+        .row-time {
+          font-size: 11px;
+        }
+      }
       .header-actions {
         display: flex;
         gap: 8px;
@@ -1389,7 +1553,244 @@ const WORKSPACE_DOCUMENT = String.raw`
       #workspaceActionBody {
         padding: 15px 20px;
       }
-      #workspaceActionBody #workflowList { max-height: 9rem; overflow: auto; }
+      #workspaceActionBody #workflowList {
+        max-height: 9rem;
+        overflow: auto;
+      }
+      #workspaceActionDialog.response-dialog {
+        width: min(640px, calc(100% - 24px));
+      }
+      #workspaceActionDialog.response-dialog > header {
+        padding: 14px 18px;
+      }
+      #workspaceActionDialog.response-dialog #workspaceActionBody {
+        padding: 14px 18px;
+      }
+      #workflowRespond {
+        min-width: 0;
+      }
+      #workflowRespondContext {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 12px;
+      }
+      #workflowRespond h3,
+      #workflowAgentRequestPrompt {
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.5;
+        margin: 0 0 14px;
+        max-height: 140px;
+        overflow: auto;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      #workflowRespond fieldset {
+        border: 0;
+        padding: 0;
+        margin: 0 0 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+      }
+      #workflowRespond legend {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      #workflowRespond fieldset label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: 13px;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+      #workflowRespond fieldset input {
+        width: auto;
+        margin: 0;
+      }
+      #workflowRespond textarea {
+        width: 100%;
+        min-height: 96px;
+        height: 110px;
+        margin: 6px 0 12px;
+        resize: vertical;
+      }
+      #workflowRespond #workflowHumanRule,
+      #workflowRespondStatus {
+        font-size: 12px;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      #workflowRespondStatus:empty {
+        display: none;
+      }
+      #workflowRespondEvidence {
+        margin: 16px 0 10px;
+        font-size: 12px;
+      }
+      #workflowRespondAdvanced {
+        font-size: 12px;
+        background: transparent;
+        color: var(--blue);
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      #workflowHumanFormatHelp {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      #workflowHumanAdvanced {
+        margin: 10px 0;
+        font-size: 12px;
+      }
+      #workflowHumanAdvanced > label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 10px 0;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+      #workflowHumanAdvanced input {
+        width: auto;
+        margin: 0;
+      }
+      #workspaceActionDialog.response-dialog #workflowHumanSubmit {
+        position: sticky;
+        bottom: 8px;
+        z-index: 1;
+      }
+      #workflowHumanSubmit,
+      #workflowAgentRespond {
+        display: block;
+        background: var(--accent);
+        color: white;
+      }
+      #workflowBuilder {
+        min-width: 0;
+      }
+      #workflowBuilder > h3 {
+        font-family: inherit;
+      }
+      #workflowBuilder input:not([type="checkbox"]),
+      #workflowBuilder textarea,
+      #workflowBuilder select {
+        width: 100%;
+        min-width: 0;
+      }
+      #workflowBuilder > label,
+      .workflow-builder-step > label {
+        display: block;
+        margin-top: 12px;
+      }
+      .workflow-builder-step {
+        padding: 16px;
+        margin: 18px 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        min-width: 0;
+      }
+      .workflow-builder-step h4 {
+        font-family: inherit;
+        margin: 0 0 12px;
+      }
+      .workflow-builder-step small,
+      .workflow-builder-step p {
+        font-size: 12px;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      .workflow-builder-step small {
+        display: block;
+        margin: 5px 0 12px;
+      }
+      .workflow-builder-step details {
+        margin: 12px 0;
+      }
+      .workflow-builder-step fieldset label,
+      .workflow-builder-step [data-field="previousGroup"] label,
+      .workflow-builder-step [data-field="approvalGroup"] label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+      .workflow-builder-step input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+      }
+      .workflow-builder-step pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 16rem;
+        overflow: auto;
+      }
+      .workflow-builder-order {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      #workflowBuilderAdvanced {
+        background: transparent;
+        color: var(--blue);
+        border: 1px solid var(--line);
+        box-shadow: none;
+      }
+      .recorded-review {
+        margin: 14px 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #f8faff;
+        min-width: 0;
+      }
+      .recorded-review h4 {
+        font-family: inherit;
+        margin: 0 0 6px;
+        font-size: 13px;
+      }
+      .recorded-review > p,
+      #workflowHumanScope {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .recorded-review-values {
+        max-height: 9rem;
+        overflow: auto;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        font-size: 13px;
+      }
+      .recorded-review-values section + section {
+        margin-top: 12px;
+      }
+      .recorded-review-values p {
+        margin: 4px 0 8px;
+      }
+      .recorded-review-values strong {
+        font-size: 12px;
+      }
+      .recorded-review details {
+        font-size: 12px;
+        margin-top: 8px;
+      }
+      #workflowBuilderSave {
+        background: var(--accent);
+        color: white;
+        margin: 12px 0;
+      }
       #workspaceActionStatus {
         font-size: 12px;
         color: #8a641d;
@@ -1474,8 +1875,8 @@ const WORKSPACE_DOCUMENT = String.raw`
       .legacy-controls-scope .composer textarea {
         min-height: 70px;
       }
-      .legacy-controls-scope .thread .turn {
-        opacity: 1 !important;
+      .legacy-controls-scope .bubble {
+        animation: none;
       }
       .legacy-controls-scope .bubble {
         max-width: 100%;
@@ -1587,7 +1988,7 @@ const WORKSPACE_DOCUMENT = String.raw`
           <div>
             <span class="preview-tag"><span class="dot"></span>Live workspace</span>
             <p class="sidebar-note" style="margin-top:9px">
-              Your projects, conversations<br />and work in one place.
+              <span id="workspacePersistence">Reading storage status…</span>
             </p>
           </div>
           <div class="account">
@@ -1626,19 +2027,13 @@ const WORKSPACE_DOCUMENT = String.raw`
               ><button class="button" id="shellNewAgentTask">Agent task</button
               ><button class="button primary" id="shellNewWorkflow">New workflow</button
               ><button class="button" id="refresh">
-                <svg><use href="#i-clock" /></svg>Refresh
-              </button>
+                <svg><use href="#i-clock" /></svg>Refresh</button
+              ><span class="updated-label" id="loadStatus" role="status">Reading workspace…</span>
             </div>
           </div>
           <p id="workspaceActionStatus" role="status" hidden></p>
           <button class="button" id="workspaceActionReopen" hidden>Resume open controls</button>
-          <div
-            id="loadStatus"
-            role="status"
-            style="font-size:11px;color:#8390a5;margin-bottom:14px"
-          >
-            Reading your workspace…
-          </div>
+
           <div
             id="loadErrors"
             role="alert"
@@ -1681,16 +2076,35 @@ const WORKSPACE_DOCUMENT = String.raw`
                   <svg><use href="#i-alert" /></svg>
                 </div>
                 <div><strong id="needsCount">—</strong><span>Needs you</span></div></button
-              ><button class="summary" data-status="running" aria-label="Filter running work">
+              ><button
+                class="summary"
+                data-status="in_progress"
+                aria-label="Filter work in progress"
+              >
                 <div class="summary-icon">
                   <svg><use href="#i-clock" /></svg>
                 </div>
-                <div><strong id="runningCount">—</strong><span>Running</span></div></button
+                <div>
+                  <strong id="inProgressCount">—</strong><span>In progress</span
+                  ><span id="progressBreakdown"></span>
+                </div></button
               ><button class="summary ready" data-status="ready" aria-label="Filter ready work">
                 <div class="summary-icon">
                   <svg><use href="#i-play" /></svg>
                 </div>
                 <div><strong id="readyCount">—</strong><span>Ready to start</span></div>
+              </button>
+              <button
+                class="summary attention"
+                data-status="attention"
+                id="attentionCard"
+                hidden
+                aria-label="Filter work needing attention"
+              >
+                <div class="summary-icon">
+                  <svg><use href="#i-alert" /></svg>
+                </div>
+                <div><strong id="attentionCount">—</strong><span>Needs attention</span></div>
               </button>
             </div>
             <div class="workspace-grid">
@@ -1700,10 +2114,11 @@ const WORKSPACE_DOCUMENT = String.raw`
                   <small id="visibleCount">Loading…</small>
                 </div>
                 <div class="list-filters">
-                  <button class="filter selected" data-status="outstanding">Outstanding</button
+                  <button class="filter selected" data-status="outstanding">Outstanding <span id="outstandingCount">—</span></button
                   ><button class="filter" data-status="needs">Needs you</button
-                  ><button class="filter" data-status="running">Running</button
+                  ><button class="filter" data-status="in_progress">In progress</button
                   ><button class="filter" data-status="ready">Ready</button
+                  ><button class="filter" data-status="attention">Attention</button
                   ><button class="filter" data-status="completed">Completed</button
                   ><button class="filter" data-status="all">All</button>
                 </div>
@@ -1783,22 +2198,24 @@ const WORKSPACE_DOCUMENT = String.raw`
           historyCache = new Map(),
           requests = new Set();
         const labels = {
+          needs_decision: "Needs your decision",
+          needs_attention: "Needs attention",
           waiting_input: "Needs your input",
-          uncertain: "Outcome uncertain",
+          uncertain: "Outcome unknown",
           failed: "Failed",
           stopped: "Stopped",
-          unavailable: "Unavailable",
+          unavailable: "Could not be read",
           invalid: "Needs attention",
           awaiting_review: "Needs review",
-          needs_attention: "Needs attention",
           ready: "Ready to start",
           todo: "Ready to start",
           pending: "Not started",
           blocked: "Blocked",
           stuck: "Needs attention",
           running: "Running",
-          in_progress: "Running",
-          active: "Allocated",
+          in_progress: "In progress",
+          allocated: "Allocated, not confirmed running",
+          active: "Allocated, not confirmed running",
           completed: "Completed",
           complete: "Completed",
           done: "Completed",
@@ -1809,25 +2226,83 @@ const WORKSPACE_DOCUMENT = String.raw`
         function stateLabel(value) {
           return labels[value] || String(value || "Unknown").replace(/_/g, " ");
         }
-        function bucket(value) {
-          if (["completed", "complete", "done", "accepted", "cancelled"].includes(value))
-            return "completed";
-          if (value === "active") return "allocated";
-          if (["running", "in_progress"].includes(value)) return "running";
-          if (["ready", "todo", "pending"].includes(value)) return "ready";
-          return "needs";
-        }
-        function badge(item) {
+        function digestOf(item) {
           return (
-            '<span class="badge ' +
-            bucket(item.status) +
-            '">' +
-            escape(stateLabel(item.status)) +
-            "</span>"
+            item.digest || {
+              state: "needs_attention",
+              stateText: item.error || "Work summary could not be read.",
+              errors: [item.error || "Work summary unavailable."],
+              next: null,
+              decision: null,
+              progress: null,
+              verification: null,
+              lastOutcome: null,
+              run: null
+            }
           );
         }
+        function bucket(value) {
+          if (value === "completed") return "completed";
+          if (value === "cancelled") return "cancelled";
+          if (value === "needs_decision") return "needs";
+          if (["running", "allocated"].includes(value)) return "in_progress";
+          if (value === "ready") return "ready";
+          return "attention";
+        }
+        function badge(item) {
+          const state = item.digest ? item.digest.state : item.status;
+          return '<span class="badge ' + bucket(state) + '">' + escape(stateLabel(state)) + "</span>";
+        }
+        function localTime(value) {
+          return value && Number.isFinite(Date.parse(value))
+            ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "time not recorded";
+        }
+        function relativeTime(value) {
+          if (!value || !Number.isFinite(Date.parse(value))) return "Time unavailable";
+          const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 60000));
+          return minutes < 1
+            ? "Just now"
+            : minutes < 60
+              ? minutes + " min ago"
+              : minutes < 1440
+                ? Math.floor(minutes / 60) + " h ago"
+                : Math.floor(minutes / 1440) + " d ago";
+        }
+        function rowSummary(digest) {
+          if (digest.state === "needs_decision")
+            return digest.decision?.prompt?.slice(0, 80) || digest.stateText;
+          if (digest.state === "completed")
+            return digest.lastOutcome
+              ? "Done " + localTime(digest.lastOutcome.at) + " · " + digest.lastOutcome.name
+              : digest.stateText;
+          if (digest.state === "needs_attention")
+            return digest.stateText + (digest.errors?.length ? " " + digest.errors[0] : "");
+          if (digest.state === "allocated" || digest.run?.current === false)
+            return (
+              digest.stateText +
+              (digest.next ? " Next: " + digest.next.name + " · " + digest.next.actor : "")
+            );
+          return digest.next ? "Next: " + digest.next.name + " · " + digest.next.actor : digest.stateText;
+        }
+        function conversationState(item) {
+          return item.status === "running"
+            ? "Reply in progress"
+            : item.status === "expired"
+              ? "Expired"
+              : item.status === "needs_attention"
+                ? "Needs attention"
+                : "Idle";
+        }
         function projectName(id) {
-          return snapshot?.projects.find((entry) => entry.id === id)?.name || "General";
+          if (!id) return "General";
+          const recorded = snapshot?.projects.find((entry) => entry.id === id);
+          return recorded?.name || (snapshot ? "Project unavailable" : "Project details loading");
+        }
+        function codingStateLabel(value) {
+          return ["in_progress", "active"].includes(value)
+            ? "Allocated, running unknown"
+            : stateLabel(value);
         }
         async function read(path, input) {
           const controller = new AbortController();
@@ -1877,8 +2352,8 @@ const WORKSPACE_DOCUMENT = String.raw`
             (item) =>
               (status === "all" ||
                 (status === "outstanding"
-                  ? bucket(item.status) !== "completed"
-                  : bucket(item.status) === status)) &&
+                  ? !["completed", "cancelled"].includes(bucket(digestOf(item).state))
+                  : bucket(digestOf(item).state) === status)) &&
               (item.name + " " + projectName(item.projectId) + " " + (item.nextStep || ""))
                 .toLowerCase()
                 .includes(query)
@@ -1926,13 +2401,21 @@ const WORKSPACE_DOCUMENT = String.raw`
           $("breadcrumbProject").textContent = project === "all" ? "All projects" : projectName(project);
         }
         function renderCounts() {
-          ["needs", "running", "ready"].forEach(
-            (value) =>
-              ($(value + "Count").textContent = scopedWork().filter(
-                (item) => bucket(item.status) === value
-              ).length)
-          );
-          $("workCount").textContent = scopedWork().length;
+          const work = scopedWork(),
+            count = (state) => work.filter((item) => digestOf(item).state === state).length;
+          $("outstandingCount").textContent = work.filter(
+            (item) => !["completed", "cancelled"].includes(digestOf(item).state)
+          ).length;
+          $("needsCount").textContent = count("needs_decision");
+          const running = count("running"),
+            allocated = count("allocated");
+          $("inProgressCount").textContent = running + allocated;
+          $("progressBreakdown").textContent = running + " recorded running · allocation unconfirmed";
+          $("readyCount").textContent = count("ready");
+          const attention = work.filter((item) => bucket(digestOf(item).state) === "attention").length;
+          $("attentionCount").textContent = attention;
+          $("attentionCard").hidden = attention === 0;
+          $("workCount").textContent = work.length;
           $("conversationCount").textContent = visibleConversations().length;
           document
             .querySelectorAll("[data-status]")
@@ -1943,8 +2426,9 @@ const WORKSPACE_DOCUMENT = String.raw`
           $("visibleCount").textContent = items.length + " " + (items.length === 1 ? "item" : "items");
           $("workList").innerHTML = items.length
             ? items
-                .map(
-                  (item) =>
+                .map((item) => {
+                  const digest = digestOf(item);
+                  return (
                     '<button class="work-row ' +
                     (item.id === selected ? "selected" : "") +
                     '" data-work="' +
@@ -1952,25 +2436,45 @@ const WORKSPACE_DOCUMENT = String.raw`
                     '" aria-pressed="' +
                     (item.id === selected) +
                     '"><span class="work-icon">' +
-                    icon(bucket(item.status) === "completed" ? "check" : "work") +
+                    icon(digest.state === "completed" ? "check" : "work") +
                     '</span><span class="row-body"><span class="row-title">' +
                     escape(item.name) +
                     '</span><span class="row-description">' +
+                    escape(rowSummary(digest)) +
+                    "</span>" +
+                    (digest.alsoAllocated > 0
+                      ? '<span class="row-allocation">Also allocated: ' +
+                        digest.alsoAllocated +
+                        (digest.alsoAllocated === 1 ? " item" : " items") +
+                        " · running is not confirmed</span>"
+                      : "") +
+                    '<span class="row-meta">' +
+                    badge({ digest }) +
+                    (project === "all"
+                      ? '<span class="project-label">' + escape(projectName(item.projectId)) + "</span>"
+                      : "") +
+                    '</span></span><time class="row-time' +
+                    (digest.run?.current === false ? " historical" : "") +
+                    '" title="' +
                     escape(
-                      item.nextStep
-                        ? "Next: " + item.nextStep
-                        : item.kind === "coding"
-                          ? "Recorded coding plan"
-                          : "Saved workflow"
+                      digest.run?.current === false
+                        ? digest.run.updatedAt || "Historical run time unavailable"
+                        : digest.run?.updatedAt || digest.lastOutcome?.at || "No timestamp recorded"
                     ) +
-                    '</span><span class="row-meta">' +
-                    badge(item) +
-                    '<span class="project-label">' +
-                    escape(projectName(item.projectId)) +
-                    "</span></span></span>" +
+                    '">' +
+                    (digest.run?.current === false ? "Last run (historical): " : "") +
+                    escape(
+                      relativeTime(
+                        digest.run?.current === false
+                          ? digest.run.updatedAt
+                          : digest.run?.updatedAt || digest.lastOutcome?.at
+                      )
+                    ) +
+                    "</time>" +
                     icon("arrow").replace("<svg ", '<svg class="row-arrow" ') +
                     "</button>"
-                )
+                  );
+                })
                 .join("")
             : '<p class="empty">No recorded work matches this selection.</p>';
           $("workList")
@@ -1982,16 +2486,166 @@ const WORKSPACE_DOCUMENT = String.raw`
                 detailTab = "plan";
                 renderList();
                 loadDetail();
-                if (innerWidth < 980) $("detail").scrollIntoView({ block: "start" });
+                if (innerWidth < 980)
+                  $("workList")
+                    .querySelector('[aria-pressed="true"]')
+                    ?.scrollIntoView({ block: "nearest" });
               })
             );
-          const focused = $("workList").querySelector('[aria-pressed="true"]');
-          if (focused)
-            $("workList").scrollTop = Math.max(0, focused.offsetTop - $("workList").clientHeight / 3);
+          pinSelectedWork();
+        }
+        function pinSelectedWork(scrollPage = false) {
+          if (view !== "work") return;
+          const list = $("workList"),
+            row = list.querySelector('[aria-pressed="true"]');
+          if (!row || !list.clientHeight) return;
+          const box = list.getBoundingClientRect(),
+            rect = row.getBoundingClientRect();
+          const top = box.top + list.clientTop,
+            bottom = top + list.clientHeight;
+          if (rect.top < top) list.scrollTop += rect.top - top;
+          else if (rect.bottom > bottom) list.scrollTop += rect.bottom - bottom;
+          if (scrollPage && innerWidth < 980 && !dialog.open) row.scrollIntoView({ block: "nearest" });
+        }
+        function detailDigest(item) {
+          return loadedDetail?.digest || digestOf(item);
+        }
+        function verificationText(digest) {
+          if (digest.verification?.by === "hekate_accepted")
+            return "Leaf accepted in Hekate · task not verified";
+          if (digest.approval) return "Approval recorded · task not verified";
+          return "Not verified";
+        }
+        function decisionEvidence(item, digest) {
+          if (item.kind !== "workflow" || !digest.decision) return "";
+          const record = loadedDetail;
+          if (record?.runError)
+            return (
+              '<p role="status">Recorded execution could not be read: ' + escape(record.runError) + "</p>"
+            );
+          if (!record) return "<p>Recorded input and results are loading.</p>";
+          if (!record.run || !record.plan)
+            return "<p>No execution record is available for this decision. Refresh before responding.</p>";
+          if (record.run.revision !== record.plan.revision || record.run.id !== digest.run?.id)
+            return "<p>Current execution evidence is unavailable. Refresh before responding.</p>";
+          const render = $("workflowPanel")?.renderRecordedEvidence;
+          return typeof render === "function"
+            ? render(record.run, digest.decision.stepId).outerHTML
+            : "<p>Open the configured workflow controls to inspect the recorded values.</p>";
+        }
+        function attentionInstruction(digest) {
+          if (digest.run?.status === "uncertain")
+            return "Inspect the recorded outcome and any external effects before starting a new run.";
+          if (digest.run?.status === "stopped") return "Review the stopped run and its partial results.";
+          if (digest.run?.status === "failed") return "Review the failure and any recorded results.";
+          return "Review the recorded problem and available evidence before starting work.";
+        }
+        function attentionAction(digest) {
+          return digest.run?.status === "uncertain"
+            ? "Review uncertain outcome"
+            : digest.run?.status === "stopped"
+              ? "Review partial results"
+              : digest.run?.status === "failed"
+                ? "Review failure"
+                : "Review recorded problem";
+        }
+        function nowHtml(item) {
+          const digest = detailDigest(item),
+            next =
+              digest.state === "needs_attention"
+                ? attentionInstruction(digest)
+                : digest.decision
+                  ? "Your decision: " + (digest.next?.name || digest.decision.stepId)
+                  : digest.state === "completed"
+                    ? "Nothing, completed " + localTime(digest.lastOutcome?.at)
+                    : digest.next
+                      ? (digest.state === "running" ? "Waiting for " : "Next: ") +
+                        digest.next.actor +
+                        " · " +
+                        digest.next.name
+                      : digest.stateText;
+          const evidence = digest.run
+            ? '<button class="evidence-link" data-open-evidence title="' +
+              escape(digest.run.id) +
+              '">Evidence: run ' +
+              escape(digest.run.id.slice(0, 8)) +
+              ", revision " +
+              escape(digest.run.revision) +
+              (digest.run.current === false ? " · historical" : "") +
+              "</button>"
+            : '<button class="evidence-link" data-open-evidence title="' +
+              escape(item.id) +
+              '">Evidence: plan ' +
+              escape(item.id.slice(0, 8)) +
+              (digest.revision == null
+                ? ", revision unavailable"
+                : ", revision " + escape(digest.revision)) +
+              "</button>";
+          return (
+            '<section class="now-strip" aria-label="Current work summary"><div class="now-cell"><strong>Status</strong>' +
+            badge({ digest }) +
+            "<p>" +
+            escape(digest.stateText) +
+            "</p>" +
+            (digest.errors?.length ? '<p role="status">' + escape(digest.errors.join(" ")) + "</p>" : "") +
+            (digest.progress
+              ? "<p>" +
+                digest.progress.done +
+                " of " +
+                digest.progress.total +
+                (item.kind === "coding" ? " items accepted" : " steps complete") +
+                "</p>"
+              : "") +
+            evidence +
+            '</div><div class="now-cell"><strong>Next action</strong><p>' +
+            escape(next) +
+            "</p>" +
+            (digest.lastOutcome
+              ? "<p>" +
+                (digest.run?.current === false ? "Historical last outcome: " : "Last outcome: ") +
+                escape(digest.lastOutcome.name) +
+                " · " +
+                escape(digest.lastOutcome.summary) +
+                " · " +
+                escape(localTime(digest.lastOutcome.at)) +
+                "</p>"
+              : "") +
+            '</div><div class="now-cell"><strong>Verification</strong><p>' +
+            escape(verificationText(digest)) +
+            "</p>" +
+            (digest.verification?.by === "hekate_accepted"
+              ? '<button class="evidence-link" data-open-evidence>Acceptance evidence: ' +
+                escape(digest.verification.ref) +
+                "</button>"
+              : digest.approval
+                ? '<button class="evidence-link" data-open-evidence>Approval evidence: ' +
+                  escape(digest.approval.ref) +
+                  "</button>"
+                : "") +
+            "</div></section>" +
+            (digest.decision
+              ? '<section class="decision-card" aria-label="Pending decision"><h3>Your decision</h3><div class="decision-prompt">' +
+                escape(digest.decision.prompt) +
+                "</div>" +
+                (digest.decision.tool
+                  ? "<p>Requested tool: " + escape(digest.decision.tool) + "</p>"
+                  : "") +
+                decisionEvidence(item, digest) +
+                '<button class="button primary" id="respondDecision">' +
+                (item.kind === "coding" ? "Review details" : "Respond") +
+                "</button>" +
+                (item.kind === "coding"
+                  ? "<p>Submit approval in the coding coordinator. These controls show recorded details.</p>"
+                  : "") +
+                "</section>"
+              : "")
+          );
         }
         function detailShell(item, body, footer = true) {
           const description =
+            loadedDetail?.digest?.goal ||
             loadedDetail?.plan?.definition.description ||
+            digestOf(item).goal ||
             (item.kind === "coding"
               ? "Recorded coding plan. Inspect its saved state and use the prepared host controls when available."
               : "Goal and step details are recorded in the saved plan.");
@@ -2002,11 +2656,7 @@ const WORKSPACE_DOCUMENT = String.raw`
             " / " +
             (item.kind === "coding" ? "Coding plan" : "Workflow") +
             "</span>" +
-            badge(
-              loadedDetail?.run && loadedDetail.run.revision === loadedDetail.plan?.revision
-                ? { status: loadedDetail.run.status }
-                : item
-            ) +
+            badge({ digest: detailDigest(item) }) +
             "</div><h2>" +
             escape(item.name) +
             '</h2><p class="goal">' +
@@ -2020,19 +2670,27 @@ const WORKSPACE_DOCUMENT = String.raw`
             '" data-detail-tab="activity" role="tab" aria-selected="' +
             (detailTab === "activity") +
             '">Activity</button></div><div class="detail-content">' +
+            nowHtml(item) +
             body +
             "</div>" +
             (footer
-              ? '<footer class="detail-footer"><small>Recorded work</small><button class="button primary" id="openCurrent">' +
-                icon(item.status === "waiting_input" ? "check" : "arrow") +
-                (item.status === "waiting_input"
-                  ? "Review result"
-                  : bucket(item.status) === "ready"
-                    ? "Inspect plan"
-                    : bucket(item.status) === "completed"
-                      ? "Open result"
-                      : "Open work") +
-                "</button></footer>"
+              ? '<footer class="detail-footer"><small>' +
+                (detailDigest(item).state === "needs_attention"
+                  ? item.kind === "workflow"
+                    ? "New runs start from the first step."
+                    : "Recorded plan details"
+                  : detailDigest(item).state === "needs_decision"
+                    ? "Advanced plan controls"
+                    : "Plan controls") +
+                '</small><button class="button" id="openCurrent">' +
+                (detailDigest(item).state === "needs_attention"
+                  ? attentionAction(detailDigest(item))
+                  : "Open controls") +
+                "</button>" +
+                (item.kind === "workflow" && detailDigest(item).state === "ready"
+                  ? '<button class="button primary" id="runCurrent">Run plan</button>'
+                  : "") +
+                "</footer>"
               : "")
           );
         }
@@ -2054,15 +2712,15 @@ const WORKSPACE_DOCUMENT = String.raw`
               })
             );
           if ($("openCurrent")) $("openCurrent").addEventListener("click", () => openCurrent(item));
-          if (item.kind === "workflow" && bucket(item.status) === "ready") {
-            const button = document.createElement("button");
-            button.id = "runCurrent";
-            button.className = "button primary";
-            button.textContent = "Run plan";
-            button.addEventListener("click", () => openCurrent(item, true));
-            $("openCurrent").classList.remove("primary");
-            $("detail").querySelector(".detail-footer").append(button);
-          }
+          ["respondDecision", "respondCurrent"].forEach((id) => {
+            if ($(id))
+              $(id).addEventListener("click", () => openCurrent(item, false, item.kind === "workflow"));
+          });
+          if ($("runCurrent")) $("runCurrent").addEventListener("click", () => openCurrent(item, true));
+          setActionButtons();
+          $("detail")
+            .querySelectorAll("[data-open-evidence]")
+            .forEach((button) => button.addEventListener("click", () => openCurrent(item)));
         }
         function compact(value) {
           if (value === undefined || value === null) return "No value recorded";
@@ -2139,6 +2797,10 @@ const WORKSPACE_DOCUMENT = String.raw`
           try {
             let record = detailCache.get(item.projectId + ":" + item.id);
             if (!record) {
+              const digest = await read("/workspace/tools/get_work_digest", {
+                id: item.id,
+                projectId: item.projectId
+              });
               if (item.kind === "workflow") {
                 const plan = await read("/workflows/tools/get_plan", {
                   id: item.id,
@@ -2156,12 +2818,27 @@ const WORKSPACE_DOCUMENT = String.raw`
                   } catch (error) {
                     runError = error.message;
                   }
-                record = { plan, run, runError };
+                record = { plan, run, runError, digest };
+                const changedRun =
+                  !runError && (digest.run?.id !== run?.id || digest.run?.status !== run?.status);
+                if (digest.revision !== plan.revision || changedRun)
+                  record.digest = {
+                    ...digest,
+                    state: "needs_attention",
+                    stateText:
+                      "The work summary and saved execution changed during this read. Refresh to load a consistent view.",
+                    next: null,
+                    decision: null,
+                    progress: null,
+                    lastOutcome: null,
+                    approval: null,
+                    verification: null
+                  };
               } else {
                 const coding = await read(
                   "/development/plans/" + encodeURIComponent(item.id) + "/status"
                 );
-                record = { coding };
+                record = { coding, digest };
               }
               detailCache.set(item.projectId + ":" + item.id, record);
             }
@@ -2213,7 +2890,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                       "<small>" +
                       escape(leaf.scope || "No scope recorded") +
                       '</small></span><span class="step-right">' +
-                      escape(stateLabel(leaf.state)) +
+                      escape(codingStateLabel(leaf.state)) +
                       "</span></div>"
                   )
                   .join("") +
@@ -2265,7 +2942,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                   text:
                     step.error ||
                     (step.output === undefined ? "No output recorded." : "Output saved with this step."),
-                  at: step.finishedAt || step.startedAt
+                  at: step.endedAt || step.startedAt
                 });
             }
             body = events.length
@@ -2279,7 +2956,11 @@ const WORKSPACE_DOCUMENT = String.raw`
                       escape(event.text) +
                       "</p>" +
                       (event.at
-                        ? "<time>" + escape(new Date(event.at).toLocaleString()) + "</time>"
+                        ? '<time datetime="' +
+                          escape(event.at) +
+                          '">' +
+                          escape(new Date(event.at).toLocaleString()) +
+                          "</time>"
                         : "") +
                       "</div></li>"
                   )
@@ -2328,6 +3009,39 @@ const WORKSPACE_DOCUMENT = String.raw`
                 })
                 .join("") +
               "</div>";
+            const decisions = (run?.steps || []).filter(
+              (step) =>
+                step.status === "completed" &&
+                steps.find((definition) => definition.id === step.id)?.action.type === "human"
+            );
+            if (decisions.length)
+              body +=
+                '<section aria-label="Recorded decisions"><div class="section-heading"><h3>Decisions</h3></div><ul class="decision-history">' +
+                decisions
+                  .map(
+                    (step) =>
+                      "<li><strong>" +
+                      escape(step.name) +
+                      " · " +
+                      (step.output?.approved === true
+                        ? "Approved"
+                        : step.output?.approved === false
+                          ? "Not approved"
+                          : "Decision recorded") +
+                      "</strong>" +
+                      (typeof step.output?.note === "string"
+                        ? "<p>" + escape(step.output.note) + "</p>"
+                        : "") +
+                      '<time datetime="' +
+                      escape(step.endedAt || "") +
+                      '">' +
+                      escape(
+                        step.endedAt ? new Date(step.endedAt).toLocaleString() : "Time not recorded"
+                      ) +
+                      "</time></li>"
+                  )
+                  .join("") +
+                "</ul></section>";
             const input = execution?.inputs ?? definition.inputs;
             body +=
               '<div class="io-grid"><div class="io"><div class="eyebrow">Input</div><p>' +
@@ -2341,8 +3055,14 @@ const WORKSPACE_DOCUMENT = String.raw`
               "</p></div></div>";
             body +=
               '<div class="result-card"><div class="result-title">' +
+              (definition.action.type === "tool"
+                ? "Returned data"
+                : definition.action.type === "human"
+                  ? "Decision"
+                  : "Recorded output") +
+              "<span>" +
               escape(definition.name) +
-              "<span>Recorded result</span></div>";
+              "</span></div>";
             if (definition.action.type === "human")
               body += "<p>" + escape(definition.action.instructions) + "</p>";
             body += resultHtml(execution?.output);
@@ -2436,7 +3156,7 @@ const WORKSPACE_DOCUMENT = String.raw`
             new CustomEvent("workspace-open-conversation", { detail: { conversationId: item.id } })
           );
         }
-        function openCurrent(item, run = false) {
+        function openCurrent(item, run = false, respond = false) {
           if (!item) return;
           return action(async () => {
             if (item.kind === "workflow") {
@@ -2462,18 +3182,44 @@ const WORKSPACE_DOCUMENT = String.raw`
                     )
                 );
               }
-              showAction(item.name, [$("workflowPanel")]);
+              if (respond) {
+                const opened = await outcome(
+                  "workspace-plan-opened",
+                  (event) =>
+                    event.detail?.id === item.id &&
+                    (event.detail.projectId || null) === (item.projectId || null),
+                  () =>
+                    window.dispatchEvent(
+                      new CustomEvent("workspace-open-plan", {
+                        detail: { id: item.id, projectId: item.projectId, respond: true }
+                      })
+                    )
+                );
+                if (!opened.opened) throw new Error(opened.error || "This plan could not be opened.");
+                const section = $("workflowRespond");
+                if (
+                  section.hidden ||
+                  section.dataset.planId !== item.id ||
+                  section.dataset.projectId !== (item.projectId || "")
+                )
+                  throw new Error(
+                    "This execution is no longer waiting for a response. Open its controls to inspect the saved state."
+                  );
+                showAction("Respond · " + section.dataset.stepName, [section]);
+              } else {
+                showAction(item.name, [$("workflowPanel")]);
+                window.dispatchEvent(
+                  new CustomEvent("workspace-open-plan", {
+                    detail: { id: item.id, projectId: item.projectId, run: run === true }
+                  })
+                );
+              }
               if (item.conversationId && !linkedConversation?.reopenable)
                 feedback(
                   linkedConversation
                     ? "The originating conversation cannot be continued. This plan's controls remain available independently."
                     : "The originating conversation is not available in this view. This plan's controls remain available independently."
                 );
-              window.dispatchEvent(
-                new CustomEvent("workspace-open-plan", {
-                  detail: { id: item.id, projectId: item.projectId, run: run === true }
-                })
-              );
             } else {
               const root = $("planRoot");
               if (!root) {
@@ -2512,7 +3258,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                     "</p><span>" +
                     escape(projectName(item.projectId)) +
                     " · " +
-                    escape(stateLabel(item.status)) +
+                    escape(conversationState(item)) +
                     "</span></button>"
                 )
                 .join("")
@@ -2596,7 +3342,9 @@ const WORKSPACE_DOCUMENT = String.raw`
               icon("folder") +
               escape(projectName(item.projectId)) +
               "</span>" +
-              badge(item) +
+              '<span class="badge">' +
+              escape(conversationState(item)) +
+              "</span>" +
               "</div><h2>" +
               escape(item.title) +
               "</h2><p>Actual saved history · " +
@@ -2715,13 +3463,23 @@ const WORKSPACE_DOCUMENT = String.raw`
               return;
             }
             snapshot = result;
+            if (pendingCreatedPlanId && snapshot.work.some((item) => item.id === pendingCreatedPlanId)) {
+              selected = pendingCreatedPlanId;
+              pendingCreatedPlanId = null;
+              chosenStep = null;
+              detailTab = "plan";
+              status = "outstanding";
+            }
             loadedScope = scope;
             detailCache.clear();
             historyCache.clear();
             $("loadStatus").textContent =
-              "Workspace updated " +
+              "Updated " +
               new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
               (snapshot.truncated ? " · More work exists. Choose a project to narrow the view." : "");
+            $("workspacePersistence").textContent = snapshot.persistenceEnabled
+              ? "Workspace saved on this host."
+              : "Workspace storage is temporary on this host.";
             const errors = (snapshot.errors || []).map(
               (item) => projectName(item.projectId) + ": " + item.message
             );
@@ -2808,6 +3566,23 @@ const WORKSPACE_DOCUMENT = String.raw`
           if (chat && chat.parentElement !== legacyHolder) legacyHolder.append(chat);
           $("conversationDetail").classList.remove("legacy-controls-scope");
         }
+        function linkedWorkHtml(conversationId) {
+          return (snapshot?.work || [])
+            .filter((row) => row.conversationId === conversationId)
+            .map(
+              (row) =>
+                '<div class="plan-chip">' +
+                icon("work") +
+                '<span class="chip-text"><strong>' +
+                escape(row.name) +
+                "</strong><small>" +
+                escape(stateLabel(digestOf(row).state)) +
+                '</small></span><button class="button" data-live-plan="' +
+                escape(row.id) +
+                '">Open plan</button></div>'
+            )
+            .join("");
+        }
         function mountChat() {
           if (!chat || !activeConversationId) return;
           ++conversationVersion;
@@ -2820,35 +3595,64 @@ const WORKSPACE_DOCUMENT = String.raw`
             target.replaceChildren(chat);
             target.classList.add("legacy-controls-scope");
           }
+          let links = $("conversationLinkedWork");
+          if (!links) {
+            links = document.createElement("div");
+            links.id = "conversationLinkedWork";
+            chat.insertBefore(links, $("thread"));
+          }
+          links.innerHTML = linkedWorkHtml(activeConversationId);
+          links
+            .querySelectorAll("[data-live-plan]")
+            .forEach((button) =>
+              button.addEventListener("click", () =>
+                openCurrent(snapshot?.work.find((row) => row.id === button.dataset.livePlan))
+              )
+            );
           chat.hidden = false;
         }
-        function showAction(title, elements) {
-          for (const child of Array.from(actionBody.children)) {
+        let pendingCreatedPlanId = null;
+        const actionHomes = new Map();
+        let actionElements = [],
+          actionTitle = "";
+        function restoreAction() {
+          for (const child of actionElements.slice().reverse()) {
             if (child.tagName === "DETAILS") child.open = false;
-            legacyHolder.append(child);
+            const home = actionHomes.get(child);
+            if (home)
+              home.parent.insertBefore(child, home.next?.parentNode === home.parent ? home.next : null);
           }
+          if ($("workflowPanel")) $("workflowPanel").open = false;
+        }
+        function showAction(title, elements) {
+          restoreAction();
+          actionElements = elements.filter(Boolean);
+          actionTitle = title;
           $("workspaceActionTitle").textContent = title;
-          elements.filter(Boolean).forEach((element) => {
+          dialog.classList.toggle("response-dialog", actionElements.includes($("workflowRespond")));
+          actionElements.forEach((element) => {
+            if (!actionHomes.has(element))
+              actionHomes.set(element, { parent: element.parentNode, next: element.nextSibling });
             actionBody.append(element);
             element.hidden = false;
             if (element.tagName === "DETAILS") element.open = true;
           });
-          hasOpenControls = elements.some(Boolean);
+          if (actionElements.includes($("workflowRespond"))) $("workflowPanel").open = true;
+          hasOpenControls = actionElements.length > 0;
           $("workspaceActionReopen").hidden = true;
           if (!dialog.open) dialog.showModal();
         }
         $("workspaceActionClose").addEventListener("click", () => dialog.close());
         dialog.addEventListener("close", () => {
-          for (const child of actionBody.children) if (child.tagName === "DETAILS") child.open = false;
+          restoreAction();
           $("workspaceActionReopen").hidden = !hasOpenControls;
           loadWorkspace();
         });
         $("workspaceActionReopen").addEventListener("click", () => {
-          if (hasOpenControls) {
-            for (const child of actionBody.children) if (child.tagName === "DETAILS") child.open = true;
-            dialog.showModal();
-            $("workspaceActionReopen").hidden = true;
-          }
+          if (hasOpenControls) showAction(actionTitle, actionElements);
+        });
+        $("workflowRespondAdvanced")?.addEventListener("click", () => {
+          showAction($("workflowTitle").textContent || "Workflow controls", [$("workflowPanel")]);
         });
         function requestProject(id) {
           window.dispatchEvent(
@@ -2863,7 +3667,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               if (!matches(event)) return;
               clearTimeout(timer);
               window.removeEventListener(type, listener);
-              resolve();
+              resolve(event.detail);
             };
             const timer = setTimeout(() => {
               window.removeEventListener(type, listener);
@@ -2897,6 +3701,13 @@ const WORKSPACE_DOCUMENT = String.raw`
           } catch (error) {
             feedback(error.message);
           } finally {
+            const panel = $("workflowPanel");
+            if (
+              panel &&
+              (!dialog.open ||
+                (!actionBody.contains(panel) && !actionBody.contains($("workflowRespond"))))
+            )
+              panel.open = false;
             actionBusy = false;
             setActionButtons();
           }
@@ -2912,7 +3723,9 @@ const WORKSPACE_DOCUMENT = String.raw`
             "shellToolsActivity",
             "openCurrent",
             "runCurrent",
-            "continueConversation"
+            "continueConversation",
+            "respondCurrent",
+            "respondDecision"
           ].forEach((id) => {
             if ($(id)) $(id).disabled = actionBusy;
           });
@@ -2956,7 +3769,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               return;
             }
             await waitFor(() => !button.disabled);
-            showAction(agent ? "New agent task" : "New workflow", [panel]);
+            if (agent) showAction("New agent task", [panel]);
             button.click();
           });
         }
@@ -2991,19 +3804,79 @@ const WORKSPACE_DOCUMENT = String.raw`
           mountChat();
           loadWorkspace();
         });
+        window.addEventListener("workspace-new-workflow-form", (event) => {
+          showAction("New workflow" + (event.detail?.projectId ? " · " + projectName(event.detail.projectId) : ""), [$("workflowBuilder")]);
+        });
+        window.addEventListener("workspace-workflow-advanced", () => {
+          showAction("Advanced plan JSON", [$("workflowPanel")]);
+        });
         window.addEventListener("workspace-open-plan", (event) => {
-          if (!event.detail?.id) return;
+          if (!event.detail?.id || event.detail.respond) return;
           const item = snapshot?.work.find((entry) => entry.id === event.detail.id);
           showAction(item?.name || "Workflow controls", [$("workflowPanel")]);
         });
-        window.addEventListener("workspace-work-changed", () => loadWorkspace());
+        window.addEventListener("workspace-work-changed", (event) => {
+          if (event.detail?.createdPlanId) {
+            pendingCreatedPlanId = event.detail.createdPlanId;
+            query = "";
+            $("search").value = "";
+            hasOpenControls = false;
+            if (dialog.open) dialog.close();
+            setView("work");
+            feedback("Plan saved. Review it and click Run when ready.");
+          }
+          const response = $("workflowRespond");
+          if (
+            event.detail?.responseSaved &&
+            dialog.open &&
+            actionBody.contains(response) &&
+            response.dataset.runId === event.detail.runId
+          ) {
+            hasOpenControls = false;
+            dialog.close();
+            feedback("Answer saved.");
+          }
+          loadWorkspace();
+        });
         const workspaceNote = $("workspaceNote");
         if (workspaceNote)
-          new MutationObserver(() => feedback(workspaceNote.textContent)).observe(workspaceNote, {
+          new MutationObserver(() => {
+            const note = workspaceNote.textContent || "";
+            const storage = [
+              "Workspace saved on this host.",
+              "Workspace storage is temporary on this host."
+            ].find((prefix) => note.startsWith(prefix));
+            if (storage) {
+              $("workspacePersistence").textContent = storage;
+              feedback(note.slice(storage.length).trim());
+              return;
+            }
+            feedback(workspaceNote.textContent);
+          }).observe(workspaceNote, {
             childList: true,
             subtree: true,
             characterData: true
           });
+        let selectionFrame = 0,
+          scrollSelectedPage = false;
+        function scheduleSelectionPin(scrollPage) {
+          scrollSelectedPage ||= scrollPage;
+          if (selectionFrame) return;
+          selectionFrame = requestAnimationFrame(() => {
+            selectionFrame = 0;
+            pinSelectedWork(scrollSelectedPage);
+            scrollSelectedPage = false;
+          });
+        }
+        window.addEventListener("resize", () => scheduleSelectionPin(true));
+        const selectionResizeObserver = new ResizeObserver(() => scheduleSelectionPin(false));
+        selectionResizeObserver.observe($("workList"));
+        window.addEventListener("pagehide", () => {
+          selectionResizeObserver.disconnect();
+          cancelAnimationFrame(selectionFrame);
+          selectionFrame = 0;
+          scrollSelectedPage = false;
+        });
         setActionButtons();
         loadWorkspace();
       })();

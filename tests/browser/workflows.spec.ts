@@ -147,6 +147,7 @@ test.describe("workflow controls", () => {
     await app.pair(page);
     await expect(page.locator("#workflowNote")).toHaveText("Choose a saved plan or create one.");
     await page.getByRole("button", { name: "New plan", exact: true }).click();
+    await page.getByRole("button", { name: "Advanced: edit plan JSON", exact: true }).click();
     await page.getByLabel("Plan definition (JSON)").fill(JSON.stringify(definition));
     await expect(page.getByRole("button", { name: "Run saved plan" })).toBeDisabled();
     await page.getByRole("button", { name: "Save plan" }).click();
@@ -214,6 +215,7 @@ test.describe("workflow controls", () => {
       .locator("#workflowSteps")
       .evaluate((element) => ({ content: element.scrollWidth, box: element.clientWidth }));
     expect(width.content).toBeLessThanOrEqual(width.box + 2);
+    await page.getByText("Recorded steps and outputs", { exact: true }).click();
     await page
       .locator('#workflowSteps [data-step="summary"]')
       .getByText("Output details", { exact: true })
@@ -221,8 +223,10 @@ test.describe("workflow controls", () => {
     await expect(page.locator("#workflowHumanInstructions")).toHaveText(
       definition.steps[0].action.type === "human" ? definition.steps[0].action.instructions : ""
     );
+    await page.locator("#workflowHumanAdvanced > summary").click();
+    await page.getByRole("radio", { name: "Raw JSON", exact: true }).check();
     await page.getByLabel("Step result (JSON)").fill('{"approved":true}');
-    await page.getByRole("button", { name: "Submit result" }).click();
+    await page.getByRole("button", { name: "Submit answer" }).click();
     await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", "completed");
     await expect(page.locator('#workflowSteps [data-step="review"] > p')).toHaveText("Approved");
     await expect(page.locator("#workflowList")).toContainText("Completed");
@@ -301,8 +305,10 @@ test.describe("workflow controls", () => {
     await page.locator("#workflowList").getByRole("button", { name: hostile }).click();
     await page.getByRole("button", { name: "Run saved plan" }).click();
     await expect(page.locator("#workflowHumanInstructions")).toHaveText(hostile);
+    await page.locator("#workflowHumanAdvanced > summary").click();
+    await page.getByRole("radio", { name: "Raw JSON", exact: true }).check();
     await page.getByLabel("Step result (JSON)").fill(JSON.stringify({ text: hostile }));
-    await page.getByRole("button", { name: "Submit result" }).click();
+    await page.getByRole("button", { name: "Submit answer" }).click();
     await expect(page.locator("#workflowSteps")).toContainText("workflowPwned");
     expect(
       await page.evaluate(() => (window as unknown as { __workflowPwned?: number }).__workflowPwned)
@@ -448,13 +454,16 @@ test.describe("workflow controls", () => {
       );
       await expect(page.locator("#workflowHumanForm")).toBeHidden();
       await page.clock.install();
-      await page.getByLabel("Additional context", { exact: true }).fill("Use this week's report.");
+      await page
+        .locator("#workflowAgentRequestForm")
+        .getByLabel("Your answer", { exact: true })
+        .fill("Use this week's report.");
       await page.clock.fastForward(2000);
       await expect(page.locator("#workflowNote")).toHaveText("Execution state refreshed.");
-      await expect(page.getByLabel("Additional context", { exact: true })).toHaveValue(
-        "Use this week's report."
-      );
-      await page.getByRole("button", { name: "Provide context", exact: true }).click();
+      await expect(
+        page.locator("#workflowAgentRequestForm").getByLabel("Your answer", { exact: true })
+      ).toHaveValue("Use this week's report.");
+      await page.getByRole("button", { name: "Send context", exact: true }).click();
       await expect(page.locator("#workflowAgentRequestPrompt")).toContainText(
         "May I save the summary?"
       );
@@ -491,4 +500,69 @@ test.describe("workflow controls", () => {
       );
     });
   }
+});
+
+test.describe("step creation", () => {
+  test.use({ workflows: true });
+  test("agent assignment and reordering retain task choices while deriving unique bounded step ids", async ({
+    page,
+    app
+  }) => {
+    const stub = await tools(page, []);
+    await app.pair(page);
+    await page.locator("#workflowNew").click();
+    await page.locator("#workflowBuilderName").fill("Investigate and review");
+    const rows = page.locator(".workflow-builder-step");
+    const longName = "1 Investigate " + "x".repeat(170);
+    await rows.nth(0).getByLabel("Step name", { exact: true }).fill(longName);
+    await rows.nth(0).getByLabel("Who does it", { exact: true }).selectOption("agent:claude");
+    await rows
+      .nth(0)
+      .getByLabel("Objective", { exact: true })
+      .fill("Investigate the recorded evidence.");
+    await rows.nth(0).getByText("Agent details", { exact: true }).click();
+    await rows
+      .nth(0)
+      .getByLabel("Completion criteria (one per line)", { exact: true })
+      .fill("Describe the source\nState the limits");
+    await rows.nth(0).getByLabel("fetch_json — Retrieve JSON", { exact: true }).check();
+    await page.locator("#workflowBuilderAdd").click();
+    await rows.nth(1).getByLabel("Step name", { exact: true }).fill(longName);
+    await rows.nth(1).getByLabel("Instructions", { exact: true }).fill("Review the source.");
+    const before = JSON.parse(
+      (await page.locator("#workflowBuilderPreview").textContent()) || "null"
+    ) as WorkflowDefinition;
+    expect(before.steps[0].id).toMatch(/^[a-z][a-z0-9_-]{0,63}$/);
+    expect(before.steps[0].id).toHaveLength(64);
+    expect(before.steps[1].id.endsWith("-2")).toBe(true);
+    expect(before.steps[1].id).toHaveLength(64);
+    await rows.nth(1).getByRole("button", { name: "Move up", exact: true }).click();
+    await expect(rows.nth(0).getByLabel("Who does it", { exact: true })).toHaveValue("human");
+    await expect(rows.nth(1).getByLabel("Who does it", { exact: true })).toHaveValue(
+      "agent:claude"
+    );
+    await expect(
+      rows.nth(1).getByLabel("Completion criteria (one per line)", { exact: true })
+    ).toHaveValue("Describe the source\nState the limits");
+    await rows.nth(1).getByRole("button", { name: "Move up", exact: true }).click();
+    await page.locator("#workflowBuilderSave").click();
+    await expect(page.locator("#workflowSavedState")).toHaveText("Saved revision 1.");
+    const created = stub.seen.find((call) => call.name === "create_plan")!.input
+      .definition as WorkflowDefinition;
+    expect(created.steps).toEqual(before.steps);
+    expect(created.steps[0].action).toMatchObject({
+      type: "agent",
+      executor: "claude",
+      task: {
+        tools: ["fetch_json"],
+        completionCriteria: ["Describe the source", "State the limits"],
+        limits: { maxTurns: 12 }
+      }
+    });
+    expect(created.steps[0].timeoutMs).toBe(300000);
+    expect(created.steps[1].inputs).toEqual({
+      [created.steps[0].id]: { $step: created.steps[0].id }
+    });
+    expect(stub.seen.some((call) => call.name === "run_plan")).toBe(false);
+  });
 });
