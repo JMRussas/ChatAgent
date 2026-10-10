@@ -26,7 +26,7 @@ report not implemented. This is an offline milestone, not completion of spec 05.
 
 ## Checks
 
-`tests/unit/cliRunner.test.ts`: 18 tests cover hostile stdin, byte-chunk parsing,
+`tests/integration/cliRunner.test.ts`: 18 tests cover hostile stdin, byte-chunk parsing,
 diagnostic exclusion, distinct failure codes, pool contention, readiness denial,
 quota wait/cancellation, child/grandchild cleanup, working-directory confinement,
 explicit registry wiring and queued activity. Fixture executable is Node-only and
