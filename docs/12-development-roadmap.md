@@ -20,6 +20,43 @@ remains a deliberate demonstration of the general role/tool/evidence runtime.
 
 ### Current assessment and next execution gate (2026-10-09)
 
+**Latest checkpoint loop (2026-10-09):** the bounded targeted-start queue is
+implemented and independently verified against source `de518fc`
+([document 26](implementation/26-persistent-checkpoint-queue.md)). It keeps future
+nodes TODO, starts only the next pinned task, runs the existing finite continuation,
+waits for exact external acceptance, then advances within its fixed lifetime and
+aggregate budgets. A real retained-store two-task proof completed in one invocation:
+each task has exactly one start, finish and acceptance event; A's acceptance precedes
+B's start. Both real restricted Claude workers produced independently checked toy
+artifacts. This proves queue sequencing, not arbitrary feature correctness.
+
+The original queue candidate `13598a9` is rejected and preserved. CA-ISSUE-048's
+five gaps are repaired at `a1e6c2`, followed by separate formatting commit `de518fc`.
+Six regression assertions fail against the original production source. Final checks
+pass **3,413 tests**, ten explicit skips, lint and documentation validation. Original
+model attempts and failed gates remain unchanged; operator finalization uses a new
+attempt with no inherited model counters. Lead review, exact finalization receipts,
+checks and paired inline review evidence are external under `cleanup-loop-001`;
+the live proof is `queue-live-001/reviewed-proof.json`.
+
+**Next checkpoint:** freeze and deliver scoped formatting before checkpoint finish
+(real task `2c9aa7ef-c42a-5927-9212-24edb08ed585`): preserve the raw functional commit, run pinned
+Prettier only on declared supported files, commit any formatting separately, then
+finish once against the final source and run unchanged external checks. This avoids
+the two observed operator recoveries caused by a restricted worker's inability to
+run the formatter. Do not add automatic semantic acceptance or merge authority.
+After this gate, prepare independently based useful backlog tasks for bounded queue
+execution. Code-dependent tasks need explicit baseline integration between queues.
+CA-ISSUE-004 remains open for wake, delivered notifications and unattended recovery;
+the queue is a bounded operator invocation, not a continuously running manager.
+
+Repository cleanup preserved all unfinished local Hekate bytes and retired only
+archived/reviewed bridge branches. Hekate now reports public in GitHub through an
+external visibility change; this loop did not publish it. Historical bearer
+provenance and the human visibility decision remain unresolved. Audit work is
+reported separately from release clearance; no history rewrite or live key operation
+has been performed.
+
 **All seven original application tasks are accepted and their exact artifacts are
 integrated.** The final task `21dcea12-cb65-54cf-8581-e2f896490139` is accepted at
 attempt epoch 4, content revision 3, attempt `pilot-11c9f94a6bef-r1`, artifact
@@ -406,7 +443,7 @@ paired UI proof are retained under `checkpoint-continuation-live-001`. Evidence 
 `checkpoint-continuation-repair-001`.
 
 The runtime budget monitor continued independently until the model worker ended;
-independent lead gates still determine acceptance. Persistent queue advancement,
+independent lead gates still determine acceptance. Bounded queue advancement is now verified above;
 AI wake and unattended supervision remain unfinished (CA-ISSUE-004). Evidence is retained at
 `checkpoint-recovery-next-001/reviewed-bundle.json`, `active-ui-proof.json` and
 `active-state-proof.json`. This builds on the read-only recovery assessment and
@@ -417,8 +454,8 @@ remains open. Do not claim a stored local handoff is a delivered human notificat
 The retained database currently has one finite API-only LocalStore owner for
 supervised tasks, with a four-hour bound and no native dispatch or model execution.
 The prior API owner shut down cleanly before replacement. The latest same-store
-renewal is `checkpoint-queue-api-owner-001`, retaining project/database identities;
-its predecessor is `executive-api-owner-001`. API liveness does not mean a worker
+renewal is `cleanup-loop-001`, retaining project/database identities;
+its predecessor shut down before the current owner started. API liveness does not mean a worker
 is running. The previous native
 backlog dispatcher exited on `inflight`; its conservative blocked-state relaunch
 fence remains intact. Runtime ownership is separate from active task execution.

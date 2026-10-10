@@ -92,7 +92,7 @@ Initial issue baseline: ChatAgent `7ba66ef`, the accepted delivery validator
 | CA-ISSUE-044 | Checkpoint ledger deadline and ownership publication gates are incomplete | defect | acceptance blocker | closed | codex-chatagent / operator repair |
 | CA-ISSUE-046 | Continuation authority and publication checks are incomplete | defect | acceptance blocker | closed | Hermes / scoped repair |
 | CA-ISSUE-047 | Phase visibility fixtures and contract claims fail independent gates | defect | acceptance blocker | closed | codex-chatagent / operator repair |
-| CA-ISSUE-048 | Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps | defect | acceptance blocker | in review / open | Hermes / scoped repair |
+| CA-ISSUE-048 | Bounded checkpoint queue candidate cannot complete and has admission, review, slot and stop gaps | defect | acceptance blocker | closed / verified scoped repair | Hermes / lead verification |
 
 ### CA-ISSUE-001 — Detached buffer escapes the delivery validator as a TypeError
 
@@ -1546,14 +1546,20 @@ CA-ISSUE-004 unattended supervision is separate and remains open.
   never grant acceptance; refuse a fresh start when the runner claim lease exists
   without removing it; recheck stop, wall and signal after preflight and before the
   intent. No atomic filesystem-to-HTTP guarantee is claimed for the stop boundary.
-- **Owner / real task:** Hermes repair under the real Hekate repair task named in the
-  coordinator's instruction for this checkpoint; its identifier is recorded by the
-  coordinator, not restated here.
-- **Evidence:** the rejected candidate's raw gate (Prettier failure, TypeScript pass,
-  Vitest 29 passed / 4 failed) is retained unchanged, with its counters.
-- **Status:** in review / open. The repair source and regressions exist in this
-  worktree but are not accepted. Pending external gates: independent Prettier,
-  TypeScript and focused Vitest, old-candidate negative regressions, the full suite,
-  independent source review and a retained-store live proof. The coordinator closes
-  this issue only after those pass. CA-ISSUE-004 (independent wake, delivery,
-  unattended recovery) is separate and remains open.
+- **Owner / real task:** Hermes repair `6001b7b8-2556-51a7-96eb-b05f5d0cf70d`,
+  with independent Codex source review and operator finalization. Whole-feature
+  task: `f61d7c6e-6bd3-5c9b-979c-12f449863c9f`.
+- **Resolution / evidence:** functional repair `a1e6c2` and separate formatting
+  commit `de518fc` fix all five gaps. Six regression assertions fail on unchanged
+  original production source. TypeScript, focused cases, the full suite (3,413
+  passes / ten explicit skips), lint and documentation checks pass. The real
+  retained-store two-worker proof completes in one invocation with one terminal
+  publication, one start/finish/acceptance per task and A acceptance before B start.
+  Independent lead review checks exact artifact bytes and disjoint scope; unrelated
+  task nodes remain unchanged. Evidence: `cleanup-loop-001/queue-reviewed-bundle.json`
+  and `queue-live-001/reviewed-proof.json`.
+- **Status:** closed for this bounded queue scope. Original rejected candidate,
+  failed gates and model counters remain history. Operator finalization is a new
+  attempt rather than a relabelled model run. No atomic filesystem-to-HTTP stop
+  guarantee, authenticated actor or power-loss durability claim is added.
+  CA-ISSUE-004 (independent wake, delivery, unattended recovery) remains open.
