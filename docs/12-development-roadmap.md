@@ -91,6 +91,10 @@ release, observes `run_busy`, then observes `request_not_pending` after handoff.
 The coherent audit passes all 37 workflow-service checks. Earlier failed checks,
 including a separate local pre-launch Windows rename `EPERM` whose cause remains
 unknown, are retained rather than overwritten as successes.
+The saved-conversation browser helper now waits for a visible preview or mounted
+chat before continuing. Deliberately delayed history reproduces the old premature
+check; all six callers pass with the corrected readiness boundary. UI code,
+timeouts and original scope assertions are unchanged; the failed proof is retained.
 
 **Implemented contracts:** the directory and live linked cards use the same factual
 digest. Current error-free workflow decisions offer Respond; historical, missing,

@@ -1066,9 +1066,11 @@ async function startResponse(page: Page) {
 }
 
 async function continueConversationIfPreview(page: Page) {
-  if (await page.locator("#continueConversation").isVisible())
-    await page.locator("#continueConversation").click();
-  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+  const preview = page.locator("#continueConversation"),
+    chat = page.locator("#conversationDetail .chat-shell");
+  await expect(preview.or(chat)).toBeVisible();
+  if (await preview.isVisible()) await preview.click();
+  await expect(chat).toBeVisible();
 }
 
 test("linked waiting work can be answered from its original conversation without another run", async ({
@@ -1552,9 +1554,23 @@ test("an unassigned conversation keeps general scope and omits unrelated project
   const { state, conversations, seen } = await homeData(page);
   conversations[0].projectId = null;
   state.linkedConversationId = null;
+  let release!: () => void;
+  const pendingHistory = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let historyRequested = false;
+  await page.route("**/workspace/conversations/*/events", async (route) => {
+    historyRequested = true;
+    await pendingHistory;
+    await route.fallback();
+  });
   await app.pair(page);
   await page.locator("#conversationsTab").click();
-  await continueConversationIfPreview(page);
+  await expect.poll(() => historyRequested).toBe(true);
+  const opening = continueConversationIfPreview(page);
+  await expect(page.locator("#continueConversation")).not.toBeVisible();
+  release();
+  await opening;
   await expect(page.locator("#conversationDetail .panel-header .sub")).toContainText("General");
   await expect(page.locator("#conversationDetail .panel-header .sub")).not.toContainText(
     "linked work"
