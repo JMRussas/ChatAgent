@@ -322,8 +322,18 @@ export function workflowPanelScript(): string {
       value(source, step.output, 0);
       if (step.error) text(source, "p", step.error);
     });
-    if (shortened)
-      add(root, "p", "This preview is shortened. Open the raw details for the full recorded values.");
+    if (shortened) {
+      var disclosures = [];
+      if (current.inputs !== undefined) disclosures.push("Input details");
+      if (previous.length) disclosures.push("Earlier output details");
+      add(
+        root,
+        "p",
+        "This preview is shortened. Open " +
+          disclosures.join(" or ") +
+          " for the full recorded values."
+      );
+    }
     root.dataset.detailScope = "review:" + current.id;
     if (current.inputs !== undefined) rawDetails(root, "Input details", current.inputs);
     if (previous.length)

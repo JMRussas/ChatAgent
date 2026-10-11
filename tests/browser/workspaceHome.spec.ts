@@ -906,6 +906,36 @@ async function startResponse(page: Page) {
   await expect(page.locator("#workflowRespond")).toBeVisible();
 }
 
+/** Check actual controls after scrolling the fields, including pointer clearance. */
+async function expectResponseControlsClear(page: Page, selectors: string[]) {
+  const geometry = await page.locator("#workspaceActionDialog").evaluate((dialog, selectors) => {
+    const modal = dialog.getBoundingClientRect();
+    const header = dialog.querySelector("header")!.getBoundingClientRect();
+    const submit = dialog.querySelector("#workflowHumanSubmit")!.getBoundingClientRect();
+    return selectors.map((selector) => {
+      const element = dialog.querySelector(selector)!;
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return {
+        selector,
+        top: box.top,
+        bottom: box.bottom,
+        visibleTop: Math.max(0, modal.top, header.bottom),
+        visibleBottom: Math.min(innerHeight, modal.bottom),
+        unobscured: !!hit && (hit === element || element.contains(hit)),
+        overlapsSubmit:
+          selector !== "#workflowHumanSubmit" && box.top < submit.bottom && box.bottom > submit.top
+      };
+    });
+  }, selectors);
+  for (const control of geometry) {
+    expect(control.top, control.selector).toBeGreaterThanOrEqual(control.visibleTop);
+    expect(control.bottom, control.selector).toBeLessThanOrEqual(control.visibleBottom);
+    expect(control.unobscured, control.selector).toBe(true);
+    expect(control.overlapsSubmit, control.selector).toBe(false);
+  }
+}
+
 test("Respond at 390px shows the question and plain answer without developer controls", async ({
   page,
   app
@@ -937,18 +967,14 @@ test("Respond at 390px shows the question and plain answer without developer con
   expect(hierarchy.advanced).toBe("rgba(0, 0, 0, 0)");
   expect(hierarchy.submit).not.toBe(hierarchy.advanced);
   expect(hierarchy.decoration).toContain("underline");
-  const bounds = await page.locator("#workflowHumanSubmit").evaluate((element) => {
-    const button = element.getBoundingClientRect();
-    const modal = element.closest("dialog")!.getBoundingClientRect();
-    return {
-      top: button.top,
-      bottom: button.bottom,
-      modalBottom: modal.bottom,
-      viewport: innerHeight
-    };
-  });
-  expect(bounds.top).toBeGreaterThan(0);
-  expect(bounds.bottom).toBeLessThanOrEqual(Math.min(bounds.modalBottom, bounds.viewport));
+  await page
+    .locator("#workflowHumanText")
+    .evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await expectResponseControlsClear(page, [
+    "#workflowHumanText",
+    "#workflowHumanAdvanced > summary",
+    "#workflowHumanSubmit"
+  ]);
   await page.locator("#workflowHumanSubmit").click();
   await expect(page.locator("#workflowRespondStatus")).toHaveText("Write your answer first.");
   expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(0);
@@ -1529,14 +1555,44 @@ test("a pending decision shows the recorded model text and earlier tool result b
   }));
   expect(positions.evidenceBottom).toBeLessThanOrEqual(positions.controlsTop);
   await page.setViewportSize({ width: 390, height: 844 });
-  const submitBounds = await page.locator("#workflowHumanSubmit").evaluate((element) => ({
-    bottom: element.getBoundingClientRect().bottom,
-    modalBottom: element.closest("dialog")!.getBoundingClientRect().bottom,
-    viewport: innerHeight
-  }));
-  expect(submitBounds.bottom).toBeLessThanOrEqual(
-    Math.min(submitBounds.modalBottom, submitBounds.viewport)
-  );
+  const covered = await page.locator("#workflowHumanForm").evaluate((form) => {
+    const submit = form.querySelector("#workflowHumanSubmit")!.getBoundingClientRect();
+    return Array.from(
+      form.querySelectorAll("input, textarea, summary, #workflowHumanRule, #workflowHumanScope")
+    )
+      .filter((field) => {
+        const box = field.getBoundingClientRect();
+        return (
+          box.width > 0 &&
+          box.height > 0 &&
+          box.top < innerHeight &&
+          box.bottom > 0 &&
+          box.left < submit.right &&
+          box.right > submit.left &&
+          box.top < submit.bottom &&
+          box.bottom > submit.top
+        );
+      })
+      .map((field) => field.id || field.textContent);
+  });
+  expect(covered).toEqual([]);
+  await page.locator("#workflowHumanDoNotApprove").check();
+  await expect(page.locator("#workflowHumanApprove")).not.toBeChecked();
+  await page.locator("#workflowHumanApprove").check();
+  await expect(page.locator("#workflowHumanDoNotApprove")).not.toBeChecked();
+  await page.locator("#workflowHumanNote").fill("Compare the recorded summary with the source.");
+  await page
+    .locator("#workflowHumanNote")
+    .evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await expectResponseControlsClear(page, [
+    "#workflowHumanApprove",
+    "#workflowHumanDoNotApprove",
+    "#workflowHumanNote",
+    "#workflowHumanAdvanced > summary",
+    "#workflowHumanRule",
+    "#workflowHumanScope",
+    "#workflowHumanSubmit"
+  ]);
   await page.clock.install();
   const data = page.locator("#workflowHumanEvidence .recorded-review-values");
   await data.evaluate((element) => (element.scrollTop = 70));

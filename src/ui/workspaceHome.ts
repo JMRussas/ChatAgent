@@ -1664,11 +1664,6 @@ const WORKSPACE_DOCUMENT = String.raw`
         width: auto;
         margin: 0;
       }
-      #workspaceActionDialog.response-dialog #workflowHumanSubmit {
-        position: sticky;
-        bottom: 8px;
-        z-index: 1;
-      }
       #workflowHumanSubmit,
       #workflowAgentRespond {
         display: block;
@@ -2032,7 +2027,7 @@ const WORKSPACE_DOCUMENT = String.raw`
             </div>
           </div>
           <p id="workspaceActionStatus" role="status" hidden></p>
-          <button class="button" id="workspaceActionReopen" hidden>Resume open controls</button>
+          <button class="button" id="workspaceActionReopen" hidden>Reopen controls</button>
 
           <div
             id="loadErrors"
