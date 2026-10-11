@@ -35,6 +35,19 @@ diagnostic records support inspection but should not be prerequisites for routin
 monitoring. Use existing components to present this information before adding
 infrastructure.
 
+Workspace monitoring is a read-only browser behavior. Check opt-in/default-off
+state, selected-project eligibility from recorded running/allocated digests,
+ten-second spacing after each settled read, and no overlapping reads. Browser
+clock tests should exercise pauses for hidden pages, open controls and active
+actions; failure stops versus partial-source continuation; unchecking during a
+read; unchanged disclosure/focus preservation; changed-detail invalidation; and
+composer draft retention. Assert visible behavior and public tool requests rather
+than timer variable names. One actual API → Ollama → human run should demonstrate
+state changes without Refresh clicks, retain request/source timestamps, and leave
+the human decision unanswered. This establishes monitoring behavior, not worker
+liveness, model quality or user acceptance. Fable assesses the resulting view;
+implementation checks do not substitute for that assessment.
+
 Browser/workflow tests should check those observable states and available actions.
 A short human walkthrough must also check comprehensibility: can the person locate
 the current task, explain its status, find its result and act on a blocker without

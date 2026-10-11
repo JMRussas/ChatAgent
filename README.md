@@ -9,6 +9,16 @@ metadata are saved by default in `data/conversations.json` and
 `data/workspace.json`; `CONVERSATION_STATE_FILE` and `WORKSPACE_STATE_FILE`
 override those locations. `WORKSPACE_ENABLED=false` disables the workspace.
 
+Opt-in automatic refresh watches recorded Running or Allocated work in the selected
+project, or All projects, ten seconds after each read finishes. It starts unchecked
+on every page load, pauses while the page is hidden or plan controls are open, and
+stops on a failed refresh. Partial source reads stay visible. Refreshing reads
+records; it does not start work or establish worker liveness.
+An idle scope is not polled. Use Refresh to discover work started elsewhere.
+Unchanged automatic reads preserve open detail. Use manual Refresh to retry an
+unreadable or inconsistent detail record even when its directory summary has not
+changed.
+
 Bind a project to its existing Hekate project in **Project integration** to
 discover its workflows and coding plans. `WORKFLOW_PROJECT_ID` remains an optional
 default binding. Conversation actions use the conversation's assigned project

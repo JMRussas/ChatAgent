@@ -1560,6 +1560,19 @@ const WORKSPACE_DOCUMENT = String.raw`
       .sidebar-actions .nav-button {
         font-size: 12px;
       }
+      .auto-refresh-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 22rem;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .auto-refresh-control input {
+        flex: 0 0 auto;
+        margin: 0;
+      }
       #workspaceActionDialog {
         width: min(1000px, calc(100% - 32px));
         max-height: calc(100vh - 40px);
@@ -2048,6 +2061,8 @@ const WORKSPACE_DOCUMENT = String.raw`
               ><button class="button primary" id="shellNewWorkflow">New workflow</button
               ><button class="button" id="refresh">
                 <svg><use href="#i-clock" /></svg>Refresh</button
+              ><label class="auto-refresh-control"><input type="checkbox" id="workspaceAutoRefresh" />
+                Auto-refresh every 10 seconds while this view has work In progress</label
               ><span class="updated-label" id="loadStatus" role="status">Reading workspace…</span>
             </div>
           </div>
@@ -2213,7 +2228,11 @@ const WORKSPACE_DOCUMENT = String.raw`
           loadedDetail = null,
           loadingWorkspace = false,
           loadedScope = "all",
-          pendingWorkspaceReload = false;
+          pendingWorkspaceReload = false,
+          automaticTimer = null,
+          lastWorkspaceUpdate = "",
+          pageLeaving = false,
+          previewRecord = null;
         const detailCache = new Map(),
           historyCache = new Map(),
           requests = new Set();
@@ -2809,9 +2828,16 @@ const WORKSPACE_DOCUMENT = String.raw`
             .join("");
           return html || "<p>Recorded result. Expand the output details to inspect its data.</p>";
         }
-        async function loadDetail() {
+        async function loadDetail(reuseUnchanged = false) {
           const version = ++detailVersion,
             item = snapshot?.work.find((entry) => entry.id === selected);
+          const cached = item && detailCache.get(item.projectId + ":" + item.id);
+          if (reuseUnchanged && cached && loadedDetail === cached) {
+            const label = $("detail").querySelector(".detail-project");
+            if (label?.lastChild?.nodeType === Node.TEXT_NODE)
+              label.lastChild.nodeValue = projectName(item.projectId);
+            return;
+          }
           loadedDetail = null;
           if (!item) {
             $("detail").innerHTML = '<p class="empty">Choose a task to inspect its recorded steps.</p>';
@@ -2868,6 +2894,8 @@ const WORKSPACE_DOCUMENT = String.raw`
                 );
                 record = { coding, digest };
               }
+              if (version !== detailVersion || selected !== item.id ||
+                JSON.stringify(snapshot?.work.find((entry) => entry.id === item.id)) !== JSON.stringify(item)) return;
               detailCache.set(item.projectId + ":" + item.id, record);
             }
             if (version !== detailVersion || selected !== item.id) return;
@@ -3385,12 +3413,13 @@ const WORKSPACE_DOCUMENT = String.raw`
             $("conversationDetail").innerHTML = '<p class="empty">Choose a saved conversation.</p>';
             return;
           }
-          $("conversationDetail").innerHTML = '<p class="empty">Reading saved conversation…</p>';
+          if (!$("conversationPreviewLinkedWork"))
+            $("conversationDetail").innerHTML = '<p class="empty">Reading saved conversation…</p>';
           try {
             let data = historyCache.get(item.id);
             if (!data) {
               data = await read("/workspace/conversations/" + encodeURIComponent(item.id) + "/events");
-              historyCache.set(item.id, data);
+
             }
             if (
               version !== conversationVersion ||
@@ -3398,6 +3427,21 @@ const WORKSPACE_DOCUMENT = String.raw`
               view !== "conversations"
             )
               return;
+            if (JSON.stringify(snapshot?.conversations.find((row) => row.id === item.id)) !== JSON.stringify(item)) return;
+            historyCache.set(item.id, data);
+            const previewItem = JSON.stringify(item),
+              previewKey = JSON.stringify([item, projectName(item.projectId)]);
+            if (previewRecord?.item === previewItem && previewRecord.history === data && $("conversationPreviewLinkedWork")) {
+              const label = $("conversationDetail").querySelector(".detail-project"),
+                scope = $("conversationDetail").querySelector(".chat-composer footer small");
+              if (label?.lastChild?.nodeType === Node.TEXT_NODE)
+                label.lastChild.nodeValue = projectName(item.projectId);
+              if (scope) scope.textContent = "Scoped to " + projectName(item.projectId);
+              previewRecord.key = previewKey;
+              renderLinkedCards($("conversationPreviewLinkedWork"), linkedRows(item.id));
+              setActionButtons();
+              return;
+            }
             const messages = historyMessages(data.events || []);
             $("conversationDetail").innerHTML =
               '<header class="chat-head"><div class="detail-meta"><span class="detail-project">' +
@@ -3437,6 +3481,7 @@ const WORKSPACE_DOCUMENT = String.raw`
             $("continueConversation").addEventListener("click", () => openConversation(item));
             setActionButtons();
             renderLinkedCards($("conversationPreviewLinkedWork"), linkedRows(item.id));
+            previewRecord = { key: previewKey, item: previewItem, history: data };
           } catch (error) {
             if (version !== conversationVersion) return;
             $("conversationDetail").innerHTML =
@@ -3447,7 +3492,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               "</p>";
           }
         }
-        function render() {
+        function render(reuseUnchanged = false) {
           if (!snapshot) return;
           renderNavigation();
           renderCounts();
@@ -3460,8 +3505,7 @@ const WORKSPACE_DOCUMENT = String.raw`
           }
           renderList();
           renderConversations();
-          if (view === "work") loadDetail();
-          else loadConversation();
+          return view === "work" ? loadDetail(reuseUnchanged) : loadConversation();
         }
         function setView(value) {
           view = value;
@@ -3479,11 +3523,72 @@ const WORKSPACE_DOCUMENT = String.raw`
               : "Keep the discussion connected to the project and its work.";
           render();
         }
-        async function loadWorkspace() {
+        function clearAutomaticRefresh() {
+          clearTimeout(automaticTimer);
+          automaticTimer = null;
+        }
+        function hasProgressWork() {
+          return scopedWork().some((item) => ["running", "allocated"].includes(digestOf(item).state));
+        }
+        function automaticPaused() {
+          return pageLeaving || document.hidden || dialog.open || actionBusy || loadingWorkspace;
+        }
+        function showWorkspaceUpdate(automatic) {
+          $("loadStatus").textContent =
+            "Updated " +
+            lastWorkspaceUpdate +
+            (automatic ? " · automatic" : "") +
+            (automatic && ((snapshot?.errors || []).length || snapshot?.truncated) ? " · partial" : "") +
+            ($("workspaceAutoRefresh").checked && !hasProgressWork()
+              ? " · auto-refresh waiting for In progress work"
+              : "") +
+            (snapshot?.truncated ? " · More work exists. Choose a project to narrow the view." : "");
+        }
+        function scheduleAutomaticRefresh() {
+          clearAutomaticRefresh();
+          if (!$("workspaceAutoRefresh").checked || !hasProgressWork() || automaticPaused()) return;
+          automaticTimer = setTimeout(() => {
+            automaticTimer = null;
+            if (automaticPaused()) {
+              scheduleAutomaticRefresh();
+              return;
+            }
+            if ($("workspaceAutoRefresh").checked && hasProgressWork()) loadWorkspace(true);
+          }, 10000);
+        }
+        function rememberFocus() {
+          const element = document.activeElement;
+          if (!element || element === document.body) return null;
+          if (element.id) return { id: element.id };
+          for (const name of ["work", "step", "detail-tab", "project", "status", "conversation"]) {
+            const attribute = "data-" + name;
+            if (element.hasAttribute(attribute))
+              return { attribute, value: element.getAttribute(attribute) };
+          }
+          return null;
+        }
+        function restoreFocus(saved, original) {
+          if (
+            dialog.open ||
+            actionBusy ||
+            document.activeElement !== document.body ||
+            original?.isConnected
+          )
+            return;
+          const element = saved?.id
+            ? $(saved.id)
+            : saved?.attribute
+              ? document.querySelector("[" + saved.attribute + '="' + CSS.escape(saved.value) + '"]')
+              : null;
+          element?.focus({ preventScroll: true });
+        }
+        async function loadWorkspace(automatic = false) {
+          if (pageLeaving) return;
           if (loadingWorkspace) {
-            pendingWorkspaceReload = true;
+            if (!automatic) pendingWorkspaceReload = true;
             return;
           }
+          clearAutomaticRefresh();
           loadingWorkspace = true;
           $("refresh").disabled = true;
           $("loadStatus").textContent = "Reading actual projects, conversations and work…";
@@ -3496,10 +3601,35 @@ const WORKSPACE_DOCUMENT = String.raw`
               "/workspace/tools/get_workspace",
               scope === "all" ? {} : { projectId: scope }
             );
+            if (
+              !result ||
+              !Array.isArray(result.projects) ||
+              !Array.isArray(result.work) ||
+              !Array.isArray(result.conversations)
+            )
+              throw new Error("The service returned an unreadable workspace.");
             if (scope !== project) {
               pendingWorkspaceReload = true;
               return;
             }
+            const workChanged = JSON.stringify(snapshot?.work) !== JSON.stringify(result.work),
+              conversationsChanged =
+                JSON.stringify(snapshot?.conversations) !== JSON.stringify(result.conversations),
+              projectsChanged = JSON.stringify(snapshot?.projects) !== JSON.stringify(result.projects),
+              previous = snapshot?.work.find((item) => item.id === selected),
+              next = result.work.find((item) => item.id === selected),
+              key = previous && previous.projectId + ":" + previous.id,
+              retained =
+                automatic &&
+                previous?.digest &&
+                next?.digest &&
+                previous.projectId === next.projectId &&
+                previous.latestRunId === next.latestRunId &&
+                JSON.stringify(previous.digest) === JSON.stringify(next.digest)
+                  ? detailCache.get(key)
+                  : null,
+              focus = automatic ? rememberFocus() : null,
+              originalFocus = document.activeElement;
             snapshot = result;
             if (pendingCreatedPlanId && snapshot.work.some((item) => item.id === pendingCreatedPlanId)) {
               selected = pendingCreatedPlanId;
@@ -3509,12 +3639,13 @@ const WORKSPACE_DOCUMENT = String.raw`
               status = "outstanding";
             }
             loadedScope = scope;
-            detailCache.clear();
-            historyCache.clear();
-            $("loadStatus").textContent =
-              "Updated " +
-              new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-              (snapshot.truncated ? " · More work exists. Choose a project to narrow the view." : "");
+            if (!automatic || workChanged) {
+              detailCache.clear();
+              if (retained) detailCache.set(key, retained);
+            }
+            if (!automatic || conversationsChanged) historyCache.clear();
+            lastWorkspaceUpdate = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            showWorkspaceUpdate(automatic && $("workspaceAutoRefresh").checked);
             $("workspacePersistence").textContent = snapshot.persistenceEnabled
               ? "Workspace saved on this host."
               : "Workspace storage is temporary on this host.";
@@ -3522,14 +3653,38 @@ const WORKSPACE_DOCUMENT = String.raw`
               (item) => projectName(item.projectId) + ": " + item.message
             );
             $("loadErrors").hidden = !errors.length;
-            $("loadErrors").textContent = errors.join(" ");
-            render();
+            $("loadErrors").textContent = errors.length
+              ? "Some project work could not be read: " + errors.join(" ")
+              : "";
+            if (!automatic || workChanged || conversationsChanged || projectsChanged) {
+              const rendering = render(automatic),
+                renderScope = project,
+                renderView = view,
+                renderSelected = selected,
+                renderConversation = selectedConversation,
+                renderVersion = view === "work" ? detailVersion : conversationVersion;
+              await rendering;
+              if (
+                automatic &&
+                project === renderScope &&
+                view === renderView &&
+                selected === renderSelected &&
+                selectedConversation === renderConversation &&
+                renderVersion === (view === "work" ? detailVersion : conversationVersion)
+              )
+                restoreFocus(focus, originalFocus);
+            }
           } catch (error) {
+            const stopped = $("workspaceAutoRefresh").checked;
+            $("workspaceAutoRefresh").checked = false;
+            clearAutomaticRefresh();
             $("loadErrors").hidden = false;
             $("loadErrors").textContent = error.message;
-            $("loadStatus").textContent = snapshot
-              ? "Refresh failed. The last loaded records are still shown."
-              : "Workspace has not loaded. Try refreshing or check your connection.";
+            $("loadStatus").textContent =
+              (snapshot
+                ? "Refresh failed. The last loaded records are still shown."
+                : "Workspace has not loaded. Try refreshing or check your connection.") +
+              (stopped ? " Automatic refresh stopped." : "");
             if (!snapshot) {
               $("projects").innerHTML = '<a class="button" href="/pair">Pair this browser</a>';
               $("workList").innerHTML = '<p class="empty">Live data is unavailable.</p>';
@@ -3537,12 +3692,21 @@ const WORKSPACE_DOCUMENT = String.raw`
           } finally {
             loadingWorkspace = false;
             $("refresh").disabled = false;
-            if (pendingWorkspaceReload) {
+            if (pageLeaving) {
               pendingWorkspaceReload = false;
-              setTimeout(loadWorkspace, 0);
-            }
+              clearAutomaticRefresh();
+            } else if (pendingWorkspaceReload) {
+              pendingWorkspaceReload = false;
+              setTimeout(() => loadWorkspace(), 0);
+            } else scheduleAutomaticRefresh();
           }
         }
+        $("workspaceAutoRefresh").addEventListener("change", () => {
+          clearAutomaticRefresh();
+          if ($("workspaceAutoRefresh").checked && hasProgressWork() && !automaticPaused()) loadWorkspace(true);
+          else if (snapshot) showWorkspaceUpdate(false);
+        });
+        document.addEventListener("visibilitychange", scheduleAutomaticRefresh);
         document.querySelectorAll("[data-status]").forEach((button) =>
           button.addEventListener("click", () => {
             status = button.dataset.status;
@@ -3556,14 +3720,18 @@ const WORKSPACE_DOCUMENT = String.raw`
         });
         $("workTab").addEventListener("click", () => setView("work"));
         $("conversationsTab").addEventListener("click", () => setView("conversations"));
-        $("refresh").addEventListener("click", loadWorkspace);
+        $("refresh").addEventListener("click", () => loadWorkspace());
         document.addEventListener("keydown", (event) => {
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
             event.preventDefault();
             $("search").focus();
           }
         });
-        window.addEventListener("pagehide", () => requests.forEach((controller) => controller.abort()));
+        window.addEventListener("pagehide", () => {
+          pageLeaving = true;
+          clearAutomaticRefresh();
+          requests.forEach((controller) => controller.abort());
+        });
 
         const legacyHolder = $("workspaceLegacyControls"),
           dialog = $("workspaceActionDialog"),
@@ -3747,6 +3915,7 @@ const WORKSPACE_DOCUMENT = String.raw`
           hasOpenControls = actionElements.length > 0;
           $("workspaceActionReopen").hidden = true;
           if (!dialog.open) dialog.showModal();
+          clearAutomaticRefresh();
         }
         $("workspaceActionClose").addEventListener("click", () => dialog.close());
         dialog.addEventListener("close", () => {
@@ -3801,6 +3970,7 @@ const WORKSPACE_DOCUMENT = String.raw`
         async function action(operation) {
           if (actionBusy) return;
           actionBusy = true;
+          clearAutomaticRefresh();
           setActionButtons();
           try {
             await operation();
@@ -3816,6 +3986,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               panel.open = false;
             actionBusy = false;
             setActionButtons();
+            scheduleAutomaticRefresh();
           }
         }
         function setActionButtons() {
@@ -3897,6 +4068,10 @@ const WORKSPACE_DOCUMENT = String.raw`
           setActionButtons();
           render();
           if (snapshot?.truncated || loadedScope !== "all") loadWorkspace();
+          else {
+            if (snapshot) showWorkspaceUpdate(false);
+            scheduleAutomaticRefresh();
+          }
         });
         window.addEventListener("workspace-conversation-selected", (event) => {
           if (!event.detail?.conversationId) return;
@@ -3986,6 +4161,15 @@ const WORKSPACE_DOCUMENT = String.raw`
           cancelAnimationFrame(selectionFrame);
           selectionFrame = 0;
           scrollSelectedPage = false;
+        });
+        window.addEventListener("pageshow", (event) => {
+          if (!event.persisted) return;
+          pageLeaving = false;
+          $("workspaceAutoRefresh").checked = false;
+          clearAutomaticRefresh();
+          selectionResizeObserver.observe($("workList"));
+          scheduleSelectionPin(false);
+          loadWorkspace();
         });
         setActionButtons();
         loadWorkspace();

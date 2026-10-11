@@ -60,6 +60,8 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
   };
   const state = {
     fail: "",
+    sourceErrors: [] as Array<{ projectId: string; message: string }>,
+    workspaceRead: null as (() => Promise<void>) | null,
     responseError: "",
     modelAvailable: false,
     toolRunError: "",
@@ -74,6 +76,7 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
     linkedConversationId: THREAD as string | null,
     extraLinks: {} as Record<string, string>
   };
+  const projects = [project];
   const currentDigest = () => workflowDigest(plan, state.run ?? undefined, PROJECT);
   const conversations = [
     {
@@ -111,11 +114,12 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
       return route.fulfill({ json: digest });
     }
     if (name !== "get_workspace") throw Error("Unexpected workspace mutation " + name);
+    if (state.workspaceRead) await state.workspaceRead();
     if (state.fail)
       return route.fulfill({ status: 503, json: { code: "UNAVAILABLE", error: state.fail } });
     return route.fulfill({
       json: {
-        projects: [project],
+        projects,
         conversations,
         work: [
           {
@@ -141,7 +145,7 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
             digest: compactDigest(digest)
           }))
         ],
-        errors: [],
+        errors: state.sourceErrors,
         truncated: false,
         persistenceEnabled: true
       }
@@ -322,7 +326,7 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
     }
     return route.fulfill({ json: { events: [] } });
   });
-  return { state, seen, plan, currentDigest, conversations };
+  return { state, seen, plan, currentDigest, conversations, projects };
 }
 
 test.use({ workspace: true, workflows: true });
@@ -2542,4 +2546,492 @@ test("closing creation preserves the form draft and Advanced restores it into th
   await expect(page.locator("#workflowPanel > #workflowBuilder")).toBeHidden();
   await expect(page.locator("#workflowDefinition")).toHaveValue(/Draft review/);
   expect(seen.some((entry) => ["create_plan", "run_plan"].includes(entry.name))).toBe(false);
+});
+
+function seedRunningRun(data: Awaited<ReturnType<typeof homeData>>) {
+  seedWaitingRun(data);
+  data.state.status = "running";
+  data.state.run!.status = "running";
+  data.state.run!.steps[0] = {
+    id: "read",
+    name: "Read report",
+    status: "running",
+    inputs: { query: "current report" }
+  };
+  data.state.run!.steps[1].status = "pending";
+}
+function directoryReads(data: Awaited<ReturnType<typeof homeData>>) {
+  return data.seen.filter((entry) => entry.name === "get_workspace").length;
+}
+function detailReads(data: Awaited<ReturnType<typeof homeData>>) {
+  return data.seen.filter((entry) =>
+    ["get_work_digest", "get_plan", "get_run"].includes(entry.name)
+  ).length;
+}
+async function settledHome(page: Page) {
+  await expect(page.locator("#refresh")).toBeEnabled();
+  await expect(page.locator("#loadStatus")).toContainText("Updated");
+}
+async function enableMonitor(page: Page) {
+  await page.locator("#workspaceAutoRefresh").check();
+  await settledHome(page);
+  await expect(page.locator("#loadStatus")).toContainText("automatic");
+}
+
+test("the workspace monitor is opt-in and resets on reload", async ({ page, app }) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await settledHome(page);
+  await page.clock.install();
+  const before = directoryReads(data);
+  await expect(page.locator("#workspaceAutoRefresh")).not.toBeChecked();
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(before);
+  await enableMonitor(page);
+  await page.reload();
+  await settledHome(page);
+  await expect(page.locator("#workspaceAutoRefresh")).not.toBeChecked();
+  const reloaded = directoryReads(data);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(reloaded);
+});
+
+test("automatic observations show completion then wait without executing work", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.locator('#workView [data-status="all"]').click();
+  await settledHome(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  const before = directoryReads(data);
+  await page.clock.fastForward(10000);
+  await expect.poll(() => directoryReads(data)).toBe(before + 1);
+  await settledHome(page);
+  await expect(page.locator('#workList [data-work="' + PLAN + '"] .badge')).toHaveText("Running");
+  data.state.run!.status = "completed";
+  data.state.run!.updatedAt = "2026-10-10T20:04:00Z";
+  data.state.run!.steps.forEach((step) => {
+    step.status = "completed";
+  });
+  data.plan.work = "done";
+  data.plan.attemptId = null;
+  await page.clock.fastForward(10000);
+  await expect(page.locator('#workList [data-work="' + PLAN + '"] .badge')).toHaveText("Completed");
+  await expect(page.getByRole("region", { name: "Current work summary" })).toContainText(
+    "Run completed"
+  );
+  await expect(page.locator("#loadStatus")).toContainText("waiting for In progress work");
+  const done = directoryReads(data);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(done);
+  expect(
+    data.seen.filter((entry) =>
+      ["run_plan", "submit_step_result", "create_plan"].includes(entry.name)
+    )
+  ).toHaveLength(0);
+  expect(app.pending.size).toBe(0);
+});
+
+test("unchanged automatic reads preserve selected details and focus while real changes refresh evidence once", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await expect(page.locator("#detail")).toContainText("current report");
+  await page.clock.install();
+  await enableMonitor(page);
+  const input = page
+    .locator("#detail details")
+    .filter({ has: page.getByText("Input details", { exact: true }) });
+  await page.locator('#detail [data-step="0"]').click();
+  await input.locator("summary").click();
+  const step = page.locator('#detail [data-step="0"]');
+  await step.focus();
+  const reads = detailReads(data);
+  for (let tick = 0; tick < 2; tick++) {
+    const previous = directoryReads(data);
+    await page.clock.fastForward(10000);
+    await expect.poll(() => directoryReads(data)).toBe(previous + 1);
+    await settledHome(page);
+    await expect(input).toHaveJSProperty("open", true);
+    await expect(step).toBeFocused();
+  }
+  expect(detailReads(data)).toBe(reads);
+  data.projects[0].name = "Renamed report project";
+  await page.clock.fastForward(10000);
+  await expect(page.locator("#projects")).toContainText("Renamed report project");
+  await expect(page.locator("#detail .detail-project")).toContainText("Renamed report project");
+  await expect(input).toHaveJSProperty("open", true);
+  await expect(step).toBeFocused();
+  expect(detailReads(data)).toBe(reads);
+  data.state.run!.updatedAt = "2026-10-10T20:03:00Z";
+  data.state.run!.steps[0].status = "completed";
+  data.state.run!.steps[0].output = { text: "Fresh recorded report outcome" };
+  await page.clock.fastForward(10000);
+  await expect(page.locator("#detail")).toContainText("Fresh recorded report outcome");
+  await expect(step).toBeFocused();
+  expect(detailReads(data)).toBe(reads + 3);
+  await page.locator('#detail [data-step="0"]').click();
+  await page.locator('#workList [data-work="' + PLAN + '"]').click();
+  await expect(page.locator("#detail .result-title span").last()).toHaveText(
+    data.plan.definition.steps[1].name
+  );
+});
+
+test("the monitor pauses behind a controls dialog and while the document is hidden", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  await page.locator("#shellManageWorkspace").click();
+  await expect(page.locator("#workspaceActionDialog")).toBeVisible();
+  const open = directoryReads(data);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(open);
+  await page.locator("#workspaceActionClose").click();
+  await expect.poll(() => directoryReads(data)).toBeGreaterThan(open);
+  await settledHome(page);
+  const closed = directoryReads(data);
+  await page.clock.fastForward(9999);
+  expect(directoryReads(data)).toBe(closed);
+  await page.clock.fastForward(1);
+  await expect.poll(() => directoryReads(data)).toBe(closed + 1);
+  await settledHome(page);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  const hidden = directoryReads(data);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(hidden);
+  await page.evaluate(() => {
+    delete (document as unknown as { hidden?: boolean }).hidden;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.clock.fastForward(9999);
+  expect(directoryReads(data)).toBe(hidden);
+  await page.clock.fastForward(1);
+  await expect.poll(() => directoryReads(data)).toBe(hidden + 1);
+});
+
+test("automatic read failure stops observation while partial reads remain honest and continue", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  data.state.sourceErrors = [{ projectId: PROJECT, message: "A project source is unavailable." }];
+  await page.clock.fastForward(10000);
+  await expect(page.locator("#loadStatus")).toContainText("automatic · partial");
+  await expect(page.locator("#loadErrors")).toContainText("Some project work could not be read:");
+  await expect(page.locator("#loadErrors")).toContainText(data.state.sourceErrors[0].message);
+  await expect(page.locator("#workspaceAutoRefresh")).toBeChecked();
+  data.state.fail = "Workspace transport unavailable";
+  await page.clock.fastForward(10000);
+  await expect(page.locator("#workspaceAutoRefresh")).not.toBeChecked();
+  await expect(page.locator("#loadStatus")).toContainText("Automatic refresh stopped.");
+  await expect(page.locator("#loadErrors")).toContainText(data.state.fail);
+  await expect(page.locator("#workList")).toContainText("Running");
+  const failed = directoryReads(data);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(failed);
+  data.state.fail = "";
+  await page.locator("#refresh").click();
+  await settledHome(page);
+  await expect(page.locator("#workspaceAutoRefresh")).not.toBeChecked();
+});
+
+for (const uncheck of [false, true]) {
+  test(
+    "automatic reads never overlap and " +
+      (uncheck ? "unchecking preserves an admitted read" : "wait ten seconds after settlement"),
+    async ({ page, app }) => {
+      const data = await homeData(page);
+      seedRunningRun(data);
+      await app.pair(page);
+      await page.clock.install();
+      await enableMonitor(page);
+      let release!: () => void;
+      const deferred = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      data.state.workspaceRead = () => deferred;
+      const before = directoryReads(data);
+      await page.clock.fastForward(10000);
+      await expect.poll(() => directoryReads(data)).toBe(before + 1);
+      await expect(page.locator("#refresh")).toBeDisabled();
+      if (uncheck) await page.locator("#workspaceAutoRefresh").uncheck();
+      await page.clock.fastForward(9000);
+      expect(directoryReads(data)).toBe(before + 1);
+      data.state.run!.steps[0].output = { text: "Recorded during the admitted read" };
+      data.state.run!.updatedAt = "2026-10-10T20:03:00Z";
+      data.state.workspaceRead = null;
+      release();
+      await settledHome(page);
+      await expect(page.locator("#detail")).toContainText("Recorded during the admitted read");
+      await page.clock.fastForward(uncheck ? 30000 : 9999);
+      expect(directoryReads(data)).toBe(before + 1);
+      if (!uncheck) {
+        await page.clock.fastForward(1);
+        await expect.poll(() => directoryReads(data)).toBe(before + 2);
+      } else await expect(page.locator("#loadStatus")).not.toContainText("automatic");
+    }
+  );
+}
+
+test("the monitor follows the selected project and treats allocation as unconfirmed", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  const second = randomUUID();
+  data.projects.push({ ...data.projects[0], id: second, name: "Another project" });
+  const allocated = {
+    ...data.currentDigest(),
+    id: randomUUID(),
+    projectId: second,
+    name: "External allocation",
+    kind: "coding",
+    state: "allocated",
+    stateText: "Allocated; running is not confirmed."
+  } as WorkDigest;
+  data.state.extraWork = [allocated];
+  await app.pair(page);
+  await page.locator('#projects [data-project="' + PROJECT + '"]').click();
+  await expect(page.locator("#breadcrumbProject")).toHaveText("Report project");
+  await page.clock.install();
+  await page.locator("#workspaceAutoRefresh").check();
+  await expect(page.locator("#loadStatus")).toContainText("waiting for In progress work");
+  const before = directoryReads(data);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(before);
+  await page.locator('#projects [data-project="all"]').click();
+  await expect(page.locator("#breadcrumbProject")).toHaveText("All projects");
+  await expect(page.locator("#workList")).toContainText("Allocated, not confirmed running");
+  const all = directoryReads(data);
+  await page.clock.fastForward(10000);
+  await expect.poll(() => directoryReads(data)).toBe(all + 1);
+  expect(data.seen.filter((entry) => entry.name === "get_workspace").at(-1)?.input).toEqual({});
+  expect(data.seen.filter((entry) => entry.name === "run_plan")).toHaveLength(0);
+});
+
+test("changed automatic observations update mounted linked work without losing an unsent composer draft", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.locator("#conversationsTab").click();
+  await page.locator("#continueConversation").click();
+  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+  await settledHome(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  await page.locator("#prompt").fill("This local draft must survive an observed step boundary.");
+  await page.locator("#prompt").focus();
+  data.state.run!.status = "waiting_input";
+  data.state.run!.updatedAt = "2026-10-10T20:02:00Z";
+  data.state.run!.steps[0].status = "completed";
+  data.state.run!.steps[1].status = "waiting_input";
+  await page.clock.fastForward(10000);
+  await expect(
+    page.locator("#conversationLinkedPrimary").getByRole("button", { name: "Respond", exact: true })
+  ).toBeVisible();
+  await expect(page.locator("#prompt")).toHaveValue(
+    "This local draft must survive an observed step boundary."
+  );
+  await expect(page.locator("#prompt")).toBeFocused();
+  await page.locator("#prompt").fill("");
+  expect(
+    data.seen.filter((entry) => ["run_plan", "submit_step_result"].includes(entry.name))
+  ).toHaveLength(0);
+  expect(app.pending.size).toBe(0);
+});
+
+test("an automatic detail refresh cannot steal focus chosen while its read is pending", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  await page.locator('#detail [data-step="0"]').click();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested = false;
+  await page.route("**/workspace/tools/get_work_digest", async (route) => {
+    requested = true;
+    await pending;
+    await route.fallback();
+  });
+  data.state.run!.updatedAt = "2026-10-10T20:03:00Z";
+  data.state.run!.steps[0].output = { text: "Fresh evidence after a delayed read" };
+  await page.clock.fastForward(10000);
+  await expect.poll(() => requested).toBe(true);
+  await expect(page.locator("#detail")).toContainText("Reading saved plan");
+  await page.locator("#search").focus();
+  release();
+  await settledHome(page);
+  await expect(page.locator("#detail")).toContainText("Fresh evidence after a delayed read");
+  await expect(page.locator("#search")).toBeFocused();
+});
+
+test("automatic metadata updates refresh a saved conversation's project label", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  let historyReads = 0;
+  await page.route("**/workspace/conversations/*/events", async (route) => {
+    historyReads++;
+    await route.fallback();
+  });
+  await app.pair(page);
+  await page.locator("#conversationsTab").click();
+  await expect(page.locator("#conversationPreviewLinkedWork")).toBeVisible();
+  await page.clock.install();
+  await enableMonitor(page);
+  const linked = page.locator("#conversationPreviewLinkedWork [data-live-plan]");
+  await linked.focus();
+  data.projects[0].name = "Renamed conversation project";
+  const before = historyReads;
+  await page.clock.fastForward(10000);
+  await expect(page.locator("#conversationDetail .detail-project")).toContainText(
+    "Renamed conversation project"
+  );
+  expect(historyReads).toBe(before);
+  await expect(linked).toBeFocused();
+  expect(data.seen.filter((entry) => entry.name === "run_plan")).toHaveLength(0);
+});
+
+test("the monitor pauses while Continue waits for the saved-conversation bridge", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  const newThread = "newly-observed-thread";
+  data.conversations.push({
+    ...data.conversations[0],
+    id: newThread,
+    title: "Newly saved conversation"
+  });
+  await page.clock.fastForward(10000);
+  await settledHome(page);
+  await page.locator("#conversationsTab").click();
+  await page.locator('#conversationList [data-conversation="' + newThread + '"]').click();
+  await expect(page.locator("#continueConversation")).toBeEnabled();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  data.state.workspaceRead = () => pending;
+  const before = directoryReads(data);
+  await page.locator("#continueConversation").click();
+  await expect.poll(() => directoryReads(data)).toBe(before + 1);
+  await expect(page.locator("#continueConversation")).toBeDisabled();
+  await page.clock.fastForward(9000);
+  expect(directoryReads(data)).toBe(before + 1);
+  data.state.workspaceRead = null;
+  release();
+  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+  await expect(page.locator("#conversationId")).toHaveValue(newThread);
+  await settledHome(page);
+  const settled = directoryReads(data);
+  await page.clock.fastForward(9999);
+  expect(directoryReads(data)).toBe(settled);
+  await page.clock.fastForward(1);
+  await expect.poll(() => directoryReads(data)).toBe(settled + 1);
+  expect(app.pending.size).toBe(0);
+});
+
+test("leaving the page prevents a queued workspace reload from restarting observation", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  data.state.workspaceRead = () => pending;
+  const before = directoryReads(data);
+  await page.clock.fastForward(10000);
+  await expect.poll(() => directoryReads(data)).toBe(before + 1);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("workspace-work-changed")));
+  await expect.poll(() => directoryReads(data)).toBe(before + 2);
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  data.state.workspaceRead = null;
+  release();
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(before + 2);
+  expect(data.seen.filter((entry) => entry.name === "run_plan")).toHaveLength(0);
+});
+
+test("a persisted page restore refreshes safely with monitoring off and manual Refresh available", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  seedRunningRun(data);
+  await app.pair(page);
+  await page.clock.install();
+  await enableMonitor(page);
+  const before = directoryReads(data);
+  await page.evaluate(() =>
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }))
+  );
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(before);
+  data.state.run!.updatedAt = "2026-10-10T20:03:00Z";
+  data.state.run!.steps[0].output = { text: "Recorded while this page was away" };
+  await page.evaluate(() =>
+    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))
+  );
+  await expect.poll(() => directoryReads(data)).toBe(before + 1);
+  await settledHome(page);
+  await expect(page.locator("#workspaceAutoRefresh")).not.toBeChecked();
+  await expect(page.locator("#detail")).toContainText("Recorded while this page was away");
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(before + 1);
+  await page.locator("#refresh").click();
+  await expect.poll(() => directoryReads(data)).toBe(before + 2);
+  await settledHome(page);
+  await page.clock.fastForward(30000);
+  expect(directoryReads(data)).toBe(before + 2);
+  await enableMonitor(page);
+  const enabled = directoryReads(data);
+  await page.clock.fastForward(10000);
+  await expect.poll(() => directoryReads(data)).toBe(enabled + 1);
+  expect(
+    data.seen.filter((entry) => ["run_plan", "submit_step_result"].includes(entry.name))
+  ).toHaveLength(0);
+  expect(app.pending.size).toBe(0);
 });

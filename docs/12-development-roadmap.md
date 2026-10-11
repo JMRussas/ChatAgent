@@ -37,7 +37,7 @@ clarity or user acceptance. The user makes the final acceptance decision. Reuse
 the existing shared tools and bridge/mailbox contracts, with one implementation
 owner per path, bounded assignments and explicit evidence references.
 
-**Current source checkpoint — `36bdb8d`:** project/work browsing, saved conversation
+**Previous source checkpoint — `36bdb8d`:** project/work browsing, saved conversation
 continuation, editable JSON plans, a create-only step builder, factual digests and
 shared UI/chat/MCP/native-agent tools are delivered. The coherent checkpoint
 passes format, lint, build, documentation and the full browser gate. Its
@@ -108,14 +108,41 @@ read/write metadata; agent tool access still requires explicit grants.
 existing linked-work cards, so a waiting decision offers the same guarded Respond
 action as the open chat. Original conversation/project scope, draft guards and
 non-response actions for historical or unreadable summaries remain intact.
-Opt-in home auto-refresh is the next monitoring improvement; today the home still
-needs manual refresh outside open run controls. A direct home Stop action is
-also deferred. Fable's `fable-home-monitor-contract-v1` specifies settle-relative
-read scheduling, visible scope, pauses, failure handling and preservation of
-unchanged details, drafts and focus. Its estimate includes two to three hours of
-implementation and verification; it recommends starting after the reset, not
-shipping a timer without those safeguards. Reuse existing tools and guards for
-each increment; add no execution engine.
+**Current delivery — opt-in home monitoring:** Fable's
+`fable-home-monitor-contract-v1` is implemented with ten-second settle-relative
+reads for recorded running/allocated work in the selected scope. Monitoring starts
+off, pauses during controls/actions or while hidden, stops on failed reads, and
+keeps partial-source errors visible. Unchanged details, disclosures, focus and
+drafts are preserved; changed records invalidate their detail cache. Older reads
+cannot repopulate invalidated caches or steal newer focus. Returning through a
+persisted browser page restores fresh reads with monitoring off. Manual Refresh
+also retries unchanged unreadable or inconsistent detail records. No execution
+engine or automatic task action is added.
+An idle scope is not polled; externally started work appears after another read.
+
+The coherent local gates pass format, lint, build and documentation checks, eight
+home-page unit checks and all 180 browser journeys. Fourteen added browser cases
+exercise the monitor through visible states and public requests, including
+deferred-read spacing, pause/resume, scoped allocation, partial/failure handling,
+draft/detail preservation and browser lifecycle races. Hosted validation is
+tracked on [draft PR #1](https://github.com/JMRussas/ChatAgent/pull/1).
+
+`home-monitor-live-v1` retains one actual report → Ollama → human run, started once
+through the UI. A periodic read began 10,066.6 ms after the prior home read settled
+and showed Needs your decision without a Refresh click. The human result remains
+unsubmitted and the original native/declined runs are unchanged. Faster API
+boundaries were not all observed. Once the scope became idle, expanded output and
+draft captures did not prove preservation across further ticks. The later failed
+read was deliberately transport-aborted through manual Refresh; automatic failure
+handling is covered by browser-clock checks, not claimed by that live capture.
+
+`fable-home-monitor-visual-app25` independently reviews fourteen actual
+desktop/mobile images and passes all six scoped criteria with no required
+correction. Images do not prove cadence, cache/focus preservation, accessibility,
+model quality or user acceptance; All projects was not visually graded. Fable's
+optional idle-status wording and raw-error presentation suggestions remain
+follow-ups. A direct home Stop action is also deferred. Reuse existing tools and
+guards for each increment; add no execution engine.
 
 **Implemented workflow builder:** New workflow uses a create-only form for a name, goal and ordered steps.
 Each step chooses a human, model, configured agent or registered tool. The form
