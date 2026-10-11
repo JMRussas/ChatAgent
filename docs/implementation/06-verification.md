@@ -16,9 +16,10 @@ logs, internal identifiers or a conversation with the developer.
 
 Tests should catch failures that affect task completion, correctness, privacy or
 recovery, with the cheapest reliable check for each behavior. The central workflow
-is simple: read the next eligible task, supply its instructions and context to the
-model, check and record the result, then continue. Manual execution of those same
-steps is the baseline for judging whether automation reduces work.
+is simple: read the next eligible task, supply its inputs and context to the
+chosen API, tool, model, agent or human, check and record the result, then continue.
+Manual execution of those same steps is the baseline for judging whether
+automation reduces work.
 
 For a representative task, the normal view should answer:
 
@@ -42,8 +43,8 @@ DOM assertions alone cannot establish usability. Run this walkthrough early on
 the existing workflow. Completing the whole test reclassification is not a
 prerequisite for demonstrating useful work.
 
-The current inventory is 212 Vitest files: 156 under `unit`, 51 under `integration`,
-four under `eval`, and one under `acceptance`. Six Playwright spec files run
+The inventory at `90b694b` is 227 Vitest files: 161 under `unit`, 61 under `integration`,
+four under `eval`, and one under `acceptance`. Nine Playwright spec files run
 separately. `npm test` includes all four Vitest directories. Directory names do not
 yet reliably describe dependencies: some unit files create Git repositories or
 spawn processes; the acceptance file uses mock providers; evaluation tests include
@@ -54,6 +55,36 @@ on Node 24.21.0. That is a baseline for that machine and run, not a speed target
 proof of product usefulness. The review inspected configuration, representative
 UI, workflow, fixture and evaluation tests, and prior run evidence. It has not
 classified every assertion or established a suite-wide flake rate.
+
+Claude Fable independently reviewed the inventory and representative assertions.
+Its first cleanup action removed mapped source-spelling, maintained-source hash
+and duplicate formatter assertions, retaining exercised browser behavior and
+public bounds. The mock prototype now lives in
+`tests/unit/prototypeConversation.test.ts` as component coverage: a controlled
+completion proves provisional persistence before admitted deep work and refinement
+of the same message afterward. Mock citation fields are only shape checks, and
+the one-second host-speed assertion is removed. Making the existing
+fast/integration categories executable is implemented for the current directory
+partition. `test:fast` selects unit/component files; it is an initial lane and
+still includes known process, Git and loopback cases awaiting reclassification.
+`test:integration` selects integration, deterministic eval and future acceptance
+files. The measured migration inventory covered all 228 files without overlap;
+the original `npm test` selection remains unchanged. Preserve
+immutable executable, verifier and evidence integrity pins. These changes support
+product delivery; they do not delay the workspace walkthrough.
+
+For the factual work digest, verify state projection, current versus historical
+revision, allocation versus running, step approval versus task verification,
+read-error versus decision, and agreement across direct tools, chat and MCP.
+Browser checks exercise count partitioning, pending prompts and actual response
+forms, timestamps and mobile visibility. This projection has no model dependency,
+so live model calls do not add evidence for this change.
+
+Fable assesses UI clarity from fresh real-data screenshots against its rubric,
+with no implementation report supplied as grading evidence. It records visible
+support or unknowns for each criterion. That review is separate from deterministic
+correctness checks and is not a CI gate. The reviewed revision, model findings and
+user acceptance remain distinct records; a design review never implies acceptance.
 
 Confirmed problems:
 
@@ -122,17 +153,17 @@ automation saves effort. One successful run establishes a smoke check only.
 
 ### Concrete keep, simplify and remove decisions
 
-| Priority and current location                                                                                                               | Decision                                                                                                                                                                                                    | What remains or must replace it                                                                                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First: `tests/unit/planStatusPanel.test.ts`, static fetch count and literal `value` URL assertion                                           | Remove those two redundant assertions. Rename the enclosing test to match what it still checks. Do not add a replacement fixture framework.                                                                 | Existing “issues one same-origin GET…” case checks actual request URL, method, body and count. Existing invalid-input, overlap and scope cases remain.                    |
-| Next: `tests/unit/attemptProgressUi.test.ts`, `run`, `readButton`, `req.root` and emitted `var` assertions                                  | Remove implementation-spelling checks after mapping behavioral coverage. Retain declared public limit assertions; check enforcement through behavior.                                                       | `tests/browser/attemptProgress.spec.ts` already checks no load-time requests, selected-task GET, six-read limit, timeouts and cancellation. Fill only a demonstrated gap. |
-| Next: `tests/unit/homePage.test.ts`, literal event-handler/410 source probes; `tests/unit/documentTaskPanel.test.ts`, exact assignment text | Replace or remove source-spelling assertions. Keep useful markup/script-parse checks.                                                                                                                       | Map expiry cases in `tests/browser/chat.spec.ts` and document-task browser coverage; any missing behavior gets a direct request/render assertion.                         |
-| Next: `tests/unit/attemptProgressTask.test.ts`, frozen prefix/suffix hashes                                                                 | Remove this delivery-scope assertion from evergreen regression testing, preserving its original evidence in history.                                                                                        | Keep public activity, privacy and limit behavior checks. Integrity checks for actual immutable artifacts/executables remain valid and are not targeted by this removal.   |
-| Next: embedded `prettier.format` checks in plan-status, home-page, attempt-progress and runbook tests                                       | Remove duplicate formatting checks; split mixed tests so useful behavioral assertions remain.                                                                                                               | Repository `npm run lint` already runs pinned `format:check`. Preserve formatter-runtime integration tests, which test product behavior.                                  |
-| Review separately: `tests/unit/conversationOperationsRunbook.test.ts`, frozen verifier and document hashes                                  | Separate historical evidence integrity from tests of maintained helpers/docs. Determine whether each target is an immutable archived artifact or a maintained source before moving its check.               | Preserve historical bytes and useful projection semantics. A source change should not require casually rewriting an “approved” hash to make tests pass.                   |
-| Fixture cost: `tests/unit/operatorHandoff.test.ts`                                                                                          | Use a valid manifest and temporary directory for classification/registry cases with the coordinator mocked. The production wrapper only canonicalizes that directory before delegation.                     | Keep real coordinator/Git tests in integration coverage, including ownership, source mismatch and cleanup. Do not share mutable worktrees across cases.                   |
-| Classification: `tests/unit/dispatchHost.test.ts`, `checkpointRun.test.ts`, `evidenceComparison.test.ts` CLI case                           | Separate isolated cases from actual filesystem/process/CLI checks. Retain necessary boundary coverage.                                                                                                      | Move boundary cases to the integration lane and measure cost. Expensive does not mean valueless.                                                                          |
-| Claim correction: `tests/acceptance/prototypeSuccess.test.ts`                                                                               | Classify its mock-provider checks as component tests. Replace the one-second mock wall-clock assertion with deterministic completion/order behavior unless a measured performance requirement justifies it. | Citation presence on mock output proves neither current-data retrieval nor answer correctness. Useful acceptance requires the workflow and quality checks above.          |
+| Priority and current location                                                                                                                                                                                                                  | Decision                                                                                                                                                                                                    | What remains or must replace it                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First: `tests/unit/planStatusPanel.test.ts`, static fetch count and literal `value` URL assertion                                                                                                                                              | Remove those two redundant assertions. Rename the enclosing test to match what it still checks. Do not add a replacement fixture framework.                                                                 | Existing “issues one same-origin GET…” case checks actual request URL, method, body and count. Existing invalid-input, overlap and scope cases remain.                    |
+| Next: `tests/unit/attemptProgressUi.test.ts`, `run`, `readButton`, `req.root` and emitted `var` assertions                                                                                                                                     | Remove implementation-spelling checks after mapping behavioral coverage. Retain declared public limit assertions; check enforcement through behavior.                                                       | `tests/browser/attemptProgress.spec.ts` already checks no load-time requests, selected-task GET, six-read limit, timeouts and cancellation. Fill only a demonstrated gap. |
+| Next: `tests/unit/homePage.test.ts`, literal event-handler/410 source probes; `tests/unit/documentTaskPanel.test.ts`, exact assignment text                                                                                                    | Replace or remove source-spelling assertions. Keep useful markup/script-parse checks.                                                                                                                       | Map expiry cases in `tests/browser/chat.spec.ts` and document-task browser coverage; any missing behavior gets a direct request/render assertion.                         |
+| Next: `tests/unit/attemptProgressTask.test.ts`, frozen prefix/suffix hashes                                                                                                                                                                    | Remove this delivery-scope assertion from evergreen regression testing, preserving its original evidence in history.                                                                                        | Keep public activity, privacy and limit behavior checks. Integrity checks for actual immutable artifacts/executables remain valid and are not targeted by this removal.   |
+| Next: embedded `prettier.format` checks in plan-status, home-page, attempt-progress and runbook tests                                                                                                                                          | Remove duplicate formatting checks; split mixed tests so useful behavioral assertions remain.                                                                                                               | Repository `npm run lint` already runs pinned `format:check`. Preserve formatter-runtime integration tests, which test product behavior.                                  |
+| Review separately: `tests/unit/conversationOperationsRunbook.test.ts`, frozen verifier and document hashes                                                                                                                                     | Separate historical evidence integrity from tests of maintained helpers/docs. Determine whether each target is an immutable archived artifact or a maintained source before moving its check.               | Preserve historical bytes and useful projection semantics. A source change should not require casually rewriting an “approved” hash to make tests pass.                   |
+| Fixture cost: `tests/integration/operatorHandoffControlled.test.ts`                                                                                                                                                                            | The controlled handoff cases retain their real Git fixtures after moving to integration. Simplifying mocked classification/registry cases to a valid manifest and temporary directory remains future work.  | Keep real coordinator/Git tests in integration coverage, including ownership, source mismatch and cleanup. Do not share mutable worktrees across cases.                   |
+| Classification: `tests/integration/checkpointRun.test.ts`, `tests/integration/browserSerialization.test.ts`, `tests/integration/dispatchHost.test.ts`, `tests/integration/cliRunner.test.ts`; remaining `evidenceComparison.test.ts` CLI cases | These now run in integration, preserving their actual process checks. Remaining unit boundaries still need classification; the initial fast command is not a strict in-memory lane.                         | Preserve actual OS/process behavior coverage and measure cost. Expensive does not mean valueless.                                                                         |
+| Claim correction: `tests/acceptance/prototypeSuccess.test.ts`                                                                                                                                                                                  | Classify its mock-provider checks as component tests. Replace the one-second mock wall-clock assertion with deterministic completion/order behavior unless a measured performance requirement justifies it. | Citation presence on mock output proves neither current-data retrieval nor answer correctness. Useful acceptance requires the workflow and quality checks above.          |
 
 Do not delete all fixed expected values. An exact API path, method, schema field,
 known answer, privacy exclusion or contractual bound is often precisely what must
@@ -157,8 +188,9 @@ unauthorized-request and data-exposure behavior tests for product guarantees.
 2. **Make categories executable.** Classify files by actual dependencies; split
    mixed files only where useful. Add `test:fast` for unit/component checks and
    `test:integration` for boundary checks; keep `test:browser` separate and retain
-   `npm test` as the complete offline Vitest suite. These two new commands are
-   proposed, not available yet. Confirm the fast/integration selections have no
+   `npm test` as the complete offline Vitest suite. These two commands are now
+   available for the initial directory partition; remaining boundaries and the
+   full fast-lane measurement are outstanding. Confirm the selections have no
    overlap and together include every retained Vitest file. Preserve cited test
    paths/tags and run `docs:check` when files move.
 3. **Reduce fixture cost at the measured hotspots.** Simplify mocked handoff tests

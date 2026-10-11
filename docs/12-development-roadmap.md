@@ -37,13 +37,100 @@ clarity or user acceptance. The user makes the final acceptance decision. Reuse
 the existing shared tools and bridge/mailbox contracts, with one implementation
 owner per path, bounded assignments and explicit evidence references.
 
-The current Fable review identifies a shared factual work digest for humans and
-models, distinct decision/read-error/allocation counts, and prominent pending
-decisions as the next improvements. Its visual review of real saved desktop and
-mobile screens determines the concrete layout and acceptance criteria. No new
-execution engine or generated model summary is required for routine monitoring.
+The current Fable review specifies a shared factual work digest for humans and
+models, reconciled decision/progress/ready/attention counts, useful next-action
+rows, a visible status/action/approval summary, prominent pending decisions,
+conversation work links and mobile readability. Its review of real saved desktop
+and mobile screens defines the layout and acceptance criteria. Implementation is
+in progress. The first independent Fable review of eight real-data screens returned
+**needs changes**: Respond buried the question beneath management controls, a
+desktop-to-mobile resize clipped the selected work item, and the allocation
+summary appeared contradictory. Fable's follow-up design puts the existing
+question and response form in the primary dialog, with plain text, explicit
+approval and raw JSON choices; full plan controls remain separately accessible.
+The question-first response form is implemented; a fresh independent review is
+pending after the remaining corrections. No new execution engine or generated
+model summary is required for routine monitoring.
 
-**Working workspace UI:** the approved layout is the default home when Workspace
+The second independent review passed its ten state, count, provenance, history,
+parity, mobile and response-flow criteria, but still returned **needs changes**.
+Its remaining immediate corrections make Submit the only primary response action,
+explain answer modes with raw JSON under Advanced, remove routine open/poll notes
+from the response form, and make failed/stopped/uncertain work lead to human
+inspection. Those corrections are implemented and awaiting fresh live review. The builder
+review's creation-only dialog and visible recorded-review material corrections are
+also implemented. Thirty-one owned workflow/home browser journeys and TypeScript
+pass; technical checks do not replace the independent live clarity review. The
+fresh app20 reviews passed nine of ten monitoring criteria and seven of eight
+creation criteria, but both returned **needs changes**: a sticky mobile Submit
+button covers the approval radio. That correction is in progress. The full
+browser gate passed 149 journeys, and format, lint, build and documentation checks
+passed on that source. The reviewer's overlap finding demonstrates a limit of the
+earlier button-visibility assertion; the replacement check must exercise the
+actual decision controls and submitted result.
+
+**Next Fable-designed increment — describe work as steps:** replace the JSON seed
+behind New workflow with a create-only form for a name, goal and ordered steps.
+Each step chooses a human, model, configured agent or registered tool. The form
+projects onto the existing version-1 definition and calls `create_plan`; saved-plan
+editing retains the advanced JSON editor. Model, human and agent steps can consume
+the previous whole result. Arbitrary tool inputs remain an explicit JSON object
+with binding hints and the registered schema, without assuming HTTP or a `data`
+field. Optional result-path/equality checks use the existing success rule; approval
+is an explicit human preset. Tool-specific inputs are checked when running, not
+when saving. No additional runner, schema engine or scheduler is planned.
+
+The create-only form is implemented. Its actual walkthrough created a tool →
+Ollama model → human plan through the form, preserved the preview definition and
+conversation association, and required an explicit Run. The configured repository
+report returned HTTP 200; the stored model summary accurately repeated two report
+components and its stated verification limit. An operator reviewed that recorded
+result through the approval form, completing the three-step run. This is a working
+technical smoke check, not general model-quality certification or UI acceptance.
+The independent Fable review of eleven actual creation/approval screens returned
+**needs changes**. Two immediate corrections, now implemented, remove the old plan-management list
+from the creation dialog and show the recorded result beside the pending decision.
+It passed the visible Save/Run separation and step-approval scope checks, while
+noting that some screenshots omitted the model card or captured loading content.
+Fresh complete captures and another independent review are required. Saved-plan
+visual editing remains deferred; advanced JSON editing is available.
+
+**Shared AI discovery — `list_work`:** a bounded read-only tool returns the same
+factual digests with observed state counts and actionable items first. Scope is an
+explicit owned project, otherwise the conversation's assigned project, otherwise
+all owned active projects. It never registers a default project or modifies
+navigation metadata. Its source reads reuse the workspace's 500-row, four-project,
+ten-second and coding-first-100-root limits. Counts precede filtering and selection;
+source read failures, shortened digest text and omitted selections are distinct.
+Known execution failures remain attention items rather than missing-source errors.
+At most 25 items and 20 error details are returned, with full error totals. JSON
+selection stays within 128 KiB and formatted chat text keeps whole records below
+48,000 characters. The workspace's separate 2 MiB metadata/output limit is
+unchanged. Live single-project reads returned 25 actual items, matching workspace
+digests/counts and native MCP results; the encoded list was 22,445 bytes and its
+formatted text 12,628 characters. These observations do not establish complete
+external-project discovery or general paging behavior. `projectsRead` counts
+projects with an actual source query, including failed queries; unbacked catalog
+projects are excluded. Native workflow agents now receive the shared workspace dispatcher through a
+late-bound factory callback. Omitted project selectors resolve the task
+owner's original Hekate binding to its catalog project, even after conversation
+reassignment; explicit owned project inputs override it. An injected `list_work`
+default reports `scope.source: "task"`. Conversation patch fields are preserved
+without implicit reassignment. Available tools remain subject to explicit grants,
+and `get_workspace` is excluded from native task discovery because its larger
+response can exceed the existing task-value limit. Startup rejects duplicate tool
+names. Controlled scope, restart, grant and native SDK checks pass. The actual UI
+walkthrough created API report → Ollama summary → native Claude Fable assessment
+→ operator review. Save preserved the definition without running; Run was
+explicit. The native agent called `list_work` without a project ID, receiving the
+original catalog project with task provenance, and successfully read two digests.
+Its own session metadata confirms `claude-fable-5-1`; it made no work mutations.
+The independent Fable fact-check recommends withholding approval: it called
+stopped runs resumable and blurred Hekate leaf acceptance with operator approval.
+The result remains parked at human review. Tool execution is proven; general
+model quality, task verification and user acceptance are not.
+
+**Working workspace UI:** the Fable-designed layout is the default home when Workspace
 is enabled. Projects form a sidebar; Work and Conversations are separate views,
 with a focused detail panel for goals, step inputs/outputs, results and needed
 decisions. Conversations continue through the existing live chat and saved-owner
@@ -81,6 +168,15 @@ refresh saved state before repeating a write. Conversation persistence remains a
 single-writer bounded snapshot rather than a scalable append log. Completed history
 retains the existing expiry policy.
 
+The shared factual digest distinguishes a current run from historical revisions,
+step approval from task verification, and recorded allocation from known running
+work. Directory summaries are bounded. The owner-scoped `get_work_digest` tool gives
+fuller metadata and decision prompts through UI, chat and MCP; `get_plan` and
+`get_run` give saved definitions and recorded inputs/outputs. A normal multi-node Hekate coding graph is observed through the coding
+reader when it is not a workflow graph; corrupt workflow records remain errors.
+The directory bounds digest payloads, but catalog metadata alone can still exceed
+the existing response limit; general paging is outstanding.
+
 The workspace directory and live-data proposal passed the hosted Linux
 release/browser and Windows test jobs on `73ae07d` in
 [run 38077542187](https://github.com/JMRussas/ChatAgent/actions/runs/38077542187).
@@ -107,8 +203,10 @@ Source-pinned Linux release/browser and Windows gates run on the published branc
 The working-home run on `ea2fad6` failed two existing checkpoint process tests:
 their claim-change and 300 ms wall triggers could terminate a worker before its
 PID report. The focused correction waits for actual worker readiness before
-changing authority or cancelling; runtime behavior stays unchanged. Hosted gates
-must pass on the corrected source before this increment is marked validated.
+changing authority or cancelling; runtime behavior stays unchanged. Both hosted
+Linux release/browser and Windows test gates pass on `90b694b` in
+[run 38090838733](https://github.com/JMRussas/ChatAgent/actions/runs/38090838733).
+The newer digest and visual changes still require their own validation and review.
 
 **Delivered increment — native agent tasks:** add one data-defined agent step with
 objective, context, references, selected tools, completion criteria and a total
@@ -330,9 +428,32 @@ The two redundant plan-status source assertions have been removed; actual reques
 behavior coverage remains. Next, resolve the other named low-value checks. Classify
 and expose fast versus integration execution, simplify expensive fixtures, and
 close demonstrated gaps in the simple task loop before a small live usefulness
-check. The broader cleanup and new execution commands remain unimplemented. Current
+check. Fable's independent testing review confirms the existing core loop and
+boundary coverage should stay. Its first cleanup action removed mapped
+source-spelling, maintained-source freezes and repeated formatter checks while
+preserving public bounds and immutable evidence pins. The mock prototype is now
+component coverage with controlled completion ordering rather than a one-second
+host-speed assertion or a live-quality claim. Fast/integration commands and the
+three identified process/Git test moves are implemented: checkpoint execution,
+browser serialization and controlled handoff cases now live in integration. Their
+70 moved integration cases passed on native Node 24.21 in 17.51 seconds. The
+subsequent frozen full `test:fast` measurement passed 2,792 cases across 161 files,
+with one skipped case, in 107.73 seconds. All 229 Vitest files are covered without
+selector overlap or missing files. The initial fast lane still contains known
+process/Git/loopback cases; `dispatchHost` consumed 93.6 seconds in this run. It is
+not a strict in-memory or sub-minute lane. The subsequent dependency audit moved `dispatchHost` and `cliRunner` unchanged
+into integration while keeping the simulated-DOM `executiveOverviewUi` component
+suite. Byte identity is verified, and selectors now cover 159 fast and 70
+integration files without overlap. The 107.73-second measurement preceded these
+moves; no new speed or subtraction-based estimate is claimed. Broader suite-wide
+classification and flake measurements remain outstanding. Current
 Linux/Windows and browser gates remain required during migration; the plan adds
 no scheduler, agent hierarchy or test framework.
+
+The first two cleanup commits pass both required hosted jobs on `08fb2e7` in
+[run 38093165874](https://github.com/JMRussas/ChatAgent/actions/runs/38093165874).
+That source gate covers the cleanup; it does not validate the uncommitted digest,
+response form or step builder.
 
 ### Earlier execution sequence and retained evidence (2026-10-10)
 
