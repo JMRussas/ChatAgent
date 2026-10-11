@@ -10,6 +10,7 @@ import { RAW_PLAN, ROOT } from "../helpers/attemptProgressFixtures";
 
 let directory = "";
 beforeEach(async () => {
+  vi.stubEnv("WORKSPACE_ENABLED", "false");
   directory = await mkdtemp(join(tmpdir(), "executive-overview-startup-"));
   vi.stubEnv("CHAT_IDENTITY_DIR", join(directory, "identity"));
   for (const phase of ["FAST", "DEEP"]) {

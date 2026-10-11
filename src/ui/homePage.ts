@@ -4,6 +4,9 @@ import { planStatusPanelHtml, planStatusScript } from "./planStatusPanel";
 import { planRunControlsHtml, planRunControlsScript } from "./planRunControls";
 import { attemptProgressHtml, attemptProgressScript } from "./attemptProgress";
 import { executiveOverviewHtml, executiveOverviewScript } from "./executiveOverview";
+import { workflowPanelHtml, workflowPanelScript } from "./workflowPanel";
+import { workspacePanelHtml, workspacePanelScript } from "./workspacePanel";
+import { renderWorkspaceHomePageHtml } from "./workspaceHome";
 import { deriveTurns } from "./turnViewModel";
 interface RuntimeModeInfo {
   mode: "mock" | "live" | "unknown";
@@ -19,11 +22,13 @@ export function renderHomePageHtml(
   planStatus = false,
   planRunControls = false,
   attemptProgress = false,
-  executiveOverview = false
+  executiveOverview = false,
+  workflows = false,
+  workspace = false
 ): string {
   const runtimeModeJson = JSON.stringify(runtimeMode).replace(/</g, "\\u003c");
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -411,15 +416,16 @@ export function renderHomePageHtml(
   </style>
 </head>
 <body>
-  <main class="app">
-    <section class="panel chat-shell" aria-label="chat">${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
+  <main class="app">${workspace ? workspacePanelHtml() : ""}
+    <section class="panel chat-shell" aria-label="chat">${workflows ? `\n      ${workflowPanelHtml()}` : ""}${executiveOverview ? `\n      ${executiveOverviewHtml()}` : ""}
       <header class="panel-header">
-        <h1>ChatAgent Fast + Deep Thread</h1>
-        <div class="sub">Watch provisional replies upgrade to refined replies as deep processing completes.</div>
+        <h1>${workspace ? "Conversation" : "ChatAgent Fast + Deep Thread"}</h1>
+        <div class="sub">${workspace ? "Discuss the work, review results, and decide what comes next." : "Watch provisional replies upgrade to refined replies as deep processing completes."}</div>
       </header>
 
       <p id="mockNotice" role="status" hidden>Mock preview: replies are simulated. Completion means the simulation finished, not that facts were retrieved or verified.</p>
       <form id="composer" class="composer">
+        ${workspace ? '<details id="conversationOptions"><summary>Model and references</summary>' : ""}
         <fieldset id="runControls" hidden>
           <legend>Manual run controls</legend>
           <label>Role <select id="runRole"><option value="">No role — configured planner</option></select></label>
@@ -449,6 +455,7 @@ export function renderHomePageHtml(
           <button type="button" id="detachTeam">Detach team reference</button>
           <p id="referenceStatus" role="status">No table rows attached.</p>
         </fieldset>
+        ${workspace ? '<details id="conversationIdentifiers"><summary>Conversation identifiers</summary>' : ""}
         <div class="meta-grid">
           <label>
             Conversation ID
@@ -459,10 +466,12 @@ export function renderHomePageHtml(
             <input id="userId" value="user-demo" required minlength="1" />
           </label>
         </div>
-        <p id="selectedConversationContext" role="status">Conversation scope: general</p>
+        ${workspace ? "</details>" : ""}
+        ${workspace ? "</details>" : ""}
+        <p id="selectedConversationContext" role="status">${workspace ? "No external reference attached." : "Conversation scope: general"}</p>
         <label>
           Prompt
-          <textarea id="prompt" required minlength="1" placeholder="Ask something with external data need to trigger deep path..."></textarea>
+          <textarea id="prompt" required minlength="1" placeholder="${workspace ? "Describe what you want to do…" : "Ask something with external data need to trigger deep path..."}"></textarea>
         </label>
         <button id="sendButton" type="submit">Send</button>
         ${documentTasks ? '<button id="documentTaskStart" type="button">Ask project docs</button>' : ""}
@@ -546,6 +555,7 @@ export function renderHomePageHtml(
 
     const state = {
       conversationId: "conv-ui-demo",
+      workspaceConversationId: null,
       userId: "user-demo",
       routeDecision: null,
       confidence: null,
@@ -572,14 +582,19 @@ export function renderHomePageHtml(
       if (saved && typeof saved.conversationId === "string" && typeof saved.userId === "string") {
         conversationIdInput.value = state.conversationId = saved.conversationId;
         userIdInput.value = state.userId = saved.userId;
+        if (${workspace} && saved.workspaceConversationId === saved.conversationId) state.workspaceConversationId = saved.conversationId;
       }
     } catch { /* Storage may be disabled. */ }
-    const saveConversation = () => { try { sessionStorage.setItem("chatagent-active-conversation", JSON.stringify({conversationId:conversationIdInput.value.trim(),userId:userIdInput.value.trim()})); } catch {} };
+    const saveConversation = () => { try { sessionStorage.setItem("chatagent-active-conversation", JSON.stringify({conversationId:conversationIdInput.value.trim(),userId:userIdInput.value.trim(),workspaceConversationId:state.workspaceConversationId})); } catch {} };
+    function conversationBase(conversationId = state.conversationId) {
+      return (${workspace} && state.workspaceConversationId === conversationId ? "/workspace/conversations/" : "/conversations/") + encodeURIComponent(conversationId);
+    }
     const promptInput = $("prompt");
     const sendButton = $("sendButton");
     const thread = $("thread");
     const status = $("status");
     let timelineStream = null;
+    let workspaceLastTerminal = null;
     // Unpaired or no longer valid: go to the pairing page and stop everything here.
     let leavingForPairing = false;
     function goPair() {
@@ -661,7 +676,7 @@ export function renderHomePageHtml(
     }
     async function checkConversationExpiry(conversationId) {
       try {
-        const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/events");
+        const res = await fetch(conversationBase(conversationId) + "/events");
         if (res.status === 410) markConversationExpired(conversationId);
       } catch { /* Offline: the reconnecting status already says so. */ }
       return state.expired;
@@ -697,7 +712,7 @@ export function renderHomePageHtml(
     async function stopTurn(messageId, retry = false) {
       const conversationId = state.conversationId;
       try {
-        const res = await fetch("/conversations/" + encodeURIComponent(conversationId) + "/messages/" + encodeURIComponent(messageId) + "/cancel", { method: "POST" });
+        const res = await fetch(conversationBase(conversationId) + "/messages/" + encodeURIComponent(messageId) + "/cancel", { method: "POST" });
         if (conversationId !== state.conversationId) return;
         if (res.status === 404 && !retry) {
           if (state.events.some(e => e.type === "user" && e.messageId === messageId)) void stopTurn(messageId, true);
@@ -894,7 +909,7 @@ export function renderHomePageHtml(
       if (!state.conversationId || state.expired) return;
 
       const conversationId = state.conversationId;
-      const streamUrl = "/conversations/" + encodeURIComponent(conversationId) + "/events/stream";
+      const streamUrl = conversationBase(conversationId) + "/events/stream";
       const source = new EventSource(streamUrl);
       timelineStream = source;
 
@@ -907,6 +922,14 @@ export function renderHomePageHtml(
         try {
           const payload = JSON.parse(event.data);
           state.events = Array.isArray(payload.events) ? payload.events : [];
+          if (${workspace} && state.workspaceConversationId === conversationId) {
+            const terminal = state.events.findLast((item) => item.type === "terminal");
+            const terminalKey = terminal && JSON.stringify(terminal);
+            if (terminalKey && terminalKey !== workspaceLastTerminal) {
+              workspaceLastTerminal = terminalKey;
+              window.dispatchEvent(new CustomEvent("workspace-work-changed"));
+            }
+          }
 
           state.reconnecting = false;
           streamRetryDelayMs = 1000;
@@ -916,6 +939,7 @@ export function renderHomePageHtml(
           }
 
           renderThread();
+          if (${workspace} && state.workspaceConversationId === conversationId) window.dispatchEvent(new CustomEvent("workspace-conversation-rendered", { detail: { conversationId } }));
         } catch {
           // Ignore malformed stream events and wait for next update.
         }
@@ -965,6 +989,7 @@ export function renderHomePageHtml(
       if (runControls && ["review","revise"].includes(runControls.mode) && !runControls.targetMessageId) {setStatus("Select a completed text answer first.",true);return;}
       if(runControls?.mode === "answer-evidence" && !referenceSelections.length){setStatus("Attach evidence rows first.",true);return;}
       state.submitting = true;
+      composer.dataset.submitting = "true";
       sendButton.disabled = true;
       try {
         await refreshConversationContext();
@@ -983,7 +1008,7 @@ export function renderHomePageHtml(
         sendButton.disabled = true;
         setStatus("Sending message...");
 
-        const res = await fetch("/messages", {
+        const res = await fetch(state.workspaceConversationId === conversationId ? conversationBase(conversationId) + "/messages" : "/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1017,6 +1042,7 @@ export function renderHomePageHtml(
         renderThread();
 
         setStatus("Message accepted. Progress is shown in its reply bubble.");
+        if (${workspace} && state.workspaceConversationId === conversationId) window.dispatchEvent(new CustomEvent("workspace-work-changed"));
       } catch (error) {
         if (conversationId !== state.conversationId || userId !== userIdInput.value.trim()) return;
         state.pendingUserText = "";
@@ -1031,11 +1057,13 @@ export function renderHomePageHtml(
         } else setStatus("Send failed: " + (error instanceof Error ? error.message : String(error)), true);
       } finally {
         state.submitting = false;
+        composer.dataset.submitting = "false";
         sendButton.disabled = state.expired;
       }
     });
 
     $("newConversation").addEventListener("click", () => {
+      if (${workspace}) { window.dispatchEvent(new CustomEvent("workspace-new-conversation")); return; }
       conversationIdInput.value = "conv-" + crypto.randomUUID();
       conversationIdInput.dispatchEvent(new Event("change"));
       promptInput.focus();
@@ -1043,6 +1071,7 @@ export function renderHomePageHtml(
 
     conversationIdInput.addEventListener("change", () => {
       state.conversationId = String(conversationIdInput.value || "").trim();
+      if (state.workspaceConversationId !== state.conversationId) state.workspaceConversationId = null;
       clearConversationNotice();
       cancelRetries.clear();
       state.reconnecting = false;
@@ -1054,6 +1083,14 @@ export function renderHomePageHtml(
       openTimelineStream();
       renderThread();
       void fetchTelemetry();
+    });
+
+    window.addEventListener("workspace-conversation-selected", (event) => {
+      if (!${workspace} || !event.detail || typeof event.detail.conversationId !== "string") return;
+      state.workspaceConversationId = event.detail.conversationId;
+      conversationIdInput.value = event.detail.conversationId;
+      conversationIdInput.dispatchEvent(new Event("change"));
+      saveConversation();
     });
 
     userIdInput.addEventListener("change", () => {
@@ -1100,14 +1137,14 @@ export function renderHomePageHtml(
         if (remaining <= 0) context = {...context,reference:null,referenceStatus:"expired"};
         else contextExpiryTimer = setTimeout(() => { void refreshConversationContext(); }, Math.min(remaining + 25, 2147483647));
       }
-      $("selectedConversationContext").textContent = context ? "Conversation scope: " + context.path.join(" → ") + ". Reference: " + context.referenceStatus + (context.reference ? " (" + context.reference.sourceUrl + ")" : "") : "Conversation scope: general";
+      $("selectedConversationContext").textContent = context ? (${workspace} ? "Reference context: " : "Conversation scope: ") + context.path.join(" → ") + ". Reference: " + context.referenceStatus + (context.reference ? " (" + context.reference.sourceUrl + ")" : "") : (${workspace} ? "No external reference attached." : "Conversation scope: general");
     };
     const refreshConversationContext = async () => {
       const requestVersion = ++contextRequestVersion;
       const conversationId = $("conversationId").value.trim(), userId = $("userId").value.trim();
       showConversationContext(null);
       try {
-        const r = await fetch("/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
+        const r = await fetch(state.workspaceConversationId === conversationId ? conversationBase(conversationId) + "/context" : "/conversation-context", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})});
         const data = await r.json();
         if (requestVersion !== contextRequestVersion || conversationId !== $("conversationId").value.trim() || userId !== $("userId").value.trim()) return;
         if (r.status === 410) { $("selectedConversationContext").textContent = "Conversation expired."; markConversationExpired(conversationId); return; }
@@ -1146,7 +1183,7 @@ export function renderHomePageHtml(
     $("detachRows").onclick=()=>{selectedReferences.delete($("referenceResult").value);loadReferenceRows();referenceSummary();};
     $("detachTeam").onclick=async()=>{
       const conversationId=conversationIdInput.value.trim(),userId=userIdInput.value.trim();
-      const response=await fetch("/conversation-context/detach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})}).catch(()=>null);
+      const response=await fetch(state.workspaceConversationId === conversationId ? conversationBase(conversationId) + "/context/detach" : "/conversation-context/detach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({conversationId,userId})}).catch(()=>null);
       if(conversationId!==conversationIdInput.value.trim() || userId!==userIdInput.value.trim())return;
       if(!response?.ok){$("referenceStatus").textContent="Could not detach team reference.";return;}
       await refreshConversationContext();
@@ -1239,7 +1276,41 @@ export function renderHomePageHtml(
     });
   </script>
 ${documentTasks ? documentTaskScript() : ""}
-${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}
+${planStatus ? planStatusScript() + (planRunControls ? `\n${planRunControlsScript()}` : "") + (attemptProgress ? `\n${attemptProgressScript()}` : "") : ""}${executiveOverview ? `\n${executiveOverviewScript()}` : ""}${workflows ? `\n${workflowPanelScript()}` : ""}${workspace ? `\n${workspacePanelScript()}` : ""}
+${
+  workspace
+    ? `<script>
+(function () {
+  try {
+    var raw = sessionStorage.getItem('chatagent-design-open-work');
+    if (!raw) return;
+    sessionStorage.removeItem('chatagent-design-open-work');
+    var requested = JSON.parse(raw);
+    if (!requested || typeof requested.id !== 'string') return;
+    if (requested.kind === 'workflow') {
+      setTimeout(function () {
+        window.dispatchEvent(new CustomEvent('workspace-open-plan', {
+          detail: {id: requested.id, projectId: requested.projectId}
+        }));
+      }, 0);
+    } else if (requested.kind === 'coding') {
+      var input = document.getElementById('planRoot');
+      var refresh = document.getElementById('planRefresh');
+      var panel = document.getElementById('planStatusPanel');
+      if (input && refresh && panel) {
+        input.value = requested.id;
+        input.dispatchEvent(new Event('change'));
+        panel.open = true;
+        refresh.click();
+        panel.scrollIntoView({block:'nearest'});
+      }
+    }
+  } catch (_) {}
+})();
+</script>`
+    : ""
+}
 </body>
 </html>`;
+  return workspace ? renderWorkspaceHomePageHtml(html) : html;
 }

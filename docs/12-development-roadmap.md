@@ -19,7 +19,493 @@ assistant and autonomous execution remain one product goal. Judge orchestration 
 whether it improves reliable task completion and reduces required supervision.
 The sports work remains a demonstration of the general role/tool/evidence runtime.
 
-### Today's execution order (2026-10-10)
+The product's purpose is to make AI work digestible, observable and easy for a
+human to monitor and direct. The normal view should explain the goal, current and
+next task, actual results, blockers and needed decisions. Routine monitoring
+should not require raw logs, internal identifiers or developer narration. Keep the
+execution loop simple and add machinery only for demonstrated needs. Include an
+early human walkthrough of the existing workflow; finishing the suite-wide testing
+cleanup must not become a prerequisite for useful product progress.
+
+### Active delivery plan — shared tools and editable workflows (2026-10-10)
+
+**Current design and implementation roles:** Claude Fable reviews the real UI,
+defines improvements and assesses whether delivered changes make recorded work
+easier to understand. Codex Sol and implementation workers translate that design
+into code and verify behavior; passing technical checks does not establish UI
+clarity or user acceptance. The user makes the final acceptance decision. Reuse
+the existing shared tools and bridge/mailbox contracts, with one implementation
+owner per path, bounded assignments and explicit evidence references.
+
+**Current source checkpoint — `36bdb8d`:** project/work browsing, saved conversation
+continuation, editable JSON plans, a create-only step builder, factual digests and
+shared UI/chat/MCP/native-agent tools are delivered. The coherent checkpoint
+passes format, lint, build, documentation and the full browser gate. Its
+[hosted Linux/Windows checks](https://github.com/JMRussas/ChatAgent/actions/runs/38100942451)
+pass on this exact revision, including the final review corrections.
+
+**Fresh Fable assessment:** the app23 review passes conversation state/context,
+prioritized linked work, outcome drill-down, composer reachability, model identity
+and explicit tool grants. It requires an explicit approval choice: neither Approve
+nor Do not approve should be selected when the review opens, and Submit should
+wait for a selection. The separate expanded-report review requires short raw
+results and inputs to grow naturally, so their verification limit is not hidden in
+an unmarked inner scroller. Both corrections are implemented; the coherent source
+passes format, lint, build, documentation and the full browser gate. App24's first
+read-only walkthrough retains the corrected desktop/mobile controls and expanded
+actual report, with saved runs unchanged. Fresh Fable app24 grading passes all
+scoped criteria for approval choices, report/input readability and saved-preview
+actions, with no required correction. A single follow-up mobile capture closes
+the completed-item action-label gap; the normal click also opens the saved plan
+without running it or changing work. Larger payloads and keyboard/accessibility
+behavior were not visually graded. Technical checks
+and screenshots do not establish final user acceptance.
+
+**Actual-data evidence:** `workspace-digestion-20261010/final-readonly-app23`
+retains the first successful desktop/mobile walkthrough, runtime-source receipts
+and before/after saved runs. Inspection makes no saved writes or provider calls.
+`native-api-human-decline-app22` retains the real API-to-human decline: the note and
+prior HTTP 200 result persist, the attempt releases, and HTTP/native MCP return
+the same digest. `fable-final-visual-review-app23` and
+`fable-full-report-review-app22` retain the earlier independent visual verdicts.
+`correction-readonly-app24` and `fable-correction-visual-review-app24` retain the
+implemented corrections and passing fresh visual assessment. Failures
+and incomplete captures remain preserved alongside successful receipts.
+
+**Testing review:** `fable-test-value-review-v2` examines nine test families and
+recommends no further cleanup in that slice. Public JSON fields, protocol tool
+names, privacy sentinels and persistence fault injection protect real boundaries;
+they are different from private-variable or source-spelling assertions. Fast,
+integration, browser and static selections are documented separately from test
+purpose in [the verification plan](implementation/06-verification.md). Routed
+browser mocks establish UI behavior, not backend semantics, provider quality or
+human comprehension. The actual declined-decision boundary is already proven;
+no additional live-provider replay is justified by this review.
+
+**Implemented contracts:** the directory and live linked cards use the same factual
+digest. Current error-free workflow decisions offer Respond; historical, missing,
+unreadable and stale summaries lead to inspection. The home distinguishes
+recorded reply activity from the currently open conversation. Continue waits for
+the existing controller readiness guard; identical linked markup preserves nodes,
+and the native disclosure retains its open state and focus. Controlled refresh
+reproductions establish the corrected behavior, without claiming the cause of
+earlier live capture failures.
+
+An exact human approval gate records `approved: false` as a failed decision with
+its optional note and no following step. Other rule mismatches remain rejected.
+Persistence or fence-release uncertainty stays visible; a recorded decision is
+not task verification. The original native briefing is still waiting for review,
+because its independent fact-check found unsupported claims. It has not been
+approved or replayed.
+
+Workflow discovery describes fixed, catalog-selected, unknown or unavailable model
+policy without invoking a provider or exposing connection details. Creation shows
+the configured policy; recorded steps show only identity saved in their output.
+The chat picker does not select the workflow model. Tool groups reuse registered
+read/write metadata; agent tool access still requires explicit grants.
+
+**Implemented small increment:** saved conversation previews now reuse the
+existing linked-work cards, so a waiting decision offers the same guarded Respond
+action as the open chat. Original conversation/project scope, draft guards and
+non-response actions for historical or unreadable summaries remain intact.
+Opt-in home auto-refresh is the next monitoring improvement; today the home still
+needs manual refresh outside open run controls. A direct home Stop action is
+also deferred. Fable's `fable-home-monitor-contract-v1` specifies settle-relative
+read scheduling, visible scope, pauses, failure handling and preservation of
+unchanged details, drafts and focus. Its estimate includes two to three hours of
+implementation and verification; it recommends starting after the reset, not
+shipping a timer without those safeguards. Reuse existing tools and guards for
+each increment; add no execution engine.
+
+**Implemented workflow builder:** New workflow uses a create-only form for a name, goal and ordered steps.
+Each step chooses a human, model, configured agent or registered tool. The form
+projects onto the existing version-1 definition and calls `create_plan`; saved-plan
+editing retains the advanced JSON editor. Model, human and agent steps can consume
+the previous whole result. Arbitrary tool inputs remain an explicit JSON object
+with binding hints and the registered schema, without assuming HTTP or a `data`
+field. Optional result-path/equality checks use the existing success rule; approval
+is an explicit human preset. Tool-specific inputs are checked when running, not
+when saving. No additional runner, schema engine or scheduler is planned.
+
+The actual builder walkthrough created report retrieval → Ollama summary → human
+review, preserved the preview definition and conversation association, and required
+an explicit Run. The report returned HTTP 200; the recorded summary repeated its
+components and stated verification limit. Operator review completed the run. This
+is a technical smoke check, not general model-quality certification. Fresh app23
+screens cover the configured Model choice and agent tool grants; their independent
+assessment is recorded above. Saved-plan visual editing remains deferred; advanced
+JSON editing is available.
+
+**Shared AI discovery — `list_work`:** a bounded read-only tool returns the same
+factual digests with observed state counts and actionable items first. Scope is an
+explicit owned project, otherwise the conversation's assigned project, otherwise
+all owned active projects. It never registers a default project or modifies
+navigation metadata. Its source reads reuse the workspace's 500-row, four-project,
+ten-second and coding-first-100-root limits. Counts precede filtering and selection;
+source read failures, shortened digest text and omitted selections are distinct.
+Known execution failures remain attention items rather than missing-source errors.
+At most 25 items and 20 error details are returned, with full error totals. JSON
+selection stays within 128 KiB and formatted chat text keeps whole records below
+48,000 characters. The workspace's separate 2 MiB metadata/output limit is
+unchanged. Live single-project reads returned 25 actual items, matching workspace
+digests/counts and native MCP results; the encoded list was 22,445 bytes and its
+formatted text 12,628 characters. These observations do not establish complete
+external-project discovery or general paging behavior. `projectsRead` counts
+projects with an actual source query, including failed queries; unbacked catalog
+projects are excluded. Native workflow agents now receive the shared workspace dispatcher through a
+late-bound factory callback. Omitted project selectors resolve the task
+owner's original Hekate binding to its catalog project, even after conversation
+reassignment; explicit owned project inputs override it. An injected `list_work`
+default reports `scope.source: "task"`. Conversation patch fields are preserved
+without implicit reassignment. A whole scoped argument that is null, an array or
+a primitive is rejected before dispatch, so it cannot fall through to the
+conversation's reassigned project; omitted input and an empty object retain the
+original task project. Available tools remain subject to explicit grants,
+and `get_workspace` is excluded from native task discovery because its larger
+response can exceed the existing task-value limit. Startup rejects duplicate tool
+names. Controlled scope, restart, grant and native SDK checks pass. The actual UI
+walkthrough created API report → Ollama summary → native Claude Fable assessment
+→ operator review. Save preserved the definition without running; Run was
+explicit. The native agent called `list_work` without a project ID, receiving the
+original catalog project with task provenance, and successfully read two digests.
+Its own session metadata confirms `claude-fable-5-1`; it made no work mutations.
+The independent Fable fact-check recommends withholding approval: it called
+stopped runs resumable and blurred Hekate leaf acceptance with operator approval.
+The result remains parked at human review. Tool execution is proven; general
+model quality, task verification and user acceptance are not. The new malformed-input
+regression passes. Its broader local integration run passed 23 of 24 cases: an
+existing non-null case failed persisting the attempt epoch before any provider
+launch. Historical evidence shows a similar Windows rename refusal, but does not
+prove this occurrence's cause. Preserve the failed receipt and verify the equivalent
+release boundary on both hosted operating systems; do not replace it with a timing
+retry or infer an antivirus cause.
+
+**Working workspace UI:** the Fable-designed layout is the default home when Workspace
+is enabled. Projects form a sidebar; Work and Conversations are separate views,
+with a focused detail panel for goals, step inputs/outputs, results and needed
+decisions. Conversations continue through the existing live chat and saved-owner
+bridge in the same page. Project management and workflow/coding controls open in
+an action dialog using the existing tools. Opening records does not execute them;
+running, stopping, supplying human results and responding to agent requests remain
+explicit actions. Existing draft and in-flight conversation guards still apply.
+No sample tasks or simulated states replace unavailable records. `/design` retains
+the read-only proposal as a visual reference.
+
+**Implemented increment — workspace home:** provide one view of registered code
+projects, saved conversations and observed outstanding work. The directory
+reuses existing histories, Hekate plans and execution artifacts. It adds titles,
+project assignment, archive state and conversation-to-plan links, with a project
+router over the existing application tools. Direct controls, conversation and MCP
+use the same operations. Conversation actions default to their assigned project;
+explicit project inputs remain available. Reopening uses the saved owner namespace
+instead of guessing an old user label or creating a replacement conversation.
+
+The workspace is enabled by default. Its catalog and conversation snapshot are
+separate bounded atomic files. Project bindings are immutable once established;
+additional bindings receive separate run directories. Opening records never
+launches work or replays model calls. A waiting human step can resume through the
+existing controls. The view shows recorded state, next steps, partial-read errors
+and truncation; it does not infer whether an external worker is currently alive.
+
+Outstanding limits: external CLI/IDE conversation histories require an explicit
+importer/connection. Only registered projects are discovered. Coding execution
+still requires the configured prepared-plan host; adding a repository does not
+install or authorize a worker. Project discovery has a ten-second deadline, four
+concurrent projects and at most 500 displayed work items; coding observation reads
+the first 100 listed roots and reports truncation. Navigation associations and
+backend plan writes are not a single transaction: after a metadata write failure,
+refresh saved state before repeating a write. Conversation persistence remains a
+single-writer bounded snapshot rather than a scalable append log. Completed history
+retains the existing expiry policy.
+
+The shared factual digest distinguishes a current run from historical revisions,
+step approval from task verification, and recorded allocation from known running
+work. Directory summaries are bounded. The owner-scoped `get_work_digest` tool gives
+fuller metadata and decision prompts through UI, chat and MCP; `get_plan` and
+`get_run` give saved definitions and recorded inputs/outputs. A normal multi-node Hekate coding graph is observed through the coding
+reader when it is not a workflow graph; corrupt workflow records remain errors.
+The directory bounds digest payloads, but catalog metadata alone can still exceed
+the existing response limit; general paging is outstanding.
+
+The workspace directory and live-data proposal passed the hosted Linux
+release/browser and Windows test jobs on `73ae07d` in
+[run 38077542187](https://github.com/JMRussas/ChatAgent/actions/runs/38077542187).
+Local workspace verification covers owner isolation, legacy and v1 history
+continuation, default-enabled startup persistence, restart without replay, project
+routing, revision-aware outstanding work, coding read failures, metadata rollback
+and conversation links for creation/edit/run. The full local browser gate passed
+124 journeys; the final focused ten journeys also cover bounded lists and keeping
+an open plan in its original project after the dashboard selection changes.
+Documentation checks retain formatting, links and execution prerequisites. History
+persistence is verified through actual startup/restart rather than a frozen prose
+digest; the independent reviewed read-only verifier's source pin remains intact.
+
+The working-home walkthrough used the registered ChatAgent repository, created a
+project conversation with a real Ollama reply, and ran report retrieval → human
+review → completion through the new UI. The actual HTTP result, completed Hekate
+plan, conversation association, restored history and absence of replay on reload
+were inspected. Mobile observation found no horizontal overflow. No browser mocks
+were used. Preserved evidence is under the external
+`shared-workflows-20261010/workspace-live-ui-proof` directory; the earlier directory
+walkthrough remains in `workspace-proof`. These observations verify the working
+controls and one live conversation, not general model planning reliability.
+Source-pinned Linux release/browser and Windows gates run on the published branch.
+The working-home run on `ea2fad6` failed two existing checkpoint process tests:
+their claim-change and 300 ms wall triggers could terminate a worker before its
+PID report. The focused correction waits for actual worker readiness before
+changing authority or cancelling; runtime behavior stays unchanged. Both hosted
+Linux release/browser and Windows test gates pass on `90b694b` in
+[run 38090838733](https://github.com/JMRussas/ChatAgent/actions/runs/38090838733).
+The newer digest and visual changes still require their own validation and review.
+
+**Delivered increment — native agent tasks:** add one data-defined agent step with
+objective, context, references, selected tools, completion criteria and a total
+model-turn allowance. Claude's native CLI and Ollama's native API translate the
+same task package into their own protocols. The existing application registry,
+plan store, execution artifacts and UI remain the operational boundary. A scoped
+MCP gateway serves Claude; Ollama receives native tool schemas. Additional context
+and access requests park the step for an operator response. Configured executors
+are opt-in; JSON cannot supply an implementation or install capabilities.
+
+The direct task form and resource-response controls are implemented. Focused
+behavioral checks cover actual input/output flow, scope denial, decline, pause and
+resume across restart, cleanup before stopping, and uncertain persistence. Native
+executor tests cover protocol results, turn bounds, cleanup and cancellation; UI
+journeys cover context supply, grant/completion and decline/stop. The stable final
+affected gate passes 93 cases across 10 files, including the local identity case
+that encountered a Windows sharing failure in the broad run. The 120 browser
+journeys passed before the final completion-label refinement. Test the observable
+behavior, not variable names, source spelling or a model's exact prose.
+
+Actual Claude and Ollama executors completed the same task package (SHA-256
+`f31df82096d96cd4442ab81398be24f43515bb11548e2645ac57004ba5523c9e`), each with
+two model turns and one actual configured report call. Claude's authenticated
+application run is `6db6900f-fc61-45bd-99af-d98afd2c66b7`; Ollama's direct shared
+application run is `efb4d58c-14b4-405e-9472-ba07241d128d`. Both native Hekate
+attempts finished. The endpoint is a controlled local report, not external data.
+Ollama loosely described changed file paths as code changes; execution evidence
+does not certify every answer's quality. Evidence is retained under the existing
+external `agent-executor-proof` directory.
+
+The real UI walkthrough also exposed useful failures. Windows task-directory
+privacy failed before any model/tool effect; a configurable private workspace and
+safe error now handle that environment. Then Claude requested context and resumed,
+but the sample endpoint refused its period query. Claude honestly reported a
+blocker while the old runtime marked its final reply complete. That failed proof
+is preserved. The runtime now pauses final replies with unresolved actual tool
+failures for operator guidance; a later successful call or an operator's reviewed
+guidance resolves that guard. Unconfirmed write outcomes remain uncertain and
+hold the attempt. Valid bad tool choices receive safe native feedback within the
+turn budget rather than failing on a prescribed model pattern. The sample endpoint
+now accepts query parameters. A fresh actual UI run
+`d81f9655-bf79-4787-a406-a4da4a772119` completed form creation → native Claude
+context request → plain-text response → native session resume → actual HTTP 200
+report → grounded summary. Its events and screenshots are retained under
+`agent-executor-proof/ui-native-retry-2`; this is operator verification, not user
+acceptance or certification of general model quality.
+
+The first broad local suite passed 3,594 cases, skipped one, and failed six: an
+existing identity-file sharing failure and five new recovery cases against a
+module cached before the recovery edit during the run. It is not a passing final
+source gate. Fresh affected checks pass; final hosted source-pinned gates remain
+required.
+
+Limits: completion criteria are guidance, not independent quality certification;
+use explicit success checks or human review. Claude's explicit budget is per CLI
+invocation, including resume, and does not certify included-only usage. Its native
+session files stay in the task workspace; Ollama checkpoints contain model
+history. Waiting tasks can resume; interrupted active work stays uncertain without
+automatic replay. Workflow execution remains sequential and tool access is drawn
+from registered application operations. `stop_run` is reserved for outer callers
+to avoid synchronous agent-to-agent stop cycles. General conversational planning
+with the local Qwen model remains a separate, unaccepted reliability limitation.
+
+This sequence supersedes treating test-suite reclassification or further checkpoint
+machinery as prerequisites for product delivery. All five increments now have a
+local implementation. Local lint, documentation contracts and all 118 browser
+journeys pass. Hosted Linux release/browser checks and Windows tests passed on
+`cafc0a4` in run `38066345632`. The final runtime change `def7205`, including action
+observability and safe errors, also passed both jobs in
+[run `38067115330`](https://github.com/JMRussas/ChatAgent/actions/runs/38067115330).
+
+**Architecture:** UI, model and workflow runner invoke the same registered
+application tools. Each tool declares inputs, outputs and required permissions;
+the shared service validates the caller and performs the operation once. HTTP
+handlers and model adapters translate requests into that service without their own
+task-management logic. Conversation interprets complex intent and explains results;
+direct UI controls operate without a model call.
+
+MCP exposes that same service to compatible AI clients. It is a thin discovery and
+invocation boundary, not another workflow engine. Register useful operations with
+declared inputs, results and errors; an operation may use an API or a CLI underneath.
+Prefer an existing compatible MCP server where it supplies the needed operations.
+The UI and runner call the service directly. The existing restricted Claude chat
+bridge still disables MCP; configuring this new endpoint in a separate native
+Claude client was verified explicitly.
+
+A plan is editable JSON data describing steps and dependencies. A step declares
+inputs, an action, outputs and a completion condition, with optional type-specific
+settings. It may call an API/tool, invoke a model or wait for a human. A particular
+execution records the definition revision, step states and actual results. Human
+and AI executors use the same task lifecycle. Preserve completed history; apply
+edits to future work explicitly rather than silently changing an active action.
+
+| Order | Deliverable                                 | Existing pieces and implementation boundary                                                                                                                                                                                                                                                  | Acceptance                                                                                                                                                                                                                                                               |
+| ----- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Shared plan tools and a clickable plan view | Inspect the existing Hekate plan mutation/read contracts and map them through one application service. Add registered list/get/create/update operations, with input/output validation and caller scope. Reuse the current HTTP/auth and UI composition.                                      | Open a plan from a list, create/edit its steps through direct controls, and reload the saved plan. These operations need no model call or custom preparation script. Conflicting edits return a usable conflict rather than overwriting silently.                        |
+| 2     | Execute one data-defined workflow           | Add a small sequential runner using that service and a registry of actions. First handlers: an existing API/tool operation, a model invocation through an existing provider adapter, and human input. Add run/status/stop/result operations and persist step results.                        | Run API retrieval → model summary → human review. Each step receives the declared inputs, publishes validated outputs and advances only when its completion condition holds. Failure pauses clearly; stop prevents further starts. Human input resumes the waiting step. |
+| 3     | Monitor and operate work directly           | Extend the plan view with current step, relevant activity, inputs/results, blockers and permitted controls. Automatically associate records with the run. Reuse existing status refresh and conversation streaming where appropriate.                                                        | Click Run, inspect outputs, respond to the human step and stop work from the UI. Refresh/reopen restores saved state; an uncertain interrupted action is labelled rather than replayed. Routine use requires no paths, hashes or raw-log inspection.                     |
+| 4     | Let conversation use those same tools       | Extend the capability contract with explicit task actions; its current retrieval mode assumes independent read-only calls. Expose allowed shared tools to the model and return actual operation results. Link conversations to saved plans; retain the history needed to reopen those links. | Ask the model to create a plan, open that plan in the UI, edit it there, and ask the model about the updated version. Both paths see the same state. Continue chatting while work runs. A failed operation is never reported as successful.                              |
+| 5     | Prove reuse and remove displaced setup      | Configure a second ordinary workflow using the delivered actions. Remove superseded per-run preparation and manual record-registration paths from the normal workflow; retain specialized coding checks where their behavior is needed.                                                      | The second workflow requires configuration changes, no runner changes or bespoke launch script. A human can explain its current state, find results and handle a blocker without developer narration.                                                                    |
+
+**Implemented locally:** Hekate owns saved plans and their native task attempts. A
+dedicated child task holds editable workflow JSON; bounded execution artifacts hold
+step state and results. No Hekate schema change or second task database was needed.
+The same authenticated service supports the clickable plan view, conversation
+actions, sequential execution and an official-SDK MCP endpoint. The UI shows the
+goal, steps, current status and readable model results, with raw details expandable.
+Conversation events, ownership and protocol bindings have an atomic single-writer
+snapshot. A native Claude worker implemented the first runner candidate; review and
+tests corrected cancellation, uncertain persistence and Windows rename failures.
+
+**Live evidence:** an authenticated MCP client created and ran plan
+`e5bfd32e-340c-525c-a5ef-42260d11df8d`, execution
+`b68e6eee-4d69-4de8-ba4e-d828a7e6ca02`: configured HTTP retrieval, actual local
+Ollama `qwen3:8b` summary and human review. The HTTP report is a controlled local
+repository-status endpoint, not third-party retrieval. The summary matched the
+supplied report and explicitly retained its verification limitations. An operator
+completed the review through the UI; this was not user acceptance. Native Claude
+Code separately discovered and called `get_plan` and `get_run` through MCP. A
+second API → human workflow was created and started entirely through UI plan JSON,
+without runner changes, and remains waiting for review. Artifacts, failed attempts
+and screenshots are retained outside the repository under
+`D:/hekate-coordinator/runs/shared-workflows-20261010/`.
+
+Actual capability chat with the same local model created saved plan
+`b3b3fac9-678a-56db-aba8-e013c6dbf96b`. A graceful restart restored its five
+conversation events exactly and displayed that plan in the UI. It also reopened
+the second execution `004cfb31-a500-48da-ae71-bb6a03b758fa` at human input with its
+completed API result preserved. The final UI walkthrough confirms collapsed raw
+details, readable results and the completed first plan's refreshed list status.
+The full browser gate passed all 118 journeys.
+
+**First increment ready for review:** hosted runtime gates pass, and the local
+preview includes readable action results. Final local affected checks pass 139 cases
+across 12 files; lint and documentation contracts also pass. Their actual structured
+results retain the plan/run references needed for follow-up model requests without
+showing internal attempt metadata in normal chat. Broader test-suite cleanup and
+unattended reliability are separate follow-up work. The first full
+Vitest run passed 3,558 tests and exposed three maintained-contract updates: the
+auth route inventory, the enabled workflow route fixture and the coding profile's
+lockfile pin after adding the MCP SDK. All 76 cases in those three affected files
+then passed. Three integration cases also verify shared MCP/UI/chat state, readable
+action results with usable follow-up references, and persistence of those results.
+Three isolated model-action cases cover complete output, truncation refusal and
+discarding a late answer after cancellation. Preserve the initial failed run; do
+not report it as a passing full delivery gate.
+
+A subsequent real chat update saved revision 2 with a readable reply, but “run that
+saved plan” failed with a generic tool error. Direct execution with the current
+revision succeeded. That exposed a monitoring gap: failed action arguments and
+their safe application reason were not retained. The follow-up change records the
+validated action before execution and its failure reason, preserves privacy for
+unknown provider errors, and tells the planner to use the newest actual returned
+revision. No effect is automatically retried or silently corrected. All 24 affected
+action/chat cases pass. A fresh local Qwen follow-up failed executable-plan
+validation before any tool call; this model's ordinary conversational follow-up is
+not accepted as reliable, and the failed response is preserved. Direct UI operation
+remains available. Native Claude Code, using MCP discovery and returned records,
+successfully read, updated, ran, inspected and stopped that same saved plan. It did
+not submit a human approval or claim the human task completed. This proves the
+shared operation boundary across clients, not reliable planning by every model.
+
+Initial tool names are `list_plans`, `get_plan`, `create_plan`, `update_plan`,
+`run_plan`, `get_run`, `stop_run` and `submit_step_result`. Names may follow existing
+repository conventions during implementation. Updates carry an expected revision;
+execution operations identify their run/step and associate results with that
+execution. Model and UI calls carry the same authenticated caller scope. A tool
+definition is executable behavior supplied by the application; plan JSON selects
+and configures it, rather than supplying arbitrary implementation code.
+
+Use the existing authorization, validation, provider cancellation and result
+contracts. Separate ordinary workflow execution from coding-specific worktrees,
+source pins and Prettier/TypeScript/Vitest gates. Those belong to the coding action
+where needed, not every API call or human task. Automatic retries, parallel
+execution, arbitrary branch expressions, a workflow marketplace and autonomous
+crash recovery are later capabilities, added for demonstrated use cases. Initial
+restart behavior preserves records and clearly reports uncertain work.
+
+**Tests for these increments:** validate tool inputs/results and caller access;
+exercise saved plan CRUD/conflicts through the real service; verify sequential
+input/output flow and failure/stop/human-wait behavior with deterministic actions;
+run the direct UI journey and a conversation-to-UI consistency case; then perform
+one real API/model/human workflow. Keep quality judgment separate from execution
+success. Test observable contracts, not source spelling. Use affected checks during
+development and existing required CI at delivery. Broader testing cleanup proceeds
+alongside useful product slices, without becoming a new platform project.
+
+**Completion of the first usable release:** a person can create or discuss a plan,
+open and edit it directly, run mixed kinds of steps, keep conversing, inspect
+results and handle required input from the same application. Durable plan/run state
+must survive reopening. Conversation persistence has deterministic restart coverage;
+the final live walkthrough must also verify restored history. Report limitations
+and failed actions honestly. Initial execution is sequential, edits require stopping
+an active run, and running actions interrupted by a crash are marked uncertain
+rather than replayed. Waiting human input can resume under the retained attempt
+fence. Stale locks require explicit recovery. Configured HTTP actions currently use
+GET; other operations require a registered handler. Conversation snapshots are
+bounded to 16 MiB and support one application writer. The mock chat provider does
+not infer application actions; a configured capability-chat provider is required.
+
+### Supporting work — testing review and simplification
+
+The user requested a
+concrete plan for which tests earn their cost. The
+[active testing plan](implementation/06-verification.md#active-testing-plan--2026-10-10)
+defines test types, current keep/remove/rewrite candidates, execution frequency
+and four ordered cleanup steps. Apply that guidance to the delivery increments
+above. Each step consumes inputs, performs its action, records its result and
+allows subsequent eligible work to proceed; a model call is one action type.
+
+Review findings: the plan-status test has two redundant source-spelling assertions;
+other UI tests assert internal names and emitted syntax; a delivery-specific test
+freezes source hashes; some unit cases allocate real Git fixtures despite mocking
+the coordinator. Mock acceptance and synthetic reports do not establish useful
+model output. These findings are based on configuration, representative tests and
+retained execution evidence, not an assertion-by-assertion audit of the whole suite.
+
+The two redundant plan-status source assertions have been removed; actual request
+behavior coverage remains. Next, resolve the other named low-value checks. Classify
+and expose fast versus integration execution, simplify expensive fixtures, and
+close demonstrated gaps in the simple task loop before a small live usefulness
+check. Fable's independent testing review confirms the existing core loop and
+boundary coverage should stay. Its first cleanup action removed mapped
+source-spelling, maintained-source freezes and repeated formatter checks while
+preserving public bounds and immutable evidence pins. The mock prototype is now
+component coverage with controlled completion ordering rather than a one-second
+host-speed assertion or a live-quality claim. Fast/integration commands and the
+three identified process/Git test moves are implemented: checkpoint execution,
+browser serialization and controlled handoff cases now live in integration. Their
+70 moved integration cases passed on native Node 24.21 in 17.51 seconds. The
+subsequent frozen full `test:fast` measurement passed 2,792 cases across 161 files,
+with one skipped case, in 107.73 seconds. All 229 Vitest files are covered without
+selector overlap or missing files. The initial fast lane still contains known
+process/Git/loopback cases; `dispatchHost` consumed 93.6 seconds in this run. It is
+not a strict in-memory or sub-minute lane. The subsequent dependency audit moved `dispatchHost` and `cliRunner` unchanged
+into integration while keeping the simulated-DOM `executiveOverviewUi` component
+suite. Byte identity is verified, and selectors now cover 159 fast and 70
+integration files without overlap. The 107.73-second measurement preceded these
+moves; no new speed or subtraction-based estimate is claimed. Broader suite-wide
+classification and flake measurements remain outstanding. Current
+Linux/Windows and browser gates remain required during migration; the plan adds
+no scheduler, agent hierarchy or test framework.
+
+The first two cleanup commits pass both required hosted jobs on `08fb2e7` in
+[run 38093165874](https://github.com/JMRussas/ChatAgent/actions/runs/38093165874).
+That source gate covers the cleanup; it does not validate the uncommitted digest,
+response form or step builder.
+
+### Earlier execution sequence and retained evidence (2026-10-10)
 
 1. Confirm the exact source baseline and its required Linux/Windows CI results.
    Local `main` is clean at `9755b5c` before this planning edit; lint passed today.
@@ -53,7 +539,7 @@ Same-page formatting detail and additional recovery orchestration are deferred
 unless they resolve an observed interruption. CA-ISSUE-004 remains open; this
 reprioritization changes neither execution authority nor delivered capability.
 
-**Current task — automatic overview refresh (2026-10-10):** the local patch adds
+**Delivered task — automatic overview refresh (2026-10-10):** the patch adds
 an unchecked opt-in control, one overview GET at a time, and a ten-second delay
 after settlement. It pauses while hidden or collapsed, stops on errors and scope
 changes, cancels an automatic read when disabled, and resets on reload. Existing
@@ -61,8 +547,9 @@ task expansions remain in place; changed bindings invalidate their evidence.
 Fifteen real Chromium cases pass on Node 24.21.0, including five new automatic
 refresh cases. The full suite passes 3,502 tests across 212 files with one explicit
 skip on Node 24.21.0 (288.13 seconds), plus lint and documentation validation.
-This is a verified local source change; hosted verification of this patch and
-live delivery remain outstanding.
+Source `1e891e1b19f2cf3a78703e87891f6199150f7fed` is pushed to main. Both required
+hosted jobs passed in run `38056833777`; the result is retained in external
+`overview-auto-refresh-20261010/hosted-ci.json`.
 
 The observed product interruption was repeated manual refresh in retained UI
 evidence. The browser exercise now needs one opt-in and zero additional refresh
@@ -75,11 +562,22 @@ Evidence and the initial failed browser trace are external under
 `overview-auto-refresh-20261010`; maintained-interpreter check logs are under
 `cleanup-loop-001/overview-auto-refresh-*-20261010.*`.
 
-The maintained UI/API ports 5133, 5193 and 5100 refused connections during this
-session. Implementation proceeded directly in the repository with the existing
-test workflow; no managed PlanStore task, live model invocation, service restart
-or deployment is claimed. A live workflow run remains outstanding before judging
-end-to-end supervision or deciding whether the scoped mutator is needed.
+After the initial unavailable-service observation, the retained PlanStore API and
+maintained viewer were restored on ports 5111 and 5133 for a bounded live exercise.
+The overview observed task-state changes without manual refresh. This records the
+session's exercise, not a claim that those temporary services are always running.
+
+The selected live task, CA-ISSUE-025, exposed the poor test design: a source-only
+variable rename failed the static assertion while existing request-behavior checks
+still passed. The first model candidate remained brittle and was rejected; a
+second passed the independent semantic controls but added disproportionate test
+machinery. It remains unaccepted and is superseded in the implementation plan by
+the minimal cleanup above. Preserve both attempts and their evidence under
+`overview-auto-refresh-20261010/ca025-live` and `ca025-repair`; do not count this as
+a completed useful task or inherit their model counters for an operator cleanup.
+The live exercise therefore demonstrates automatic status observation and a need
+for better test judgment, not reduced end-to-end operator effort. Active operator
+time remains unmeasured. The scoped mutator remains conditional.
 
 ### Recorded implementation status (through 2026-10-09)
 

@@ -1,5 +1,128 @@
 # ChatAgent — responsive chat and background AI workflows
 
+The home page is a Workspace with projects in the sidebar and separate Work and
+Conversations views. Register existing repositories, browse saved conversations
+and project work, continue a thread, or open and run a plan in the same page.
+Conversations have editable titles, project assignments and an archive control.
+Opening or refreshing records performs no execution. History and navigation
+metadata are saved by default in `data/conversations.json` and
+`data/workspace.json`; `CONVERSATION_STATE_FILE` and `WORKSPACE_STATE_FILE`
+override those locations. `WORKSPACE_ENABLED=false` disables the workspace.
+
+Bind a project to its existing Hekate project in **Project integration** to
+discover its workflows and coding plans. `WORKFLOW_PROJECT_ID` remains an optional
+default binding. Conversation actions use the conversation's assigned project
+unless an explicit project is supplied. Existing Hekate bindings cannot be
+replaced; register another project to keep active work and its history intact.
+The catalog covers registered projects and conversations saved by this app.
+External CLI/IDE histories require an importer or connection. A repository path
+registers a project; coding execution still uses the configured prepared-plan host.
+
+The Plans panel supports opening, creating and editing JSON workflows, running
+them, inspecting step inputs/results, stopping work and supplying human results.
+UI controls, conversation actions and MCP clients use the same application tools.
+Steps may invoke registered tools/APIs, call the configured model or wait for input.
+An agent step supplies an objective, context, references, selected tools and
+completion criteria to a configured native executor. The Plans panel's **New agent
+task** form creates that step without editing JSON. Its activity shows actual tool
+calls and results; missing context or tool access pauses for a visible response.
+
+The creator describes the configured workflow model policy: a fixed provider/model,
+selection from the catalog at execution, unavailable execution, or an unknown
+identity for a custom adapter. `list_actions` exposes this as `model` metadata;
+discovery never invokes the provider. The chat model picker does not select the
+workflow model. Recorded steps show provider/model only when their saved output
+contains that identity. Agent tool choices remain explicit grants; discovering a
+tool does not authorize its use.
+
+Continuing a conversation shows its most actionable linked work item, with other
+items available in an expandable list. “Currently open” describes the displayed
+thread; “No reply in progress” describes its recorded reply state. Reviewing linked
+work does not submit a response or execute a plan.
+
+Approval forms require an explicit Approve or Do not approve choice before
+submitting. The choice records the decision for that step; it does not verify the
+task. Expanded recorded inputs and outputs use the dialog's normal scrolling.
+
+To enable workflow execution, configure the Hekate PlanStore API and an optional default project:
+
+```dotenv
+HEKATE_PLAN_API_URL=http://127.0.0.1:5111
+WORKFLOW_PROJECT_ID=<existing-project-uuid>
+WORKFLOW_RUN_DIR=data/workflow-runs
+WORKFLOW_HTTP_ENDPOINTS_JSON={"fetch_report":"https://your-api.example/report"}
+CONVERSATION_STATE_FILE=data/conversations.json
+```
+
+Copy [the example definition](data/workflows/fetch-review.example.json) into a new
+plan, configure its API endpoint and select a real model through the existing
+provider settings. API actions use operator-configured endpoints; plans do not
+supply arbitrary executable code. Model steps use the existing provider/context
+and resource-admission adapters. Mock provider output remains mock output.
+
+Enable native task executors independently of chat providers:
+
+```dotenv
+TASK_CLAUDE_EXECUTABLE=<absolute-path-to-native-claude-executable>
+TASK_CLAUDE_MODEL=sonnet
+TASK_CLAUDE_BUDGET_USD=1
+TASK_OLLAMA_MODEL=qwen3:8b
+TASK_OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+Claude uses its native conversation and a temporary, scoped MCP gateway; Ollama
+uses native API tool calls. Both receive the same [task definition](data/workflows/agent-review.example.json).
+Claude requires an explicit CLI cost cap for each invocation, including each
+resume; this does not establish included-only usage or change the existing chat
+bridge's admission policy. The task turn allowance spans resumes. Only selected
+application tools are callable; an agent may discover other registered tools and
+request a person's grant. Stopping runs remains an outer UI/chat/MCP operation.
+Tasks cannot install tools or supply executable code through plan JSON.
+
+Completion criteria guide the executor; a final answer alone does not prove its
+quality. Add a human review step or a machine-checkable `success` condition where
+needed. A final reply with unresolved tool failures pauses for operator guidance;
+it does not advance the plan. Invalid tool choices receive safe feedback, allowing
+the model to adjust within its turn budget. Unconfirmed write outcomes stay
+uncertain and hold the plan attempt. Durable context/tool waits resume after restart; interrupted active work
+is labelled uncertain and is not replayed. Claude session state stays in the
+configured task workspace; Ollama stores bounded message history in the run record.
+`TASK_CLAUDE_WORK_DIR` overrides the default `WORKFLOW_RUN_DIR/agent-work` when
+necessary. Use a persistent directory your user can make private; the adapter
+checks permissions before writing its temporary MCP credential. Some Windows
+shared drives require a user-owned directory under your profile instead.
+
+MCP clients connect to this server's `/mcp` endpoint using Streamable HTTP and the
+installation's operator bearer credential. A typical client server entry is:
+
+```json
+{
+  "type": "http",
+  "url": "http://127.0.0.1:3100/mcp",
+  "headers": { "Authorization": "Bearer <operator-token>" }
+}
+```
+
+Keep the actual credential in private client configuration. Discovery lists plan
+and execution tools plus configured API actions. The same tools are available to
+the application's live capability planner; writes use one explicit `act` operation
+per turn, while retrieval remains read-only. Direct controls operate independently
+of inference. The legacy mock chat path does not infer application actions.
+
+Definitions and attempt state live in Hekate. Execution artifacts retain step
+results under `WORKFLOW_RUN_DIR`. Conversation snapshots preserve history,
+ownership, selected scope and protocol identifiers; runtime model processes and
+queues are not replayed after restart. Running work with unconfirmed closure is
+reported as uncertain; retained execution locks require explicit recovery rather
+than automatic takeover. Saved human-input waits can resume when their task/attempt
+still matches. Active definitions require stopping before edits.
+
+Conversation storage currently assumes one application writer and atomically
+rewrites a bounded snapshot on each streaming append. This first implementation
+supports local use; write cost grows with history size. Keep conversation and run
+artifacts outside source history and preserve them during upgrades. The initial
+runner executes sequential steps; parallelism and automatic retries are follow-ups.
+
 ChatAgent explores how an AI assistant can keep a conversation available while
 background agents retrieve evidence and execute bounded work. It combines streaming
 chat, cancellation, context management, and a LangChain documentation agent with
@@ -87,11 +210,21 @@ tasks show whether the worker reports an answer or insufficient evidence; older
 results without an answer status show that the outcome is unavailable. The bridge admits up to
 eight scheduled documentation tasks and runs one at a time; foreground chat uses
 its own path. Shared inference scheduling is experimental, not enabled by default.
-Conversation history remains in memory; documentation checkpoints are durable.
+Conversation history is bounded in memory and saved when persistence is enabled;
+documentation checkpoints are independently durable.
 
 ### Development workflow
 
-Changes to this repository start with a plan: a lead breaks the work into small tasks, each with frozen acceptance tests. A supervised worker implements one task at a time against those tests, and an independent verifier and a review then accept or reject the result. An accepted result is integrated through a separately reviewed branch. The [development workflow diagrams](docs/development-workflow-uml.md) show the flow, and [how the agents coordinate](docs/agent-bridge-development-workflow.md) describes the bridge. The [plan-node contract with Hekate](docs/implementation/13-hekate-plan-node-integration.md) defines the plan side, and the [read-only check for unanswered assignments](docs/implementation/15-stall-detection.md) covers stalled work.
+Ordinary work uses the Plans panel and shared application tools described above:
+save a definition, run its steps and inspect the recorded results. Coding tasks can
+also use the existing supervised authoring path, with scoped worktrees, explicit
+acceptance checks and independent review. Those coding controls are not required
+for an API call or human step. The [development workflow diagrams](docs/development-workflow-uml.md)
+and [agent coordination guide](docs/agent-bridge-development-workflow.md) describe
+that specialized path. The [plan-node contract with Hekate](docs/implementation/13-hekate-plan-node-integration.md)
+defines its plan integration, and the [read-only check for unanswered assignments](docs/implementation/15-stall-detection.md)
+covers stalled work. Current delivery and testing priorities are maintained in the
+[development roadmap](docs/12-development-roadmap.md).
 
 #### Monitoring a plan
 
@@ -185,7 +318,7 @@ automatically. Node and Python must run on the same OS.
 
 Further commands and API details: [runtime reference](docs/runtime-reference.md).
 
-Conversation history is process-local and bounded. `CONVERSATION_*` settings in
+Conversation history is bounded and saved by default. `CONVERSATION_*` settings in
 `.env.example` configure history count, idle expiry, event/byte limits and lifetime
 identity capacity; changes require a restart. Expired conversations return 410 and
 require a new conversation ID. Running/queued work protects its history. Expired

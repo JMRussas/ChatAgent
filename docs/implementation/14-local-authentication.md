@@ -142,25 +142,22 @@ The server uses these on every request.
     authenticated request for an unknown route gets `404`, and a client token on
     an operator route gets `403 OPERATOR_REQUIRED`.
 
-### Route inventory (source, commit 2cecb5b)
+### Route inventory
 
-There were 34 handlers at commit 2cecb5b. Activation added 4 routes: the pairing
-page, pairing, operator re-issue and `GET /auth/session`. The document sidecar
-restart slice added 2 operator routes, orphan-task recovery 2 more, the
-recovery-candidate listing 1, runtime quota-window declarations 1 and the quota
-envelope read 1 and the development plan status read 1. That makes 46 routes, of
-which 4 are public, 21 client and 21 operator. Each handler is a
+The current route policy contains 66 routes: 5 public, 21 client and 40 operator.
+The independent inventory in `tests/unit/authPrimitives.test.ts` verifies every
+route's required role and complete coverage without freezing the route count.
+Each handler is a
 `method === X && <path matcher>` branch in `src/server.ts`, or the v1 regular
 expression in `src/app/protocolV1.ts`.
 
-| Access   | Routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public   | `GET /`, `GET /pair`, `POST /pair`, `GET /auth/session`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Client   | `POST /briefings` (start, status and cancel), `POST /document-tasks`, `POST /sports/games`, `GET /sports/team-directories`, `POST /conversation-context/detach`, `POST /conversation-context`, `POST /sports/conversations`, `POST /sports/teams`, `POST /sports/results`, `POST /sports/chat`, `POST /messages`, `POST /conversations/:c/messages/:m/cancel`, `GET /telemetry/latency`, `GET /run-controls`, `GET /run-controls/thinking`, `GET /models`, `GET /conversations/:c/events`, `GET /conversations/:c/events/stream`, `POST /v1/conversations/:c/messages`, `GET /v1/conversations/:c/events/stream`, `POST /v1/conversations/:c/messages/:m/cancel`                                                      |
-| Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `GET /workers/document-tasks/status`, `POST /workers/document-tasks/restart`, `GET /workers/document-tasks/recovery-candidates`, `POST /workers/document-tasks/inspect`, `POST /workers/document-tasks/abandon`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `POST /routing/quota-envelopes/declare`, `GET /routing/quota-envelopes`, `GET /conversations/retention`, `DELETE /conversations/:c/identity` |
+| Access   | Routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public   | `GET /`, `GET /pair`, `POST /pair`, `GET /auth/session`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Client   | `POST /briefings` (start, status and cancel), `POST /document-tasks`, `POST /sports/games`, `GET /sports/team-directories`, `POST /conversation-context/detach`, `POST /conversation-context`, `POST /sports/conversations`, `POST /sports/teams`, `POST /sports/results`, `POST /sports/chat`, `POST /messages`, `POST /conversations/:c/messages/:m/cancel`, `GET /telemetry/latency`, `GET /run-controls`, `GET /run-controls/thinking`, `GET /models`, `GET /conversations/:c/events`, `GET /conversations/:c/events/stream`, `POST /v1/conversations/:c/messages`, `GET /v1/conversations/:c/events/stream`, `POST /v1/conversations/:c/messages/:m/cancel`                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Operator | `POST /pair/reissue`, `GET /telemetry/evaluation`, `POST /briefings/config/reload`, `POST /roles/config/reload`, `GET /workflows/tools`, `POST /workflows/tools/:name`, `POST /mcp`, `GET /mcp`, `DELETE /mcp`, `GET /workers/document-tasks/status`, `POST /workers/document-tasks/restart`, `GET /workers/document-tasks/recovery-candidates`, `POST /workers/document-tasks/inspect`, `POST /workers/document-tasks/abandon`, `POST /workers/deep/run-once`, `GET /workers/deep/dead-letters`, `DELETE /workers/deep/dead-letters/:t`, `POST /workers/deep/dead-letters/:t/replay`, `GET /telemetry/dispatch`, `GET /telemetry/context`, `POST /routing/policy/tune`, `POST /routing/policy/set`, `POST /routing/quota-envelopes/declare`, `GET /routing/quota-envelopes`, `GET /conversations/retention`, `GET /development/plans/:root/status`, `GET /development/executive/overview`, `GET /development/plans/:root/nodes/:node/progress`, `GET /development/plans/:root/dispatch`, `POST /development/plans/:root/dispatch/launch`, `POST /development/plans/:root/dispatch/stop`, `DELETE /conversations/:c/identity` |
 
-The 21st operator route, `GET /development/plans/:root/status`, is not in the
-table above. It reads a global Hekate plan through `HEKATE_PLAN_API_URL`, not any
+`GET /development/plans/:root/status` reads a global Hekate plan through `HEKATE_PLAN_API_URL`, not any
 principal's conversation, so it needs the operator role: no credential is `401`, a
 client credential is `403 OPERATOR_REQUIRED`, and neither reaches Hekate. The
 Host/Origin boundary applies as for every route. Without a configured URL it answers
@@ -171,7 +168,30 @@ overview of the startup-configured plan roots (`18-executive-observability-mvp.m
 expired sessions are `401`, a client credential is `403 OPERATOR_REQUIRED`, and neither reaches
 the plan API. It accepts no query, `POST`/`DELETE` and sibling paths are default-deny `404`, and
 without `HEKATE_EXECUTIVE_OVERVIEW=1` it answers `404 EXECUTIVE_OVERVIEW_DISABLED`. The strict
-route inventory in `tests/unit/authPrimitives.test.ts` lists it (52 routes).
+route inventory in `tests/unit/authPrimitives.test.ts` lists it.
+
+Workspace routes also require the operator role: `GET /workspace/tools`,
+`POST /workspace/tools/:name`, and `/workspace/conversations/:c/` with `GET events`,
+`GET events/stream`, `POST messages`, `POST messages/:m/cancel`, `POST context`,
+or `POST context/detach`. Discovery, title/project/archive changes and reopening
+are scoped to the authenticated principal. Reopening uses the stored conversation
+owner; caller-supplied user labels cannot change that identity. The bridge supports
+saved legacy and v1 conversations while the legacy client API continues to refuse
+v1 internal IDs. `X-Workspace-Conversation-Id` on a tool call is validated against
+the same owner before invoking an operation. It supplies navigation context,
+not authority. Retiring a conversation clears its metadata and plan associations
+through the existing coordinated retirement path.
+
+`GET /design` serves the proposed UI shell. It embeds no conversation, project or
+work data. The proposal reads live records through the same authenticated operator
+tools and conversation bridge; loading its HTML grants no access to those records.
+
+The workflow tools and MCP routes require operator credentials for discovery and
+execution. Direct UI operations use `POST /workflows/tools/:name`; MCP clients use
+the stateless `POST /mcp` endpoint. Authenticated `GET /mcp` and `DELETE /mcp` reach
+an explicit `405` response; authentication is checked before that response. Browser
+session mutations require the exact application origin, and neither protocol accepts
+caller-supplied roles as authority. Both adapters invoke the same application tools.
 
 Three of today's handlers match more loosely than this table, using `startsWith`
 and `endsWith` checks:

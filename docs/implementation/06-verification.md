@@ -1,5 +1,253 @@
 # 06 — Lifecycle and honest end-to-end verification
 
+## Active testing plan — 2026-10-10
+
+This section governs the testing review and cleanup. It supersedes earlier test
+sequencing in this document; dated evidence below remains historical. This is a
+plan, not a claim that the suite has already been reorganized. Current work and
+delivery status belong in the [roadmap](../12-development-roadmap.md).
+
+### Objective and review findings
+
+The product goal is to make AI-assisted and agentic work digestible, observable
+and easy for a human to monitor and direct. Successful execution is necessary;
+the person must also understand what is happening without reconstructing it from
+logs, internal identifiers or a conversation with the developer.
+
+Tests should catch failures that affect task completion, correctness, privacy or
+recovery, with the cheapest reliable check for each behavior. The central workflow
+is simple: read the next eligible task, supply its inputs and context to the
+chosen API, tool, model, agent or human, check and record the result, then continue.
+Manual execution of those same steps is the baseline for judging whether
+automation reduces work.
+
+For a representative task, the normal view should answer:
+
+- What are we trying to accomplish, what is running, and what comes next?
+- What has changed or finished, and where is the actual result?
+- Is work progressing, waiting for me, blocked, failed, or of unknown status?
+- What decision or action is needed from me, and how do I stop or redirect work?
+
+Show a concise activity summary and relevant results first, with detailed evidence
+available when needed. Status must distinguish observed facts from model claims;
+do not imply useful progress just because a process is alive. Identifiers and
+diagnostic records support inspection but should not be prerequisites for routine
+monitoring. Use existing components to present this information before adding
+infrastructure.
+
+Browser/workflow tests should check those observable states and available actions.
+A short human walkthrough must also check comprehensibility: can the person locate
+the current task, explain its status, find its result and act on a blocker without
+developer narration or opening raw logs? Record confusion and navigation effort;
+DOM assertions alone cannot establish usability. Run this walkthrough early on
+the existing workflow. Completing the whole test reclassification is not a
+prerequisite for demonstrating useful work.
+
+The inventory at `90b694b` is 227 Vitest files: 161 under `unit`, 61 under `integration`,
+four under `eval`, and one under `acceptance`. Nine Playwright spec files run
+separately. `npm test` includes all four Vitest directories. Directory names do not
+yet reliably describe dependencies: some unit files create Git repositories or
+spawn processes; the acceptance file uses mock providers; evaluation tests include
+report/schema checks rather than model-quality judgments.
+
+The last recorded local full run passed 3,502 tests with one skip in 288.13 seconds
+on Node 24.21.0. That is a baseline for that machine and run, not a speed target or
+proof of product usefulness. The review inspected configuration, representative
+UI, workflow, fixture and evaluation tests, and prior run evidence. It has not
+classified every assertion or established a suite-wide flake rate.
+
+Claude Fable independently reviewed the inventory and representative assertions.
+Its first cleanup action removed mapped source-spelling, maintained-source hash
+and duplicate formatter assertions, retaining exercised browser behavior and
+public bounds. The mock prototype now lives in
+`tests/unit/prototypeConversation.test.ts` as component coverage: a controlled
+completion proves provisional persistence before admitted deep work and refinement
+of the same message afterward. Mock citation fields are only shape checks, and
+the one-second host-speed assertion is removed. Making the existing
+fast/integration categories executable is implemented for the current directory
+partition. `test:fast` selects unit/component files; it is an initial lane and
+still includes known process, Git and loopback cases awaiting reclassification.
+`test:integration` selects integration, deterministic eval and future acceptance
+files. The measured migration inventory covered all 228 files without overlap;
+the original `npm test` selection remains unchanged. Preserve
+immutable executable, verifier and evidence integrity pins. These changes support
+product delivery; they do not delay the workspace walkthrough.
+
+For the factual work digest, verify state projection, current versus historical
+revision, allocation versus running, step approval versus task verification,
+read-error versus decision, and agreement across direct tools, chat and MCP.
+Browser checks exercise count partitioning, pending prompts and actual response
+forms, timestamps and mobile visibility. This projection has no model dependency,
+so live model calls do not add evidence for this change.
+
+A real review found a boundary that the browser mock misrepresented: the UI offered
+Do not approve and its mock recorded a failed result with a note, while the actual
+service rejected the output and stayed waiting. The correction deliberately changes
+the exact human approval-gate contract. Pair its browser journey with a real service
+and one public authenticated submission check, then a small live API-to-human
+walkthrough. Verify durable declined output, no following step, no hidden rerun,
+rejected unrelated mismatches and honest uncertainty. Model calls add no evidence
+for this persistence change. Controlled browser responses remain useful for layout
+and stale states, but a mocked successful response does not establish backend
+behavior. Add real boundary coverage for important actions when an actual mismatch
+is demonstrated; do not duplicate every fixture combination across every layer.
+
+Fable assesses UI clarity from fresh real-data screenshots against its rubric,
+with no implementation report supplied as grading evidence. It records visible
+support or unknowns for each criterion. That review is separate from deterministic
+correctness checks and is not a CI gate. The reviewed revision, model findings and
+user acceptance remain distinct records; a design review never implies acceptance.
+
+Confirmed problems:
+
+- A harmless production variable rename breaks the plan-status source-string
+  assertion. Its existing request test already checks the URL, GET method and
+  number of calls. The failed rename experiment is retained under external run
+  `overview-auto-refresh-20261010/ca025-live/original-oracle-counterexample.json`.
+- Other UI assertions depend on internal function names, source formatting and
+  concatenation syntax. Some have equivalent behavioral browser coverage already.
+- Permanent tests contain frozen source hashes from individual delivery tasks.
+  These can reject comment changes without finding a behavioral defect.
+- Some tests pay for full Git fixtures while mocking the coordinator they exercise.
+  Others repeat the repository-wide formatter check inside behavior suites.
+- Mock workflow results, report formatting and synthetic benchmark results can
+  pass without demonstrating useful live model output. Keep those claims separate.
+
+### Test types and what each earns us
+
+| Type                     | What to test and why                                                                                                                                                                  | Dependencies and normal use                                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit                     | Selection rules, validation, state transitions, bounds, redaction and prompt/context construction. Pin decisions and observable outputs so defects are easy to locate.                | In-memory inputs and controlled clock; no real Git, network or child process. Run during ordinary edits.                                                                                                                         |
+| Component                | Execute the actual UI script or service with a controlled transport/provider. Check requests, rendered state, cancellation and late results across collaborating functions.           | Fake external edges, real component logic. Fast development feedback; do not replace the component under test with a mock.                                                                                                       |
+| Integration/contract     | Verify HTTP/auth, persistence, provider protocol parsing, CLI arguments/exits, Git delivery and process cleanup across real boundaries. Catch assumptions that isolated tests cannot. | Local server, temporary store/worktree or controlled child as needed. Run affected suites locally and all required offline suites in CI.                                                                                         |
+| Browser                  | Verify important user journeys: start/view/stop work, scope changes, stale/error states, keyboard actions and inert rendering of hostile text. Catch real DOM/event/wiring failures.  | Real Chromium and application server; controlled backend responses are allowed and identified. Run affected specs for UI changes and the full browser gate in CI.                                                                |
+| Workflow acceptance      | Exercise next-task selection through prompt delivery, completion checking, saved result and progression. Establish that the assembled loop works.                                     | Real workflow components with a deterministic model substitute for CI. A separate small live run checks actual provider wiring and useful artifacts.                                                                             |
+| Model-quality evaluation | Judge actual task completion, groundedness, instruction following and necessary human correction. Detect regressions that “request succeeded” cannot detect.                          | A small representative set of tasks, expected outcomes/rubric defined before running, retained outputs and actual model/settings. Run when prompts/models/context/tool behavior change and before claiming quality improvements. |
+| Performance/reliability  | Measure latency, memory, throughput, cancellation latency and resource cleanup where those are product requirements.                                                                  | A declared workload and environment, repeated measurements and explicit real/synthetic labels. Run affected checks after relevant changes; keep ordinary correctness tests independent of host speed.                            |
+
+Static checks remain a separate gate: pinned formatting, TypeScript and contract
+documentation validation. They are useful once per change, but do not need a copy
+inside every feature's tests. Security, privacy and concurrency are risks tested
+at the appropriate levels above, not additional duplicate suites for every layer.
+
+Property-based or table-driven cases are useful when inputs have meaningful
+partitions: valid/invalid identifiers, bound minus one/at bound/plus one, missing
+fields, or different event orders. Use existing table-driven facilities first.
+Do not add a new testing framework or enumerate combinations without a distinct
+failure to catch.
+
+### Minimum acceptance for the plan loop
+
+Use the existing queue/continuation implementation. Testing this loop does not
+require another scheduler, agent hierarchy or evidence service. Consolidate around
+these behaviors, mapping existing cases before adding anything:
+
+| Scenario                                      | Required observation                                                                                                                                                                                                                |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Two eligible tasks                            | The first eligible task starts once; the model receives that task's instructions/context; its checked result is recorded against that task. The second starts only after the first meets the existing completion/acceptance policy. |
+| Nothing ready                                 | No model invocation; an understandable idle or blocked result. Completed or ineligible tasks are not selected again.                                                                                                                |
+| Model failure, invalid result or failed check | The failure is retained; the task is not reported as successfully accepted and the loop does not silently advance or retry indefinitely.                                                                                            |
+| User stop or deadline                         | Active work follows the documented cancellation policy; no next task starts; status identifies what finished and what remains uncertain.                                                                                            |
+| Stale result, restart or uncertain completion | A result cannot complete another task/attempt. Resumption follows the supported contract; uncertain work is reported rather than blindly executed twice. Do not imply exactly-once effects or crash recovery where unsupported.     |
+
+`tests/integration/checkpointQueueService.test.ts` already covers ordered starts,
+acceptance waiting, unavailable API, stop, deadline and some resume/refusal cases.
+Inspect prompt delivery and result persistence in the continuation coverage before
+adding a consolidated acceptance case. Keep representative real boundary tests;
+exercise the detailed state combinations in faster tests.
+
+After cleanup, run a short plan with a real model on useful, independently
+checkable tasks. Record completed outcomes, failures, necessary interventions and
+elapsed/operator time, with unknown usage or cost left unknown. A model's “done”
+message is not the acceptance criterion. Use the same task instructions and
+checking standard as manual execution; compare comparable runs before claiming
+automation saves effort. One successful run establishes a smoke check only.
+
+### Concrete keep, simplify and remove decisions
+
+| Priority and current location                                                                                                                                                                                                                  | Decision                                                                                                                                                                                                    | What remains or must replace it                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First: `tests/unit/planStatusPanel.test.ts`, static fetch count and literal `value` URL assertion                                                                                                                                              | Remove those two redundant assertions. Rename the enclosing test to match what it still checks. Do not add a replacement fixture framework.                                                                 | Existing “issues one same-origin GET…” case checks actual request URL, method, body and count. Existing invalid-input, overlap and scope cases remain.                    |
+| Next: `tests/unit/attemptProgressUi.test.ts`, `run`, `readButton`, `req.root` and emitted `var` assertions                                                                                                                                     | Remove implementation-spelling checks after mapping behavioral coverage. Retain declared public limit assertions; check enforcement through behavior.                                                       | `tests/browser/attemptProgress.spec.ts` already checks no load-time requests, selected-task GET, six-read limit, timeouts and cancellation. Fill only a demonstrated gap. |
+| Next: `tests/unit/homePage.test.ts`, literal event-handler/410 source probes; `tests/unit/documentTaskPanel.test.ts`, exact assignment text                                                                                                    | Replace or remove source-spelling assertions. Keep useful markup/script-parse checks.                                                                                                                       | Map expiry cases in `tests/browser/chat.spec.ts` and document-task browser coverage; any missing behavior gets a direct request/render assertion.                         |
+| Next: `tests/unit/attemptProgressTask.test.ts`, frozen prefix/suffix hashes                                                                                                                                                                    | Remove this delivery-scope assertion from evergreen regression testing, preserving its original evidence in history.                                                                                        | Keep public activity, privacy and limit behavior checks. Integrity checks for actual immutable artifacts/executables remain valid and are not targeted by this removal.   |
+| Next: embedded `prettier.format` checks in plan-status, home-page, attempt-progress and runbook tests                                                                                                                                          | Remove duplicate formatting checks; split mixed tests so useful behavioral assertions remain.                                                                                                               | Repository `npm run lint` already runs pinned `format:check`. Preserve formatter-runtime integration tests, which test product behavior.                                  |
+| Review separately: `tests/unit/conversationOperationsRunbook.test.ts`, frozen verifier and document hashes                                                                                                                                     | Separate historical evidence integrity from tests of maintained helpers/docs. Determine whether each target is an immutable archived artifact or a maintained source before moving its check.               | Preserve historical bytes and useful projection semantics. A source change should not require casually rewriting an “approved” hash to make tests pass.                   |
+| Fixture cost: `tests/integration/operatorHandoffControlled.test.ts`                                                                                                                                                                            | The controlled handoff cases retain their real Git fixtures after moving to integration. Simplifying mocked classification/registry cases to a valid manifest and temporary directory remains future work.  | Keep real coordinator/Git tests in integration coverage, including ownership, source mismatch and cleanup. Do not share mutable worktrees across cases.                   |
+| Classification: `tests/integration/checkpointRun.test.ts`, `tests/integration/browserSerialization.test.ts`, `tests/integration/dispatchHost.test.ts`, `tests/integration/cliRunner.test.ts`; remaining `evidenceComparison.test.ts` CLI cases | These now run in integration, preserving their actual process checks. Remaining unit boundaries still need classification; the initial fast command is not a strict in-memory lane.                         | Preserve actual OS/process behavior coverage and measure cost. Expensive does not mean valueless.                                                                         |
+| Claim correction: `tests/acceptance/prototypeSuccess.test.ts`                                                                                                                                                                                  | Classify its mock-provider checks as component tests. Replace the one-second mock wall-clock assertion with deterministic completion/order behavior unless a measured performance requirement justifies it. | Citation presence on mock output proves neither current-data retrieval nor answer correctness. Useful acceptance requires the workflow and quality checks above.          |
+
+Do not delete all fixed expected values. An exact API path, method, schema field,
+known answer, privacy exclusion or contractual bound is often precisely what must
+be asserted. Internal variable names and equivalent ways to construct the same
+request are different. Likewise, different layers can legitimately check the same
+risk when they expose different failures, such as policy denial and actual HTTP
+authorization enforcement.
+
+Static forbidden-source scans are limited guardrails, not proof of security. Keep
+them only for an explicit maintained coding constraint; prefer hostile-input,
+unauthorized-request and data-exposure behavior tests for product guarantees.
+
+### Execution policy and implementation order
+
+1. **Remove confirmed low-value checks.** Start with the two plan-status assertions,
+   then the mapped UI/source-hash/duplicate-formatting cases above in small changes.
+   Record the surviving behavioral coverage in each change. For the plan-status
+   cleanup, a harmless rename/equivalent URL must pass, while a wrong endpoint,
+   method or duplicate request must still fail. These are bounded review experiments,
+   not a permanent source-rewriting test framework. Reuse retained evidence where
+   it applies; do not replay a matrix merely to increase test counts.
+2. **Make categories executable.** Classify files by actual dependencies; split
+   mixed files only where useful. Add `test:fast` for unit/component checks and
+   `test:integration` for boundary checks; keep `test:browser` separate and retain
+   `npm test` as the complete offline Vitest suite. These two commands are now
+   available for the initial directory partition; remaining boundaries and the
+   full fast-lane measurement are outstanding. Confirm the selections have no
+   overlap and together include every retained Vitest file. Preserve cited test
+   paths/tags and run `docs:check` when files move.
+3. **Reduce fixture cost at the measured hotspots.** Simplify mocked handoff tests
+   first, then inspect dispatch/continuation costs. Use controlled time/deferred
+   promises for logical scheduling, and real clocks/processes for OS lifecycle
+   checks. Set worker concurrency from measured host behavior. Record one baseline
+   and comparable after-change timings; investigate failures before changing
+   timeouts or enabling retries.
+4. **Close actual workflow gaps and perform a live usefulness check.** Map existing
+   tests to the five loop scenarios above. Add only missing coverage, then run the
+   small useful live plan. Preserve failed outputs; inspect the delivered artifact
+   independently of the model's self-report. A failed test design gets corrected;
+   a real product failure gets fixed.
+
+During an edit, run the affected behavior tests and the appropriate nearby boundary
+or browser tests. At handoff, run required formatting/lint and documentation checks
+where applicable. During this migration, keep current full Linux/Windows and
+browser CI requirements; faster local feedback must not silently omit release
+coverage. Documentation-only planning changes need formatting/lint, not a replay of
+the entire runtime suite. Changes to runtime behavior need the applicable code gates.
+
+After classification, aim for an affected-test loop below 30 seconds and the full
+fast lane below 60 seconds on the recorded development machine. These are initial
+engineering targets to assess after measurement, not per-test correctness assertions
+or reasons to skip coverage. Required offline checks remain the merge gate; live
+quality runs are separately reported when affected, and performance runs use the
+declared relevant workload. An unavailable required dependency must fail its gate;
+optional/platform skips must be visible and justified.
+
+Each changed test should answer: what real failure does this catch, why does it
+belong at this layer, and does an existing cheaper test already catch that failure?
+Expectations must come from the contract or known outcome rather than copying the
+production algorithm. Use a targeted negative control when a test's ability to
+detect its claimed defect is uncertain. Avoid whole-suite mutation campaigns for
+routine edits, blanket coverage-percentage targets, count-based success criteria,
+or a new mandatory metadata system for every test.
+
+The cleanup is complete when the named brittle checks are resolved, execution
+lanes match their dependencies without dropped coverage, the core workflow has
+mapped behavioral acceptance, and timings plus a live task outcome are reported
+honestly. The live walkthrough must also report whether the workflow was easy to
+understand and monitor, including any need for developer explanation. Fewer tests
+is acceptable; reliable signal, useful task completion and reduced human effort
+are the measures of success.
+
 ## Active application — NBA briefing demo
 
 The user selected [NBA briefings](../18-nba-briefing-demo.md) as the next concrete

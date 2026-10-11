@@ -19,6 +19,17 @@ import type { DeadLetterRecord, DeadLetterStore } from "./deadLetterStore";
 import type { AdaptiveRoutingCoordinator } from "../routing/adaptiveRouting";
 import { assertReadBudget, type ConversationTimelineStore } from "./timelineStore";
 import type { TaskQueue } from "../providers/interfaces";
+import { z } from "zod";
+import { ownerBelongsToPrincipal } from "../auth/authenticator";
+
+export const conversationIdentitySnapshotSchema = z
+  .object({
+    version: z.literal(1),
+    owners: z.array(z.tuple([z.string().min(1).max(4096), z.string().min(1).max(4096)])),
+    scopes: z.array(z.tuple([z.string().min(1).max(4096), conversationScopeSchema]))
+  })
+  .strict();
+export type ConversationIdentitySnapshot = z.infer<typeof conversationIdentitySnapshotSchema>;
 
 /**
  * Thrown when a conversationId's already-claimed owner (spec 01: "claim conversation
@@ -109,6 +120,7 @@ export class ChatService {
     this.claimConversation(conversationId, userId, false);
     const scope = this.scopes.get(conversationId);
     if (scope) scope.reference = null;
+    if (scope) this.persistenceHook?.();
     return this.getSelectedContext(conversationId, userId);
   }
   private readonly scopes = new Map<string, ConversationScope>();
@@ -118,6 +130,7 @@ export class ChatService {
       conversationId = randomUUID();
     this.claimConversation(conversationId, userId);
     this.scopes.set(conversationId, structuredClone(scope));
+    this.persistenceHook?.();
     return { conversationId, context: scopeForModel(scope) };
   }
   getSelectedContext(conversationId: string, userId: string) {
@@ -126,6 +139,37 @@ export class ChatService {
     return scopeForModel(this.scopes.get(conversationId));
   }
   private readonly ownerUserIdByConversationId = new Map<string, string>();
+  private persistenceHook?: () => void;
+  setPersistenceHook(hook: (() => void) | undefined) {
+    this.persistenceHook = hook;
+  }
+  exportSnapshot(): ConversationIdentitySnapshot {
+    return {
+      version: 1,
+      owners: [...this.ownerUserIdByConversationId],
+      scopes: structuredClone([...this.scopes])
+    };
+  }
+  /** Restore ownership/context before accepting requests; provider execution is not restored. */
+  restoreSnapshot(value: unknown) {
+    const snapshot = conversationIdentitySnapshotSchema.parse(value);
+    const owners = new Map(snapshot.owners);
+    const scopes = new Map(snapshot.scopes);
+    if (
+      this.activeTurns ||
+      this.inFlight.size ||
+      this.orchestrator.detachedTurns?.() ||
+      owners.size !== snapshot.owners.length ||
+      scopes.size !== snapshot.scopes.length ||
+      owners.size > this.maxConversationIdentities ||
+      [...scopes.keys()].some((id) => !owners.has(id))
+    )
+      throw new Error("CONVERSATION_IDENTITY_SNAPSHOT_INVALID");
+    this.ownerUserIdByConversationId.clear();
+    this.scopes.clear();
+    for (const [id, owner] of owners) this.ownerUserIdByConversationId.set(id, owner);
+    for (const [id, scope] of scopes) this.scopes.set(id, structuredClone(scope));
+  }
 
   constructor(
     private readonly orchestrator: Pick<ChatOrchestrator, "handleUserMessage" | "cancel"> & {
@@ -148,7 +192,9 @@ export class ChatService {
       options.maxConcurrentTurns === undefined
         ? loadTurnAdmissionConfig().maxConcurrentTurns
         : assertConcurrentTurnLimit(options.maxConcurrentTurns);
-    timelineStore.onConversationExpired?.((id) => this.scopes.delete(id));
+    timelineStore.onConversationExpired?.((id) => {
+      if (this.scopes.delete(id)) this.persistenceHook?.();
+    });
   }
   private readonly fallbackIdentityLimit = loadConversationRetention().maxIdentities;
   get maxConversationIdentities() {
@@ -160,6 +206,12 @@ export class ChatService {
   /** The owner a conversation was claimed by, or undefined if it was never claimed. */
   conversationOwner(conversationId: string) {
     return this.ownerUserIdByConversationId.get(conversationId);
+  }
+  /** Only authenticated principal-owned histories appear in the workspace directory. */
+  listConversations(principalId: string) {
+    return (this.timelineStore.conversationSummaries?.() ?? [])
+      .filter((row) => ownerBelongsToPrincipal(this.conversationOwner(row.id), principalId))
+      .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt) || a.id.localeCompare(b.id));
   }
   conversationRetentionStats() {
     return { owners: this.ownerUserIdByConversationId.size, scopes: this.scopes.size };
@@ -260,6 +312,7 @@ export class ChatService {
     if (!store.retireConversation(conversationId))
       return { status: "blocked", blockers: ["RETIREMENT_REFUSED"] };
     this.ownerUserIdByConversationId.delete(conversationId);
+    this.persistenceHook?.();
     return { status: "retired" };
   }
 
@@ -336,6 +389,7 @@ export class ChatService {
         const release = this.timelineStore.retainConversation?.(conversationId);
         this.ownerUserIdByConversationId.set(conversationId, userId);
         release?.();
+        this.persistenceHook?.();
       }
     } else if (existingOwner !== userId) {
       throw new ConversationOwnershipConflictError(conversationId);

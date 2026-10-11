@@ -13,6 +13,7 @@ const principal = (...roles: Role[]): Principal => ({
 /** One concrete request per inventoried route (docs/implementation/14-local-authentication.md). */
 const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
   ["GET", "/", "public"],
+  ["GET", "/design", "public"],
   ["GET", "/pair", "public"],
   ["POST", "/pair", "public"],
   ["GET", "/auth/session", "public"],
@@ -51,6 +52,19 @@ const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
   ["POST", "/development/plans/00000000-0000-4000-8000-000000000001/dispatch/stop", "operator"],
   ["POST", "/briefings/config/reload", "operator"],
   ["POST", "/roles/config/reload", "operator"],
+  ["GET", "/workspace/tools", "operator"],
+  ["POST", "/workspace/tools/get_workspace", "operator"],
+  ["GET", "/workspace/conversations/c1/events", "operator"],
+  ["GET", "/workspace/conversations/c1/events/stream", "operator"],
+  ["POST", "/workspace/conversations/c1/messages", "operator"],
+  ["POST", "/workspace/conversations/c1/messages/m1/cancel", "operator"],
+  ["POST", "/workspace/conversations/c1/context", "operator"],
+  ["POST", "/workspace/conversations/c1/context/detach", "operator"],
+  ["GET", "/workflows/tools", "operator"],
+  ["POST", "/workflows/tools/list_plans", "operator"],
+  ["POST", "/mcp", "operator"],
+  ["GET", "/mcp", "operator"],
+  ["DELETE", "/mcp", "operator"],
   ["GET", "/workers/document-tasks/status", "operator"],
   ["POST", "/workers/document-tasks/restart", "operator"],
   ["GET", "/workers/document-tasks/recovery-candidates", "operator"],
@@ -71,9 +85,8 @@ const INVENTORY: [string, string, "public" | "client" | "operator"][] = [
 ];
 
 describe("route policy", () => {
-  it("classifies exactly the 52 inventoried routes, each once", () => {
-    expect(ROUTES).toHaveLength(52);
-    expect(INVENTORY).toHaveLength(52);
+  it("classifies every inventoried route exactly once", () => {
+    expect(INVENTORY).toHaveLength(ROUTES.length);
     const used = new Set<string>();
     for (const [method, path, access] of INVENTORY) {
       const rule = classifyRoute(method, path);
@@ -81,6 +94,7 @@ describe("route policy", () => {
       used.add(rule!.name);
     }
     expect(used.size).toBe(ROUTES.length);
+    expect([...used].sort()).toEqual(ROUTES.map((route) => route.name).sort());
   });
 
   it("decides access by role for every route", () => {

@@ -1,4 +1,15 @@
 import { rolePlannerEngine } from "./app/rolePlanner";
+import { randomUUID } from "node:crypto";
+import { WorkflowError, type WorkflowToolService } from "./workflows/types";
+import { handleWorkflowMcp } from "./workflows/mcp";
+import { createWorkflowApplication } from "./workflows/application";
+import { workflowModelAction } from "./workflows/modelAction";
+import { configuredTaskExecutors } from "./tasks/configuration";
+import { ConversationPersistence } from "./app/conversationPersistence";
+import { WorkspaceCatalog } from "./workspace/catalog";
+import { ProjectWorkflowRouter } from "./workspace/projectWorkflows";
+import { WorkspaceService } from "./workspace/service";
+import { readFileSync } from "node:fs";
 import {
   DevCoordinationError,
   fetchCoordinationStatus,
@@ -198,6 +209,11 @@ interface ServerOptions {
   /** Re-reads the configured role catalog; absent when no catalog file is configured. */
   reloadRoles?: () => unknown;
   documentTasks?: DocumentTasks;
+  /** Shared plan/work operations exposed to direct controls, conversation and MCP. */
+  workflowTools?: WorkflowToolService;
+  /** Saved project/conversation navigation; shares the same tools with chat and MCP. */
+  workspaceTools?: WorkflowToolService;
+  conversationPersistence?: ConversationPersistence;
   /** Operator status and restart of the document sidecar; absent when it is disabled. */
   documentTaskControl?: DocumentTaskControl;
   // A function, not a static value: discovery observations change over the
@@ -614,7 +630,17 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       streamStallTimeoutMs: options.streamStallTimeoutMs ?? DEFAULT_STREAM_STALL_TIMEOUT_MS
     })
   );
-  const protocolV1 = createProtocolV1Handler(service, eventStreams);
+  const protocolV1 = createProtocolV1Handler(
+    service,
+    eventStreams,
+    options.conversationPersistence
+      ? {
+          bindings: options.conversationPersistence.protocolBindings(),
+          onBindingsChanged: (bindings) =>
+            options.conversationPersistence!.setProtocolBindings(bindings)
+        }
+      : undefined
+  );
   const conversationNotFound = (res: ServerResponse) =>
     json(res, 404, { code: "CONVERSATION_NOT_FOUND", error: "No such conversation" });
   /**
@@ -761,7 +787,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
 
       if (url.pathname.startsWith("/v1/")) {
         // Every /v1 route is a client route, so a principal is present here.
-        if (await protocolV1(req, res, url, parseBody, principal!.principalId)) return;
+        if (await protocolV1(req, res, url, parseBody, principal!)) return;
       } else if (rule?.access === "client") {
         // Legacy client routes take conversation ids from the path or the body; none
         // of them may name a conversation the v1 protocol allocated internally.
@@ -801,6 +827,111 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             ]);
           parseBody = async () => body;
         }
+      }
+
+      // Operator navigation reuses the original saved owner namespace. Legacy and
+      // v1 client contracts stay separate; the bridge cannot select a foreign owner.
+      const workspaceConversation =
+        /^\/workspace\/conversations\/([^/]+)\/(events(?:\/stream)?|messages(?:\/[^/]+\/cancel)?|context(?:\/detach)?)$/.exec(
+          url.pathname
+        );
+      if (workspaceConversation) {
+        if (!options.workspaceTools)
+          return json(res, 404, {
+            code: "WORKSPACE_DISABLED",
+            error: "Workspace is not configured."
+          });
+        const conversationId = decodeURIComponent(workspaceConversation[1]);
+        const owner = service.conversationOwner(conversationId);
+        if (!ownerBelongsToPrincipal(owner, principal!.principalId))
+          return conversationNotFound(res);
+        const suffix = workspaceConversation[2];
+        if (suffix === "messages" || suffix.startsWith("context")) {
+          const body = requireObjectBody(await readBody());
+          if (body.conversationId !== undefined && body.conversationId !== conversationId)
+            return json(res, 400, {
+              code: "CONVERSATION_MISMATCH",
+              error: "Conversation does not match the selected thread."
+            });
+          parseBody = async () => ({ ...body, conversationId, userId: owner });
+          url.pathname =
+            suffix === "messages"
+              ? "/messages"
+              : suffix === "context"
+                ? "/conversation-context"
+                : "/conversation-context/detach";
+        } else url.pathname = `/conversations/${encodeURIComponent(conversationId)}/${suffix}`;
+      }
+
+      if (url.pathname === "/mcp") {
+        const tools = options.workspaceTools ?? options.workflowTools;
+        if (!tools)
+          return json(res, 404, {
+            code: "WORKFLOWS_DISABLED",
+            error: "Workflows are not configured."
+          });
+        if (method !== "POST") {
+          res.setHeader("Allow", "POST");
+          return json(res, 405, { error: "This MCP endpoint accepts POST requests." });
+        }
+        return await handleWorkflowMcp(
+          tools,
+          { principal: principal!, operationId: randomUUID() },
+          req,
+          res,
+          await parseBody()
+        );
+      }
+      if (method === "GET" && ["/workflows/tools", "/workspace/tools"].includes(url.pathname)) {
+        const tools = url.pathname.startsWith("/workspace/")
+          ? options.workspaceTools
+          : options.workflowTools;
+        if (!tools)
+          return json(res, 404, {
+            code: "WORKFLOWS_DISABLED",
+            error: "Workflows are not configured."
+          });
+        return json(res, 200, { tools: tools.tools });
+      }
+      const workflowTool = /^\/(workflows|workspace)\/tools\/([a-z][a-z0-9_-]{0,63})$/.exec(
+        url.pathname
+      );
+      if (method === "POST" && workflowTool) {
+        const tools =
+          workflowTool[1] === "workspace" ? options.workspaceTools : options.workflowTools;
+        if (!tools)
+          return json(res, 404, {
+            code: "WORKFLOWS_DISABLED",
+            error: "Workflows are not configured."
+          });
+        const operation = req.headers["idempotency-key"];
+        if (
+          operation !== undefined &&
+          (typeof operation !== "string" || !/^[0-9a-f-]{36}$/i.test(operation))
+        )
+          return json(res, 400, {
+            code: "INVALID_OPERATION_ID",
+            error: "Operation ID must be a UUID."
+          });
+        const conversationId = req.headers["x-workspace-conversation-id"];
+        if (
+          conversationId !== undefined &&
+          (typeof conversationId !== "string" ||
+            !ownerBelongsToPrincipal(
+              service.conversationOwner(conversationId),
+              principal!.principalId
+            ))
+        )
+          return conversationNotFound(res);
+        return json(
+          res,
+          200,
+          await tools.call(workflowTool[2], await parseBody(), {
+            principal: principal!,
+            operationId: operation ?? randomUUID(),
+            ...(conversationId !== undefined ? { conversationId } : {})
+          })
+        );
       }
 
       if (method === "GET" && url.pathname === "/development/executive/overview") {
@@ -916,9 +1047,18 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
             planApiUrl !== undefined,
             planApiUrl !== undefined && dispatchHost !== undefined,
             attemptProgress !== undefined,
-            executiveRoots !== undefined
+            executiveRoots !== undefined,
+            options.workflowTools !== undefined,
+            options.workspaceTools !== undefined
           )
         );
+        return;
+      }
+      if (method === "GET" && url.pathname === "/design") {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(readFileSync(resolve("docs/design/workspace-proposal.html"), "utf8"));
         return;
       }
 
@@ -1161,6 +1301,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         rejectUnsupportedInputs(raw);
         const body = MessageBodySchema.parse(raw);
         const response = await service.submitMessage({
+          applicationContext: { principal: principal! },
           messageId: body.messageId,
           conversationId: body.conversationId,
           userId: body.userId,
@@ -1479,7 +1620,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         url.pathname.endsWith("/events")
       ) {
         const parts = url.pathname.split("/");
-        const conversationId = parts[2];
+        const conversationId = decodeURIComponent(parts[2]);
         const events = await service.getTimeline(conversationId);
         if (!visibleTo(conversationId, principal!.principalId, events.length))
           return conversationNotFound(res);
@@ -1492,7 +1633,7 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         url.pathname.endsWith("/events/stream")
       ) {
         const parts = url.pathname.split("/");
-        const conversationId = parts[2];
+        const conversationId = decodeURIComponent(parts[2]);
 
         // Admitted before any timeline read, header or timer; refused at capacity.
         const stream = eventStreams.open(res);
@@ -1705,6 +1846,8 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
         });
       }
 
+      if (error instanceof WorkflowError)
+        return json(res, error.status, { code: error.code, error: error.message });
       if (error instanceof z.ZodError) {
         return json(res, 400, { error: "Invalid request body" });
       }
@@ -1730,7 +1873,12 @@ export function createChatServer(service: ChatService, options: ServerOptions) {
       options.documentTasks?.close();
       options.briefings?.close();
     }
-    shutdown ??= options.shutdown?.() ?? Promise.resolve();
+    shutdown ??= Promise.all([
+      options.shutdown?.(),
+      (options.workspaceTools ?? options.workflowTools)?.close?.()
+    ]).then(() => {
+      options.conversationPersistence?.close();
+    });
     close((error) => {
       void shutdown!.then(
         () => callback?.(error),
@@ -2016,6 +2164,37 @@ export async function startServer(
   });
   const plannerEngine = rolePlannerEngine();
   const roleCatalog = await loadRoleCatalog(process.env.ROLE_CATALOG_PATH);
+  if (process.env.WORKFLOW_PROJECT_ID && !process.env.HEKATE_PLAN_API_URL)
+    throw new Error("WORKFLOW_PROJECT_ID requires HEKATE_PLAN_API_URL.");
+  const workspaceEnabled = parseBooleanEnv(process.env.WORKSPACE_ENABLED, true);
+  let workspaceTools: WorkspaceService | undefined;
+  const workflowRunDir = resolve(process.env.WORKFLOW_RUN_DIR ?? "data/workflow-runs");
+  const workflowModel = workflowModelAction(
+    providers.fastProvider,
+    contextBudget,
+    trustedFactsProvider,
+    dispatch
+  );
+  const workflowApplication = (projectId: string, runDir: string) =>
+    createWorkflowApplication({
+      apiUrl: process.env.HEKATE_PLAN_API_URL!,
+      projectId,
+      runDir,
+      endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
+      executors: configuredTaskExecutors(process.env, runDir),
+      model: workflowModel,
+      modelPolicy: dispatch
+        ? { mode: "catalog" }
+        : { mode: "fixed", provider: config.fast.provider, model: config.fast.model },
+      taskTools: () => workspaceTools?.taskView(projectId)
+    });
+  const workflowTools =
+    process.env.HEKATE_PLAN_API_URL && (workspaceEnabled || process.env.WORKFLOW_PROJECT_ID)
+      ? workflowApplication(
+          process.env.WORKFLOW_PROJECT_ID ?? "00000000-0000-0000-0000-000000000000",
+          workflowRunDir
+        )
+      : undefined;
   const orchestrator =
     config.fast.provider === "mock" && config.deep.provider === "mock" && !dispatch
       ? new ChatOrchestrator(
@@ -2034,7 +2213,10 @@ export async function startServer(
           timeline,
           contextManager,
           trustedFactsProvider,
-          () => briefings?.tools() ?? [],
+          (message) => [
+            ...(briefings?.tools() ?? []),
+            ...((workspaceTools ?? workflowTools)?.capabilities(message) ?? [])
+          ],
           dispatch,
           roleCatalog,
           plannerEngine,
@@ -2058,6 +2240,61 @@ export async function startServer(
     adaptiveRouting,
     turnAdmission
   );
+  // Validate the installation identity before opening its durable workspace.
+  let auth: LocalAuthenticator;
+  try {
+    auth = new LocalAuthenticator(await loadOrCreateIdentity());
+  } catch (error) {
+    await workflowTools?.close();
+    briefings?.close();
+    recorder?.invalidate("EVAL_STARTUP_FAILED");
+    throw error;
+  }
+  let conversationPersistence: ConversationPersistence | undefined;
+  try {
+    conversationPersistence =
+      process.env.CONVERSATION_STATE_FILE || workflowTools || workspaceEnabled
+        ? new ConversationPersistence(
+            resolve(process.env.CONVERSATION_STATE_FILE ?? "data/conversations.json"),
+            timeline,
+            service
+          )
+        : undefined;
+    if (workspaceEnabled) {
+      const catalog = new WorkspaceCatalog(
+        resolve(process.env.WORKSPACE_STATE_FILE ?? "data/workspace.json")
+      );
+      const workflows = workflowTools
+        ? new ProjectWorkflowRouter({
+            catalog,
+            legacy: workflowTools,
+            ...(process.env.WORKFLOW_PROJECT_ID
+              ? {
+                  legacyProject: {
+                    name: "Default project",
+                    hekateProjectId: process.env.WORKFLOW_PROJECT_ID
+                  }
+                }
+              : {}),
+            runDir: workflowRunDir,
+            factory: (project, runDir) => workflowApplication(project.hekateProjectId!, runDir)
+          })
+        : undefined;
+      workspaceTools = new WorkspaceService({
+        catalog,
+        chat: service,
+        workflows,
+        apiUrl: process.env.HEKATE_PLAN_API_URL,
+        persistenceEnabled: conversationPersistence !== undefined
+      });
+    }
+  } catch (error) {
+    conversationPersistence?.close();
+    await workflowTools?.close();
+    briefings?.close();
+    recorder?.invalidate("EVAL_STARTUP_FAILED");
+    throw error;
+  }
 
   const saveTelemetry = () =>
     telemetryStore.save({ ...adaptiveRouting.snapshotState(), dispatch: dispatch?.telemetry() });
@@ -2072,18 +2309,6 @@ export async function startServer(
     }
   };
 
-  // The installation identity is loaded, or created once, after configuration has
-  // been validated (a misconfigured start creates no credentials), before the
-  // document sidecar starts and before the port is bound. An identity that is not
-  // private to this user stops startup, releasing what was already opened.
-  let auth: LocalAuthenticator;
-  try {
-    auth = new LocalAuthenticator(await loadOrCreateIdentity());
-  } catch (error) {
-    briefings?.close();
-    recorder?.invalidate("EVAL_STARTUP_FAILED");
-    throw error;
-  }
   const runtimeMode = resolveRuntimeModeInfo(config);
   // Each generation is a fresh child on the same store; only an operator restarts one.
   // The configuration is fixed here, so a later change to the environment or working
@@ -2114,6 +2339,9 @@ export async function startServer(
       ? { reloadRoles: () => reloadRoleCatalog(roleCatalog, rolePath) }
       : {}),
     documentTasks,
+    workflowTools: workflowTools ? (workspaceTools ?? workflowTools) : undefined,
+    workspaceTools,
+    conversationPersistence,
     documentTaskControl: documentTasks,
     planApiUrl: process.env.HEKATE_PLAN_API_URL,
     attemptProgress: process.env.HEKATE_PLAN_API_URL !== undefined,

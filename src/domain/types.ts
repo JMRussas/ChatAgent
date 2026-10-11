@@ -9,6 +9,8 @@ import type { ConversationContext } from "./context";
 export type RouteDecision = "direct" | "deep" | "clarify";
 
 export interface UserMessage {
+  /** Trusted caller context supplied by the application, never request/model arguments. */
+  applicationContext?: { principal: import("../auth/authenticator").Principal };
   referenceSelections?: import("../app/referenceSelection").ReferenceSelection;
   attachedReferences?: import("../app/referenceSelection").AttachedReference[];
   runControls?: import("../app/runControls").RunControls;
@@ -81,6 +83,8 @@ export interface ChatTimelineEvent {
   selectedContext?: UserMessage["selectedContext"];
   runControls?: import("../app/runControls").RunControls;
   capabilityPlan?: unknown;
+  /** Actual application operation result, separate from its human-readable presentation. */
+  applicationResult?: { tool: string; result: unknown };
   selections?: {
     fast: import("../routing/modelSelector").ModelSelection;
     deep?: import("../routing/modelSelector").ModelSelection;

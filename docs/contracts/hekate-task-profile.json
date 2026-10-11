@@ -14,7 +14,7 @@
     }
   },
   "lock": {
-    "packageLock": "08dd59444e5856053f2c0f65eb18c078a2c357137cd20ee03c7545a11c767e17",
+    "packageLock": "d65948eee91f65cadbc42f25e9cc214027d41abf4c722167bdf55cbc3740cf5d",
     "vitestEntry": "39db22f579acf5639bbb17a261408debbde03f4692c0c439e77e7f13aeba74d6",
     "tscEntry": "8d5fa5bd883fec0979fc2004f1fe1d99aef40570155d550eadc0b03b55513bf0"
   },
