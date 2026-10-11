@@ -48,9 +48,9 @@ desktop-to-mobile resize clipped the selected work item, and the allocation
 summary appeared contradictory. Fable's follow-up design puts the existing
 question and response form in the primary dialog, with plain text, explicit
 approval and raw JSON choices; full plan controls remain separately accessible.
-The question-first response form is implemented; a fresh independent review is
-pending after the remaining corrections. No new execution engine or generated
-model summary is required for routine monitoring.
+The question-first response form is implemented. Independent live reviews govern
+its remaining corrections; technical checks alone do not establish clarity. No
+new execution engine or generated model summary is required for routine monitoring.
 
 The second independent review passed its ten state, count, provenance, history,
 parity, mobile and response-flow criteria, but still returned **needs changes**.
@@ -63,11 +63,13 @@ also implemented. Thirty-one owned workflow/home browser journeys and TypeScript
 pass; technical checks do not replace the independent live clarity review. The
 fresh app20 reviews passed nine of ten monitoring criteria and seven of eight
 creation criteria, but both returned **needs changes**: a sticky mobile Submit
-button covers the approval radio. That correction is in progress. The full
-browser gate passed 149 journeys, and format, lint, build and documentation checks
-passed on that source. The reviewer's overlap finding demonstrates a limit of the
-earlier button-visibility assertion; the replacement check must exercise the
-actual decision controls and submitted result.
+button covers the approval radio. Submit now follows the response fields inline.
+Six focused response journeys pass, including actual radio interactions, field
+visibility and pointer clearance; the overlap assertion fails against the earlier
+sticky layout. The check avoids matching the disclosure sentence. The full browser
+gate passed 149 journeys before this correction; the corrected source passes
+format, lint, build and documentation checks. Fresh app21 captures and independent
+Fable grading are required before calling the mobile correction accepted.
 
 **Next Fable-designed increment — describe work as steps:** replace the JSON seed
 behind New workflow with a create-only form for a name, goal and ordered steps.
@@ -116,7 +118,10 @@ late-bound factory callback. Omitted project selectors resolve the task
 owner's original Hekate binding to its catalog project, even after conversation
 reassignment; explicit owned project inputs override it. An injected `list_work`
 default reports `scope.source: "task"`. Conversation patch fields are preserved
-without implicit reassignment. Available tools remain subject to explicit grants,
+without implicit reassignment. A whole scoped argument that is null, an array or
+a primitive is rejected before dispatch, so it cannot fall through to the
+conversation's reassigned project; omitted input and an empty object retain the
+original task project. Available tools remain subject to explicit grants,
 and `get_workspace` is excluded from native task discovery because its larger
 response can exceed the existing task-value limit. Startup rejects duplicate tool
 names. Controlled scope, restart, grant and native SDK checks pass. The actual UI
@@ -128,7 +133,13 @@ Its own session metadata confirms `claude-fable-5-1`; it made no work mutations.
 The independent Fable fact-check recommends withholding approval: it called
 stopped runs resumable and blurred Hekate leaf acceptance with operator approval.
 The result remains parked at human review. Tool execution is proven; general
-model quality, task verification and user acceptance are not.
+model quality, task verification and user acceptance are not. The new malformed-input
+regression passes. Its broader local integration run passed 23 of 24 cases: an
+existing non-null case failed persisting the attempt epoch before any provider
+launch. Historical evidence shows a similar Windows rename refusal, but does not
+prove this occurrence's cause. Preserve the failed receipt and verify the equivalent
+release boundary on both hosted operating systems; do not replace it with a timing
+retry or infer an antivirus cause.
 
 **Working workspace UI:** the Fable-designed layout is the default home when Workspace
 is enabled. Projects form a sidebar; Work and Conversations are separate views,
