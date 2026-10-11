@@ -244,11 +244,20 @@ export class WorkspaceService implements WorkflowToolService {
             "That tool is not available to this task.",
             404
           );
+        const projectScoped = scoped(tool);
+        if (
+          projectScoped &&
+          input !== undefined &&
+          (input === null || typeof input !== "object" || Array.isArray(input))
+        )
+          throw new WorkflowError(
+            "INVALID_WORKSPACE_INPUT",
+            "Task tool input must be an object.",
+            400
+          );
         let injectedProject = false;
         if (
-          scoped(tool) &&
-          (input === undefined ||
-            (input !== null && typeof input === "object" && !Array.isArray(input))) &&
+          projectScoped &&
           (input as Record<string, unknown> | undefined)?.projectId === undefined
         ) {
           const project = this.options.catalog

@@ -331,6 +331,61 @@ async function observedRun(
 }
 
 describe("native task workspace authority", () => {
+  it("rejects malformed whole scoped arguments before they can fall through to a reassigned conversation", async () => {
+    const fixture = await workspaceFixture();
+    const app = await fixture.start();
+    const source = await app.rpc("register_project", {
+      name: "Original task source",
+      hekateProjectId: randomUUID()
+    });
+    const other = await app.rpc("register_project", {
+      name: "Reassigned conversation project",
+      hekateProjectId: randomUUID()
+    });
+    const conversation = await app.rpc("create_conversation", {
+      title: "Reassigned",
+      projectId: other.id
+    });
+    const principal = fixture.auth.auth.resolve(fixture.auth.headers("operator"))!;
+    const context = { principal, operationId: randomUUID(), conversationId: conversation.id };
+    const view = app.workspace.taskView(source.hekateProjectId);
+    const dispatch = vi.spyOn(app.workspace, "call");
+    for (const input of [null, [], "null", 7, true]) {
+      await expect(view.call("list_work", input, context)).rejects.toMatchObject({
+        code: "INVALID_WORKSPACE_INPUT",
+        status: 400
+      });
+    }
+    for (const tool of view.tools.filter(
+      (tool) =>
+        tool.name !== "update_conversation" &&
+        Object.hasOwn(tool.inputSchema.properties ?? {}, "projectId")
+    )) {
+      await expect(view.call(tool.name, null, context)).rejects.toMatchObject({
+        code: "INVALID_WORKSPACE_INPUT",
+        status: 400
+      });
+    }
+    expect(dispatch).not.toHaveBeenCalled();
+    for (const input of [undefined, {}]) {
+      expect(await view.call("list_work", input, context)).toMatchObject({
+        scope: { projectId: source.id, source: "task" }
+      });
+      expect(await view.call("list_plans", input, context)).toEqual({ plans: [] });
+    }
+    await view.call(
+      "update_conversation",
+      { id: conversation.id, title: "Title changed only" },
+      context
+    );
+    expect(app.catalog.conversationMetadata(principal.principalId, conversation.id)).toMatchObject({
+      title: "Title changed only",
+      projectId: other.id
+    });
+    expect(app.catalog.listProjects(principal.principalId)).toHaveLength(2);
+    expect(fixture.generate).not.toHaveBeenCalled();
+  });
+
   it("keeps the source project across conversation reassignment and restart while allowing an explicit owned project", async () => {
     let source: any;
     let other: any;
