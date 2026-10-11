@@ -9,6 +9,7 @@ import type { ChatService } from "./chatService";
 import type { ChatTimelineEvent } from "../domain/types";
 import { sseFrame, type EventStreamRegistry } from "./eventStreams";
 import { scopedOwnerKey } from "../auth/authenticator";
+import type { Principal } from "../auth/authenticator";
 
 /**
  * Serialized event bytes one v1 poll may copy; a single larger event is still sent
@@ -28,6 +29,26 @@ const submitSchema = scopeSchema.extend({
   text: z.string().min(1),
   clientTimestampIso: z.string().datetime()
 });
+export const protocolConversationBindingSchema = scopeSchema
+  .extend({
+    principalId: z.string().min(1).max(1000),
+    conversationId: z.string().uuid(),
+    internalId: z.string().uuid()
+  })
+  .strict();
+export type ProtocolConversationBinding = z.infer<typeof protocolConversationBindingSchema>;
+export interface ProtocolConversationPersistence {
+  bindings?: readonly ProtocolConversationBinding[];
+  onBindingsChanged?(bindings: ProtocolConversationBinding[]): void;
+}
+
+const bindingKey = (binding: Omit<ProtocolConversationBinding, "internalId">) =>
+  JSON.stringify([
+    binding.principalId,
+    binding.accountId,
+    binding.projectId,
+    binding.conversationId
+  ]);
 
 /** Additive wire projection; timeline sequences may have gaps (user records are omitted). */
 export function projectTurnEvent(conversationId: string, event: ChatTimelineEvent) {
@@ -40,6 +61,7 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
     ...(event.answerReferences ? { answerReferences: event.answerReferences } : {}),
     ...(event.groundedAnswer ? { groundedAnswer: event.groundedAnswer } : {}),
     ...(event.contextBudget ? { contextBudget: event.contextBudget } : {}),
+    ...(event.applicationResult ? { applicationResult: event.applicationResult } : {}),
     taskId: event.taskId,
     attemptId: event.attemptId,
     sequence: event.sequence,
@@ -63,17 +85,48 @@ export function projectTurnEvent(conversationId: string, event: ChatTimelineEven
   };
 }
 
-/** Process-lifetime scope and replay only. Declared scope is not authentication. */
-export function createProtocolV1Handler(service: ChatService, streams: EventStreamRegistry) {
+/** Declared scope is not authentication. Optional persisted bindings keep wire identities stable. */
+export function createProtocolV1Handler(
+  service: ChatService,
+  streams: EventStreamRegistry,
+  persistence: ProtocolConversationPersistence = {}
+) {
   const runtimeId = randomUUID();
   const conversations = new Map<string, string>();
   // Internal ids this protocol allocated, so legacy routes can refuse them.
   const internalIds = new Set<string>();
+  const restored = z
+    .array(protocolConversationBindingSchema)
+    .max(service.maxConversationIdentities)
+    .parse(persistence.bindings ?? []);
+  for (const binding of restored) {
+    const key = bindingKey(binding);
+    if (conversations.has(key) || internalIds.has(binding.internalId))
+      throw new Error("PROTOCOL_BINDING_CONFLICT");
+    if (
+      service.conversationOwner(binding.internalId) !==
+      scopedOwnerKey(binding.principalId, [binding.accountId, binding.projectId])
+    )
+      throw new Error("PROTOCOL_BINDING_OWNER_MISMATCH");
+    conversations.set(key, binding.internalId);
+    internalIds.add(binding.internalId);
+  }
+  const snapshotBindings = (): ProtocolConversationBinding[] =>
+    [...conversations].flatMap(([key, internalId]) => {
+      // Admission can allocate a mapping before a conversation is claimed. Such a
+      // transient mapping must not become an independently restorable identity.
+      if (!service.hasConversationIdentity(internalId)) return [];
+      const [principalId, accountId, projectId, conversationId] = JSON.parse(key) as string[];
+      return [{ principalId, accountId, projectId, conversationId, internalId }];
+    });
+  const bindingsChanged = () => persistence.onBindingsChanged?.(snapshotBindings());
   // Retirement releases the wire mapping with the identity it points at.
   service.addRetirementParticipant({
     forget: (internalId) => {
+      const hadBinding = internalIds.has(internalId);
       for (const [key, id] of conversations) if (id === internalId) conversations.delete(key);
       internalIds.delete(internalId);
+      if (hadBinding) bindingsChanged();
     }
   });
   const json = (res: ServerResponse, status: number, body: unknown) => {
@@ -85,8 +138,9 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     res: ServerResponse,
     url: URL,
     parseBody: () => Promise<unknown>,
-    principalId: string
+    caller: string | Principal
   ): Promise<boolean> => {
+    const principalId = typeof caller === "string" ? caller : caller.principalId;
     const match = url.pathname.match(
       /^\/v1\/conversations\/([^/]+)\/(messages|events\/stream|messages\/([^/]+)\/cancel)$/
     );
@@ -104,18 +158,21 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     // under another principal is a different conversation.
     const key = JSON.stringify([principalId, scope.accountId, scope.projectId, conversationId]);
     let internalId = conversations.get(key);
+    let allocated = false;
     if (submit && !internalId) {
       if (conversations.size >= service.maxConversationIdentities)
         throw new GenerationError("CONVERSATION_CAPACITY", false);
       internalId = randomUUID();
       conversations.set(key, internalId);
       internalIds.add(internalId);
+      allocated = true;
     }
     if (submit && body) {
       let result;
       try {
-        result = await service.submitMessage({
+        const submission = service.submitMessage({
           conversationId: internalId!,
+          ...(typeof caller === "string" ? {} : { applicationContext: { principal: caller } }),
           userId: scopedOwnerKey(principalId, [scope.accountId, scope.projectId]),
           messageId: body.messageId,
           runControls: body.runControls,
@@ -123,6 +180,20 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
           text: body.text,
           timestampIso: body.clientTimestampIso
         });
+        // Ownership is claimed synchronously during submission, before model work
+        // begins. Persist the binding now, rather than waiting for generation.
+        if (allocated && service.hasConversationIdentity(internalId!)) {
+          try {
+            bindingsChanged();
+          } catch (error) {
+            // Admission may already have scheduled work. Observe its promise and
+            // request cancellation before surfacing a failed durable binding write.
+            void submission.catch(() => undefined);
+            await service.cancelMessage(internalId!, body.messageId).catch(() => undefined);
+            throw error;
+          }
+        }
+        result = await submission;
       } catch (error) {
         // Admission failures before ownership is claimed must not consume a slot.
         if (
@@ -131,6 +202,7 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
         ) {
           conversations.delete(key);
           internalIds.delete(internalId!);
+          bindingsChanged();
         }
         // Admission refusal did not start a generation. An earlier terminal for
         // this message ID must not turn the refusal into an accepted response.
@@ -264,6 +336,7 @@ export function createProtocolV1Handler(service: ChatService, streams: EventStre
     return true;
   };
   return Object.assign(handle, {
+    snapshotBindings,
     retentionStats: () => ({ conversations: conversations.size }),
     /** True for an internal id allocated here; legacy routes must not reach it. */
     isProtocolConversation: (id: string) => internalIds.has(id)

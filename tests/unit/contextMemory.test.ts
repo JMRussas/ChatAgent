@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -42,9 +42,13 @@ const input = {
   }
 };
 const managers: ContextManager[] = [];
+beforeEach(() => {
+  vi.stubEnv("WORKSPACE_ENABLED", "false");
+});
 afterEach(async () => {
   await Promise.all(managers.splice(0).map((m) => m.shutdown()));
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 async function pair(
   store: InMemoryConversationTimelineStore,

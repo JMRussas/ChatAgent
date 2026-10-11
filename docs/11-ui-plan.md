@@ -1,5 +1,55 @@
 # UI Plan
 
+## Current direction: visible work and decisions (2026-10-10)
+
+The [development roadmap](12-development-roadmap.md) records delivery status.
+The workspace home now opens real projects, saved conversations and editable
+plans. Direct controls, conversation actions and MCP use the same application
+tools. Opening a plan never runs it. A step may use an API, a model, an agent or
+human input; the plan describes its inputs, outputs and completion rules as data.
+
+Claude Fable's review of the actual desktop and mobile views defines the next
+layout. Implementers verify correctness; Fable assesses clarity against fresh
+screens, and the user accepts the result. Technical checks alone do not establish
+that the UI is understandable.
+
+- Summary cards distinguish decisions, in-progress work, ready work and attention
+  needed. Allocation is displayed separately from confirmed running state.
+- Each work row names the next action and actor, or the pending question or last
+  recorded outcome. Read errors never inflate the decision count.
+- A visible detail summary explains status, next action and the scope of any
+  approval. Pending instructions and a Respond action precede detailed steps.
+- Step inputs, outputs, plan JSON and execution history remain available through
+  drill-down. A completed run is not whole-task verification. An approved human
+  result is labelled as approval of that step; older revisions are history.
+- A bounded factual work digest supplies the same state to the UI, conversation
+  tools and MCP. Full records remain available through the existing tools.
+- Conversations show idle or reply-in-progress state and retain links to work
+  while the live chat is open. Mobile history is legible from its first render.
+
+Fable's acceptance review checks whether the screen immediately reveals how many
+decisions are waiting and what the first asks, whether outstanding counts add up,
+and whether each row explains who acts next and when the record changed. It also
+checks truthful allocation/approval/history labels, accessible evidence, agreement
+between tool summaries and the UI, and a fully visible mobile selection. Missing
+source evidence remains unknown. Review uses real records; deterministic test
+fixtures prove behavior separately and do not replace product data.
+
+The first independent screen review returned **needs changes**. Its immediate
+design correction makes Respond open the question and existing answer form first,
+with plain answer, explicit approval and raw JSON choices. Full plan controls
+remain separately available. Mobile selection and allocation wording also need
+the reviewed corrections; their delivery status belongs in the roadmap.
+
+The next Fable-designed increment is a create-only step form. Name the goal, add
+ordered steps, choose who or what performs each one, provide its instructions or
+tool inputs, and optionally specify a result check. It saves the existing plan
+definition through `create_plan`; it does not introduce execution semantics.
+Generic tools retain explicit JSON inputs and schema/binding hints. Saved-plan
+editing and advanced definitions keep the JSON editor. Tool input validation at
+execution is distinct from definition validation at save. Fresh real-data creation
+and execution screens require independent review before claiming improved clarity.
+
 ## 2026-09-30 direction: topic and task workspace
 
 Plan the NBA demo around league/team topics and task-related conversations, with

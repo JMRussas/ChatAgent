@@ -12,6 +12,7 @@ import { PairingController } from "../../src/auth/pairing";
 import { ROUTES } from "../../src/auth/routePolicy";
 import type { LocalIdentity } from "../../src/auth/localIdentity";
 import { DocumentTaskError } from "../../src/app/documentTasks";
+import { WorkflowError, type WorkflowToolService } from "../../src/workflows/types";
 import {
   DocumentTaskControlError,
   type DocumentTaskControl,
@@ -51,6 +52,21 @@ async function start(
   const auth = new LocalAuthenticator(identity);
   const pairing = new PairingController();
   const announced: string[] = [];
+  const workflowTools: WorkflowToolService = {
+    tools: [
+      {
+        name: "list_plans",
+        description: "List plans",
+        readOnly: true,
+        inputSchema: { type: "object" }
+      }
+    ],
+    async call(_name, _input, context) {
+      if (!context.principal.roles.has("operator"))
+        throw new WorkflowError("OPERATOR_REQUIRED", "An operator credential is required.", 403);
+      return { plans: [] };
+    }
+  };
   const server = createChatServer(service, {
     auth,
     pairing: {
@@ -59,6 +75,7 @@ async function start(
       announce: (code) => announced.push(code)
     },
     maxBodyBytes: 4096,
+    workflowTools,
     ...extra
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -84,6 +101,7 @@ const PROBES: [string, string][] = ROUTES.map((r) => [
     .replace(/:conversationId/g, "probe-c")
     .replace(/:messageId/g, randomUUID())
     .replace(/:taskId/g, "probe-t")
+    .replace(/:name/g, "list_plans")
     .replace("/v1/conversations/probe-c", `/v1/conversations/${randomUUID()}`)
 ]);
 

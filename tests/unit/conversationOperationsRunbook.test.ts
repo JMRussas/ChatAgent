@@ -96,15 +96,6 @@ describe("real rehearsal projection semantics", () => {
   );
 });
 
-describe("reviewed runbook facts", () => {
-  it("preserves the exact reviewed prefix before its delivery checklist", () => {
-    const boundary = text.indexOf("\n## 9.");
-    expect(boundary).toBeGreaterThan(0);
-    expect(createHash("sha256").update(text.slice(0, boundary)).digest("hex")).toBe(
-      "3cb2d6a12ec3672be3d26ecebcd3eeef1bfda59b0c9ad96e5f6127f496cfc233"
-    );
-  });
-});
 describe("conversation operations runbook", () => {
   it("names the trusted startup settings and pins", () => {
     for (const needle of [

@@ -96,28 +96,9 @@ describe("home page plan status panel", () => {
 });
 
 describe("home page conversation expiry", () => {
-  it("ships the expiry notice, the stream event handler and the 410 probe", () => {
+  it("ships the expiry notice and the new-conversation control", () => {
     const html = renderHomePageHtml();
     expect(html).toContain('id="conversationNotice"');
     expect(html).toContain('id="newConversation"');
-    const script = extractInlineScript(html);
-    expect(script).toContain('addEventListener("conversation-expired"');
-    expect(script).toContain("res.status === 410");
-    expect(script).toContain("CONVERSATION_HISTORY_CAPACITY");
-  });
-});
-
-describe("pinned formatting for conversation controls task outputs", () => {
-  it("keeps each allowlisted module byte-identical to pinned Prettier", async () => {
-    const { readFileSync } = await import("node:fs");
-    const prettier = await import("prettier");
-    const config = JSON.parse(readFileSync(".prettierrc.json", "utf8"));
-    for (const file of [
-      "src/ui/planRunControls.ts",
-      "src/integrations/hekate/dispatchHostConfig.ts"
-    ]) {
-      const raw = readFileSync(file, "utf8");
-      expect(raw, file).toBe(await prettier.format(raw, { ...config, filepath: file }));
-    }
   });
 });

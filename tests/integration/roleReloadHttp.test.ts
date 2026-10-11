@@ -41,6 +41,7 @@ const liveIds = () => {
 
 let directory = "";
 beforeEach(async () => {
+  vi.stubEnv("WORKSPACE_ENABLED", "false");
   live.catalogs.length = 0;
   directory = await mkdtemp(join(tmpdir(), "role-reload-http-"));
   vi.stubEnv("CHAT_IDENTITY_DIR", join(directory, "ChatAgent"));

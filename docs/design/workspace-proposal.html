@@ -1,0 +1,2455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workspace — design preview</title>
+    <style>
+      :root {
+        --canvas: #f5f7fb;
+        --surface: #fff;
+        --ink: #202b3c;
+        --muted: #667387;
+        --line: #e5eaf2;
+        --blue: #335eea;
+        --blue-soft: #edf2ff;
+        --amber: #9a6414;
+        --amber-soft: #fff6e5;
+        --green: #18785c;
+        --green-soft: #eaf7f0;
+        --radius: 14px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #9eb4ff;
+        outline-offset: 3px;
+      }
+      button {
+        border: 0;
+      }
+      svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 218px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+      .sidebar {
+        background: var(--surface);
+        border-right: 1px solid var(--line);
+        padding: 29px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.7px;
+        padding: 0 10px;
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--blue);
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px #335eea20;
+      }
+      .brand-mark svg {
+        width: 21px;
+        height: 21px;
+        stroke-width: 2;
+      }
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #8490a2;
+      }
+      .sidebar .eyebrow {
+        padding: 0 12px;
+        margin: 0 0 10px;
+      }
+      .project-nav {
+        display: grid;
+        gap: 5px;
+      }
+      .nav-button {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 12px;
+        border-radius: 9px;
+        width: 100%;
+        text-align: left;
+        color: #647187;
+        background: transparent;
+      }
+      .nav-button.selected {
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-weight: 600;
+      }
+      .nav-button .count {
+        margin-left: auto;
+        font-size: 12px;
+        color: #929dad;
+      }
+      .nav-button.selected .count {
+        color: var(--blue);
+      }
+      .project-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+        background: #6585f0;
+        margin: 4px;
+      }
+      .project-dot.purple {
+        background: #9880d6;
+      }
+      .project-dot.teal {
+        background: #5ba99d;
+      }
+      .sidebar-bottom {
+        margin-top: auto;
+        display: grid;
+        gap: 14px;
+        padding: 8px 10px;
+      }
+      .preview-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        color: #6e7b90;
+        background: #f4f6fa;
+        border: 1px solid var(--line);
+        padding: 6px 9px;
+        border-radius: 7px;
+        white-space: nowrap;
+      }
+      .preview-tag .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #8091ab;
+      }
+      .sidebar-note {
+        font-size: 12px;
+        color: #8290a3;
+        margin: 0;
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        background: #eaf0f8;
+        border-radius: 50%;
+        color: #61718b;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .account {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+      }
+      .account small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .main {
+        min-width: 0;
+      }
+      .topbar {
+        height: 78px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 0 32px;
+      }
+      .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #929cad;
+        font-size: 13px;
+      }
+      .breadcrumb strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .top-right {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      .search {
+        position: relative;
+        width: 280px;
+      }
+      .search svg {
+        position: absolute;
+        left: 12px;
+        top: 11px;
+        width: 17px;
+        height: 17px;
+        color: #8c98aa;
+      }
+      .search input {
+        background: #f7f9fc;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 34px;
+        width: 100%;
+        font-size: 12px;
+        color: var(--ink);
+      }
+      .shortcut {
+        position: absolute;
+        right: 11px;
+        top: 11px;
+        color: #9ba6b6;
+        font-size: 11px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        font-weight: 600;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #4c5b72;
+        background: #fff;
+        border: 1px solid #dfe5ef;
+      }
+      .button svg {
+        width: 16px;
+        height: 16px;
+      }
+      .button.primary {
+        color: #fff;
+        background: var(--blue);
+        border-color: var(--blue);
+        box-shadow: 0 3px 7px #335eea14;
+      }
+      .button:hover {
+        filter: brightness(0.97);
+      }
+      .button.subtle {
+        background: transparent;
+        border-color: transparent;
+      }
+      .content {
+        padding: 29px 32px;
+        max-width: 1520px;
+        margin: 0 auto;
+      }
+      .page-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+      h1 {
+        font-size: 26px;
+        letter-spacing: -0.7px;
+        line-height: 1.2;
+        margin: 0 0 8px;
+        font-weight: 650;
+      }
+      .page-heading p {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0;
+      }
+      .live-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #8591a2;
+        font-size: 11px;
+      }
+      .live-label span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #91a1b8;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 23px;
+        gap: 26px;
+      }
+      .tab {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #7c889b;
+        background: transparent;
+        padding: 0 1px 13px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .tab svg {
+        width: 17px;
+        height: 17px;
+      }
+      .tab.active {
+        color: var(--blue);
+      }
+      .tab.active:after {
+        content: "";
+        position: absolute;
+        height: 2px;
+        bottom: -1px;
+        width: 100%;
+        background: var(--blue);
+        border-radius: 2px;
+      }
+      .tab .tab-count {
+        color: #8794a8;
+        background: #eef1f6;
+        border-radius: 5px;
+        padding: 0 5px;
+        font-size: 10px;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 13px;
+        margin-bottom: 24px;
+      }
+      .summary {
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 15px 18px;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+      }
+      .summary-icon {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: #f0f4fd;
+        color: #6382ca;
+      }
+      .summary.needs .summary-icon {
+        background: var(--amber-soft);
+        color: #bd8a38;
+      }
+      .summary.ready .summary-icon {
+        background: #eef7f2;
+        color: #509175;
+      }
+      .summary.selected {
+        border-color: #94acf8;
+        background: #fafcff;
+      }
+      .summary strong {
+        font-size: 23px;
+        font-weight: 650;
+        line-height: 1;
+      }
+      .summary span {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(310px, 0.94fr) minmax(400px, 1.06fr);
+        gap: 22px;
+        align-items: start;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        min-width: 0;
+      }
+      .list-heading {
+        padding: 19px 19px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      h2 {
+        font-size: 15px;
+        font-weight: 650;
+        margin: 0;
+        letter-spacing: -0.2px;
+      }
+      .list-heading small {
+        color: #8a96a8;
+        font-size: 11px;
+      }
+      .list-filters {
+        padding: 0 18px 16px;
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .filter {
+        background: #f7f9fc;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        font-size: 11px;
+        color: #7b879a;
+        padding: 5px 10px;
+      }
+      .filter.selected {
+        background: var(--blue-soft);
+        color: var(--blue);
+        border-color: #e0e8ff;
+        font-weight: 600;
+      }
+      .work-list {
+        position: relative;
+        max-height: 474px;
+        overflow: auto;
+      }
+      .work-row {
+        position: relative;
+        width: 100%;
+        text-align: left;
+        display: flex;
+        gap: 11px;
+        background: #fff;
+        padding: 18px 19px;
+        border-top: 1px solid #eef1f6;
+        color: var(--ink);
+      }
+      .work-row.selected {
+        background: #f5f8ff;
+      }
+      .work-row.selected:before {
+        position: absolute;
+        content: "";
+        left: 0;
+        top: 15px;
+        bottom: 15px;
+        width: 3px;
+        background: var(--blue);
+        border-radius: 0 3px 3px 0;
+      }
+      .work-row:hover {
+        background: #f8faff;
+      }
+      .work-icon {
+        background: #f5f7fb;
+        color: #8a9bb4;
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .work-icon svg {
+        width: 17px;
+        height: 17px;
+      }
+      .work-row.selected .work-icon {
+        background: #e8efff;
+        color: #6380d1;
+      }
+      .row-body {
+        min-width: 0;
+        flex: 1;
+      }
+      .row-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        margin-bottom: 6px;
+      }
+      .row-description {
+        color: #8994a5;
+        font-size: 11px;
+        display: block;
+        margin-bottom: 10px;
+      }
+      .row-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .row-meta .project-label {
+        font-size: 10px;
+        color: #8995a7;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        font-weight: 600;
+        color: #7a879b;
+        background: #f0f3f8;
+        padding: 3px 7px;
+        border-radius: 5px;
+        white-space: nowrap;
+      }
+      .badge:before {
+        content: "";
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .badge.needs {
+        color: var(--amber);
+        background: var(--amber-soft);
+      }
+      .badge.running {
+        color: #4879c8;
+        background: #edf4ff;
+      }
+      .badge.ready {
+        color: #697b92;
+        background: #f0f3f8;
+      }
+      .badge.completed {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+      .row-arrow {
+        align-self: center;
+        width: 14px;
+        height: 14px;
+        color: #bac3d1;
+      }
+      .list-footer {
+        padding: 13px 19px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #99a4b5;
+        font-size: 10px;
+      }
+      .list-footer button {
+        background: none;
+        color: #7385a4;
+        font-size: 10px;
+      }
+      #detail {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 396px);
+        min-height: 520px;
+      }
+      #detail .detail-head,
+      #detail .detail-tabs,
+      #detail .detail-footer {
+        flex-shrink: 0;
+      }
+      #detail .detail-content {
+        min-height: 0;
+        overflow: auto;
+      }
+      .detail-head {
+        padding: 22px 23px 19px;
+        border-bottom: 1px solid var(--line);
+      }
+      .detail-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 13px;
+      }
+      .detail-project {
+        font-size: 10px;
+        color: #8995a7;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .detail-project svg {
+        width: 13px;
+        height: 13px;
+      }
+      .detail-head h2 {
+        font-size: 19px;
+        font-weight: 650;
+        letter-spacing: -0.4px;
+        margin-bottom: 7px;
+      }
+      .goal {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0;
+        line-height: 1.7;
+      }
+      .detail-tabs {
+        display: flex;
+        gap: 22px;
+        padding: 0 23px;
+        margin: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .detail-tabs .tab {
+        font-size: 11px;
+        padding-top: 13px;
+        padding-bottom: 11px;
+      }
+      .detail-content {
+        padding: 18px 23px 20px;
+      }
+      .section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      h3 {
+        font-size: 11px;
+        color: #5b697f;
+        margin: 0;
+        font-weight: 600;
+      }
+      .section-heading small {
+        font-size: 10px;
+        color: #96a0af;
+      }
+      .step-list {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 18px;
+      }
+      .step {
+        width: 100%;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        border: 1px solid transparent;
+        padding: 10px 11px;
+        border-radius: 8px;
+        color: var(--ink);
+        background: #fff;
+      }
+      .step.current {
+        background: #fff9ee;
+        border-color: #f6e9d3;
+      }
+      .step.chosen {
+        outline: 1px solid #dbe5fa;
+        background: #f8faff;
+      }
+      .step-marker {
+        display: grid;
+        place-items: center;
+        width: 23px;
+        height: 23px;
+        border-radius: 50%;
+        background: #f0f3f8;
+        color: #8d9aae;
+        font-size: 10px;
+        flex-shrink: 0;
+      }
+      .step-marker.complete {
+        background: var(--green-soft);
+        color: #4e987a;
+      }
+      .step-marker.complete svg {
+        width: 13px;
+        height: 13px;
+      }
+      .step-marker.review {
+        background: #ffebc4;
+        color: #b88732;
+      }
+      .step-name {
+        font-size: 11px;
+        font-weight: 600;
+        flex: 1;
+      }
+      .step-name small {
+        display: block;
+        font-size: 9px;
+        color: #909cac;
+        font-weight: 400;
+        margin-top: 2px;
+      }
+      .step-right {
+        font-size: 9px;
+        color: #8c98aa;
+      }
+      .step.current .step-right {
+        color: #a97827;
+      }
+      .result-card {
+        border: 1px solid #e5eaf3;
+        background: #fafbfd;
+        border-radius: 9px;
+        padding: 13px 14px;
+        margin-bottom: 16px;
+      }
+      .result-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .result-title span {
+        font-size: 9px;
+        color: #8e99ab;
+        font-weight: 400;
+      }
+      .result-card p {
+        color: #6a778b;
+        font-size: 11px;
+        line-height: 1.7;
+        margin: 6px 0;
+      }
+      .result-card ul {
+        padding-left: 15px;
+        margin: 6px 0;
+        font-size: 11px;
+        color: #637087;
+        line-height: 1.8;
+      }
+      .notice {
+        display: flex;
+        gap: 7px;
+        border-radius: 6px;
+        padding: 8px 9px;
+        background: var(--amber-soft);
+        color: #aa7a2f;
+        font-size: 10px;
+        margin-top: 9px;
+      }
+      .notice svg {
+        width: 13px;
+        height: 13px;
+        margin-top: 1px;
+      }
+      .io-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+        margin-bottom: 14px;
+      }
+      .io {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 11px;
+      }
+      .io .eyebrow {
+        font-size: 9px;
+        letter-spacing: 0.07em;
+        margin-bottom: 4px;
+      }
+      .io p {
+        margin: 0;
+        font-size: 10px;
+        color: #6d7b90;
+      }
+      .context-line {
+        display: flex;
+        gap: 12px;
+        font-size: 10px;
+        color: #8995a8;
+        flex-wrap: wrap;
+        margin-bottom: 11px;
+      }
+      .context-line span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .context-line svg {
+        width: 12px;
+        height: 12px;
+      }
+      .assignment {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 10px;
+        color: #8894a5;
+        padding-top: 11px;
+        border-top: 1px solid #eef1f6;
+      }
+      .assignment select {
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        color: #64728a;
+        padding: 4px 7px;
+        background: #fff;
+        font-size: 10px;
+      }
+      details {
+        font-size: 10px;
+        color: #8d99aa;
+        margin-top: 13px;
+      }
+      summary {
+        cursor: pointer;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 180px;
+        overflow: auto;
+        background: #f5f7fb;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 10px;
+        color: #68778e;
+      }
+      .detail-footer {
+        padding: 15px 23px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .detail-footer small {
+        color: #939fb0;
+        font-size: 10px;
+      }
+      .detail-footer .button {
+        padding: 10px 15px;
+      }
+      .activity-list {
+        padding: 0;
+        margin: 0;
+        list-style: none;
+        display: grid;
+        gap: 18px;
+      }
+      .activity-item {
+        display: flex;
+        gap: 11px;
+      }
+      .activity-point {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #aec0eb;
+        flex-shrink: 0;
+        margin-top: 6px;
+      }
+      .activity-item strong {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .activity-item p {
+        font-size: 11px;
+        color: #8190a5;
+        margin: 4px 0;
+      }
+      .activity-item time {
+        font-size: 9px;
+        color: #a3adbb;
+      }
+      .demo-note {
+        font-size: 10px;
+        color: #97a2b3;
+        margin: 15px 0 0;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .empty {
+        padding: 30px 20px;
+        font-size: 12px;
+        color: #8492a8;
+      }
+      .conversation-list {
+        max-height: 526px;
+        overflow: auto;
+      }
+      .conversation-row {
+        display: block;
+        text-align: left;
+        width: 100%;
+        padding: 20px;
+        border-top: 1px solid var(--line);
+        background: #fff;
+        color: var(--ink);
+      }
+      .conversation-row.selected {
+        background: #f5f8ff;
+      }
+      .conversation-row strong {
+        font-size: 12px;
+        display: block;
+        margin-bottom: 6px;
+      }
+      .conversation-row p {
+        font-size: 11px;
+        color: #8591a4;
+        margin: 0 0 8px;
+      }
+      .conversation-row span {
+        font-size: 10px;
+        color: #99a4b3;
+      }
+      .chat-head {
+        padding: 22px 23px;
+        border-bottom: 1px solid var(--line);
+      }
+      .chat-head p {
+        margin: 7px 0 0;
+        font-size: 11px;
+        color: #8b97a8;
+      }
+      .chat-messages {
+        padding: 24px;
+        min-height: 315px;
+        max-height: 420px;
+        overflow: auto;
+        display: grid;
+        gap: 18px;
+        align-content: start;
+      }
+      .message {
+        font-size: 12px;
+        color: #67758a;
+        line-height: 1.8;
+      }
+      .message strong {
+        font-size: 10px;
+        color: #56657c;
+        display: block;
+        margin-bottom: 6px;
+      }
+      .message.user {
+        background: #f1f5ff;
+        border: 1px solid #e7edf9;
+        border-radius: 10px;
+        padding: 13px 15px;
+        margin-left: 28px;
+      }
+      .plan-chip {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        border: 1px solid #dfe7f5;
+        border-radius: 9px;
+        padding: 12px;
+        margin-top: 12px;
+        color: #5b77b7;
+        background: #f8faff;
+      }
+      .plan-chip .chip-text {
+        flex: 1;
+      }
+      .plan-chip strong {
+        font-size: 11px;
+        margin: 0;
+        color: #5c6e8c;
+      }
+      .plan-chip small {
+        color: #8f9caf;
+        font-size: 10px;
+      }
+      .plan-chip button {
+        font-size: 10px;
+        padding: 7px 10px;
+      }
+      .chat-composer {
+        padding: 15px 23px 19px;
+        border-top: 1px solid var(--line);
+      }
+      .chat-composer textarea {
+        width: 100%;
+        min-height: 70px;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 12px;
+        font-size: 12px;
+        color: #4d5e76;
+      }
+      .chat-composer footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 9px;
+      }
+      .chat-composer small {
+        font-size: 10px;
+        color: #9aa4b4;
+      }
+      dialog {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 25px;
+        width: min(470px, calc(100% - 32px));
+        color: var(--ink);
+        box-shadow: 0 24px 100px #27375722;
+      }
+      dialog::backdrop {
+        background: #172b4a35;
+        backdrop-filter: blur(2px);
+      }
+      dialog h2 {
+        font-size: 19px;
+        margin-bottom: 8px;
+      }
+      dialog p {
+        color: #7c899d;
+        font-size: 12px;
+      }
+      dialog label {
+        display: grid;
+        gap: 6px;
+        font-size: 11px;
+        color: #6e7b90;
+        margin: 15px 0;
+      }
+      dialog input,
+      dialog textarea {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 10px;
+        font-size: 12px;
+        width: 100%;
+      }
+      dialog textarea {
+        min-height: 82px;
+      }
+      dialog footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .review-content {
+        border: 1px solid #e6ebf4;
+        border-radius: 10px;
+        padding: 13px 15px;
+        background: #f9fbfd;
+      }
+      .review-content ul {
+        font-size: 12px;
+        color: #75839a;
+        padding-left: 15px;
+      }
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        padding: 12px 18px;
+        font-size: 12px;
+        background: #293b59;
+        color: #fff;
+        border-radius: 9px;
+        box-shadow: 0 7px 25px #223e5d25;
+        max-width: calc(100% - 24px);
+      }
+      @media (min-width: 1600px) {
+        .content {
+          padding-top: 35px;
+        }
+        .workspace-grid {
+          grid-template-columns: 1fr 1.05fr;
+        }
+      }
+      @media (max-width: 1180px) {
+        .sidebar {
+          padding: 23px 12px;
+        }
+        .app {
+          grid-template-columns: 180px minmax(0, 1fr);
+        }
+        .content {
+          padding: 25px 22px;
+        }
+        .topbar {
+          padding: 0 22px;
+        }
+        .workspace-grid {
+          gap: 15px;
+          grid-template-columns: minmax(260px, 0.9fr) minmax(340px, 1.1fr);
+        }
+        .search {
+          width: 220px;
+        }
+        .preview-tag {
+          font-size: 9px;
+        }
+      }
+      @media (max-width: 980px) {
+        #detail {
+          display: block;
+          max-height: none;
+          min-height: 0;
+        }
+        #detail .detail-content {
+          overflow: visible;
+        }
+        .workspace-grid {
+          grid-template-columns: 1fr;
+        }
+        .work-list {
+          max-height: 350px;
+        }
+        .detail-head {
+          padding: 20px 23px;
+        }
+        .topbar {
+          gap: 12px;
+        }
+        .search {
+          width: 200px;
+        }
+        .top-right > .preview-tag {
+          display: none;
+        }
+        .sidebar {
+          position: sticky;
+          top: 0;
+          height: 100vh;
+        }
+      }
+      @media (max-width: 650px) {
+        .app {
+          display: block;
+        }
+        .sidebar {
+          position: static;
+          height: auto;
+          padding: 16px;
+          gap: 16px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .brand {
+          font-size: 18px;
+          padding: 0;
+        }
+        .sidebar .eyebrow,
+        .sidebar-bottom {
+          display: none;
+        }
+        .project-nav {
+          display: flex;
+          gap: 5px;
+          overflow: auto;
+        }
+        .nav-button {
+          width: auto;
+          flex-shrink: 0;
+          padding: 8px 10px;
+          font-size: 11px;
+          gap: 6px;
+        }
+        .nav-button svg {
+          width: 15px;
+          height: 15px;
+        }
+        .nav-button .count {
+          display: none;
+        }
+        .nav-button .project-dot {
+          width: 7px;
+          height: 7px;
+          margin: 3px;
+        }
+        .topbar {
+          height: auto;
+          padding: 15px 18px;
+          align-items: center;
+        }
+        .breadcrumb {
+          font-size: 11px;
+          gap: 8px;
+        }
+        .breadcrumb > svg {
+          display: none;
+        }
+        .search {
+          width: 155px;
+        }
+        .search input {
+          padding-right: 10px;
+        }
+        .shortcut {
+          display: none;
+        }
+        .content {
+          padding: 22px 16px;
+        }
+        .page-heading {
+          align-items: flex-start;
+        }
+        h1 {
+          font-size: 22px;
+        }
+        .page-heading p {
+          font-size: 11px;
+          max-width: 225px;
+        }
+        .page-heading .button {
+          padding: 9px 10px;
+          font-size: 10px;
+        }
+        .summary-grid {
+          gap: 7px;
+        }
+        .summary {
+          padding: 13px 10px;
+          gap: 7px;
+        }
+        .summary-icon {
+          width: 26px;
+          height: 26px;
+          border-radius: 7px;
+        }
+        .summary-icon svg {
+          width: 15px;
+          height: 15px;
+        }
+        .summary strong {
+          font-size: 20px;
+        }
+        .summary span {
+          font-size: 9px;
+        }
+        .work-row {
+          padding: 15px 16px;
+        }
+        .detail-content {
+          padding: 17px 19px;
+        }
+        .detail-head {
+          padding: 20px 19px;
+        }
+        .detail-tabs {
+          padding: 0 19px;
+        }
+        .detail-footer {
+          padding: 15px 19px;
+        }
+        .live-label {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+      <defs>
+        <symbol id="i-grid" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </symbol>
+        <symbol id="i-work" viewBox="0 0 24 24">
+          <rect x="4" y="5" width="16" height="16" rx="3" />
+          <path d="M9 5V3h6v2M8 11l1.5 1.5L12 10m-4 7h8m-2-5h2" />
+        </symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24">
+          <path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" />
+          <path d="M7 9h10M7 13h7" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="m16 16 5 5" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" /></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="m10 4-8 14a2 2 0 0 0 2 3h16a2 2 0 0 0 2-3L14 4a2 2 0 0 0-4 0Z" />
+          <path d="M12 9v4m0 4h.01" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z" /></symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24">
+          <path d="M3 7a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        </symbol>
+        <symbol id="i-link" viewBox="0 0 24 24">
+          <path
+            d="m10 14 4-4m-6 6-2 2a4 4 0 0 1-6-6l4-4m12 0 2-2a4 4 0 0 1 6 6l-4 4"
+            transform="translate(2 0) scale(.85)"
+          />
+        </symbol>
+        <symbol id="i-tools" viewBox="0 0 24 24">
+          <path d="M15 4a6 6 0 0 0-7 7l-5 5a3 3 0 0 0 4 4l5-5a6 6 0 0 0 7-7l-4 3-3-3Z" />
+        </symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24">
+          <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />
+        </symbol>
+      </defs>
+    </svg>
+    <div class="app">
+      <aside class="sidebar" aria-label="Project navigation">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg><use href="#i-grid" /></svg>
+          </div>
+          Workspace
+        </div>
+        <div>
+          <p class="eyebrow">Your projects</p>
+          <nav class="project-nav" id="projects" aria-label="Projects">
+            <span class="empty">Loading projects…</span>
+          </nav>
+        </div>
+        <div class="sidebar-bottom">
+          <div>
+            <span class="preview-tag"><span class="dot"></span>Live data · Read only</span>
+            <p class="sidebar-note" style="margin-top:9px">
+              Proposed design.<br />Your actual workspace.
+            </p>
+          </div>
+          <div class="account">
+            <span class="avatar"
+              ><svg><use href="#i-grid" /></svg
+            ></span>
+            <div>Operator workspace<small>Authenticated live reads</small></div>
+          </div>
+        </div>
+      </aside>
+      <div class="main">
+        <header class="topbar">
+          <div class="breadcrumb">
+            <svg><use href="#i-grid" /></svg><span>Workspace</span><span>/</span
+            ><strong id="breadcrumbProject">All projects</strong>
+          </div>
+          <div class="top-right">
+            <label class="search"
+              ><svg><use href="#i-search" /></svg
+              ><input
+                id="search"
+                aria-label="Search work and conversations"
+                placeholder="Search your workspace…"
+              /><span class="shortcut">⌘ K</span></label
+            ><span class="preview-tag"
+              ><span class="dot"></span>Design preview • Live data · Read only</span
+            >
+          </div>
+        </header>
+        <main class="content">
+          <div class="page-heading">
+            <div>
+              <h1 id="pageTitle">Your work, at a glance.</h1>
+              <p id="pageDescription">See what needs you, what’s moving, and what comes next.</p>
+            </div>
+            <button class="button" id="refresh">
+              <svg><use href="#i-clock" /></svg>Refresh
+            </button>
+          </div>
+          <div
+            id="loadStatus"
+            role="status"
+            style="font-size:11px;color:#8390a5;margin-bottom:14px"
+          >
+            Reading your workspace…
+          </div>
+          <div
+            id="loadErrors"
+            role="alert"
+            style="margin-bottom:14px;font-size:12px;color:#9a6414"
+            hidden
+          ></div>
+          <div class="tabs" role="tablist" aria-label="Workspace view">
+            <button
+              class="tab active"
+              id="workTab"
+              role="tab"
+              aria-selected="true"
+              aria-controls="workView"
+            >
+              <svg><use href="#i-work" /></svg>Work<span class="tab-count" id="workCount"
+                >—</span
+              ></button
+            ><button
+              class="tab"
+              id="conversationsTab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="conversationsView"
+            >
+              <svg><use href="#i-chat" /></svg>Conversations<span
+                class="tab-count"
+                id="conversationCount"
+                >—</span
+              >
+            </button>
+          </div>
+          <section id="workView" role="tabpanel" aria-labelledby="workTab">
+            <div class="summary-grid">
+              <button
+                class="summary needs"
+                data-status="needs"
+                aria-label="Filter work needing your input"
+              >
+                <div class="summary-icon">
+                  <svg><use href="#i-alert" /></svg>
+                </div>
+                <div><strong id="needsCount">—</strong><span>Needs you</span></div></button
+              ><button class="summary" data-status="running" aria-label="Filter running work">
+                <div class="summary-icon">
+                  <svg><use href="#i-clock" /></svg>
+                </div>
+                <div><strong id="runningCount">—</strong><span>Running</span></div></button
+              ><button class="summary ready" data-status="ready" aria-label="Filter ready work">
+                <div class="summary-icon">
+                  <svg><use href="#i-play" /></svg>
+                </div>
+                <div><strong id="readyCount">—</strong><span>Ready to start</span></div>
+              </button>
+            </div>
+            <div class="workspace-grid">
+              <section class="card" aria-label="Work list">
+                <div class="list-heading">
+                  <h2>Your work</h2>
+                  <small id="visibleCount">Loading…</small>
+                </div>
+                <div class="list-filters">
+                  <button class="filter selected" data-status="outstanding">Outstanding</button
+                  ><button class="filter" data-status="needs">Needs you</button
+                  ><button class="filter" data-status="running">Running</button
+                  ><button class="filter" data-status="ready">Ready</button
+                  ><button class="filter" data-status="completed">Completed</button
+                  ><button class="filter" data-status="all">All</button>
+                </div>
+                <div class="work-list" id="workList"><p class="empty">Loading actual work…</p></div>
+                <div class="list-footer">
+                  <span id="workSource">Recorded workflows and coding plans</span
+                  ><span>Live data</span>
+                </div>
+              </section>
+              <section class="card" id="detail" aria-label="Selected work">
+                <p class="empty">Choose a task to see its goal, steps and results.</p>
+              </section>
+            </div>
+          </section>
+          <section id="conversationsView" role="tabpanel" aria-labelledby="conversationsTab" hidden>
+            <div class="workspace-grid">
+              <section class="card" aria-label="Conversation list">
+                <div class="list-heading">
+                  <h2>Conversations</h2>
+                  <small>Saved history</small>
+                </div>
+                <div class="conversation-list" id="conversationList"></div>
+                <div class="list-footer"><span>Your saved conversations and linked work</span></div>
+              </section>
+              <section class="card" id="conversationDetail" aria-label="Selected conversation">
+                <p class="empty">Choose a saved conversation.</p>
+              </section>
+            </div>
+          </section>
+          <p class="demo-note">
+            Design preview using your live workspace. This page only reads. Review, execution and
+            conversation continue in the current application.
+          </p>
+        </main>
+      </div>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const icon = (name) => '<svg aria-hidden="true"><use href="#i-' + name + '"></use></svg>';
+      const escape = (text) =>
+        String(text ?? "").replace(
+          /[&<>"']/g,
+          (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]
+        );
+      let snapshot = null,
+        project = "all",
+        status = "outstanding",
+        view = "work",
+        selected = null,
+        selectedConversation = null,
+        query = "",
+        detailTab = "plan",
+        chosenStep = null;
+      let detailVersion = 0,
+        conversationVersion = 0,
+        loadedDetail = null,
+        loadingWorkspace = false,
+        loadedScope = "all",
+        pendingWorkspaceReload = false;
+      const detailCache = new Map(),
+        historyCache = new Map(),
+        requests = new Set();
+      const labels = {
+        waiting_input: "Needs your input",
+        uncertain: "Outcome uncertain",
+        failed: "Failed",
+        stopped: "Stopped",
+        unavailable: "Unavailable",
+        invalid: "Needs attention",
+        awaiting_review: "Needs review",
+        needs_attention: "Needs attention",
+        ready: "Ready to start",
+        todo: "Ready to start",
+        pending: "Not started",
+        blocked: "Blocked",
+        stuck: "Needs attention",
+        running: "Running",
+        in_progress: "Running",
+        active: "Allocated",
+        completed: "Completed",
+        complete: "Completed",
+        done: "Completed",
+        accepted: "Accepted",
+        cancelled: "Cancelled",
+        review_pending: "Needs review"
+      };
+      function stateLabel(value) {
+        return labels[value] || String(value || "Unknown").replace(/_/g, " ");
+      }
+      function bucket(value) {
+        if (["completed", "complete", "done", "accepted", "cancelled"].includes(value))
+          return "completed";
+        if (value === "active") return "allocated";
+        if (["running", "in_progress"].includes(value)) return "running";
+        if (["ready", "todo", "pending"].includes(value)) return "ready";
+        return "needs";
+      }
+      function badge(item) {
+        return (
+          '<span class="badge ' + bucket(item.status) + '">' + escape(stateLabel(item.status)) + "</span>"
+        );
+      }
+      function projectName(id) {
+        return snapshot?.projects.find((entry) => entry.id === id)?.name || "General";
+      }
+      async function read(path, input) {
+        const controller = new AbortController();
+        requests.add(controller);
+        const timer = setTimeout(() => controller.abort(), 15000);
+        try {
+          const response = await fetch(path, {
+            method: input === undefined ? "GET" : "POST",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: input === undefined ? {} : { "Content-Type": "application/json" },
+            body: input === undefined ? undefined : JSON.stringify(input),
+            signal: controller.signal
+          });
+          const text = await response.text();
+          if (text.length > 2097152) throw new Error("The response exceeds this view’s read limit.");
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            throw new Error("The service returned an unreadable response.");
+          }
+          if (!response.ok) {
+            if (response.status === 401) throw new Error("Pair this browser to view your workspace.");
+            throw new Error(
+              typeof data.error === "string"
+                ? data.error
+                : typeof data.message === "string"
+                  ? data.message
+                  : "Request failed (" + response.status + ")."
+            );
+          }
+          return data;
+        } catch (error) {
+          if (controller.signal.aborted) throw new Error("The read timed out. Refresh to try again.");
+          throw error;
+        } finally {
+          clearTimeout(timer);
+          requests.delete(controller);
+        }
+      }
+      function scopedWork() {
+        return (snapshot?.work || []).filter((item) => project === "all" || item.projectId === project);
+      }
+      function visibleWork() {
+        return scopedWork().filter(
+          (item) =>
+            (status === "all" ||
+              (status === "outstanding"
+                ? bucket(item.status) !== "completed"
+                : bucket(item.status) === status)) &&
+            (item.name + " " + projectName(item.projectId) + " " + (item.nextStep || ""))
+              .toLowerCase()
+              .includes(query)
+        );
+      }
+      function visibleConversations() {
+        return (snapshot?.conversations || []).filter(
+          (item) =>
+            (project === "all" || item.projectId === project) &&
+            !item.archived &&
+            (item.title + " " + item.preview).toLowerCase().includes(query)
+        );
+      }
+      function renderNavigation() {
+        const projects = [
+          { id: "all", name: "All projects" },
+          ...(snapshot?.projects || []).filter((item) => !item.archived)
+        ];
+        $("projects").innerHTML = projects
+          .map(
+            (item) =>
+              '<button class="nav-button ' +
+              (project === item.id ? "selected" : "") +
+              '" data-project="' +
+              escape(item.id) +
+              '"' +
+              (project === item.id ? ' aria-current="page"' : "") +
+              ">" +
+              (item.id === "all" ? icon("grid") : '<span class="project-dot"></span>') +
+              escape(item.name) +
+              '<span class="count">' +
+              (item.id === "all"
+                ? (snapshot?.work || []).length
+                : (snapshot?.work || []).filter((work) => work.projectId === item.id).length) +
+              "</span></button>"
+          )
+          .join("");
+        $("projects")
+          .querySelectorAll("[data-project]")
+          .forEach((button) =>
+            button.addEventListener("click", () => {
+              project = button.dataset.project;
+              chosenStep = null;
+              render();
+              if (snapshot?.truncated || loadedScope !== "all") loadWorkspace();
+            })
+          );
+        $("breadcrumbProject").textContent = project === "all" ? "All projects" : projectName(project);
+      }
+      function renderCounts() {
+        ["needs", "running", "ready"].forEach(
+          (value) =>
+            ($(value + "Count").textContent = scopedWork().filter(
+              (item) => bucket(item.status) === value
+            ).length)
+        );
+        $("workCount").textContent = scopedWork().length;
+        $("conversationCount").textContent = visibleConversations().length;
+        document
+          .querySelectorAll("[data-status]")
+          .forEach((button) => button.classList.toggle("selected", button.dataset.status === status));
+      }
+      function renderList() {
+        const items = visibleWork();
+        $("visibleCount").textContent = items.length + " " + (items.length === 1 ? "item" : "items");
+        $("workList").innerHTML = items.length
+          ? items
+              .map(
+                (item) =>
+                  '<button class="work-row ' +
+                  (item.id === selected ? "selected" : "") +
+                  '" data-work="' +
+                  escape(item.id) +
+                  '" aria-pressed="' +
+                  (item.id === selected) +
+                  '"><span class="work-icon">' +
+                  icon(bucket(item.status) === "completed" ? "check" : "work") +
+                  '</span><span class="row-body"><span class="row-title">' +
+                  escape(item.name) +
+                  '</span><span class="row-description">' +
+                  escape(
+                    item.nextStep
+                      ? "Next: " + item.nextStep
+                      : item.kind === "coding"
+                        ? "Recorded coding plan"
+                        : "Saved workflow"
+                  ) +
+                  '</span><span class="row-meta">' +
+                  badge(item) +
+                  '<span class="project-label">' +
+                  escape(projectName(item.projectId)) +
+                  "</span></span></span>" +
+                  icon("arrow").replace("<svg ", '<svg class="row-arrow" ') +
+                  "</button>"
+              )
+              .join("")
+          : '<p class="empty">No recorded work matches this selection.</p>';
+        $("workList")
+          .querySelectorAll("[data-work]")
+          .forEach((button) =>
+            button.addEventListener("click", () => {
+              selected = button.dataset.work;
+              chosenStep = null;
+              detailTab = "plan";
+              renderList();
+              loadDetail();
+              if (innerWidth < 980) $("detail").scrollIntoView({ block: "start" });
+            })
+          );
+        const focused = $("workList").querySelector('[aria-pressed="true"]');
+        if (focused)
+          $("workList").scrollTop = Math.max(0, focused.offsetTop - $("workList").clientHeight / 3);
+      }
+      function detailShell(item, body, footer = true) {
+        const description =
+          loadedDetail?.plan?.definition.description ||
+          (item.kind === "coding"
+            ? "Recorded coding plan. Open the current controls to inspect or execute it."
+            : "Goal and step details are recorded in the saved plan.");
+        return (
+          '<header class="detail-head"><div class="detail-meta"><span class="detail-project">' +
+          icon("folder") +
+          escape(projectName(item.projectId)) +
+          " / " +
+          (item.kind === "coding" ? "Coding plan" : "Workflow") +
+          "</span>" +
+          badge(
+            loadedDetail?.run && loadedDetail.run.revision === loadedDetail.plan?.revision
+              ? { status: loadedDetail.run.status }
+              : item
+          ) +
+          "</div><h2>" +
+          escape(item.name) +
+          '</h2><p class="goal">' +
+          escape(description) +
+          '</p></header><div class="detail-tabs" role="tablist" aria-label="Task detail"><button class="tab ' +
+          (detailTab === "plan" ? "active" : "") +
+          '" data-detail-tab="plan" role="tab" aria-selected="' +
+          (detailTab === "plan") +
+          '">Plan & result</button><button class="tab ' +
+          (detailTab === "activity" ? "active" : "") +
+          '" data-detail-tab="activity" role="tab" aria-selected="' +
+          (detailTab === "activity") +
+          '">Activity</button></div><div class="detail-content">' +
+          body +
+          "</div>" +
+          (footer
+            ? '<footer class="detail-footer"><small>Live records · read-only preview</small><button class="button primary" id="openCurrent">' +
+              icon(item.status === "waiting_input" ? "check" : "arrow") +
+              (item.status === "waiting_input"
+                ? "Review in current UI"
+                : bucket(item.status) === "ready"
+                  ? "Open to run"
+                  : bucket(item.status) === "completed"
+                    ? "Open result"
+                    : "Open current controls") +
+              "</button></footer>"
+            : "")
+        );
+      }
+      function bindDetail(item) {
+        $("detail")
+          .querySelectorAll("[data-detail-tab]")
+          .forEach((button) =>
+            button.addEventListener("click", () => {
+              detailTab = button.dataset.detailTab;
+              renderDetail();
+            })
+          );
+        $("detail")
+          .querySelectorAll("[data-step]")
+          .forEach((button) =>
+            button.addEventListener("click", () => {
+              chosenStep = Number(button.dataset.step);
+              renderDetail();
+            })
+          );
+        if ($("openCurrent")) $("openCurrent").addEventListener("click", () => openCurrent(item));
+      }
+      function compact(value) {
+        if (value === undefined || value === null) return "No value recorded";
+        if (typeof value === "string") return value;
+        if (typeof value === "boolean") return value ? "Yes" : "No";
+        if (typeof value === "number") return String(value);
+        if (Array.isArray(value)) return value.length + " recorded items";
+        const entries = Object.entries(value);
+        if (!entries.length) return "No extra input";
+        return entries
+          .slice(0, 4)
+          .map(
+            ([key, entry]) =>
+              key +
+              ": " +
+              (entry && typeof entry === "object"
+                ? entry.$step
+                  ? "from " + entry.$step
+                  : Array.isArray(entry)
+                    ? entry.length + " items"
+                    : "recorded data"
+                : String(entry))
+          )
+          .join(" · ");
+      }
+      function resultHtml(output) {
+        if (output === undefined) return "<p>No output has been recorded for this step.</p>";
+        if (typeof output === "string")
+          return '<p style="white-space:pre-wrap">' + escape(output) + "</p>";
+        if (output && typeof output.text === "string")
+          return '<p style="white-space:pre-wrap">' + escape(output.text) + "</p>";
+        if (output && typeof output.approved === "boolean")
+          return (
+            "<p><strong>" +
+            (output.approved ? "Approved" : "Not approved") +
+            "</strong></p>" +
+            (typeof output.note === "string" ? "<p>" + escape(output.note) + "</p>" : "")
+          );
+        const data = output && output.data && typeof output.data === "object" ? output.data : output;
+        if (!data || typeof data !== "object") return "<p>" + escape(compact(data)) + "</p>";
+        const entries = Object.entries(data).filter(
+          ([, value]) =>
+            typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        );
+        let html = output?.status
+          ? "<p><strong>Response:</strong> " + escape(output.status) + "</p>"
+          : "";
+        html += entries
+          .slice(0, 7)
+          .map(
+            ([key, value]) =>
+              "<p><strong>" +
+              escape(key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())) +
+              ":</strong> " +
+              escape(value) +
+              "</p>"
+          )
+          .join("");
+        return html || "<p>Recorded result. Expand the output details to inspect its data.</p>";
+      }
+      async function loadDetail() {
+        const version = ++detailVersion,
+          item = snapshot?.work.find((entry) => entry.id === selected);
+        loadedDetail = null;
+        if (!item) {
+          $("detail").innerHTML = '<p class="empty">Choose a task to inspect its recorded steps.</p>';
+          return;
+        }
+        $("detail").innerHTML = detailShell(
+          item,
+          '<p class="empty" style="padding:12px 0">Reading saved plan and execution…</p>',
+          false
+        );
+        try {
+          let record = detailCache.get(item.projectId + ":" + item.id);
+          if (!record) {
+            if (item.kind === "workflow") {
+              const plan = await read("/workflows/tools/get_plan", {
+                id: item.id,
+                projectId: item.projectId
+              });
+              const runId = plan.latestRunId || plan.attemptId;
+              let run = null,
+                runError = null;
+              if (runId)
+                try {
+                  run = await read("/workflows/tools/get_run", { id: runId, projectId: item.projectId });
+                } catch (error) {
+                  runError = error.message;
+                }
+              record = { plan, run, runError };
+            } else {
+              const coding = await read("/development/plans/" + encodeURIComponent(item.id) + "/status");
+              record = { coding };
+            }
+            detailCache.set(item.projectId + ":" + item.id, record);
+          }
+          if (version !== detailVersion || selected !== item.id) return;
+          loadedDetail = record;
+          renderDetail();
+        } catch (error) {
+          if (version !== detailVersion) return;
+          $("detail").innerHTML = detailShell(
+            item,
+            '<div class="notice">' + icon("alert") + "<span>" + escape(error.message) + "</span></div>"
+          );
+          bindDetail(item);
+        }
+      }
+      function renderDetail() {
+        const item = snapshot?.work.find((entry) => entry.id === selected);
+        if (!item || !loadedDetail) return;
+        const record = loadedDetail;
+        let body = "";
+        if (record.coding) {
+          const coding = record.coding,
+            leaves = coding.leaves || [];
+          body =
+            '<div class="section-heading"><h3>Recorded plan</h3><small>' +
+            leaves.length +
+            " work items</small></div>";
+          if (coding.status !== "ok")
+            body +=
+              '<div class="notice">' +
+              icon("alert") +
+              "The recorded plan state is unavailable or invalid.</div>";
+          else if (detailTab === "activity")
+            body +=
+              '<p class="goal">This source provides a current state snapshot, not an execution event history. Open the current controls for recorded attempts.</p>';
+          else
+            body +=
+              '<div class="step-list">' +
+              leaves
+                .slice(0, 8)
+                .map(
+                  (leaf, index) =>
+                    '<div class="step"><span class="step-marker ' +
+                    (["accepted", "cancelled"].includes(leaf.state) ? "complete" : "") +
+                    '">' +
+                    (index + 1) +
+                    '</span><span class="step-name">' +
+                    escape(leaf.name || "Untitled work item") +
+                    "<small>" +
+                    escape(leaf.scope || "No scope recorded") +
+                    '</small></span><span class="step-right">' +
+                    escape(stateLabel(leaf.state)) +
+                    "</span></div>"
+                )
+                .join("") +
+              '</div><div class="result-card"><div class="result-title">Current / next step<span>Recorded state</span></div><p>' +
+              escape(item.nextStep || "No next step returned by the project service.") +
+              "</p><p><strong>Execution:</strong> " +
+              (item.prepared
+                ? "Prepared on the configured host."
+                : "This plan is not prepared for execution on this host.") +
+              "</p></div>";
+          $("detail").innerHTML = detailShell(item, body);
+          bindDetail(item);
+          return;
+        }
+        const plan = record.plan,
+          run = record.run?.revision === record.plan.revision ? record.run : null,
+          steps = plan.definition.steps;
+        const historicalRun = record.run && !run ? record.run : null;
+        let current = run?.steps.findIndex((step) => !["completed", "skipped"].includes(step.status));
+        if (current === undefined || current < 0) current = steps.length - 1;
+        if (!run) current = 0;
+        const index = chosenStep === null ? current : chosenStep,
+          definition = steps[index],
+          execution = run?.steps.find((step) => step.id === definition.id);
+        if (detailTab === "activity") {
+          const events = [],
+            activityRun = record.run;
+          if (activityRun)
+            events.push({
+              title:
+                (historicalRun
+                  ? "Historical execution · revision " + historicalRun.revision + " · "
+                  : "Execution ") + stateLabel(activityRun.status).toLowerCase(),
+              text:
+                activityRun.error ||
+                (historicalRun
+                  ? "This execution belongs to an older saved definition. It does not describe the current plan."
+                  : "Recorded execution state."),
+              at: activityRun.updatedAt || activityRun.startedAt
+            });
+          for (const step of activityRun?.steps || []) {
+            if (step.agent)
+              for (const event of step.agent.events)
+                events.push({ title: step.name, text: event.message, at: event.at });
+            else if (step.status !== "pending")
+              events.push({
+                title: step.name + " · " + stateLabel(step.status),
+                text:
+                  step.error ||
+                  (step.output === undefined ? "No output recorded." : "Output saved with this step."),
+                at: step.finishedAt || step.startedAt
+              });
+          }
+          body = events.length
+            ? '<ul class="activity-list">' +
+              events
+                .map(
+                  (event) =>
+                    '<li class="activity-item"><span class="activity-point"></span><div><strong>' +
+                    escape(event.title) +
+                    "</strong><p>" +
+                    escape(event.text) +
+                    "</p>" +
+                    (event.at ? "<time>" + escape(new Date(event.at).toLocaleString()) + "</time>" : "") +
+                    "</div></li>"
+                )
+                .join("") +
+              "</ul>"
+            : '<p class="goal">No execution has been recorded for this saved plan.</p>';
+        } else {
+          const complete = (run?.steps || []).filter((step) => step.status === "completed").length;
+          body =
+            '<div class="section-heading"><h3>Plan</h3><small>' +
+            complete +
+            " of " +
+            steps.length +
+            ' steps complete</small></div><div class="step-list">' +
+            steps
+              .map((step, number) => {
+                const recorded = run?.steps.find((value) => value.id === step.id),
+                  state = recorded?.status || "pending";
+                const kind = { tool: "API / tool", model: "Model", human: "Human", agent: "Agent" }[
+                  step.action.type
+                ];
+                const actor =
+                  step.action.tool ||
+                  step.action.executor ||
+                  (step.action.type === "human" ? "Human" : "Configured model");
+                return (
+                  '<button class="step ' +
+                  (state === "waiting_input" ? "current" : "") +
+                  (chosenStep === number ? " chosen" : "") +
+                  '" data-step="' +
+                  number +
+                  '"><span class="step-marker ' +
+                  (state === "completed" ? "complete" : state === "waiting_input" ? "review" : "") +
+                  '">' +
+                  (state === "completed" ? icon("check") : number + 1) +
+                  '</span><span class="step-name">' +
+                  escape(step.name) +
+                  "<small>" +
+                  kind +
+                  " · " +
+                  escape(actor) +
+                  '</small></span><span class="step-right">' +
+                  escape(stateLabel(state)) +
+                  "</span></button>"
+                );
+              })
+              .join("") +
+            "</div>";
+          const input = execution?.inputs ?? definition.inputs;
+          body +=
+            '<div class="io-grid"><div class="io"><div class="eyebrow">Input</div><p>' +
+            escape(compact(input)) +
+            '</p></div><div class="io"><div class="eyebrow">Output</div><p>' +
+            escape(
+              execution?.output === undefined
+                ? stateLabel(execution?.status || "pending")
+                : compact(execution.output)
+            ) +
+            "</p></div></div>";
+          body +=
+            '<div class="result-card"><div class="result-title">' +
+            escape(definition.name) +
+            "<span>Recorded result</span></div>";
+          if (definition.action.type === "human")
+            body += "<p>" + escape(definition.action.instructions) + "</p>";
+          body += resultHtml(execution?.output);
+          if (execution?.error)
+            body += '<div class="notice">' + icon("alert") + escape(execution.error) + "</div>";
+          body +=
+            "<p><strong>Success:</strong> " +
+            escape(
+              definition.success
+                ? definition.success.path + " equals " + JSON.stringify(definition.success.equals)
+                : "No extra success rule is defined for this step."
+            ) +
+            "</p></div>";
+          if (definition.action.type === "agent") {
+            const task = definition.action.task;
+            body +=
+              '<div class="context-line"><span>' +
+              icon("link") +
+              escape(
+                task.references.map((reference) => reference.label).join(", ") || "No attached references"
+              ) +
+              "</span><span>" +
+              icon("tools") +
+              escape(task.tools.join(", ") || "No tools allowed") +
+              '</span></div><div class="assignment">Executor: ' +
+              escape(definition.action.executor) +
+              " · " +
+              task.completionCriteria.length +
+              " completion criteria</div>";
+            if (task.context)
+              body +=
+                '<details><summary>Task context and completion criteria</summary><p class="goal">' +
+                escape(task.context) +
+                "</p><ul>" +
+                task.completionCriteria.map((value) => "<li>" + escape(value) + "</li>").join("") +
+                "</ul></details>";
+            const pending = execution?.agent?.requests.find((request) => request.status === "pending");
+            if (pending)
+              body += '<div class="notice">' + icon("alert") + escape(pending.prompt) + "</div>";
+          } else
+            body +=
+              '<div class="context-line"><span>' +
+              icon("tools") +
+              escape(
+                definition.action.type === "tool"
+                  ? definition.action.tool
+                  : definition.action.type === "human"
+                    ? "Human review"
+                    : "Configured model"
+              ) +
+              "</span><span>" +
+              icon("link") +
+              "Saved plan revision " +
+              plan.revision +
+              "</span></div>";
+          if (execution?.output !== undefined)
+            body +=
+              "<details><summary>Output details</summary><pre>" +
+              escape(JSON.stringify(execution.output, null, 2)) +
+              "</pre></details>";
+          body +=
+            "<details><summary>Input details</summary><pre>" +
+            escape(JSON.stringify(input, null, 2)) +
+            "</pre></details><details><summary>View plan definition (JSON)</summary><pre>" +
+            escape(JSON.stringify(plan.definition, null, 2)) +
+            "</pre></details>";
+        }
+        if (historicalRun && detailTab === "plan")
+          body +=
+            '<div class="notice">' +
+            icon("clock") +
+            "<span>The saved plan is revision " +
+            plan.revision +
+            ". Its latest execution belongs to revision " +
+            historicalRun.revision +
+            " and is shown as history in Activity.</span></div>";
+        if (record.runError)
+          body +=
+            '<div class="notice">' +
+            icon("alert") +
+            "<span>Execution could not be read: " +
+            escape(record.runError) +
+            "</span></div>";
+        $("detail").innerHTML = detailShell(item, body);
+        bindDetail(item);
+      }
+      function openConversation(item) {
+        if (!item?.reopenable) return;
+        sessionStorage.setItem(
+          "chatagent-active-conversation",
+          JSON.stringify({
+            conversationId: item.id,
+            userId: "workspace",
+            workspaceConversationId: item.id
+          })
+        );
+        location.assign("/");
+      }
+      function openCurrent(item) {
+        const conversation = snapshot.conversations.find((row) => row.id === item.conversationId);
+        if (conversation?.reopenable)
+          sessionStorage.setItem(
+            "chatagent-active-conversation",
+            JSON.stringify({
+              conversationId: conversation.id,
+              userId: "workspace",
+              workspaceConversationId: conversation.id
+            })
+          );
+        sessionStorage.setItem(
+          "chatagent-design-open-work",
+          JSON.stringify({ id: item.id, projectId: item.projectId, kind: item.kind })
+        );
+        location.assign("/");
+      }
+      function renderConversations() {
+        const items = visibleConversations();
+        if (!items.some((item) => item.id === selectedConversation))
+          selectedConversation = items[0]?.id || null;
+        $("conversationList").innerHTML = items.length
+          ? items
+              .map(
+                (item) =>
+                  '<button class="conversation-row ' +
+                  (item.id === selectedConversation ? "selected" : "") +
+                  '" data-conversation="' +
+                  escape(item.id) +
+                  '"><strong>' +
+                  escape(item.title) +
+                  "</strong><p>" +
+                  escape(item.preview || "No saved messages yet.") +
+                  "</p><span>" +
+                  escape(projectName(item.projectId)) +
+                  " · " +
+                  escape(stateLabel(item.status)) +
+                  "</span></button>"
+              )
+              .join("")
+          : '<p class="empty">No saved conversations match this selection.</p>';
+        $("conversationList")
+          .querySelectorAll("[data-conversation]")
+          .forEach((button) =>
+            button.addEventListener("click", () => {
+              selectedConversation = button.dataset.conversation;
+              renderConversations();
+              loadConversation();
+            })
+          );
+      }
+      function historyMessages(events) {
+        const messages = [];
+        const attempts = new Map();
+        for (const event of events) {
+          if (event.type === "user") messages.push({ role: "You", text: event.text, user: true });
+          else if (["provisional", "refined", "delta"].includes(event.type)) {
+            const key = event.messageId + ":" + (event.attemptId || event.phase || event.type);
+            let record = attempts.get(key);
+            if (!record) {
+              record = {
+                role: event.model ? event.model.provider + " / " + event.model.model : "Assistant",
+                text: "",
+                user: false
+              };
+              attempts.set(key, record);
+              messages.push(record);
+            }
+            record.text = event.type === "delta" ? record.text + event.text : event.text;
+            if (event.model) record.role = event.model.provider + " / " + event.model.model;
+          }
+        }
+        return messages.filter((item) => item.text).slice(-4);
+      }
+      async function loadConversation() {
+        const version = ++conversationVersion,
+          item = snapshot?.conversations.find((row) => row.id === selectedConversation);
+        if (!item) {
+          $("conversationDetail").innerHTML = '<p class="empty">Choose a saved conversation.</p>';
+          return;
+        }
+        $("conversationDetail").innerHTML = '<p class="empty">Reading saved conversation…</p>';
+        try {
+          let data = historyCache.get(item.id);
+          if (!data) {
+            data = await read("/workspace/conversations/" + encodeURIComponent(item.id) + "/events");
+            historyCache.set(item.id, data);
+          }
+          if (version !== conversationVersion || selectedConversation !== item.id) return;
+          const messages = historyMessages(data.events || []),
+            linked = snapshot.work.filter((row) => row.conversationId === item.id);
+          const chips = linked
+            .map(
+              (row) =>
+                '<div class="plan-chip">' +
+                icon("work") +
+                '<span class="chip-text"><strong>' +
+                escape(row.name) +
+                "</strong><small>" +
+                escape(stateLabel(row.status)) +
+                '</small></span><button class="button" data-linked-plan="' +
+                escape(row.id) +
+                '">Open plan</button></div>'
+            )
+            .join("");
+          $("conversationDetail").innerHTML =
+            '<header class="chat-head"><div class="detail-meta"><span class="detail-project">' +
+            icon("folder") +
+            escape(projectName(item.projectId)) +
+            "</span>" +
+            badge(item) +
+            "</div><h2>" +
+            escape(item.title) +
+            "</h2><p>Actual saved history · " +
+            (data.events || []).length +
+            ' recorded events</p></header><div class="chat-messages">' +
+            (messages.length
+              ? messages
+                  .map(
+                    (message) =>
+                      '<div class="message ' +
+                      (message.user ? "user" : "") +
+                      '"><strong>' +
+                      escape(message.role) +
+                      '</strong><div style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto">' +
+                      escape(message.text) +
+                      "</div></div>"
+                  )
+                  .join("")
+              : '<p class="goal">No messages saved yet. Continue this conversation in the current application.</p>') +
+            chips +
+            '</div><div class="chat-composer"><footer><small>Scoped to ' +
+            escape(projectName(item.projectId)) +
+            '</small><button class="button primary" id="continueConversation" ' +
+            (!item.reopenable ? "disabled" : "") +
+            ">" +
+            icon("chat") +
+            'Continue conversation</button></footer><p class="demo-note">This design preview reads history. Sending messages happens in the current application.</p></div>';
+          $("continueConversation").addEventListener("click", () => openConversation(item));
+          $("conversationDetail")
+            .querySelectorAll("[data-linked-plan]")
+            .forEach((button) =>
+              button.addEventListener("click", () => {
+                project = item.projectId || "all";
+                status = "all";
+                query = "";
+                $("search").value = "";
+                selected = button.dataset.linkedPlan;
+                chosenStep = null;
+                setView("work");
+              })
+            );
+        } catch (error) {
+          if (version !== conversationVersion) return;
+          $("conversationDetail").innerHTML =
+            '<header class="chat-head"><h2>' +
+            escape(item.title) +
+            '</h2></header><p class="empty">' +
+            escape(error.message) +
+            "</p>";
+        }
+      }
+      function render() {
+        if (!snapshot) return;
+        renderNavigation();
+        renderCounts();
+        const items = visibleWork();
+        if (!items.some((item) => item.id === selected)) {
+          selected = items.find((item) => item.status === "waiting_input")?.id || items[0]?.id || null;
+          chosenStep = null;
+          loadedDetail = null;
+        }
+        renderList();
+        renderConversations();
+        if (view === "work") loadDetail();
+        else loadConversation();
+      }
+      function setView(value) {
+        view = value;
+        $("workView").hidden = value !== "work";
+        $("conversationsView").hidden = value !== "conversations";
+        ["work", "conversations"].forEach((name) => {
+          $(name + "Tab").classList.toggle("active", value === name);
+          $(name + "Tab").setAttribute("aria-selected", String(value === name));
+        });
+        $("pageTitle").textContent =
+          value === "work" ? "Your work, at a glance." : "A place to think together.";
+        $("pageDescription").textContent =
+          value === "work"
+            ? "See what needs you, what’s moving, and what comes next."
+            : "Keep the discussion connected to the project and its work.";
+        render();
+      }
+      async function loadWorkspace() {
+        if (loadingWorkspace) {
+          pendingWorkspaceReload = true;
+          return;
+        }
+        loadingWorkspace = true;
+        $("refresh").disabled = true;
+        $("loadStatus").textContent = "Reading actual projects, conversations and work…";
+        try {
+          const session = await read("/auth/session");
+          if (session.authenticated !== true)
+            throw new Error("Pair this browser to view your workspace.");
+          const scope = project;
+          const result = await read(
+            "/workspace/tools/get_workspace",
+            scope === "all" ? {} : { projectId: scope }
+          );
+          if (scope !== project) {
+            pendingWorkspaceReload = true;
+            return;
+          }
+          snapshot = result;
+          loadedScope = scope;
+          detailCache.clear();
+          historyCache.clear();
+          $("loadStatus").textContent =
+            "Design preview · Live data · Read only · loaded " +
+            new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+            (snapshot.truncated ? " · More work exists. Choose a project to narrow the view." : "");
+          const errors = (snapshot.errors || []).map(
+            (item) => projectName(item.projectId) + ": " + item.message
+          );
+          $("loadErrors").hidden = !errors.length;
+          $("loadErrors").textContent = errors.join(" ");
+          render();
+        } catch (error) {
+          $("loadErrors").hidden = false;
+          $("loadErrors").textContent = error.message;
+          $("loadStatus").textContent = snapshot
+            ? "Refresh failed. The last loaded records are still shown."
+            : "Workspace has not loaded. No placeholder data is shown.";
+          if (!snapshot) {
+            $("projects").innerHTML = '<a class="button" href="/pair">Pair this browser</a>';
+            $("workList").innerHTML = '<p class="empty">Live data is unavailable.</p>';
+          }
+        } finally {
+          loadingWorkspace = false;
+          $("refresh").disabled = false;
+          if (pendingWorkspaceReload) {
+            pendingWorkspaceReload = false;
+            setTimeout(loadWorkspace, 0);
+          }
+        }
+      }
+      document.querySelectorAll("[data-status]").forEach((button) =>
+        button.addEventListener("click", () => {
+          status = button.dataset.status;
+          chosenStep = null;
+          render();
+        })
+      );
+      $("search").addEventListener("input", (event) => {
+        query = event.target.value.trim().toLowerCase();
+        render();
+      });
+      $("workTab").addEventListener("click", () => setView("work"));
+      $("conversationsTab").addEventListener("click", () => setView("conversations"));
+      $("refresh").addEventListener("click", loadWorkspace);
+      document.addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          $("search").focus();
+        }
+      });
+      window.addEventListener("pagehide", () => requests.forEach((controller) => controller.abort()));
+      loadWorkspace();
+    </script>
+  </body>
+</html>

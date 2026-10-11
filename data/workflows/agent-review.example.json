@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "Agent report review",
+  "description": "Use a configured report action and review the agent's result.",
+  "steps": [
+    {
+      "id": "review_report",
+      "name": "Review the report",
+      "action": {
+        "type": "agent",
+        "executor": "claude",
+        "task": {
+          "objective": "Call fetch_report and summarize its actual contents, including any reported verification limitations.",
+          "context": "The report endpoint is configured by the operator.",
+          "references": [],
+          "tools": ["fetch_report"],
+          "completionCriteria": ["Use the actual tool result", "Preserve reported limitations"],
+          "limits": { "maxTurns": 8 }
+        }
+      },
+      "timeoutMs": 300000
+    },
+    {
+      "id": "human_review",
+      "name": "Review the summary",
+      "inputs": { "summary": { "$step": "review_report", "path": "text" } },
+      "action": { "type": "human", "instructions": "Review the summary and supply your decision." }
+    }
+  ]
+}

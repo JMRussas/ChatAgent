@@ -38,6 +38,8 @@ const rule = (
  */
 export const ROUTES: readonly RouteRule[] = [
   rule("GET", "/", "public"),
+  // The design shell contains no private data; its reads use the same authenticated tools.
+  rule("GET", "/design", "public"),
   rule("GET", "/pair", "public"),
   rule("POST", "/pair", "public"),
   // Reports only whether the caller's own credentials are valid.
@@ -69,6 +71,19 @@ export const ROUTES: readonly RouteRule[] = [
   rule("GET", "/telemetry/evaluation", "operator"),
   rule("POST", "/briefings/config/reload", "operator"),
   rule("POST", "/roles/config/reload", "operator"),
+  rule("GET", "/workspace/tools", "operator"),
+  rule("POST", "/workspace/tools/:name", "operator"),
+  rule("GET", "/workspace/conversations/:conversationId/events", "operator"),
+  rule("GET", "/workspace/conversations/:conversationId/events/stream", "operator"),
+  rule("POST", "/workspace/conversations/:conversationId/messages", "operator"),
+  rule("POST", "/workspace/conversations/:conversationId/messages/:messageId/cancel", "operator"),
+  rule("POST", "/workspace/conversations/:conversationId/context", "operator"),
+  rule("POST", "/workspace/conversations/:conversationId/context/detach", "operator"),
+  rule("GET", "/workflows/tools", "operator"),
+  rule("POST", "/workflows/tools/:name", "operator"),
+  rule("POST", "/mcp", "operator"),
+  rule("GET", "/mcp", "operator"),
+  rule("DELETE", "/mcp", "operator"),
   rule("GET", "/workers/document-tasks/status", "operator"),
   rule("POST", "/workers/document-tasks/restart", "operator"),
   rule("GET", "/workers/document-tasks/recovery-candidates", "operator"),

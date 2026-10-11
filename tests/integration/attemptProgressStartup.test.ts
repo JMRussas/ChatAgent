@@ -16,6 +16,7 @@ import {
 
 let directory = "";
 beforeEach(async () => {
+  vi.stubEnv("WORKSPACE_ENABLED", "false");
   directory = await mkdtemp(join(tmpdir(), "attempt-progress-startup-"));
   vi.stubEnv("CHAT_IDENTITY_DIR", join(directory, "identity"));
   for (const phase of ["FAST", "DEEP"]) {

@@ -10,6 +10,9 @@ __pycache__/
 docs/measurements/
 package-lock.json
 data/eval-records.json
+data/workflow-runs/
+data/conversations.json
+data/conversations.json.*
 experiments/prompt-contract/cases.json
 experiments/prompt-encoding/cases.json
 # Raw Hekate API responses, kept byte-for-byte (see their PROVENANCE.md).
