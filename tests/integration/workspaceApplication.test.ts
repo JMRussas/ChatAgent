@@ -331,6 +331,77 @@ async function observedRun(
 }
 
 describe("native task workspace authority", () => {
+  it("records a real declined approval over workspace HTTP and preserves the note after restart without running its successor", async () => {
+    const fixture = await workspaceFixture();
+    const app = await fixture.start();
+    const project = await app.rpc("register_project", {
+      name: "Approval review",
+      hekateProjectId: randomUUID()
+    });
+    const plan = await app.rpc("create_plan", {
+      projectId: project.id,
+      definition: {
+        version: 1,
+        name: "Review before reading",
+        steps: [
+          {
+            id: "review",
+            name: "Approval",
+            action: { type: "human", instructions: "Approve the next action?" },
+            success: { path: "approved", equals: true }
+          },
+          { id: "read", name: "Read report", action: { type: "tool", tool: "read_report" } }
+        ]
+      }
+    });
+    const run = await app.rpc("run_plan", {
+      projectId: project.id,
+      id: plan.id,
+      revision: plan.revision
+    });
+    await observedRun(app.rpc, project.id, run.id, (run) => run.status === "waiting_input");
+    const output = { approved: false, note: "Please revise the evidence first." };
+    const declined = await app.rpc("submit_step_result", {
+      projectId: project.id,
+      id: run.id,
+      stepId: "review",
+      output
+    });
+    expect(declined).toMatchObject({
+      status: "failed",
+      error: "Step not approved.",
+      steps: [{ status: "failed", output, error: "Step not approved." }, { status: "pending" }]
+    });
+    expect(await app.rpc("get_plan", { projectId: project.id, id: plan.id })).toMatchObject({
+      work: "todo",
+      attemptId: null
+    });
+    expect(await app.rpc("get_work_digest", { projectId: project.id, id: plan.id })).toMatchObject({
+      state: "needs_attention",
+      errors: [],
+      approval: null,
+      lastOutcome: {
+        stepId: "review",
+        summary: "Step not approved.",
+        ref: `run:${run.id}:step:review`
+      }
+    });
+    expect(fixture.readReport).not.toHaveBeenCalled();
+    await app.close();
+    const reopened = await fixture.start();
+    expect(await reopened.rpc("get_run", { projectId: project.id, id: run.id })).toEqual(declined);
+    const duplicate = await reopened.response("/workspace/tools/submit_step_result", {
+      projectId: project.id,
+      id: run.id,
+      stepId: "review",
+      output: { approved: true }
+    });
+    expect(duplicate.status).toBe(409);
+    expect(await duplicate.json()).toMatchObject({ code: "not_waiting" });
+    expect(fixture.readReport).not.toHaveBeenCalled();
+    expect(fixture.generate).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed whole scoped arguments before they can fall through to a reassigned conversation", async () => {
     const fixture = await workspaceFixture();
     const app = await fixture.start();

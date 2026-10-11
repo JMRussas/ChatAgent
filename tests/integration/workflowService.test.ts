@@ -857,7 +857,9 @@ describe("WorkflowService", () => {
     const second = make({ actions: actions() });
     const submit = (output: unknown) =>
       second.call("submit_step_result", { id: started.id, stepId: "h", output }, ctx());
-    await expect(submit({ approved: false })).rejects.toMatchObject({ code: "success_not_met" });
+    for (const output of ["No", {}, { approved: "false" }, { approved: 0 }])
+      await expect(submit(output)).rejects.toMatchObject({ code: "success_not_met", status: 422 });
+    expect((await getRun(second, started.id)).steps[1].output).toBeUndefined();
     await expect(
       second.call("submit_step_result", { id: started.id, stepId: "a", output: {} }, ctx())
     ).rejects.toMatchObject({ code: "not_waiting" });
@@ -871,6 +873,212 @@ describe("WorkflowService", () => {
     expect(afterHuman).toHaveBeenCalledTimes(1);
     expect(done.steps[2].output).toEqual({ got: { answer: { approved: true } } });
     expect(store.plans.get(p.id)?.work).toBe("done");
+  });
+
+  it.each([undefined, "The reported totals need correction."])(
+    "records a gated human decline across restart with optional note %s, refuses replay and starts a new run from the first step",
+    async (note) => {
+      const before = vi.fn(async () => ({ n: 1 }));
+      const after = vi.fn(async () => ({ saved: true }));
+      const options = { actions: [action("before", before), action("after", after)] };
+      const first = make(options);
+      const p = await plan(first, [
+        tool("read", "before"),
+        {
+          id: "review",
+          name: "Review report",
+          action: { type: "human", instructions: "Approve this report?" },
+          success: { path: "approved", equals: true }
+        },
+        tool("save", "after")
+      ]);
+      const started = await start(first, p);
+      await until(
+        () => getRun(first, started.id),
+        (run) => run.status === "waiting_input"
+      );
+      const output = { approved: false, ...(note === undefined ? {} : { note }) };
+      const declined = await first.call(
+        "submit_step_result",
+        { id: started.id, stepId: "review", output },
+        ctx()
+      );
+      expect(declined).toMatchObject({
+        status: "failed",
+        error: "Step not approved.",
+        steps: [
+          { status: "completed", output: { n: 1 } },
+          { status: "failed", output, error: "Step not approved." },
+          { status: "pending" }
+        ]
+      });
+      expect(store.plans.get(p.id)).toMatchObject({ work: "todo", attemptId: null });
+      expect(after).not.toHaveBeenCalled();
+      await first.close();
+      const reopened = make(options);
+      expect(await getRun(reopened, started.id)).toEqual(declined);
+      await expect(
+        reopened.call(
+          "submit_step_result",
+          { id: started.id, stepId: "review", output: { approved: true } },
+          ctx()
+        )
+      ).rejects.toMatchObject({ code: "not_waiting" });
+      const fresh = await start(reopened, p);
+      expect(fresh.id).not.toBe(started.id);
+      await until(
+        () => getRun(reopened, fresh.id),
+        (run) => run.status === "waiting_input"
+      );
+      expect(before).toHaveBeenCalledTimes(2);
+      expect(after).not.toHaveBeenCalled();
+      await reopened.call(
+        "submit_step_result",
+        { id: fresh.id, stepId: "review", output: { approved: true } },
+        ctx()
+      );
+      await until(
+        () => getRun(reopened, fresh.id),
+        (run) => run.status === "completed"
+      );
+      expect(after).toHaveBeenCalledOnce();
+      expect((await getRun(reopened, started.id)).steps[1].output).toEqual(output);
+    }
+  );
+
+  it("treats false as an ordinary completed result without an approval rule and rejects other mismatched rules", async () => {
+    const after = vi.fn(async () => ({ saved: true }));
+    const service = make({ actions: [action("after", after)] });
+    const ungated = await plan(service, [
+      { id: "review", name: "Plain answer", action: { type: "human", instructions: "Answer" } },
+      tool("save", "after")
+    ]);
+    const run = await start(service, ungated);
+    await until(
+      () => getRun(service, run.id),
+      (run) => run.status === "waiting_input"
+    );
+    await service.call(
+      "submit_step_result",
+      { id: run.id, stepId: "review", output: { approved: false, note: "An ordinary response" } },
+      ctx()
+    );
+    const completed = await until(
+      () => getRun(service, run.id),
+      (run) => run.status === "completed"
+    );
+    expect(completed.steps[0]).toMatchObject({ status: "completed", output: { approved: false } });
+    expect(after).toHaveBeenCalledOnce();
+    const otherRule = await plan(service, [
+      {
+        id: "review",
+        name: "Review",
+        action: { type: "human", instructions: "Answer" },
+        success: { path: "accepted", equals: true }
+      }
+    ]);
+    const waiting = await start(service, otherRule);
+    await until(
+      () => getRun(service, waiting.id),
+      (run) => run.status === "waiting_input"
+    );
+    await expect(
+      service.call(
+        "submit_step_result",
+        { id: waiting.id, stepId: "review", output: { approved: false, note: "Not this rule" } },
+        ctx()
+      )
+    ).rejects.toMatchObject({ code: "success_not_met", status: 422 });
+    expect((await getRun(service, waiting.id)).steps[0]).toMatchObject({ status: "waiting_input" });
+    expect((await getRun(service, waiting.id)).steps[0].output).toBeUndefined();
+  });
+
+  it.each(["write", "release"] as const)(
+    "keeps a declined note and holds the attempt uncertain on %s failure",
+    async (failure) => {
+      const after = vi.fn(async () => ({ saved: true }));
+      const service = make({ actions: [action("after", after)] });
+      const p = await plan(service, [
+        {
+          id: "review",
+          name: "Approval",
+          action: { type: "human", instructions: "Approve?" },
+          success: { path: "approved", equals: true }
+        },
+        tool("save", "after")
+      ]);
+      const run = await start(service, p);
+      await until(
+        () => getRun(service, run.id),
+        (run) => run.status === "waiting_input"
+      );
+      const write = WorkflowRunStore.prototype.write;
+      const spy =
+        failure === "write"
+          ? vi.spyOn(WorkflowRunStore.prototype, "write").mockImplementation(async function (
+              this: WorkflowRunStore,
+              record
+            ) {
+              if (record.status === "failed")
+                throw new WorkflowError("run_store_io", "Controlled durable write failure", 500);
+              return write.call(this, record);
+            })
+          : vi.spyOn(store, "release").mockRejectedValue(new Error("PRIVATE_FENCE_FAILURE"));
+      try {
+        const output = { approved: false, note: "The report is incomplete." };
+        const uncertain = (await service.call(
+          "submit_step_result",
+          { id: run.id, stepId: "review", output },
+          ctx()
+        )) as WorkflowRun;
+        expect(uncertain).toMatchObject({
+          status: "uncertain",
+          steps: [{ status: "uncertain", output }, { status: "pending" }]
+        });
+        expect(await getRun(service, run.id)).toEqual(uncertain);
+        expect(store.plans.get(p.id)).toMatchObject({ work: "in_progress", attemptId: run.id });
+        expect(after).not.toHaveBeenCalled();
+        if (failure === "write") expect(uncertain.error).toContain("could not be persisted");
+        else expect(uncertain.error).toContain("releasing the plan attempt could not be confirmed");
+        expect(JSON.stringify(uncertain)).not.toContain("PRIVATE_FENCE_FAILURE");
+        await expect(start(service, p)).rejects.toMatchObject({ status: 409 });
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  );
+
+  it("checks the current fence before recording a declined approval", async () => {
+    const service = make();
+    const p = await plan(service, [
+      {
+        id: "review",
+        name: "Approval",
+        action: { type: "human", instructions: "Approve?" },
+        success: { path: "approved", equals: true }
+      }
+    ]);
+    const run = await start(service, p);
+    await until(
+      () => getRun(service, run.id),
+      (run) => run.status === "waiting_input"
+    );
+    store.plans.set(p.id, { ...store.plans.get(p.id)!, attemptId: randomUUID() });
+    await expect(
+      service.call(
+        "submit_step_result",
+        {
+          id: run.id,
+          stepId: "review",
+          output: { approved: false, note: "Must not be accepted without the fence" }
+        },
+        ctx()
+      )
+    ).rejects.toMatchObject({ code: "fence_lost" });
+    const uncertain = await getRun(service, run.id);
+    expect(uncertain.status).toBe("uncertain");
+    expect(uncertain.steps[0].output).toBeUndefined();
+    expect(uncertain.error).toContain("Plan no longer shows this run's attempt");
   });
 
   it("stops a waiting run, releases the plan and lists actions", async () => {

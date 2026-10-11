@@ -174,7 +174,8 @@ const TOOL_SPECS: Array<WorkflowTool & { schema: z.ZodTypeAny }> = [
   },
   {
     name: "submit_step_result",
-    description: "Supply the output of the run's current waiting human step and continue the run.",
+    description:
+      "Supply the output of the run's current waiting human step. A declined approval on an approval-gated step ends the run and keeps the submitted result; accepted results continue the run.",
     readOnly: false,
     inputSchema: obj({ ...idProps, stepId: { type: "string" }, output: {} }),
     schema: z.object({ id: uuid, stepId, output: z.unknown() }).strict()
@@ -625,7 +626,16 @@ export class WorkflowService {
           "The requested tool is no longer registered.",
           422
         );
-      if (!request && !meetsSuccess(definition, result))
+      const declined =
+        !request &&
+        definition.action.type === "human" &&
+        definition.success?.path === "approved" &&
+        definition.success.equals === true &&
+        result !== null &&
+        typeof result === "object" &&
+        !Array.isArray(result) &&
+        (result as { approved?: unknown }).approved === false;
+      if (!request && !declined && !meetsSuccess(definition, result))
         throw new WorkflowError(
           "success_not_met",
           "Submitted output does not satisfy the step's success condition",
@@ -641,6 +651,39 @@ export class WorkflowService {
         throw new WorkflowError("fence_lost", "Plan no longer shows this run's attempt", 409);
       }
       const now = new Date().toISOString();
+      if (declined) {
+        Object.assign(run.steps[index], {
+          status: "failed",
+          output: result,
+          error: "Step not approved.",
+          endedAt: now
+        });
+        Object.assign(run, { status: "failed", error: "Step not approved.", endedAt: now });
+        const a: Active = {
+          run,
+          ctx: context,
+          controller: new AbortController(),
+          lock
+        };
+        try {
+          await this.save(run);
+        } catch {
+          run.steps[index].status = "uncertain";
+          await this.markUncertain(
+            a,
+            "Step not approved; terminal decision state could not be persisted."
+          );
+          return structuredClone(run);
+        }
+        if (!(await this.releaseFence(run))) {
+          run.steps[index].status = "uncertain";
+          await this.markUncertain(
+            a,
+            "Step not approved; releasing the plan attempt could not be confirmed."
+          );
+        }
+        return structuredClone(run);
+      }
       if (request && agent) {
         if (agent.events.length >= 100)
           throw new WorkflowError("task_event_limit", "Task activity limit reached.", 422);

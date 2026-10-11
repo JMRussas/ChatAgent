@@ -385,7 +385,11 @@ export function workflowPanelScript(): string {
     var payload = Object.assign({}, input);
     if (scope) payload.projectId = scope;
     var headers = { 'Content-Type': 'application/json' };
-    if (selectedConversationId && conversationProjectId === scope && ['create_plan', 'update_plan', 'run_plan'].includes(name)) {
+    if (
+      selectedConversationId &&
+      conversationProjectId === scope &&
+      ["create_plan", "update_plan", "run_plan", "submit_step_result", "respond_to_task_request"].includes(name)
+    ) {
       headers['X-Workspace-Conversation-Id'] = selectedConversationId;
     }
     var controller = new AbortController();
@@ -437,6 +441,13 @@ export function workflowPanelScript(): string {
           : "Records your written answer as text.";
     if (!definition || !definition.success)
       el("HumanFormatHelp").textContent += " No result rule is declared.";
+    else if (
+      selected === "plain" &&
+      definition.success.path === "approved" &&
+      definition.success.equals === true
+    )
+      el("HumanFormatHelp").textContent +=
+        " This step needs an approval decision; a plain answer is not accepted.";
     el("HumanScope").hidden = selected !== "approval";
   }
   el("HumanForm")
@@ -562,7 +573,10 @@ export function workflowPanelScript(): string {
           ? "This step checks: " +
             definition.success.path +
             " equals " +
-            JSON.stringify(definition.success.equals)
+            JSON.stringify(definition.success.equals) +
+            (definition.success.path === "approved" && definition.success.equals === true
+              ? ". Do not approve ends this run and records your decision."
+              : "")
           : "";
         el('HumanForm').hidden = false;
       }

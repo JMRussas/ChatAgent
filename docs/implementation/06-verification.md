@@ -80,6 +80,18 @@ Browser checks exercise count partitioning, pending prompts and actual response
 forms, timestamps and mobile visibility. This projection has no model dependency,
 so live model calls do not add evidence for this change.
 
+A real review found a boundary that the browser mock misrepresented: the UI offered
+Do not approve and its mock recorded a failed result with a note, while the actual
+service rejected the output and stayed waiting. The correction deliberately changes
+the exact human approval-gate contract. Pair its browser journey with a real service
+and one public authenticated submission check, then a small live API-to-human
+walkthrough. Verify durable declined output, no following step, no hidden rerun,
+rejected unrelated mismatches and honest uncertainty. Model calls add no evidence
+for this persistence change. Controlled browser responses remain useful for layout
+and stale states, but a mocked successful response does not establish backend
+behavior. Add real boundary coverage for important actions when an actual mismatch
+is demonstrated; do not duplicate every fixture combination across every layer.
+
 Fable assesses UI clarity from fresh real-data screenshots against its rubric,
 with no implementation report supplied as grading evidence. It records visible
 support or unknowns for each criterion. That review is separate from deterministic

@@ -1499,6 +1499,22 @@ const WORKSPACE_DOCUMENT = String.raw`
       #conversationLinkedWork:empty {
         display: none;
       }
+      .linked-summary,
+      .conversation-work-hint {
+        font-size: 12px;
+        color: #667387;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .chip-text .linked-summary {
+        margin: 7px 0;
+      }
+      .legacy-controls-scope #selectedConversationContext {
+        display: none;
+      }
+      .legacy-controls-scope #conversationOptions[open] ~ #selectedConversationContext {
+        display: block;
+      }
       @media (max-width: 650px) {
         .now-strip {
           grid-template-columns: 1fr;
@@ -2203,7 +2219,6 @@ const WORKSPACE_DOCUMENT = String.raw`
           invalid: "Needs attention",
           awaiting_review: "Needs review",
           ready: "Ready to start",
-          todo: "Ready to start",
           pending: "Not started",
           blocked: "Blocked",
           stuck: "Needs attention",
@@ -2245,7 +2260,7 @@ const WORKSPACE_DOCUMENT = String.raw`
           return "attention";
         }
         function badge(item) {
-          const state = item.digest ? item.digest.state : item.status;
+          const state = digestOf(item).state;
           return '<span class="badge ' + bucket(state) + '">' + escape(stateLabel(state)) + "</span>";
         }
         function localTime(value) {
@@ -2349,7 +2364,15 @@ const WORKSPACE_DOCUMENT = String.raw`
                 (status === "outstanding"
                   ? !["completed", "cancelled"].includes(bucket(digestOf(item).state))
                   : bucket(digestOf(item).state) === status)) &&
-              (item.name + " " + projectName(item.projectId) + " " + (item.nextStep || ""))
+              (
+                item.name +
+                " " +
+                projectName(item.projectId) +
+                " " +
+                (digestOf(item).next?.name || "") +
+                " " +
+                digestOf(item).stateText
+              )
                 .toLowerCase()
                 .includes(query)
           );
@@ -2532,7 +2555,8 @@ const WORKSPACE_DOCUMENT = String.raw`
           if (digest.run?.status === "uncertain")
             return "Inspect the recorded outcome and any external effects before starting a new run.";
           if (digest.run?.status === "stopped") return "Review the stopped run and its partial results.";
-          if (digest.run?.status === "failed") return "Review the failure and any recorded results.";
+          if (digest.run?.status === "failed")
+            return "Review the recorded result and any error, then edit the plan or start a new run from step one.";
           return "Review the recorded problem and available evidence before starting work.";
         }
         function attentionAction(digest) {
@@ -2541,7 +2565,7 @@ const WORKSPACE_DOCUMENT = String.raw`
             : digest.run?.status === "stopped"
               ? "Review partial results"
               : digest.run?.status === "failed"
-                ? "Review failure"
+                ? "Review recorded result"
                 : "Review recorded problem";
         }
         function nowHtml(item) {
@@ -2890,7 +2914,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                   )
                   .join("") +
                 '</div><div class="result-card"><div class="result-title">Current / next step<span>Recorded state</span></div><p>' +
-                escape(item.nextStep || "No next step returned by the project service.") +
+                escape(detailDigest(item).next?.name || "No next step returned by the project service.") +
                 "</p><p><strong>Execution:</strong> " +
                 (item.prepared
                   ? "Prepared on the configured host."
@@ -3231,6 +3255,29 @@ const WORKSPACE_DOCUMENT = String.raw`
             }
           });
         }
+        function linkedRows(conversationId) {
+          return (snapshot?.work || []).filter((row) => row.conversationId === conversationId);
+        }
+        function linkedHint(conversationId) {
+          const rows = linkedRows(conversationId).sort((left, right) => {
+            const order = ["needs", "attention", "in_progress", "ready", "completed", "cancelled"];
+            return (
+              order.indexOf(bucket(digestOf(left).state)) - order.indexOf(bucket(digestOf(right).state))
+            );
+          });
+          if (!rows.length) return "";
+          return (
+            '<p class="conversation-work-hint">' +
+            escape(
+              "Linked: " +
+                rows[0].name +
+                " · " +
+                stateLabel(digestOf(rows[0]).state) +
+                (rows.length > 1 ? " +" + (rows.length - 1) + " more" : "")
+            ) +
+            "</p>"
+          );
+        }
         function renderConversations() {
           const items = visibleConversations();
           if (
@@ -3250,7 +3297,9 @@ const WORKSPACE_DOCUMENT = String.raw`
                     escape(item.title) +
                     "</strong><p>" +
                     escape(item.preview || "No saved messages yet.") +
-                    "</p><span>" +
+                    "</p>" +
+                    linkedHint(item.id) +
+                    "<span>" +
                     escape(projectName(item.projectId)) +
                     " · " +
                     escape(conversationState(item)) +
@@ -3326,7 +3375,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                   '<span class="chip-text"><strong>' +
                   escape(row.name) +
                   "</strong><small>" +
-                  escape(stateLabel(row.status)) +
+                  escape(stateLabel(digestOf(row).state)) +
                   '</small></span><button class="button" data-linked-plan="' +
                   escape(row.id) +
                   '">Open plan</button></div>'
@@ -3411,7 +3460,8 @@ const WORKSPACE_DOCUMENT = String.raw`
           renderCounts();
           const items = visibleWork();
           if (!items.some((item) => item.id === selected)) {
-            selected = items.find((item) => item.status === "waiting_input")?.id || items[0]?.id || null;
+            selected =
+              items.find((item) => digestOf(item).state === "needs_decision")?.id || items[0]?.id || null;
             chosenStep = null;
             loadedDetail = null;
           }
@@ -3561,21 +3611,51 @@ const WORKSPACE_DOCUMENT = String.raw`
           if (chat && chat.parentElement !== legacyHolder) legacyHolder.append(chat);
           $("conversationDetail").classList.remove("legacy-controls-scope");
         }
+        function linkedAction(row) {
+          if (!row.digest) return { label: "Open plan", respond: false };
+          const digest = digestOf(row);
+          if (digest.errors?.length)
+            return {
+              label: digest.state === "needs_attention" ? attentionAction(digest) : "Open plan",
+              respond: false
+            };
+          if (row.kind === "coding" && digest.decision) return { label: "Review details", respond: false };
+          if (row.kind === "workflow" && digest.run?.current !== true)
+            return {
+              label: digest.state === "needs_attention" ? attentionAction(digest) : "Open plan",
+              respond: false
+            };
+          if (row.kind === "workflow" && digest.decision) return { label: "Respond", respond: true };
+          return {
+            label: digest.state === "needs_attention" ? attentionAction(digest) : "Open plan",
+            respond: false
+          };
+        }
         function linkedWorkHtml(conversationId) {
-          return (snapshot?.work || [])
-            .filter((row) => row.conversationId === conversationId)
-            .map(
-              (row) =>
+          return linkedRows(conversationId)
+            .map((row) => {
+              const digest = digestOf(row),
+                control = linkedAction(row);
+              return (
                 '<div class="plan-chip">' +
                 icon("work") +
                 '<span class="chip-text"><strong>' +
                 escape(row.name) +
                 "</strong><small>" +
-                escape(stateLabel(digestOf(row).state)) +
-                '</small></span><button class="button" data-live-plan="' +
+                badge(row) +
+                '</small><p class="linked-summary">' +
+                escape(rowSummary(digest)) +
+                "</p>" +
+                (digest.run ? "<small>" + escape(relativeTime(digest.run.updatedAt)) + "</small>" : "") +
+                '</span><button class="button' +
+                (control.respond ? " primary" : "") +
+                '" data-live-plan="' +
                 escape(row.id) +
-                '">Open plan</button></div>'
-            )
+                '">' +
+                escape(control.label) +
+                "</button></div>"
+              );
+            })
             .join("");
         }
         function mountChat() {
@@ -3584,7 +3664,14 @@ const WORKSPACE_DOCUMENT = String.raw`
           const heading = chat.querySelector(".panel-header h1"),
             sub = chat.querySelector(".panel-header .sub");
           if (heading) heading.textContent = activeConversationTitle;
-          if (sub) sub.textContent = projectName(activeConversationProject) + " · Active conversation";
+          const linked = linkedRows(activeConversationId);
+          if (sub)
+            sub.textContent =
+              projectName(activeConversationProject) +
+              " · Active conversation" +
+              (linked.length
+                ? " · " + linked.length + " linked work item" + (linked.length === 1 ? "" : "s")
+                : "");
           const target = $("conversationDetail");
           if (chat.parentElement !== target) {
             target.replaceChildren(chat);
@@ -3594,16 +3681,17 @@ const WORKSPACE_DOCUMENT = String.raw`
           if (!links) {
             links = document.createElement("div");
             links.id = "conversationLinkedWork";
+            links.setAttribute("role", "region");
+            links.setAttribute("aria-label", "Linked work");
             chat.insertBefore(links, $("thread"));
           }
           links.innerHTML = linkedWorkHtml(activeConversationId);
-          links
-            .querySelectorAll("[data-live-plan]")
-            .forEach((button) =>
-              button.addEventListener("click", () =>
-                openCurrent(snapshot?.work.find((row) => row.id === button.dataset.livePlan))
-              )
-            );
+          links.querySelectorAll("[data-live-plan]").forEach((button) =>
+            button.addEventListener("click", () => {
+              const row = snapshot?.work.find((entry) => entry.id === button.dataset.livePlan);
+              if (row) openCurrent(row, false, linkedAction(row).respond);
+            })
+          );
           chat.hidden = false;
         }
         let pendingCreatedPlanId = null;

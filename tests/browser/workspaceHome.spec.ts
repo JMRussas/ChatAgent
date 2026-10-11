@@ -67,14 +67,19 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
     run: null as WorkflowRun | null,
     extraWork: [] as WorkDigest[],
     detailDigest: null as WorkDigest | null,
-    taskResponse: null as ((input: Record<string, unknown>) => WorkflowRun) | null
+    taskResponse: null as ((input: Record<string, unknown>) => WorkflowRun) | null,
+    summaryDigest: undefined as WorkDigest | undefined,
+    omitDigest: false,
+    rowNextStep: "Review report result",
+    linkedConversationId: THREAD as string | null,
+    extraLinks: {} as Record<string, string>
   };
   const currentDigest = () => workflowDigest(plan, state.run ?? undefined, PROJECT);
   const conversations = [
     {
       id: THREAD,
       title: "Report discussion",
-      projectId: PROJECT,
+      projectId: PROJECT as string | null,
       archived: false,
       status: "ready",
       reopenable: true,
@@ -119,10 +124,12 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
             name: plan.definition.name,
             kind: "workflow",
             status: state.status,
-            nextStep: "Review report result",
-            conversationId: THREAD,
+            nextStep: state.rowNextStep,
+            conversationId: state.linkedConversationId,
             latestRunId: state.run?.id ?? null,
-            digest: compactDigest(currentDigest())
+            ...(state.omitDigest
+              ? {}
+              : { digest: compactDigest(state.summaryDigest ?? currentDigest()) })
           },
           ...state.extraWork.map((digest) => ({
             id: digest.id,
@@ -130,6 +137,7 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
             name: digest.name,
             kind: digest.kind,
             status: digest.state,
+            conversationId: state.extraLinks[digest.id] ?? null,
             digest: compactDigest(digest)
           }))
         ],
@@ -226,29 +234,47 @@ async function homeData(page: Page, expireThread = false, instructions?: string)
           json: { code: "UNAVAILABLE", error: state.responseError }
         });
       if (!state.run) throw Error("No active controlled run");
-      state.status = "completed";
-      plan.work = "done";
-      state.run.status = "completed";
-      state.run.steps[1] = {
-        ...state.run.steps[1],
-        status: "completed",
-        output: input.output,
+      const index = state.run.steps.findIndex((step) => step.id === input.stepId);
+      if (index < 0 || state.run.status !== "waiting_input")
+        throw Error("No pending controlled step");
+      const declared = plan.definition.steps.find((step) => step.id === input.stepId)!;
+      const output = input.output;
+      const object =
+        output !== null && typeof output === "object" && !Array.isArray(output)
+          ? (output as { approved?: unknown })
+          : null;
+      const declined =
+        declared.action.type === "human" &&
+        declared.success?.path === "approved" &&
+        declared.success.equals === true &&
+        object?.approved === false;
+      // These controlled journeys declare only approval rules; reject before changing any stored result.
+      if (
+        declared.success?.path === "approved" &&
+        !declined &&
+        object?.approved !== declared.success.equals
+      )
+        return route.fulfill({
+          status: 422,
+          json: {
+            code: "success_not_met",
+            error: "Submitted output does not satisfy the step's success condition"
+          }
+        });
+      state.status = declined ? "failed" : "completed";
+      plan.work = declined ? "todo" : "done";
+      plan.attemptId = null;
+      state.run.status = declined ? "failed" : "completed";
+      state.run.steps[index] = {
+        ...state.run.steps[index],
+        status: declined ? "failed" : "completed",
+        output,
+        ...(declined ? { error: "Step not approved." } : {}),
         endedAt: "2026-10-10T20:02:03Z"
       };
+      if (declined) state.run.error = "Step not approved.";
       state.run.updatedAt = "2026-10-10T20:02:03Z";
-      const rule = plan.definition.steps[1].success;
-      if (
-        rule?.path === "approved" &&
-        (input.output as { approved?: unknown }).approved !== rule.equals
-      ) {
-        state.status = "failed";
-        plan.work = "todo";
-        plan.attemptId = null;
-        state.run.status = "failed";
-        state.run.error = "The recorded result did not satisfy approved equals true.";
-        state.run.steps[1].status = "failed";
-        state.run.steps[1].error = state.run.error;
-      }
+      state.run.endedAt = state.run.updatedAt;
       result = state.run;
     } else if (name === "respond_to_task_request") {
       if (!state.taskResponse) throw Error("No controlled pending task request");
@@ -459,9 +485,8 @@ test("explicit execution opens the selected project controls and human review re
     "Records an approval decision with an optional note."
   );
   await expect(page.locator("#detail #respondCurrent")).toHaveCount(0);
-  await expect(page.locator("#workflowHumanRule")).toHaveText(
-    "This step checks: approved equals true"
-  );
+  await expect(page.locator("#workflowHumanRule")).toContainText("approved equals true");
+  await expect(page.locator("#workflowHumanRule")).toContainText("ends this run");
   await page.locator("#workflowHumanNote").fill(review.note);
   await page.locator("#workflowHumanSubmit").click();
   await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", "completed");
@@ -533,6 +558,7 @@ test("digest cards reconcile decisions, confirmed activity, allocations and read
 }) => {
   const { state, seen, currentDigest } = await homeData(page);
   const base = currentDigest();
+  state.rowNextStep = "Old directory next step";
   state.extraWork = [
     {
       ...base,
@@ -607,6 +633,9 @@ test("digest cards reconcile decisions, confirmed activity, allocations and read
   await expect(page.locator("#attentionCount")).toHaveText("1");
   await expect(page.locator("#visibleCount")).toHaveText("5 items");
   await expect(page.locator("#outstandingCount")).toHaveText("5");
+  await expect(
+    page.locator('#workList [data-work="' + state.extraWork[0].id + '"]')
+  ).toHaveAttribute("aria-pressed", "true");
   await page.locator('#workView .filter[data-status="needs"]').click();
   await expect(page.locator("#workList")).toContainText("Review the report before approving");
   await expect(page.locator("#workList")).not.toContainText("Unreadable report");
@@ -618,6 +647,12 @@ test("digest cards reconcile decisions, confirmed activity, allocations and read
   await expect(page.locator("#workList")).toContainText(
     "Next: Inspect saved code · Configured coding host"
   );
+  await page.locator('#workView .filter[data-status="outstanding"]').click();
+  await page.locator("#search").fill("Inspect saved code");
+  await expect(page.locator("#workList")).toContainText("Coding allocation");
+  await page.locator("#search").fill("Old directory next step");
+  await expect(page.locator("#workList [data-work]")).toHaveCount(0);
+  await page.locator("#search").fill("");
   await page.locator('#workView .filter[data-status="completed"]').click();
   await expect(page.locator("#workList")).toContainText("Finished report");
   await expect(page.locator("#workList")).not.toContainText("Cancelled report");
@@ -738,9 +773,16 @@ test("desktop selection stays visible after resizing to mobile and active histor
   expect(bounds.height).toBeLessThanOrEqual(bounds.limit + 1);
   expect(bounds.viewportTop).toBeGreaterThanOrEqual(-1);
   expect(bounds.viewportBottom).toBeLessThanOrEqual(bounds.viewportHeight + 1);
+  const expectedBadge = await page.locator('[data-work="' + PLAN + '"] .badge').textContent();
   await page.locator("#conversationsTab").click();
+  await expect(page.locator("#conversationDetail .plan-chip small").first()).toHaveText(
+    expectedBadge!
+  );
   await expect(page.locator("#conversationList")).toContainText("Idle");
-  await expect(page.locator("#conversationList")).not.toContainText("Ready to start");
+  await expect(page.locator("#conversationList .conversation-row > span")).toContainText("Idle");
+  await expect(page.locator("#conversationList .conversation-row > span")).not.toContainText(
+    "Ready to start"
+  );
   await page.locator("#continueConversation").click();
   await expect(page.locator("#thread .bubble.user")).toContainText("Review the report");
   const appearance = await page.locator("#thread .bubble.user").evaluate((node) => ({
@@ -750,6 +792,7 @@ test("desktop selection stays visible after resizing to mobile and active histor
   expect(appearance.opacity).toBe("1");
   expect(appearance.animation).toBe("none");
   await expect(page.locator("#conversationLinkedWork")).toContainText("Report review");
+  await expect(page.locator("#conversationLinkedWork .badge").first()).toHaveText(expectedBadge!);
   const chip = page.locator("#conversationLinkedWork .plan-chip").first();
   const separation = await chip.evaluate((node) => {
     const name = node.querySelector("strong")!.getBoundingClientRect(),
@@ -832,6 +875,7 @@ test.describe("coding decision inspection", () => {
         }
       })
     );
+    state.extraLinks[codingId] = THREAD;
     await app.pair(page);
     await expect(page.locator("#needsCount")).toHaveText("1");
     await expect(page.locator("#inProgressCount")).toHaveText("0");
@@ -863,6 +907,14 @@ test.describe("coding decision inspection", () => {
     await expect(page.locator("#workspaceActionDialogStatus")).toContainText(
       "Execution is unavailable"
     );
+    await page.locator("#workspaceActionClose").click();
+    await page.locator("#conversationsTab").click();
+    await page.locator("#continueConversation").click();
+    const linked = page.getByRole("region", { name: "Linked work" });
+    const coding = linked.locator(".plan-chip").filter({ hasText: "Review saved patch" });
+    await expect(coding.getByRole("button", { name: "Respond", exact: true })).toHaveCount(0);
+    await coding.getByRole("button", { name: "Review details", exact: true }).click();
+    await expect(page.locator("#planRoot")).toHaveValue(codingId);
     expect(seen.some((entry) => entry.name === "run_plan")).toBe(false);
   });
 });
@@ -905,6 +957,199 @@ async function startResponse(page: Page) {
   await page.locator("#respondDecision").click();
   await expect(page.locator("#workflowRespond")).toBeVisible();
 }
+
+async function continueConversationIfPreview(page: Page) {
+  if (await page.locator("#continueConversation").isVisible())
+    await page.locator("#continueConversation").click();
+  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+}
+
+test("linked waiting work can be answered from its original conversation without another run", async ({
+  page,
+  app
+}) => {
+  const { state, seen } = await homeData(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await app.pair(page);
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workspaceActionClose").click();
+  await page.locator("#conversationsTab").click();
+  await expect(
+    page.locator('#conversationList [data-conversation="' + THREAD + '"]')
+  ).toContainText("Linked: Report review");
+  await expect(
+    page.locator('#conversationList [data-conversation="' + THREAD + '"]')
+  ).toContainText("Idle");
+  await continueConversationIfPreview(page);
+  await expect(page.locator("#conversationDetail .panel-header .sub")).toContainText(
+    "Report project"
+  );
+  await expect(page.locator("#conversationDetail .panel-header .sub")).toContainText(
+    "1 linked work item"
+  );
+  const linked = page.getByRole("region", { name: "Linked work" });
+  await expect(linked).toContainText("Review the three reported items.");
+  await expect(linked.locator(".badge")).toHaveText("Needs your decision");
+  await linked.getByRole("button", { name: "Respond", exact: true }).scrollIntoViewIfNeeded();
+  const geometry = await linked.evaluate((element) => {
+    const box = element.getBoundingClientRect(),
+      thread = document.getElementById("thread")!.getBoundingClientRect();
+    const button = element.querySelector("button")!.getBoundingClientRect();
+    return {
+      beforeThread: box.bottom <= thread.top,
+      buttonLeft: button.left,
+      buttonRight: button.right,
+      width: innerWidth,
+      overflow: document.documentElement.scrollWidth
+    };
+  });
+  expect(geometry.beforeThread).toBe(true);
+  expect(geometry.buttonLeft).toBeGreaterThanOrEqual(0);
+  expect(geometry.buttonRight).toBeLessThanOrEqual(geometry.width);
+  expect(geometry.overflow).toBeLessThanOrEqual(geometry.width + 1);
+  await linked.getByRole("button", { name: "Respond", exact: true }).click();
+  await expect(page.locator("#workspaceActionTitle")).toContainText("Review report result");
+  await page.locator("#workflowHumanText").fill("The recorded values are consistent.");
+  await page.locator("#workflowHumanSubmit").click();
+  await expect(page.locator("#workspaceActionDialog")).not.toBeVisible();
+  await expect(linked.locator(".badge")).toHaveText("Completed");
+  await expect(page.locator("#needsCount")).toHaveText("0");
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toEqual([
+    expect.objectContaining({
+      input: {
+        id: state.run!.id,
+        stepId: "review",
+        projectId: PROJECT,
+        output: { text: "The recorded values are consistent." }
+      },
+      conversation: THREAD
+    })
+  ]);
+});
+
+test("linked response actions fail closed for missing, historical, unreadable and stale summaries", async ({
+  page,
+  app
+}) => {
+  const { state, currentDigest, seen } = await homeData(page);
+  await app.pair(page);
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workspaceActionClose").click();
+  await page.locator("#conversationsTab").click();
+  await continueConversationIfPreview(page);
+  const linked = page.getByRole("region", { name: "Linked work" });
+  const waiting = currentDigest();
+  for (const override of [
+    { ...waiting, run: null },
+    { ...waiting, run: { ...waiting.run!, current: false } },
+    { ...waiting, errors: ["Current run data could not be read."] }
+  ]) {
+    state.summaryDigest = override;
+    await page.locator("#refresh").click();
+    await expect(linked.getByRole("button", { name: "Respond", exact: true })).toHaveCount(0);
+    await expect(linked.getByRole("button", { name: "Open plan", exact: true })).toBeVisible();
+  }
+  state.omitDigest = true;
+  await page.locator("#refresh").click();
+  await expect(linked).toContainText("Work summary could not be read.");
+  await expect(linked.locator(".badge")).toHaveText("Needs attention");
+  await expect(linked.getByRole("button", { name: "Respond", exact: true })).toHaveCount(0);
+  state.omitDigest = false;
+  state.summaryDigest = waiting;
+  await page.locator("#refresh").click();
+  await expect(linked.getByRole("button", { name: "Respond", exact: true })).toBeVisible();
+  state.run!.status = "completed";
+  state.run!.steps[1].status = "completed";
+  state.run!.steps[1].output = { text: "Already answered elsewhere." };
+  await linked.getByRole("button", { name: "Respond", exact: true }).click();
+  await expect(page.locator("#workspaceActionStatus")).toContainText("no longer waiting");
+  await expect(page.locator("#workspaceActionDialog")).not.toBeVisible();
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(0);
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
+});
+
+test("terminal linked work opens recorded controls without executing again", async ({
+  page,
+  app
+}) => {
+  const { state, seen } = await homeData(page);
+  await app.pair(page);
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workspaceActionClose").click();
+  await page.locator("#conversationsTab").click();
+  await continueConversationIfPreview(page);
+  const linked = page.getByRole("region", { name: "Linked work" });
+  for (const status of ["completed", "failed", "stopped"] as const) {
+    state.run!.status = status;
+    state.run!.steps[1].status = status;
+    state.run!.steps[1].endedAt = "2026-10-10T20:03:00Z";
+    if (status === "failed") {
+      state.run!.error = "Step action failed";
+      state.run!.steps[1].error = state.run!.error;
+    } else {
+      delete state.run!.error;
+      delete state.run!.steps[1].error;
+    }
+    await page.locator("#refresh").click();
+    await expect(linked.locator(".badge")).toHaveText(
+      status === "completed" ? "Completed" : "Needs attention"
+    );
+    if (status === "failed") await expect(linked).toContainText("Step action failed");
+    await linked.getByRole("button").click();
+    await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", status);
+    await expect(page.locator("#workflowHumanForm")).toBeHidden();
+    expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
+    await page.locator("#workspaceActionClose").click();
+  }
+});
+
+test("an unassigned conversation keeps general scope and omits unrelated project conversation metadata", async ({
+  page,
+  app
+}) => {
+  const { state, conversations, seen } = await homeData(page);
+  conversations[0].projectId = null;
+  state.linkedConversationId = null;
+  await app.pair(page);
+  await page.locator("#conversationsTab").click();
+  await continueConversationIfPreview(page);
+  await expect(page.locator("#conversationDetail .panel-header .sub")).toContainText("General");
+  await expect(page.locator("#conversationDetail .panel-header .sub")).not.toContainText(
+    "linked work"
+  );
+  await expect(page.locator("#conversationLinkedWork")).toBeHidden();
+  const context = page.locator("#selectedConversationContext");
+  await expect(context).not.toBeVisible();
+  const text = await context.textContent();
+  await page.locator("#conversationOptions > summary").click();
+  await expect(context).toBeVisible();
+  await expect(context).toHaveText(text!);
+  expect(app.pending.size).toBe(0);
+  const reads = [
+    "get_workspace",
+    "get_work_digest",
+    "get_plan",
+    "get_run",
+    "list_plans",
+    "list_actions"
+  ];
+  expect(seen.every((entry) => reads.includes(entry.name))).toBe(true);
+  await page.locator("#workTab").click();
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workflowHumanText").fill("Explicit response in the plan's project.");
+  await page.locator("#workflowHumanSubmit").click();
+  await expect(page.locator("#workspaceActionDialog")).not.toBeVisible();
+  const calls = seen.filter((entry) => ["run_plan", "submit_step_result"].includes(entry.name));
+  expect(calls).toHaveLength(2);
+  expect(
+    calls.every((entry) => entry.input.projectId === PROJECT && entry.conversation === undefined)
+  ).toBe(true);
+});
 
 /** Check actual controls after scrolling the fields, including pointer clearance. */
 async function expectResponseControlsClear(page: Page, selectors: string[]) {
@@ -1180,7 +1425,7 @@ test("a negative approval records its output and keeps failed execution evidence
   page,
   app
 }) => {
-  const { state, plan } = await homeData(page);
+  const { state, plan, seen, currentDigest } = await homeData(page);
   plan.definition = workflowDefinitionSchema.parse({
     ...plan.definition,
     steps: plan.definition.steps.map((step) =>
@@ -1193,9 +1438,7 @@ test("a negative approval records its output and keeps failed execution evidence
   await page.locator("#workflowHumanNote").fill("The source is incomplete.");
   await page.locator("#workflowHumanSubmit").click();
   await expect(page.locator("#workspaceActionDialog")).toBeVisible();
-  await expect(page.locator("#workflowRespondStatus")).toContainText(
-    "did not satisfy approved equals true"
-  );
+  await expect(page.locator("#workflowRespondStatus")).toContainText("Step not approved.");
   await expect(page.locator("#workflowRespondContext")).toHaveText(
     "Report review · Failed · no pending response"
   );
@@ -1208,8 +1451,63 @@ test("a negative approval records its output and keeps failed execution evidence
   });
   await page.locator("#workflowRespondEvidence > summary").click();
   await expect(page.locator("#workflowSteps")).toContainText("The source is incomplete.");
+  expect(currentDigest().errors).toEqual([]);
+  expect(currentDigest().approval).toBeNull();
+  expect(currentDigest().lastOutcome?.summary).toBe("Step not approved.");
   await page.locator("#workflowRespondAdvanced").click();
   await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", "failed");
+  await page.locator("#workspaceActionClose").click();
+  await page.locator("#workTab").click();
+  const now = page.getByRole("region", { name: "Current work summary" });
+  await expect(now).toContainText("Not approved");
+  await expect(now).toContainText("start a new run from step one");
+  await expect(now.getByRole("button", { name: /Approval evidence/ })).toHaveCount(0);
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(1);
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
+});
+
+test("plain answers on an approval-gated step stay waiting while a ruleless decline completes", async ({
+  page,
+  app
+}) => {
+  const { state, plan, seen } = await homeData(page);
+  plan.definition = workflowDefinitionSchema.parse({
+    ...plan.definition,
+    steps: plan.definition.steps.map((step) =>
+      step.id === "review" ? { ...step, success: { path: "approved", equals: true } } : step
+    )
+  });
+  await app.pair(page);
+  await startResponse(page);
+  await page.locator("#workflowHumanPlain").check();
+  await expect(page.locator("#workflowHumanFormatHelp")).toContainText(
+    "plain answer is not accepted"
+  );
+  await page.locator("#workflowHumanText").fill("This is a written answer, not an approval.");
+  await page.locator("#workflowHumanSubmit").click();
+  await expect(page.locator("#workflowRespondStatus")).toContainText("does not satisfy");
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await expect(page.locator("#workflowHumanText")).toHaveValue(
+    "This is a written answer, not an approval."
+  );
+  expect(state.run?.status).toBe("waiting_input");
+  expect(state.run?.steps[1].output).toBeUndefined();
+  await page.locator("#workflowRespondAdvanced").click();
+  await page.locator("#workflowStop").click();
+  await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", "stopped");
+  await page.locator("#workspaceActionClose").click();
+  plan.definition = definition;
+  await page.locator("#refresh").click();
+  await page.locator("#openCurrent").click();
+  await page.locator("#workflowRun").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workflowHumanApproval").check();
+  await page.locator("#workflowHumanDoNotApprove").check();
+  await page.locator("#workflowHumanSubmit").click();
+  await expect(page.locator("#workspaceActionDialog")).not.toBeVisible();
+  expect(state.run?.status).toBe("completed");
+  expect(state.run?.steps[1].output).toEqual({ approved: false });
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(2);
 });
 
 test("the step builder saves a mixed workflow with exact whole-result bindings and selects it without running", async ({
@@ -1450,8 +1748,9 @@ test("failed, stopped, and uncertain work ask for human inspection without start
   for (const scenario of [
     {
       status: "failed" as const,
-      action: "Review failure",
-      prompt: "Review the failure and any recorded results."
+      action: "Review recorded result",
+      prompt:
+        "Review the recorded result and any error, then edit the plan or start a new run from step one."
     },
     {
       status: "stopped" as const,

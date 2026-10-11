@@ -108,6 +108,20 @@ const object = (value: unknown): Record<string, unknown> | undefined =>
     ? (value as Record<string, unknown>)
     : undefined;
 const ref = (run: WorkflowRun, stepId: string) => `run:${run.id}:step:${stepId}`;
+function recordedDecline(run: WorkflowRun, index: number): boolean {
+  const definition = run.definition.steps[index],
+    result = run.steps[index];
+  return (
+    run.status === "failed" &&
+    run.error === "Step not approved." &&
+    definition?.action.type === "human" &&
+    definition.success?.path === "approved" &&
+    definition.success.equals === true &&
+    result?.status === "failed" &&
+    result.error === "Step not approved." &&
+    object(result.output)?.approved === false
+  );
+}
 function outcome(run: WorkflowRun, index: number): WorkDigest["lastOutcome"] {
   const step = run.steps[index],
     action = run.definition.steps[index]?.action;
@@ -187,7 +201,9 @@ export function workflowDigest(
     const completed = run.steps
       .map((step, index) => (step.status === "completed" ? index : -1))
       .filter((index) => index >= 0);
-    if (completed.length) digest.lastOutcome = outcome(run, completed.at(-1)!);
+    const declined = run.steps.findIndex((step) => step.status !== "completed");
+    if (recordedDecline(run, declined)) digest.lastOutcome = outcome(run, declined);
+    else if (completed.length) digest.lastOutcome = outcome(run, completed.at(-1)!);
   }
   const index = usable ? usable.steps.findIndex((step) => step.status !== "completed") : 0;
   const step = index >= 0 ? definition.steps[index] : undefined;
@@ -252,13 +268,18 @@ export function workflowDigest(
       : "Run completed; task not verified.";
   } else if (usable && ["failed", "stopped", "uncertain"].includes(usable.status)) {
     digest.state = "needs_attention";
-    digest.stateText =
-      usable.status === "uncertain"
+    const declined = recordedDecline(usable, index);
+    digest.stateText = declined
+      ? "Not approved. The run ended at the recorded decision." +
+        (plan?.work === "todo"
+          ? " The plan is ready for a new run from step one."
+          : " Plan readiness is not confirmed.")
+      : usable.status === "uncertain"
         ? "The execution outcome is unknown."
         : usable.status === "stopped"
           ? "The run was stopped; partial results remain."
           : "The run failed and needs attention.";
-    if (usable.error) digest.errors.push(bound(usable.error, 400));
+    if (usable.error && !declined) digest.errors.push(bound(usable.error, 400));
   } else if (plan?.attemptId || plan?.work === "in_progress") {
     digest.state = "allocated";
     digest.stateText = "Allocated; running is not confirmed.";

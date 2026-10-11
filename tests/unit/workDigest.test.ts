@@ -67,6 +67,118 @@ function records() {
 }
 
 describe("shared factual work digest", () => {
+  it("distinguishes a recorded gated decline from a system failure, with a step reference and no note contents", () => {
+    const { plan, run } = records();
+    run.definition.steps[1].success = { path: "approved", equals: true };
+    run.status = "failed";
+    run.error = "Step not approved.";
+    run.steps[1] = {
+      ...run.steps[1],
+      status: "failed",
+      output: { approved: false, note: "PRIVATE_REVIEW_NOTE" },
+      error: "Step not approved.",
+      endedAt: at
+    };
+    const declined = workflowDigest(plan, run);
+    expect(declined).toMatchObject({
+      state: "needs_attention",
+      approval: null,
+      errors: [],
+      decision: null,
+      lastOutcome: {
+        stepId: "review",
+        summary: "Step not approved.",
+        ref: `run:${run.id}:step:review`
+      }
+    });
+    expect(declined.stateText).toContain("Not approved.");
+    expect(declined.stateText).toContain("new run from step one");
+    expect(JSON.stringify(declined)).not.toContain("PRIVATE_REVIEW_NOTE");
+    expect(formatWorkDigest(declined)).toContain("Step not approved.");
+    const unknown = workflowDigest(undefined, run);
+    expect(unknown.stateText).toContain("Plan readiness is not confirmed.");
+    expect(unknown.stateText).toContain("Current plan revision is unknown.");
+    const held = workflowDigest({ ...plan, work: "in_progress", attemptId: run.id }, run);
+    expect(held.stateText).toContain("Plan readiness is not confirmed.");
+    expect(held.stateText).not.toContain("ready for a new run");
+    const historical = workflowDigest({ ...plan, revision: 2 }, run);
+    expect(historical).toMatchObject({
+      state: "ready",
+      stateText: "Edited since the last run.",
+      run: { current: false },
+      lastOutcome: { ref: `run:${run.id}:step:review` }
+    });
+    expect(formatWorkDigest(historical)).toContain("Historical revision outcome");
+    for (const change of [
+      { status: "uncertain" as const, error: "Terminal decision state could not be persisted." },
+      { status: "failed" as const, error: "Step action failed" }
+    ]) {
+      const problem = workflowDigest(plan, { ...run, ...change });
+      expect(problem.errors).toEqual([change.error]);
+      expect(problem.stateText).not.toContain("Not approved.");
+      expect(problem.lastOutcome?.stepId).toBe("report");
+    }
+  });
+
+  it("does not infer a deliberate decline from malformed flags, another rule, a tool or mismatched recorded errors", () => {
+    const { plan, run } = records();
+    run.definition.steps[1].success = { path: "approved", equals: true };
+    run.status = "failed";
+    run.error = "Step not approved.";
+    run.steps[1] = {
+      ...run.steps[1],
+      status: "failed",
+      output: { approved: false },
+      error: "Step not approved."
+    };
+    const alternatives = [
+      (copy: WorkflowRun) => {
+        copy.definition.steps[1].success = undefined;
+      },
+      (copy: WorkflowRun) => {
+        copy.definition.steps[1].success = { path: "accepted", equals: true };
+      },
+      (copy: WorkflowRun) => {
+        copy.definition.steps[1].action = { type: "tool", tool: "fetch_report" };
+      },
+      (copy: WorkflowRun) => {
+        copy.steps[1].output = { approved: "false" };
+      },
+      (copy: WorkflowRun) => {
+        copy.steps[1].output = { note: "No approval flag" };
+      },
+      (copy: WorkflowRun) => {
+        copy.steps[1].error = "Step action failed";
+      }
+    ];
+    for (const modify of alternatives) {
+      const changed = structuredClone(run);
+      modify(changed);
+      const digest = workflowDigest({ ...plan, definition: changed.definition }, changed);
+      expect(digest.errors).toEqual(["Step not approved."]);
+      expect(digest.stateText).not.toContain("Not approved.");
+      expect(digest.lastOutcome?.stepId).toBe("report");
+    }
+    const outOfOrder = structuredClone(run);
+    outOfOrder.steps[0].status = "pending";
+    expect(workflowDigest(plan, outOfOrder)).toMatchObject({
+      state: "needs_attention",
+      errors: ["Step not approved."],
+      lastOutcome: null
+    });
+    const completed = structuredClone(run);
+    completed.status = "completed";
+    delete completed.error;
+    completed.steps[1].status = "completed";
+    delete completed.steps[1].error;
+    completed.definition.steps[1].success = undefined;
+    expect(workflowDigest({ ...plan, definition: completed.definition }, completed)).toMatchObject({
+      state: "completed",
+      errors: [],
+      approval: null
+    });
+  });
+
   it("distinguishes readiness, allocation and a recorded running run without assuming tool type", () => {
     const { plan, run } = records();
     expect(workflowDigest(plan, undefined)).toMatchObject({
