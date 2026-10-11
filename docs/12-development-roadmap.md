@@ -37,13 +37,12 @@ clarity or user acceptance. The user makes the final acceptance decision. Reuse
 the existing shared tools and bridge/mailbox contracts, with one implementation
 owner per path, bounded assignments and explicit evidence references.
 
-**Current checkpoint — `97786ed`:** project/work browsing, saved conversation
+**Current source checkpoint — `36bdb8d`:** project/work browsing, saved conversation
 continuation, editable JSON plans, a create-only step builder, factual digests and
 shared UI/chat/MCP/native-agent tools are delivered. The coherent checkpoint
 passes format, lint, build, documentation and the full browser gate. Its
-[hosted Linux/Windows checks](https://github.com/JMRussas/ChatAgent/actions/runs/38099846406)
-pass on this exact revision. The in-progress review corrections need their own
-coherent-source checks.
+[hosted Linux/Windows checks](https://github.com/JMRussas/ChatAgent/actions/runs/38100942451)
+pass on this exact revision, including the final review corrections.
 
 **Fresh Fable assessment:** the app23 review passes conversation state/context,
 prioritized linked work, outcome drill-down, composer reachability, model identity
@@ -56,9 +55,10 @@ passes format, lint, build, documentation and the full browser gate. App24's fir
 read-only walkthrough retains the corrected desktop/mobile controls and expanded
 actual report, with saved runs unchanged. Fresh Fable app24 grading passes all
 scoped criteria for approval choices, report/input readability and saved-preview
-actions, with no required correction. The mobile completed-item action label was
-outside its captured frame; larger payloads and keyboard/accessibility behavior
-were not graded. Hosted checks of this increment remain pending. Technical checks
+actions, with no required correction. A single follow-up mobile capture closes
+the completed-item action-label gap; the normal click also opens the saved plan
+without running it or changing work. Larger payloads and keyboard/accessibility
+behavior were not visually graded. Technical checks
 and screenshots do not establish final user acceptance.
 
 **Actual-data evidence:** `workspace-digestion-20261010/final-readonly-app23`
@@ -71,6 +71,16 @@ the same digest. `fable-final-visual-review-app23` and
 `correction-readonly-app24` and `fable-correction-visual-review-app24` retain the
 implemented corrections and passing fresh visual assessment. Failures
 and incomplete captures remain preserved alongside successful receipts.
+
+**Testing review:** `fable-test-value-review-v2` examines nine test families and
+recommends no further cleanup in that slice. Public JSON fields, protocol tool
+names, privacy sentinels and persistence fault injection protect real boundaries;
+they are different from private-variable or source-spelling assertions. Fast,
+integration, browser and static selections are documented separately from test
+purpose in [the verification plan](implementation/06-verification.md). Routed
+browser mocks establish UI behavior, not backend semantics, provider quality or
+human comprehension. The actual declined-decision boundary is already proven;
+no additional live-provider replay is justified by this review.
 
 **Implemented contracts:** the directory and live linked cards use the same factual
 digest. Current error-free workflow decisions offer Respond; historical, missing,
