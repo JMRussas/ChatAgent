@@ -3398,22 +3398,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               view !== "conversations"
             )
               return;
-            const messages = historyMessages(data.events || []),
-              linked = snapshot.work.filter((row) => row.conversationId === item.id);
-            const chips = linked
-              .map(
-                (row) =>
-                  '<div class="plan-chip">' +
-                  icon("work") +
-                  '<span class="chip-text"><strong>' +
-                  escape(row.name) +
-                  "</strong><small>" +
-                  escape(stateLabel(digestOf(row).state)) +
-                  '</small></span><button class="button" data-linked-plan="' +
-                  escape(row.id) +
-                  '">Open plan</button></div>'
-              )
-              .join("");
+            const messages = historyMessages(data.events || []);
             $("conversationDetail").innerHTML =
               '<header class="chat-head"><div class="detail-meta"><span class="detail-project">' +
               icon("folder") +
@@ -3441,7 +3426,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                     )
                     .join("")
                 : '<p class="goal">No messages saved yet. Open this conversation to begin.</p>') +
-              chips +
+              '<div id="conversationPreviewLinkedWork" role="region" aria-label="Linked work"></div>' +
               '</div><div class="chat-composer"><footer><small>Scoped to ' +
               escape(projectName(item.projectId)) +
               '</small><button class="button primary" id="continueConversation" ' +
@@ -3451,33 +3436,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               'Continue conversation</button></footer><p class="demo-note">Open this conversation to continue with the model and manage its work here.</p></div>';
             $("continueConversation").addEventListener("click", () => openConversation(item));
             setActionButtons();
-            $("conversationDetail")
-              .querySelectorAll("[data-linked-plan]")
-              .forEach((button) =>
-                button.addEventListener("click", () =>
-                  action(async () => {
-                    const linkedWork = snapshot.work.find((row) => row.id === button.dataset.linkedPlan);
-                    if (!linkedWork) return;
-                    const scope = linkedWork.projectId || "all";
-                    if (project !== scope) {
-                      await waitFor(
-                        () => $("workspaceNewConversation") && !$("workspaceNewConversation").disabled
-                      );
-                      await outcome(
-                        "workspace-project-selected",
-                        (event) => (event.detail?.projectId || "all") === scope,
-                        () => requestProject(scope)
-                      );
-                    }
-                    status = "all";
-                    query = "";
-                    $("search").value = "";
-                    selected = linkedWork.id;
-                    chosenStep = null;
-                    setView("work");
-                  })
-                )
-              );
+            renderLinkedCards($("conversationPreviewLinkedWork"), linkedRows(item.id));
           } catch (error) {
             if (version !== conversationVersion) return;
             $("conversationDetail").innerHTML =

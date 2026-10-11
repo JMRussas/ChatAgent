@@ -87,7 +87,6 @@ export function workflowPanelHtml(): string {
                 name="workflowHumanApprovalChoice"
                 id="workflowHumanApprove"
                 value="true"
-                checked
               />
               Approve</label
             >
@@ -221,7 +220,7 @@ export function workflowPanelScript(): string {
     details.open = expandedDetails.has(details.dataset.detailKey);
     add(details, 'summary', label);
     var pre = add(details, 'pre', JSON.stringify(value, null, 2));
-    pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;max-height:16rem;overflow:auto;max-width:100%';
+    pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;max-height:none;overflow:auto;max-width:100%';
   }
   function readableOutput(parent, output) {
     var text = typeof output === 'string' ? output : output && typeof output.text === 'string' ? output.text : null;
@@ -352,13 +351,18 @@ export function workflowPanelScript(): string {
     el("RespondStatus").textContent = showInResponse === false ? "" : message;
     el("BuilderStatus").textContent = message;
   }
+  function approvalChoice() {
+    return el("HumanForm").querySelector('input[name="workflowHumanApprovalChoice"]:checked');
+  }
   function controls() {
     if (builder) builder.setBusy(busy);
     el('Save').disabled = busy || (plan && active());
     el('Run').disabled = busy || !plan || dirty || active();
     el('Stop').disabled = busy || !active();
     el('RunRefresh').disabled = busy || !run;
-    el('HumanSubmit').disabled = busy || !run || run.status !== 'waiting_input';
+    el("HumanSubmit").disabled =
+      busy || !run || run.status !== "waiting_input" ||
+      (el("HumanApproval").checked && !approvalChoice());
     el("HumanForm")
       .querySelectorAll("input, textarea")
       .forEach(function (input) {
@@ -448,10 +452,14 @@ export function workflowPanelScript(): string {
     )
       el("HumanFormatHelp").textContent +=
         " This step needs an approval decision; a plain answer is not accepted.";
+    if (selected === "approval" && !approvalChoice())
+      el("HumanFormatHelp").textContent +=
+        " Choose Approve or Do not approve to record your decision.";
     el("HumanScope").hidden = selected !== "approval";
+    controls();
   }
   el("HumanForm")
-    .querySelectorAll('input[name="workflowHumanFormat"]')
+    .querySelectorAll('input[name="workflowHumanFormat"], input[name="workflowHumanApprovalChoice"]')
     .forEach(function (input) {
       input.addEventListener("change", humanFormat);
     });
@@ -785,7 +793,9 @@ export function workflowPanelScript(): string {
         if (!text) throw new Error("Write your answer first.");
         output = { text: text };
       } else if (format === "approval") {
-        output = { approved: el("HumanApprove").checked };
+        var decision = approvalChoice();
+        if (!decision) throw new Error("Choose Approve or Do not approve to record your decision.");
+        output = { approved: decision.value === "true" };
         var noteText = el("HumanNote").value.trim();
         if (noteText) output.note = noteText;
       } else {

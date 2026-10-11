@@ -37,112 +37,77 @@ clarity or user acceptance. The user makes the final acceptance decision. Reuse
 the existing shared tools and bridge/mailbox contracts, with one implementation
 owner per path, bounded assignments and explicit evidence references.
 
-The current Fable review specifies a shared factual work digest for humans and
-models, reconciled decision/progress/ready/attention counts, useful next-action
-rows, a visible status/action/approval summary, prominent pending decisions,
-conversation work links and mobile readability. Its review of real saved desktop
-and mobile screens defines the layout and acceptance criteria. Implementation is
-in progress. The first independent Fable review of eight real-data screens returned
-**needs changes**: Respond buried the question beneath management controls, a
-desktop-to-mobile resize clipped the selected work item, and the allocation
-summary appeared contradictory. Fable's follow-up design puts the existing
-question and response form in the primary dialog, with plain text, explicit
-approval and raw JSON choices; full plan controls remain separately accessible.
-The question-first response form is implemented. Independent live reviews govern
-its remaining corrections; technical checks alone do not establish clarity. No
-new execution engine or generated model summary is required for routine monitoring.
+**Current checkpoint — `97786ed`:** project/work browsing, saved conversation
+continuation, editable JSON plans, a create-only step builder, factual digests and
+shared UI/chat/MCP/native-agent tools are delivered. The coherent checkpoint
+passes format, lint, build, documentation and the full browser gate. Its
+[hosted Linux/Windows checks](https://github.com/JMRussas/ChatAgent/actions/runs/38099846406)
+pass on this exact revision. The in-progress review corrections need their own
+coherent-source checks.
 
-The second independent review passed its ten state, count, provenance, history,
-parity, mobile and response-flow criteria, but still returned **needs changes**.
-Its remaining immediate corrections make Submit the only primary response action,
-explain answer modes with raw JSON under Advanced, remove routine open/poll notes
-from the response form, and make failed/stopped/uncertain work lead to human
-inspection. Those corrections are implemented and awaiting fresh live review. The builder
-review's creation-only dialog and visible recorded-review material corrections are
-also implemented. Thirty-one owned workflow/home browser journeys and TypeScript
-pass; technical checks do not replace the independent live clarity review. The
-fresh app20 reviews passed nine of ten monitoring criteria and seven of eight
-creation criteria, but both returned **needs changes**: a sticky mobile Submit
-button covers the approval radio. Submit now follows the response fields inline.
-Six focused response journeys pass, including actual radio interactions, field
-visibility and pointer clearance; the overlap assertion fails against the earlier
-sticky layout. The check avoids matching the disclosure sentence. The full browser
-gate passed 149 journeys before this correction; the corrected source passes
-format, lint, build and documentation checks. Fresh app21 captures and independent
-Fable grading passed the six response/mobile criteria; final user acceptance and
-submission behavior remain separate.
+**Fresh Fable assessment:** the app23 review passes conversation state/context,
+prioritized linked work, outcome drill-down, composer reachability, model identity
+and explicit tool grants. It requires an explicit approval choice: neither Approve
+nor Do not approve should be selected when the review opens, and Submit should
+wait for a selection. The separate expanded-report review requires short raw
+results and inputs to grow naturally, so their verification limit is not hidden in
+an unmarked inner scroller. Both corrections are implemented; the coherent source
+passes format, lint, build, documentation and the full browser gate. App24's first
+read-only walkthrough retains the corrected desktop/mobile controls and expanded
+actual report, with saved runs unchanged. Fresh Fable app24 grading passes all
+scoped criteria for approval choices, report/input readability and saved-preview
+actions, with no required correction. The mobile completed-item action label was
+outside its captured frame; larger payloads and keyboard/accessibility behavior
+were not graded. Hosted checks of this increment remain pending. Technical checks
+and screenshots do not establish final user acceptance.
 
-**Immediate correctness correction — record human declines:** Fable's review of the
-actual service found that the browser mock records a declined approval, but the
-backend rejects it and leaves the run waiting. The correction now records the exact human gate
-(`success.path: "approved"`, `equals: true`, output `approved: false`) as a persisted
-failed decision with its optional note, no following step and existing fence
-release. Other rule mismatches remain rejected. The digest distinguishes the
-intentional decision from a system error and retains uncertainty when persistence
-or fence release cannot be confirmed. Sixty-seven focused service/digest/public-HTTP
-cases pass; the final seventeen projection checks and TypeScript also pass.
-Thirty-six affected UI journeys pass with linked conversation context and response
-guards. The coherent checkpoint passes all 154 browser journeys plus format, lint,
-build and documentation checks. Its real API-to-human run records one declined
-decision and note, retains the prior HTTP 200 result, releases the attempt and
-returns the same digest through HTTP and native MCP. Needs-you drops by one and
-Needs-attention rises by one; the original native briefing stays waiting and
-unchanged. Fresh independent Fable grading passes the recorded-decline flow on
-actual desktop and mobile screenshots, with no immediate correction required.
-That review did not establish full-report readability because those disclosures
-were collapsed; subsequent read-only captures retain the expanded stored report
-and response input for separate assessment. No extra model call is needed for
-this boundary.
+**Actual-data evidence:** `workspace-digestion-20261010/final-readonly-app23`
+retains the first successful desktop/mobile walkthrough, runtime-source receipts
+and before/after saved runs. Inspection makes no saved writes or provider calls.
+`native-api-human-decline-app22` retains the real API-to-human decline: the note and
+prior HTTP 200 result persist, the attempt releases, and HTTP/native MCP return
+the same digest. `fable-final-visual-review-app23` and
+`fable-full-report-review-app22` retain the earlier independent visual verdicts.
+`correction-readonly-app24` and `fable-correction-visual-review-app24` retain the
+implemented corrections and passing fresh visual assessment. Failures
+and incomplete captures remain preserved alongside successful receipts.
 
-The published `861c2a7` checkpoint passes both hosted Linux release/browser and
-Windows test gates, including recorded declines, scoped inputs, shared digest
-surfaces and linked conversation context. This is source validation; the newer
-model-policy and conversation-layout corrections require their own checks.
+**Implemented contracts:** the directory and live linked cards use the same factual
+digest. Current error-free workflow decisions offer Respond; historical, missing,
+unreadable and stale summaries lead to inspection. The home distinguishes
+recorded reply activity from the currently open conversation. Continue waits for
+the existing controller readiness guard; identical linked markup preserves nodes,
+and the native disclosure retains its open state and focus. Controlled refresh
+reproductions establish the corrected behavior, without claiming the cause of
+earlier live capture failures.
 
-The app21 screenshot review passed all six response/mobile criteria, including
-unobscured decisions and the true top-to-bottom form. Its overall verdict remains
-**needs changes** because the creator's Model choice omits model identity or
-routing policy, and named captures duplicated positions. Fable is defining the
-smallest truthful model/policy display; runtime-selected identity must not be
-guessed from the chat model picker. The implementation now exposes fixed,
-catalog-selected, unknown and unavailable policy metadata without invoking a
-model or exposing connection details. Creation describes the configured policy;
-recorded steps show only identity actually saved in their output. Registered tools
-are grouped by their existing read/write metadata, and agent choices retain their
-existing explicit tool grants. Sixty-two affected backend cases and the initial
-fifteen affected UI journeys pass. The coherent increment passes all 162 browser
-journeys plus format, lint, build and documentation checks; hosted validation of
-this increment remains pending.
-The current published UI checkpoint uses the same
-digest in directory/chip/search surfaces and presents existing linked work above
-a continued conversation. Current, error-free workflow decisions offer Respond;
-coding decisions offer Review details; historical, missing and stale summaries
-lead to inspection. The real linked pending-run prerequisite is recorded, with
-new live captures retained. Independent Fable grading passes linked state and
-action scope but returns **needs changes** for ambiguous Idle/Active labels,
-linked cards crowding out the conversation, and a constrained mobile review
-question. Its follow-up contract uses “No reply in progress” and “Currently open,”
-natural question height, one prominent actionable linked item and an expandable
-list of the remaining items. These corrections are implemented, with
-fresh real-data captures and independent grading pending. A controlled unchanged refresh
-also demonstrated Respond losing focus; identical linked markup now retains its
-nodes. A separate controlled refresh reproduced Continue being ignored while
-the conversation controller was busy. The implemented correction waits for the existing
-readiness guard and observes the selected conversation. Fourteen affected browser
-journeys and TypeScript pass, including natural question scrolling, retained
-disclosure state/focus, composer reachability and busy-controller Continue delivery.
-Final coherent-source gates pass. App23's first read-only walkthrough retains
-32 real-data desktop/mobile captures with matching runtime hashes, both saved
-runs unchanged and no writes or provider calls. Fresh Fable grading remains
-pending. The separate expanded-report review returns **needs changes** because a
-short report is clipped just before its verification limit without an evident
-overflow cue. Its smallest correction is being specified before implementation.
-Neither reproduction
-establishes the cause of the earlier failed live capture; those failures remain
-preserved.
+An exact human approval gate records `approved: false` as a failed decision with
+its optional note and no following step. Other rule mismatches remain rejected.
+Persistence or fence-release uncertainty stays visible; a recorded decision is
+not task verification. The original native briefing is still waiting for review,
+because its independent fact-check found unsupported claims. It has not been
+approved or replayed.
 
-**Next Fable-designed increment — describe work as steps:** replace the JSON seed
-behind New workflow with a create-only form for a name, goal and ordered steps.
+Workflow discovery describes fixed, catalog-selected, unknown or unavailable model
+policy without invoking a provider or exposing connection details. Creation shows
+the configured policy; recorded steps show only identity saved in their output.
+The chat picker does not select the workflow model. Tool groups reuse registered
+read/write metadata; agent tool access still requires explicit grants.
+
+**Implemented small increment:** saved conversation previews now reuse the
+existing linked-work cards, so a waiting decision offers the same guarded Respond
+action as the open chat. Original conversation/project scope, draft guards and
+non-response actions for historical or unreadable summaries remain intact.
+Opt-in home auto-refresh is the next monitoring improvement; today the home still
+needs manual refresh outside open run controls. A direct home Stop action is
+also deferred. Fable's `fable-home-monitor-contract-v1` specifies settle-relative
+read scheduling, visible scope, pauses, failure handling and preservation of
+unchanged details, drafts and focus. Its estimate includes two to three hours of
+implementation and verification; it recommends starting after the reset, not
+shipping a timer without those safeguards. Reuse existing tools and guards for
+each increment; add no execution engine.
+
+**Implemented workflow builder:** New workflow uses a create-only form for a name, goal and ordered steps.
 Each step chooses a human, model, configured agent or registered tool. The form
 projects onto the existing version-1 definition and calls `create_plan`; saved-plan
 editing retains the advanced JSON editor. Model, human and agent steps can consume
@@ -152,20 +117,14 @@ field. Optional result-path/equality checks use the existing success rule; appro
 is an explicit human preset. Tool-specific inputs are checked when running, not
 when saving. No additional runner, schema engine or scheduler is planned.
 
-The create-only form is implemented. Its actual walkthrough created a tool →
-Ollama model → human plan through the form, preserved the preview definition and
-conversation association, and required an explicit Run. The configured repository
-report returned HTTP 200; the stored model summary accurately repeated two report
-components and its stated verification limit. An operator reviewed that recorded
-result through the approval form, completing the three-step run. This is a working
-technical smoke check, not general model-quality certification or UI acceptance.
-The independent Fable review of eleven actual creation/approval screens returned
-**needs changes**. Two immediate corrections, now implemented, remove the old plan-management list
-from the creation dialog and show the recorded result beside the pending decision.
-It passed the visible Save/Run separation and step-approval scope checks, while
-noting that some screenshots omitted the model card or captured loading content.
-Fresh complete captures and another independent review are required. Saved-plan
-visual editing remains deferred; advanced JSON editing is available.
+The actual builder walkthrough created report retrieval → Ollama summary → human
+review, preserved the preview definition and conversation association, and required
+an explicit Run. The report returned HTTP 200; the recorded summary repeated its
+components and stated verification limit. Operator review completed the run. This
+is a technical smoke check, not general model-quality certification. Fresh app23
+screens cover the configured Model choice and agent tool grants; their independent
+assessment is recorded above. Saved-plan visual editing remains deferred; advanced
+JSON editing is available.
 
 **Shared AI discovery — `list_work`:** a bounded read-only tool returns the same
 factual digests with observed state counts and actionable items first. Scope is an

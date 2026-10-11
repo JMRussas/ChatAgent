@@ -481,6 +481,7 @@ test("explicit execution opens the selected project controls and human review re
   await expect(page.locator("#workflowHumanForm")).toBeVisible();
   const review = { approved: true, note: "Reviewed the three reported items" };
   await expect(page.locator("#workflowHumanApproval")).toBeChecked();
+  await page.locator("#workflowHumanApprove").check();
   await expect(page.locator("#workflowHumanFormatHelp")).toHaveText(
     "Records an approval decision with an optional note."
   );
@@ -1327,6 +1328,141 @@ test("an unchanged linked-work refresh preserves keyboard focus after resizing",
   expect(seen.filter((call) => call.name === "submit_step_result")).toHaveLength(0);
 });
 
+function seedWaitingRun(data: Awaited<ReturnType<typeof homeData>>) {
+  const { plan, state } = data;
+  const id = randomUUID();
+  plan.work = "in_progress";
+  plan.attemptId = id;
+  plan.latestRunId = id;
+  state.status = "waiting_input";
+  state.run = {
+    version: 1,
+    id,
+    ownerId: plan.ownerId,
+    planId: plan.id,
+    revision: plan.revision,
+    attemptEpoch: 1,
+    definition: plan.definition,
+    status: "waiting_input",
+    startedAt: "2026-10-10T20:00:00Z",
+    updatedAt: "2026-10-10T20:00:01Z",
+    steps: [
+      {
+        id: "read",
+        name: "Read report",
+        status: "completed",
+        output: { items: 3 },
+        endedAt: "2026-10-10T20:00:01Z"
+      },
+      {
+        id: "review",
+        name: "Review report result",
+        status: "waiting_input",
+        inputs: { items: 3 }
+      }
+    ]
+  };
+}
+
+test("saved conversation Respond preserves the original scope and protects another thread's draft", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  const { conversations, seen, state } = data;
+  seedWaitingRun(data);
+  const otherThread = "other-saved-discussion";
+  conversations.push({ ...conversations[0], id: otherThread, title: "Another discussion" });
+  await app.pair(page);
+  await page.locator("#conversationsTab").click();
+  const preview = page.locator("#conversationPreviewLinkedWork");
+  await expect(preview.getByRole("button", { name: "Respond", exact: true })).toBeVisible();
+  await expect(page.locator("#continueConversation")).toBeVisible();
+  await expect(page.locator("#conversationDetail .chat-shell")).toHaveCount(0);
+  await page.locator('#conversationList [data-conversation="' + otherThread + '"]').click();
+  await page.locator("#continueConversation").click();
+  await expect(page.locator("#conversationId")).toHaveValue(otherThread);
+  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+  const scopedPlanReads = seen.filter(
+    (entry) => entry.name === "get_plan" && entry.input.projectId
+  ).length;
+  await page.locator("#prompt").fill("Keep this unsent question in its original conversation.");
+  await page.locator('#conversationList [data-conversation="' + THREAD + '"]').click();
+  await preview.getByRole("button", { name: "Respond", exact: true }).click();
+  await expect(page.locator("#workspaceActionStatus")).toContainText("Finish or clear");
+  await expect(page.locator("#workspaceActionDialog")).not.toBeVisible();
+  await expect(page.locator("#conversationId")).toHaveValue(otherThread);
+  await expect(page.locator("#prompt")).toHaveValue(
+    "Keep this unsent question in its original conversation."
+  );
+  expect(seen.filter((entry) => entry.name === "get_plan" && entry.input.projectId)).toHaveLength(
+    scopedPlanReads
+  );
+  await page.locator('#conversationList [data-conversation="' + otherThread + '"]').click();
+  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+  await page.locator("#prompt").fill("");
+  await page.locator('#conversationList [data-conversation="' + THREAD + '"]').click();
+  await preview.getByRole("button", { name: "Respond", exact: true }).click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await expect(page.locator("#conversationId")).toHaveValue(THREAD);
+  await expect(page.locator("#workflowRespond")).toHaveAttribute("data-plan-id", PLAN);
+  await expect(page.locator("#workflowRespond")).toHaveAttribute("data-project-id", PROJECT);
+  expect(seen.filter((entry) => entry.name === "get_plan").at(-1)?.input).toEqual({
+    id: PLAN,
+    projectId: PROJECT
+  });
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(0);
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(0);
+  expect(state.run?.status).toBe("waiting_input");
+  expect(app.pending.size).toBe(0);
+});
+
+test("saved conversation linked-work actions exclude historical and unreadable responses", async ({
+  page,
+  app
+}) => {
+  const data = await homeData(page);
+  const { plan, state, currentDigest, seen } = data;
+  seedWaitingRun(data);
+  await app.pair(page);
+  await page.locator("#conversationsTab").click();
+  const linked = page.locator("#conversationPreviewLinkedWork");
+  await expect(linked.getByRole("button", { name: "Respond", exact: true })).toBeVisible();
+  const waiting = currentDigest();
+  state.summaryDigest = {
+    ...waiting,
+    state: "needs_attention",
+    stateText: "Current run data could not be read.",
+    decision: null,
+    errors: ["Current run data could not be read."]
+  };
+  await page.locator("#refresh").click();
+  await expect(linked).toContainText("Current run data could not be read.");
+  await expect(linked.getByRole("button", { name: "Respond", exact: true })).toHaveCount(0);
+  state.summaryDigest = undefined;
+  state.run!.status = "completed";
+  state.run!.steps[1] = {
+    ...state.run!.steps[1],
+    status: "completed",
+    output: { text: "Earlier recorded answer." },
+    endedAt: "2026-10-10T20:02:03Z"
+  };
+  state.run!.endedAt = "2026-10-10T20:02:03Z";
+  plan.revision += 1;
+  plan.work = "todo";
+  plan.attemptId = null;
+  state.status = "todo";
+  await page.locator("#refresh").click();
+  await expect(linked).toContainText("Edited since the last run.");
+  await expect(linked.getByRole("button", { name: "Respond", exact: true })).toHaveCount(0);
+  await linked.getByRole("button", { name: "Open plan", exact: true }).click();
+  await expect(page.locator("#workflowRunStatus")).toHaveAttribute("data-status", "completed");
+  await expect(page.locator("#workflowHumanForm")).toBeHidden();
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(0);
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(0);
+  expect(app.pending.size).toBe(0);
+});
+
 test("linked response actions fail closed for missing, historical, unreadable and stale summaries", async ({
   page,
   app
@@ -1727,11 +1863,41 @@ test("a negative approval records its output and keeps failed execution evidence
   plan.definition = workflowDefinitionSchema.parse({
     ...plan.definition,
     steps: plan.definition.steps.map((step) =>
-      step.id === "review" ? { ...step, success: { path: "approved", equals: true } } : step
+      step.id === "review"
+        ? {
+            ...step,
+            inputs: { read: { $step: "read" } },
+            success: { path: "approved", equals: true }
+          }
+        : step
     )
   });
   await app.pair(page);
   await startResponse(page);
+  if (!state.run) throw Error("No controlled run");
+  const report = {
+    status: 200,
+    data: {
+      repository: "ChatAgent",
+      purpose: "Make AI work easy to understand, monitor and direct",
+      currentWork:
+        "Shared factual work digest, visible decisions and source-backed workspace summaries",
+      changedPaths: 10,
+      implementedComponents: [
+        "Hekate-backed editable plan definitions",
+        "API, model and human workflow steps",
+        "Direct plan controls",
+        "Authenticated MCP endpoint",
+        "Durable conversation history",
+        "Native Claude and Ollama agent task executors",
+        "Operator context and tool access requests"
+      ],
+      verification:
+        "Source checks are in progress; live deployment and long-term reliability are not certified."
+    }
+  };
+  state.run.steps[0].output = report;
+  state.run.steps[1].inputs = { read: report };
   await page.locator("#workflowHumanDoNotApprove").check();
   await page.locator("#workflowHumanNote").fill("The source is incomplete.");
   await page.locator("#workflowHumanSubmit").click();
@@ -1749,6 +1915,85 @@ test("a negative approval records its output and keeps failed execution evidence
   });
   await page.locator("#workflowRespondEvidence > summary").click();
   await expect(page.locator("#workflowSteps")).toContainText("The source is incomplete.");
+  await expect(page.locator("#workflowSteps details[open]")).toHaveCount(0);
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const [stepId, label] of [
+      ["read", "Output details"],
+      ["review", "Inputs"]
+    ]) {
+      const details = page.locator(
+        '#workflowSteps [data-step="' + stepId + '"] details[data-detail="' + label + '"]'
+      );
+      if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open)))
+        await details.locator("summary").click();
+      const pre = details.locator("pre");
+      await expect(pre).toContainText(report.data.verification);
+      if (label === "Inputs") await expect(pre).toContainText('"read"');
+      const geometry = await pre.evaluate((element) => {
+        let current: Element | null = element;
+        const clipped: string[] = [];
+        while (current && current.id !== "workspaceActionDialog") {
+          if (current.scrollHeight > current.clientHeight + 1)
+            clipped.push(current.tagName + "#" + current.id);
+          current = current.parentElement;
+        }
+        return {
+          clipped,
+          height: element.clientHeight,
+          content: element.scrollHeight,
+          width: element.clientWidth,
+          scrollWidth: element.scrollWidth
+        };
+      });
+      expect(geometry.clipped).toEqual([]);
+      expect(geometry.content).toBeLessThanOrEqual(geometry.height + 1);
+      expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width + 2);
+      for (const location of ["head", "verification", "tail"] as const) {
+        const visible = await pre.evaluate((element, location) => {
+          const text = element.firstChild!,
+            value = text.textContent || "";
+          const start =
+            location === "head"
+              ? Math.max(0, value.indexOf('"read"'))
+              : location === "verification"
+                ? value.indexOf('"verification"')
+                : value.length - 3;
+          const length =
+            location === "verification" ? value.length - 4 - start : location === "head" ? 6 : 3;
+          const range = document.createRange();
+          range.setStart(text, Math.max(0, start));
+          range.setEnd(text, Math.min(value.length, start + length));
+          const dialog = element.closest("dialog")!,
+            header = dialog.querySelector("header")!;
+          const bounds = range.getBoundingClientRect();
+          dialog.scrollTop += bounds.top - header.getBoundingClientRect().bottom - 20;
+          const moved = range.getBoundingClientRect();
+          return {
+            top: moved.top,
+            bottom: moved.bottom,
+            headerBottom: header.getBoundingClientRect().bottom,
+            dialogBottom: Math.min(innerHeight, dialog.getBoundingClientRect().bottom),
+            innerScroll: element.scrollTop
+          };
+        }, location);
+        expect(visible.top).toBeGreaterThanOrEqual(visible.headerBottom);
+        expect(visible.bottom).toBeLessThanOrEqual(visible.dialogBottom);
+        expect(visible.innerScroll).toBe(0);
+      }
+    }
+    expect(
+      await page
+        .locator("#workflowSteps")
+        .evaluate((element) => element.scrollWidth <= element.clientWidth + 2)
+    ).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true
+    );
+  }
   expect(currentDigest().errors).toEqual([]);
   expect(currentDigest().approval).toBeNull();
   expect(currentDigest().lastOutcome?.summary).toBe("Step not approved.");
@@ -1763,6 +2008,77 @@ test("a negative approval records its output and keeps failed execution evidence
   expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(1);
   expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
 });
+
+for (const [width, choice, approved] of [
+  [1440, "workflowHumanApprove", true],
+  [390, "workflowHumanDoNotApprove", false]
+] as const) {
+  test(
+    "human approval requires an explicit preserved decision at " + width + "px",
+    async ({ page, app }) => {
+      const { plan, state, seen } = await homeData(page);
+      plan.definition = workflowDefinitionSchema.parse({
+        ...plan.definition,
+        steps: plan.definition.steps.map((step) =>
+          step.id === "review" ? { ...step, success: { path: "approved", equals: true } } : step
+        )
+      });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+      await app.pair(page);
+      await startResponse(page);
+      await expect(page.locator("#workflowHumanApproval")).toBeChecked();
+      await expect(page.locator("#workflowHumanApprove")).not.toBeChecked();
+      await expect(page.locator("#workflowHumanDoNotApprove")).not.toBeChecked();
+      await expect(page.locator("#workflowHumanSubmit")).toBeDisabled();
+      await page
+        .locator("#workflowHumanForm")
+        .evaluate((element) => (element as HTMLFormElement).requestSubmit());
+      await expect(page.locator("#workflowRespondStatus")).toContainText(
+        "Choose Approve or Do not approve"
+      );
+      expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(0);
+      await page.locator("#workflowHumanPlain").check();
+      await page.locator("#workflowHumanApproval").check();
+      await expect(page.locator("#workflowHumanApprove")).not.toBeChecked();
+      await expect(page.locator("#workflowHumanSubmit")).toBeDisabled();
+      await page.locator("#workspaceActionClose").click();
+      await page.locator("#workspaceActionReopen").click();
+      await expect(page.locator("#workflowHumanDoNotApprove")).not.toBeChecked();
+      await expect(page.locator("#workflowHumanSubmit")).toBeDisabled();
+      await page.locator("#" + choice).check();
+      await page.locator("#workflowHumanNote").fill("An explicit recorded decision.");
+      await expect(page.locator("#workflowHumanSubmit")).toBeEnabled();
+      // The defensive no-choice submission stops polling like other response errors.
+      // Recover through the visible controls before observing an unchanged polling cycle.
+      await page.locator("#workflowRespondAdvanced").click();
+      await page.locator("#workflowRunRefresh").click();
+      await expect(page.locator("#workflowNote")).toHaveText("Execution state refreshed.");
+      await page.clock.install();
+      const reads = seen.filter((entry) => entry.name === "get_run").length;
+      await page.clock.fastForward(2000);
+      await expect
+        .poll(() => seen.filter((entry) => entry.name === "get_run").length)
+        .toBeGreaterThan(reads);
+      await expect(page.locator("#" + choice)).toBeChecked();
+      await page.locator("#workflowHumanPlain").check();
+      await page.locator("#workflowHumanApproval").check();
+      await expect(page.locator("#" + choice)).toBeChecked();
+      await page.locator("#workspaceActionClose").click();
+      await page.locator("#workspaceActionReopen").click();
+      await expect(page.locator("#" + choice)).toBeChecked();
+      await expect(page.locator("#workflowHumanNote")).toHaveValue(
+        "An explicit recorded decision."
+      );
+      await page.locator("#workflowHumanSubmit").click();
+      expect(state.run?.steps[1].output).toEqual({
+        approved,
+        note: "An explicit recorded decision."
+      });
+      expect(state.run?.status).toBe(approved ? "completed" : "failed");
+      expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(1);
+    }
+  );
+}
 
 test("plain answers on an approval-gated step stay waiting while a ruleless decline completes", async ({
   page,

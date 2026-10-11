@@ -9,10 +9,6 @@ metadata are saved by default in `data/conversations.json` and
 `data/workspace.json`; `CONVERSATION_STATE_FILE` and `WORKSPACE_STATE_FILE`
 override those locations. `WORKSPACE_ENABLED=false` disables the workspace.
 
-Open `/design` for the proposed workspace layout using the same authenticated
-project, conversation and work records. This reference preview only reads data;
-use the home page for live chat, project management and plan execution.
-
 Bind a project to its existing Hekate project in **Project integration** to
 discover its workflows and coding plans. `WORKFLOW_PROJECT_ID` remains an optional
 default binding. Conversation actions use the conversation's assigned project
@@ -43,6 +39,10 @@ Continuing a conversation shows its most actionable linked work item, with other
 items available in an expandable list. “Currently open” describes the displayed
 thread; “No reply in progress” describes its recorded reply state. Reviewing linked
 work does not submit a response or execute a plan.
+
+Approval forms require an explicit Approve or Do not approve choice before
+submitting. The choice records the decision for that step; it does not verify the
+task. Expanded recorded inputs and outputs use the dialog's normal scrolling.
 
 To enable workflow execution, configure the Hekate PlanStore API and an optional default project:
 
