@@ -2183,6 +2183,9 @@ export async function startServer(
       endpoints: process.env.WORKFLOW_HTTP_ENDPOINTS_JSON,
       executors: configuredTaskExecutors(process.env, runDir),
       model: workflowModel,
+      modelPolicy: dispatch
+        ? { mode: "catalog" }
+        : { mode: "fixed", provider: config.fast.provider, model: config.fast.model },
       taskTools: () => workspaceTools?.taskView(projectId)
     });
   const workflowTools =

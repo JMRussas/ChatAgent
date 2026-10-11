@@ -87,24 +87,59 @@ build and documentation checks. Its real API-to-human run records one declined
 decision and note, retains the prior HTTP 200 result, releases the attempt and
 returns the same digest through HTTP and native MCP. Needs-you drops by one and
 Needs-attention rises by one; the original native briefing stays waiting and
-unchanged. Fresh independent screenshot grading remains pending. No extra model call is needed for this boundary.
+unchanged. Fresh independent Fable grading passes the recorded-decline flow on
+actual desktop and mobile screenshots, with no immediate correction required.
+That review did not establish full-report readability because those disclosures
+were collapsed; subsequent read-only captures retain the expanded stored report
+and response input for separate assessment. No extra model call is needed for
+this boundary.
 
-The published `7ce38cb` checkpoint passes both hosted Linux release/browser and
-Windows test gates, including the scoped-input and mobile corrections. This is
-source validation; the newer recorded-decline and linked-context work require their
-own checks.
+The published `861c2a7` checkpoint passes both hosted Linux release/browser and
+Windows test gates, including recorded declines, scoped inputs, shared digest
+surfaces and linked conversation context. This is source validation; the newer
+model-policy and conversation-layout corrections require their own checks.
 
 The app21 screenshot review passed all six response/mobile criteria, including
 unobscured decisions and the true top-to-bottom form. Its overall verdict remains
 **needs changes** because the creator's Model choice omits model identity or
 routing policy, and named captures duplicated positions. Fable is defining the
 smallest truthful model/policy display; runtime-selected identity must not be
-guessed from the chat model picker. The current UI checkpoint uses the same
+guessed from the chat model picker. The implementation now exposes fixed,
+catalog-selected, unknown and unavailable policy metadata without invoking a
+model or exposing connection details. Creation describes the configured policy;
+recorded steps show only identity actually saved in their output. Registered tools
+are grouped by their existing read/write metadata, and agent choices retain their
+existing explicit tool grants. Sixty-two affected backend cases and the initial
+fifteen affected UI journeys pass. The coherent increment passes all 162 browser
+journeys plus format, lint, build and documentation checks; hosted validation of
+this increment remains pending.
+The current published UI checkpoint uses the same
 digest in directory/chip/search surfaces and presents existing linked work above
 a continued conversation. Current, error-free workflow decisions offer Respond;
 coding decisions offer Review details; historical, missing and stale summaries
 lead to inspection. The real linked pending-run prerequisite is recorded, with
-new live captures and independent grading pending.
+new live captures retained. Independent Fable grading passes linked state and
+action scope but returns **needs changes** for ambiguous Idle/Active labels,
+linked cards crowding out the conversation, and a constrained mobile review
+question. Its follow-up contract uses “No reply in progress” and “Currently open,”
+natural question height, one prominent actionable linked item and an expandable
+list of the remaining items. These corrections are implemented, with
+fresh real-data captures and independent grading pending. A controlled unchanged refresh
+also demonstrated Respond losing focus; identical linked markup now retains its
+nodes. A separate controlled refresh reproduced Continue being ignored while
+the conversation controller was busy. The implemented correction waits for the existing
+readiness guard and observes the selected conversation. Fourteen affected browser
+journeys and TypeScript pass, including natural question scrolling, retained
+disclosure state/focus, composer reachability and busy-controller Continue delivery.
+Final coherent-source gates pass. App23's first read-only walkthrough retains
+32 real-data desktop/mobile captures with matching runtime hashes, both saved
+runs unchanged and no writes or provider calls. Fresh Fable grading remains
+pending. The separate expanded-report review returns **needs changes** because a
+short report is clipped just before its verification limit without an evident
+overflow cue. Its smallest correction is being specified before implementation.
+Neither reproduction
+establishes the cause of the earlier failed live capture; those failures remain
+preserved.
 
 **Next Fable-designed increment — describe work as steps:** replace the JSON seed
 behind New workflow with a create-only form for a name, goal and ordered steps.

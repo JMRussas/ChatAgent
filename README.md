@@ -31,6 +31,19 @@ completion criteria to a configured native executor. The Plans panel's **New age
 task** form creates that step without editing JSON. Its activity shows actual tool
 calls and results; missing context or tool access pauses for a visible response.
 
+The creator describes the configured workflow model policy: a fixed provider/model,
+selection from the catalog at execution, unavailable execution, or an unknown
+identity for a custom adapter. `list_actions` exposes this as `model` metadata;
+discovery never invokes the provider. The chat model picker does not select the
+workflow model. Recorded steps show provider/model only when their saved output
+contains that identity. Agent tool choices remain explicit grants; discovering a
+tool does not authorize its use.
+
+Continuing a conversation shows its most actionable linked work item, with other
+items available in an expandable list. “Currently open” describes the displayed
+thread; “No reply in progress” describes its recorded reply state. Reviewing linked
+work does not submit a response or execute a plan.
+
 To enable workflow execution, configure the Hekate PlanStore API and an optional default project:
 
 ```dotenv

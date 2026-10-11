@@ -185,6 +185,43 @@ describe("Hekate workflow storage over its HTTP contract", () => {
     );
   });
 
+  it("passes a declared model policy through the public workflow application factory without a model call or plan write", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "workflow-model-policy-"));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test address");
+    const model = vi.fn(async () => ({ text: "No generation during discovery" }));
+    const application = createWorkflowApplication({
+      apiUrl: `http://127.0.0.1:${address.port}`,
+      projectId,
+      runDir: directory,
+      model,
+      modelPolicy: { mode: "fixed", provider: "test", model: "configured-fast" }
+    });
+    try {
+      const result = await application.call(
+        "list_actions",
+        {},
+        {
+          principal: {
+            principalId: "local:policy-reader",
+            roles: new Set(["operator"]),
+            via: "bearer"
+          },
+          operationId: randomUUID()
+        }
+      );
+      expect(result).toMatchObject({
+        modelAvailable: true,
+        model: { mode: "fixed", provider: "test", model: "configured-fast" }
+      });
+      expect(model).not.toHaveBeenCalled();
+      expect(writes).toEqual([]);
+    } finally {
+      await application.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("lazily exposes owner-scoped workspace reads through the public factory and a real native MCP gateway", async () => {
     const directory = await mkdtemp(join(tmpdir(), "native-workspace-factory-"));
     let workspace: WorkspaceService | undefined;

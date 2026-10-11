@@ -77,41 +77,90 @@ function createWorkflowBuilder(options) {
       return id;
     });
   }
+  function modelPolicy() {
+    if (!payload.modelAvailable) return { mode: "unconfigured" };
+    var policy = payload.model;
+    if (policy && policy.mode === "catalog") return policy;
+    if (
+      policy &&
+      policy.mode === "fixed" &&
+      typeof policy.provider === "string" &&
+      policy.provider.trim() &&
+      typeof policy.model === "string" &&
+      policy.model.trim()
+    )
+      return policy;
+    return { mode: "unknown" };
+  }
+  function modelLabel() {
+    var policy = modelPolicy();
+    return policy.mode === "fixed"
+      ? "Model · " + policy.model + " (" + policy.provider + ")"
+      : policy.mode === "catalog"
+        ? "Model · chosen per run from catalog"
+        : policy.mode === "unknown"
+          ? "Model · configured, identity not reported"
+          : "Model · No model is configured";
+  }
+  function modelNote() {
+    var mode = modelPolicy().mode;
+    return mode === "fixed"
+      ? "Runs on the server's configured model. The model selected in chat does not apply."
+      : mode === "catalog"
+        ? "The server picks an eligible catalog model when the step runs. The chosen model is recorded in the step output."
+        : mode === "unknown"
+          ? "Identity is not reported before the run; see the step output afterwards."
+          : "No model is configured for workflow steps.";
+  }
   function actors(row) {
     var select = field(row, "actor"),
       previous = select.value;
     select.replaceChildren();
-    function choice(value, label, disabled) {
-      var option = node(select, "option", label);
+    function choice(value, label, disabled, parent) {
+      var option = node(parent || select, "option", label);
       option.value = value;
       option.disabled = !!disabled;
     }
     choice("human", "You");
-    choice(
-      "model",
-      payload.modelAvailable ? "Model" : "Model · No model is configured",
-      !payload.modelAvailable
-    );
+    choice("model", modelLabel(), !payload.modelAvailable);
     payload.executors.forEach(function (executor) {
       var id = typeof executor === "string" ? executor : executor.id;
       choice("agent:" + id, "Agent · " + id);
     });
-    payload.actions.forEach(function (action) {
-      choice("tool:" + action.name, "Tool " + action.name);
-    });
+    if (payload.actions.length) {
+      var direct = node(select, "optgroup");
+      direct.label = "Configured API actions, run directly as a step";
+      payload.actions.forEach(function (action) {
+        choice("tool:" + action.name, "Tool " + action.name, false, direct);
+      });
+    }
     select.value = Array.from(select.options).some(function (option) {
       return option.value === previous && !option.disabled;
     })
       ? previous
       : "human";
-    var tools = field(row, "tools");
+    var tools = field(row, "tools"),
+      checked = new Set(
+        Array.from(tools.querySelectorAll("input:checked")).map(function (box) {
+          return box.value;
+        })
+      );
     tools.replaceChildren();
-    (payload.taskTools || payload.actions).forEach(function (action) {
-      var label = node(tools, "label"),
-        box = node(label, "input");
-      box.type = "checkbox";
-      box.value = action.name;
-      node(label, "span", action.name + " — " + action.description);
+    [true, false].forEach(function (readOnly) {
+      var group = node(tools, "section");
+      node(group, "h5", readOnly ? "Reads only" : "Can create or change plans and workspace");
+      var actions = (payload.taskTools || payload.actions).filter(function (action) {
+        return (action.readOnly === true) === readOnly;
+      });
+      if (!actions.length) node(group, "p", "No tools in this group.");
+      actions.forEach(function (action) {
+        var label = node(group, "label"),
+          box = node(label, "input");
+        box.type = "checkbox";
+        box.value = action.name;
+        box.checked = checked.has(action.name);
+        node(label, "span", action.name + " — " + action.description);
+      });
     });
   }
   function actorView(row, index) {
@@ -125,6 +174,8 @@ function createWorkflowBuilder(options) {
         : "Instructions";
     field(row, "whatGroup").hidden = tool;
     field(row, "agentDetails").hidden = !agent;
+    field(row, "modelNote").hidden = actor !== "model";
+    field(row, "modelNote").textContent = modelNote();
     field(row, "toolGroup").hidden = !tool;
     field(row, "previousGroup").hidden = tool || index === 0;
     field(row, "approvalGroup").hidden = actor !== "human";
@@ -354,11 +405,17 @@ function createWorkflowBuilder(options) {
     whatGroup.dataset.field = "whatGroup";
     var what = input(whatGroup, row, "what", "Instructions", "textarea", 4000);
     what.previousElementSibling.dataset.field = "whatLabel";
+    node(row, "p").dataset.field = "modelNote";
     var agent = node(row, "details");
     agent.dataset.field = "agentDetails";
     node(agent, "summary", "Agent details");
     var toolChoices = node(agent, "fieldset");
     node(toolChoices, "legend", "Tools this agent may use");
+    node(
+      toolChoices,
+      "p",
+      "Checked tools are granted when the run starts. During the run the agent can ask you for any other listed tool, and you approve or decline each request."
+    );
     node(toolChoices, "div").dataset.field = "tools";
     input(agent, row, "criteria", "Completion criteria (one per line)", "textarea");
     var turns = input(agent, row, "turns", "Maximum agent turns");
@@ -376,7 +433,7 @@ function createWorkflowBuilder(options) {
     node(
       toolGroup,
       "p",
-      "The schema describes accepted inputs. They are checked when the step runs, not when the plan is saved."
+      "This step calls the configured API action directly. Inputs are checked when the step runs, not when the plan is saved. Plan and workspace tools are not direct steps. An agent step can use them."
     );
     node(toolGroup, "p").dataset.field = "hint";
     var previous = node(row, "div");
@@ -392,10 +449,7 @@ function createWorkflowBuilder(options) {
         if (event.target.checked) {
           field(row, "path").value = "approved";
           field(row, "equals").value = "true";
-        } else if (
-          field(row, "path").value === "approved" &&
-          field(row, "equals").value === "true"
-        ) {
+        } else if (field(row, "path").value === "approved" && field(row, "equals").value === "true") {
           field(row, "path").value = "";
           field(row, "equals").value = "";
         }

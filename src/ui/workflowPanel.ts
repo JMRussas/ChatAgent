@@ -23,7 +23,7 @@ export function workflowPanelHtml(): string {
         <label for="workflowAgentReferenceLabel">Reference label</label><input id="workflowAgentReferenceLabel" maxlength="200" />
         <label for="workflowAgentReferenceContent">Reference content</label><textarea id="workflowAgentReferenceContent" maxlength="16000"></textarea>
       </details>
-      <fieldset><legend>Tools this agent may use</legend><div id="workflowAgentTools"></div></fieldset>
+      <fieldset><legend>Tools this agent may use</legend><p>Checked tools are granted when the run starts. During the run the agent can ask you for any other listed tool, and you approve or decline each request.</p><div id="workflowAgentTools"></div></fieldset>
       <label for="workflowAgentCriteria">Completion criteria (one per line)</label><textarea id="workflowAgentCriteria" required></textarea>
       <label for="workflowAgentMaxTurns">Maximum agent turns</label><input id="workflowAgentMaxTurns" type="number" min="1" max="30" value="12" required />
       <button type="submit" id="workflowAgentCreate">Create agent task</button>
@@ -854,15 +854,36 @@ export function workflowPanelScript(): string {
       var option = add(el('AgentExecutor'), 'option', id); option.value = id;
     });
     el('AgentTools').replaceChildren();
-    (result.taskTools || result.actions).forEach(function (action) {
-      actionDescriptions.set(action.name, action.description);
-      var label = add(el('AgentTools'), 'label');
-      label.style.cssText = 'display:flex;align-items:center;text-transform:none;letter-spacing:normal';
-      var checkbox = add(label, 'input'); checkbox.type = 'checkbox'; checkbox.value = action.name;
-      add(label, 'span', action.name + ' — ' + action.description);
+    [true, false].forEach(function (readOnly) {
+      var group = add(el("AgentTools"), "section");
+      add(group, "h4", readOnly ? "Reads only" : "Can create or change plans and workspace");
+      var actions = (result.taskTools || result.actions).filter(function (action) {
+        return (action.readOnly === true) === readOnly;
+      });
+      if (!actions.length) add(group, "p", "No tools in this group.");
+      actions.forEach(function (action) {
+        actionDescriptions.set(action.name, action.description);
+        var label = add(group, "label");
+        label.style.cssText =
+          "display:flex;align-items:center;text-transform:none;letter-spacing:normal";
+        var checkbox = add(label, "input");
+        checkbox.type = "checkbox";
+        checkbox.value = action.name;
+        add(label, "span", action.name + " — " + action.description);
+      });
     });
-    el('Actions').textContent = 'Available tool actions: ' + (result.actions.map(function (action) { return action.name; }).join(', ') || 'none') +
-      '. Model execution: ' + (result.modelAvailable ? 'configured.' : 'not configured.');
+    el("Actions").textContent =
+      "Direct step actions: " +
+      (result.actions
+        .map(function (action) {
+          return action.name;
+        })
+        .join(", ") || "none") +
+      ". Model execution: " +
+      (result.modelAvailable ? "configured" : "not configured") +
+      ". Agent steps can be granted " +
+      (result.taskTools || result.actions).length +
+      " shared tools.";
     await listPlans();
     note('Choose a saved plan or create one.');
   });

@@ -149,6 +149,59 @@ describe("WorkflowService", () => {
     services.push(service);
     return service;
   };
+
+  it.each([
+    {
+      name: "unconfigured",
+      configured: false,
+      policy: {
+        mode: "fixed",
+        provider: "ollama",
+        model: "qwen3:8b",
+        connectionId: "PRIVATE_CONNECTION"
+      },
+      expected: { mode: "unconfigured" }
+    },
+    { name: "unknown", configured: true, policy: undefined, expected: { mode: "unknown" } },
+    {
+      name: "fixed",
+      configured: true,
+      policy: {
+        mode: "fixed",
+        provider: "ollama",
+        model: "qwen3:8b",
+        connectionId: "PRIVATE_CONNECTION"
+      },
+      expected: { mode: "fixed", provider: "ollama", model: "qwen3:8b" }
+    },
+    {
+      name: "catalog",
+      configured: true,
+      policy: {
+        mode: "catalog",
+        provider: "IGNORED_PROVIDER",
+        model: "IGNORED_MODEL",
+        connectionId: "PRIVATE_CONNECTION"
+      },
+      expected: { mode: "catalog" }
+    }
+  ] as const)(
+    "reports $name workflow model policy without invoking a provider or exposing connection metadata",
+    async ({ configured, policy, expected }) => {
+      const model = vi.fn(async () => ({ text: "Should not run for discovery" }));
+      const service = make({ model: configured ? model : undefined, modelPolicy: policy });
+      const result = (await service.call("list_actions", {}, ctx())) as {
+        modelAvailable: boolean;
+        model: Record<string, unknown>;
+      };
+      expect(result.modelAvailable).toBe(configured);
+      expect(result.model).toEqual(expected);
+      expect(JSON.stringify(result)).not.toContain("PRIVATE_CONNECTION");
+      expect(JSON.stringify(result.model)).not.toContain("IGNORED_");
+      expect(model).not.toHaveBeenCalled();
+      expect(store.calls).toBe(0);
+    }
+  );
   const plan = async (service: WorkflowService, steps: unknown[]) =>
     (await service.call("create_plan", { definition: def(steps) }, ctx())) as StoredWorkflowPlan;
   const getRun = async (service: WorkflowService, id: string) =>

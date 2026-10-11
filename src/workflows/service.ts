@@ -23,6 +23,8 @@ const uuid = z.string().uuid();
 const stepId = z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/);
 
 type Model = (prompt: string, inputs: unknown, context: WorkflowContext) => Promise<unknown>;
+export type WorkflowModelPolicy =
+  { mode: "fixed"; provider: string; model: string } | { mode: "catalog" };
 type BackgroundContext = Omit<WorkflowContext, "signal">;
 interface Active {
   run: WorkflowRun;
@@ -223,6 +225,7 @@ export class WorkflowService {
   private readonly runs: WorkflowRunStore;
   private readonly actions = new Map<string, WorkflowAction>();
   private readonly model?: Model;
+  private readonly modelPolicy?: WorkflowModelPolicy;
   private readonly executors = new Map<string, TaskExecutor>();
   private readonly taskTools: () => readonly WorkflowTool[];
   private readonly callTaskTool: (
@@ -239,6 +242,7 @@ export class WorkflowService {
     options: {
       actions?: WorkflowAction[];
       model?: Model;
+      modelPolicy?: WorkflowModelPolicy;
       executors?: TaskExecutor[];
       taskTools?: () => readonly WorkflowTool[];
       callTaskTool?: (name: string, input: unknown, context: WorkflowContext) => Promise<unknown>;
@@ -247,6 +251,16 @@ export class WorkflowService {
     this.runs = new WorkflowRunStore(runDir);
     for (const action of options.actions ?? []) this.actions.set(action.name, action);
     this.model = options.model;
+    this.modelPolicy =
+      options.modelPolicy?.mode === "fixed"
+        ? {
+            mode: "fixed",
+            provider: options.modelPolicy.provider,
+            model: options.modelPolicy.model
+          }
+        : options.modelPolicy?.mode === "catalog"
+          ? { mode: "catalog" }
+          : undefined;
     for (const executor of options.executors ?? []) {
       if (this.executors.has(executor.id))
         throw new WorkflowError("executor_conflict", "Task executor IDs must be unique.");
@@ -343,6 +357,11 @@ export class WorkflowService {
             inputSchema
           })),
           modelAvailable: this.model !== undefined,
+          model: !this.model
+            ? { mode: "unconfigured" }
+            : this.modelPolicy
+              ? { ...this.modelPolicy }
+              : { mode: "unknown" },
           taskTools: this.taskTools().filter((tool) => tool.name !== "stop_run"),
           executors: [...this.executors.keys()]
         };

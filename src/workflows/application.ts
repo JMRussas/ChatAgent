@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { TaskExecutor } from "../tasks/types";
 import { SafeCapabilityError, type CapabilityTool } from "../app/capabilityChat";
 import type { UserMessage } from "../domain/types";
-import { WorkflowService } from "./service";
+import { WorkflowService, type WorkflowModelPolicy } from "./service";
 import { HekateWorkflowStore } from "./hekateStore";
 import { digestReturnedRun, formatWorkDigest, workDigestSchema } from "../workspace/workDigest";
 import { formatWorkList, listWorkSchema } from "../workspace/listWork";
@@ -223,6 +223,7 @@ export function createWorkflowApplication(options: {
   runDir: string;
   endpoints?: string;
   model?: (prompt: string, inputs: unknown, context: WorkflowContext) => Promise<unknown>;
+  modelPolicy?: WorkflowModelPolicy;
   executors?: TaskExecutor[];
   taskTools?: () => WorkflowToolService | undefined;
 }) {
@@ -234,6 +235,7 @@ export function createWorkflowApplication(options: {
     {
       actions,
       model: options.model,
+      modelPolicy: options.modelPolicy,
       executors: options.executors,
       taskTools: () => (options.taskTools?.() ?? application).tools,
       callTaskTool: (name, input, context) =>

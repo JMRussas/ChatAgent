@@ -1509,6 +1509,17 @@ const WORKSPACE_DOCUMENT = String.raw`
       .chip-text .linked-summary {
         margin: 7px 0;
       }
+      #conversationLinkedMore > summary {
+        font-size: 12px;
+        color: #335eea;
+        padding: 7px 0;
+        cursor: pointer;
+      }
+      #conversationLinkedRemaining {
+        display: grid;
+        gap: 8px;
+        padding-top: 6px;
+      }
       .legacy-controls-scope #selectedConversationContext {
         display: none;
       }
@@ -1597,8 +1608,6 @@ const WORKSPACE_DOCUMENT = String.raw`
         font-weight: 600;
         line-height: 1.5;
         margin: 0 0 14px;
-        max-height: 140px;
-        overflow: auto;
         overflow-wrap: anywhere;
         white-space: pre-wrap;
       }
@@ -1858,7 +1867,7 @@ const WORKSPACE_DOCUMENT = String.raw`
         flex-direction: column;
         min-height: 0;
         max-height: 780px;
-        overflow: hidden;
+        overflow: auto;
       }
       .legacy-controls-scope .panel-header {
         background: #fff;
@@ -2302,7 +2311,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               ? "Expired"
               : item.status === "needs_attention"
                 ? "Needs attention"
-                : "Idle";
+                : "No reply in progress";
         }
         function projectName(id) {
           if (!id) return "General";
@@ -2873,6 +2882,16 @@ const WORKSPACE_DOCUMENT = String.raw`
             bindDetail(item);
           }
         }
+        function recordedModel(output) {
+          const model = output && typeof output === "object" ? output.model : null;
+          return model &&
+            typeof model.provider === "string" &&
+            model.provider.trim() &&
+            typeof model.model === "string" &&
+            model.model.trim()
+            ? model.provider + " " + model.model
+            : "identity not recorded";
+        }
         function renderDetail() {
           const item = snapshot?.work.find((entry) => entry.id === selected);
           if (!item || !loadedDetail) return;
@@ -3004,7 +3023,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                   const actor =
                     step.action.tool ||
                     step.action.executor ||
-                    (step.action.type === "human" ? "Human" : "Configured model");
+                    (step.action.type === "human" ? "Human" : recordedModel(recorded?.output));
                   return (
                     '<button class="step ' +
                     (state === "waiting_input" ? "current" : "") +
@@ -3131,7 +3150,7 @@ const WORKSPACE_DOCUMENT = String.raw`
                     ? definition.action.tool
                     : definition.action.type === "human"
                       ? "Human review"
-                      : "Configured model"
+                      : "Model · " + recordedModel(execution?.output)
                 ) +
                 "</span><span>" +
                 icon("link") +
@@ -3171,9 +3190,17 @@ const WORKSPACE_DOCUMENT = String.raw`
         }
         function openConversation(item) {
           if (!item?.reopenable) return;
-          window.dispatchEvent(
-            new CustomEvent("workspace-open-conversation", { detail: { conversationId: item.id } })
-          );
+          return action(async () => {
+            await waitFor(() => $("workspaceNewConversation") && !$("workspaceNewConversation").disabled);
+            await outcome(
+              "workspace-conversation-selected",
+              (event) => event.detail?.conversationId === item.id,
+              () =>
+                window.dispatchEvent(
+                  new CustomEvent("workspace-open-conversation", { detail: { conversationId: item.id } })
+                )
+            );
+          });
         }
         function openCurrent(item, run = false, respond = false) {
           if (!item) return;
@@ -3256,15 +3283,21 @@ const WORKSPACE_DOCUMENT = String.raw`
           });
         }
         function linkedRows(conversationId) {
-          return (snapshot?.work || []).filter((row) => row.conversationId === conversationId);
+          const order = ["needs", "attention", "in_progress", "ready", "completed", "cancelled"];
+          return (snapshot?.work || [])
+            .filter((row) => row.conversationId === conversationId)
+            .sort((left, right) => {
+              const priority =
+                order.indexOf(bucket(digestOf(left).state)) - order.indexOf(bucket(digestOf(right).state));
+              return (
+                priority ||
+                (Date.parse(digestOf(right).run?.updatedAt) || 0) -
+                  (Date.parse(digestOf(left).run?.updatedAt) || 0)
+              );
+            });
         }
         function linkedHint(conversationId) {
-          const rows = linkedRows(conversationId).sort((left, right) => {
-            const order = ["needs", "attention", "in_progress", "ready", "completed", "cancelled"];
-            return (
-              order.indexOf(bucket(digestOf(left).state)) - order.indexOf(bucket(digestOf(right).state))
-            );
-          });
+          const rows = linkedRows(conversationId);
           if (!rows.length) return "";
           return (
             '<p class="conversation-work-hint">' +
@@ -3417,6 +3450,7 @@ const WORKSPACE_DOCUMENT = String.raw`
               icon("chat") +
               'Continue conversation</button></footer><p class="demo-note">Open this conversation to continue with the model and manage its work here.</p></div>';
             $("continueConversation").addEventListener("click", () => openConversation(item));
+            setActionButtons();
             $("conversationDetail")
               .querySelectorAll("[data-linked-plan]")
               .forEach((button) =>
@@ -3631,8 +3665,8 @@ const WORKSPACE_DOCUMENT = String.raw`
             respond: false
           };
         }
-        function linkedWorkHtml(conversationId) {
-          return linkedRows(conversationId)
+        function linkedWorkHtml(rows) {
+          return rows
             .map((row) => {
               const digest = digestOf(row),
                 control = linkedAction(row);
@@ -3658,6 +3692,26 @@ const WORKSPACE_DOCUMENT = String.raw`
             })
             .join("");
         }
+        function renderLinkedCards(container, rows) {
+          const markup = linkedWorkHtml(rows);
+          if (container.renderedMarkup === markup) return;
+          container.innerHTML = markup;
+          container.renderedMarkup = markup;
+          container.querySelectorAll("[data-live-plan]").forEach((button) =>
+            button.addEventListener("click", () => {
+              const row = snapshot?.work.find((entry) => entry.id === button.dataset.livePlan);
+              if (row) openCurrent(row, false, linkedAction(row).respond);
+            })
+          );
+        }
+        function updateLinkedSummary(details) {
+          const count = details.remainingCount || 0;
+          details.querySelector("summary").textContent =
+            (details.open ? "Hide " : "Show ") +
+            count +
+            (details.open ? " other linked work item" : " more linked work item") +
+            (count === 1 ? "" : "s");
+        }
         function mountChat() {
           if (!chat || !activeConversationId) return;
           ++conversationVersion;
@@ -3668,7 +3722,7 @@ const WORKSPACE_DOCUMENT = String.raw`
           if (sub)
             sub.textContent =
               projectName(activeConversationProject) +
-              " · Active conversation" +
+              " · Currently open" +
               (linked.length
                 ? " · " + linked.length + " linked work item" + (linked.length === 1 ? "" : "s")
                 : "");
@@ -3683,15 +3737,25 @@ const WORKSPACE_DOCUMENT = String.raw`
             links.id = "conversationLinkedWork";
             links.setAttribute("role", "region");
             links.setAttribute("aria-label", "Linked work");
+            const primary = document.createElement("div"),
+              more = document.createElement("details"),
+              summary = document.createElement("summary"),
+              remaining = document.createElement("div");
+            primary.id = "conversationLinkedPrimary";
+            more.id = "conversationLinkedMore";
+            remaining.id = "conversationLinkedRemaining";
+            more.append(summary, remaining);
+            more.addEventListener("toggle", () => updateLinkedSummary(more));
+            links.append(primary, more);
             chat.insertBefore(links, $("thread"));
           }
-          links.innerHTML = linkedWorkHtml(activeConversationId);
-          links.querySelectorAll("[data-live-plan]").forEach((button) =>
-            button.addEventListener("click", () => {
-              const row = snapshot?.work.find((entry) => entry.id === button.dataset.livePlan);
-              if (row) openCurrent(row, false, linkedAction(row).respond);
-            })
-          );
+          links.hidden = linked.length === 0;
+          const more = links.querySelector("details");
+          more.remainingCount = Math.max(0, linked.length - 1);
+          more.hidden = more.remainingCount === 0;
+          updateLinkedSummary(more);
+          renderLinkedCards(links.querySelector("#conversationLinkedPrimary"), linked.slice(0, 1));
+          renderLinkedCards(links.querySelector("#conversationLinkedRemaining"), linked.slice(1));
           chat.hidden = false;
         }
         let pendingCreatedPlanId = null;
@@ -3810,7 +3874,11 @@ const WORKSPACE_DOCUMENT = String.raw`
             "respondCurrent",
             "respondDecision"
           ].forEach((id) => {
-            if ($(id)) $(id).disabled = actionBusy;
+            if ($(id))
+              $(id).disabled =
+                actionBusy ||
+                (id === "continueConversation" &&
+                  !snapshot?.conversations.find((row) => row.id === selectedConversation)?.reopenable);
           });
           $("shellEditProject").disabled = actionBusy || project === "all";
         }

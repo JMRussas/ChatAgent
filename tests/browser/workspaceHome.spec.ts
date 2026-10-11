@@ -778,8 +778,10 @@ test("desktop selection stays visible after resizing to mobile and active histor
   await expect(page.locator("#conversationDetail .plan-chip small").first()).toHaveText(
     expectedBadge!
   );
-  await expect(page.locator("#conversationList")).toContainText("Idle");
-  await expect(page.locator("#conversationList .conversation-row > span")).toContainText("Idle");
+  await expect(page.locator("#conversationList")).toContainText("No reply in progress");
+  await expect(page.locator("#conversationList .conversation-row > span")).toContainText(
+    "No reply in progress"
+  );
   await expect(page.locator("#conversationList .conversation-row > span")).not.toContainText(
     "Ready to start"
   );
@@ -812,7 +814,7 @@ test("the decision detail reads the full prompt and opens the existing response 
   app
 }) => {
   const prompt =
-    "Review the reported repository, paths, and verification source. ".repeat(8) +
+    "Review the reported repository, paths, and verification source. ".repeat(24) +
     "Confirm the actual recorded evidence before responding.";
   const { seen } = await homeData(page, false, prompt);
   await app.pair(page);
@@ -823,6 +825,42 @@ test("the decision detail reads the full prompt and opens the existing response 
   await expect(page.getByRole("region", { name: "Pending decision" })).toContainText(prompt);
   await page.locator("#respondDecision").click();
   await expect(page.locator("#workflowHumanInstructions")).toHaveText(prompt);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const question = page.locator("#workflowHumanInstructions");
+  const full = await question.evaluate((element) => ({
+    height: element.clientHeight,
+    content: element.scrollHeight
+  }));
+  expect(full.content).toBeLessThanOrEqual(full.height);
+  await question.evaluate((element) => {
+    const text = element.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, Math.max(0, (text.textContent || "").length - 55));
+    range.setEnd(text, (text.textContent || "").length);
+    const dialog = element.closest("dialog")!;
+    dialog.scrollTop +=
+      range.getBoundingClientRect().bottom - dialog.getBoundingClientRect().bottom + 30;
+  });
+  const tail = await question.evaluate((element) => {
+    const text = element.firstChild!,
+      range = document.createRange();
+    range.setStart(text, Math.max(0, (text.textContent || "").length - 55));
+    range.setEnd(text, (text.textContent || "").length);
+    const bounds = range.getBoundingClientRect(),
+      dialog = element.closest("dialog")!;
+    return {
+      top: bounds.top,
+      bottom: bounds.bottom,
+      visibleTop: dialog.querySelector("header")!.getBoundingClientRect().bottom,
+      visibleBottom: Math.min(innerHeight, dialog.getBoundingClientRect().bottom),
+      questionScroll: element.scrollTop,
+      dialogScroll: dialog.scrollTop
+    };
+  });
+  expect(tail.top).toBeGreaterThanOrEqual(tail.visibleTop);
+  expect(tail.bottom).toBeLessThanOrEqual(tail.visibleBottom);
+  expect(tail.questionScroll).toBe(0);
+  expect(tail.dialogScroll).toBeGreaterThan(0);
   expect(seen.some((entry) => entry.name === "get_work_digest")).toBe(true);
   expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
 });
@@ -919,6 +957,70 @@ test.describe("coding decision inspection", () => {
   });
 });
 
+test("model detail uses recorded identity and never borrows a configured or historical identity", async ({
+  page,
+  app
+}) => {
+  const { state, plan } = await homeData(page);
+  state.modelAvailable = true;
+  plan.definition = workflowDefinitionSchema.parse({
+    ...plan.definition,
+    steps: [
+      {
+        ...plan.definition.steps[0],
+        action: { type: "model", prompt: "Summarize recorded inputs." }
+      },
+      plan.definition.steps[1]
+    ]
+  });
+  await page.route("**/workflows/tools/list_actions", (route) =>
+    route.fulfill({
+      json: {
+        actions: [],
+        executors: [],
+        modelAvailable: true,
+        model: { mode: "fixed", provider: "configured-provider", model: "configured-model" }
+      }
+    })
+  );
+  await app.pair(page);
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workspaceActionClose").click();
+  await page.locator("#workTab").click();
+  if (!state.run) throw Error("No controlled execution");
+  state.run.steps[0].output = {
+    text: "Actual recorded summary.",
+    model: { provider: "recorded-provider", model: "recorded-model" }
+  };
+  await page.locator("#refresh").click();
+  await page.locator('[data-step="0"]').click();
+  await expect(page.locator("#detail .context-line")).toContainText(
+    "recorded-provider recorded-model"
+  );
+  await expect(page.locator("#detail .context-line")).not.toContainText("configured-model");
+  for (const model of [
+    undefined,
+    { provider: 9, model: "invalid" },
+    { provider: "", model: "invalid" }
+  ]) {
+    state.run.steps[0].output = {
+      text: "Summary without a valid recorded identity.",
+      ...(model ? { model } : {})
+    };
+    await page.locator("#refresh").click();
+    await expect(page.locator("#detail .context-line")).toContainText("identity not recorded");
+  }
+  state.run.steps[0].output = {
+    text: "Older summary.",
+    model: { provider: "historical-provider", model: "historical-model" }
+  };
+  plan.revision = 2;
+  await page.locator("#refresh").click();
+  await expect(page.locator("#detail .context-line")).toContainText("identity not recorded");
+  await expect(page.locator("#detail .context-line")).not.toContainText("historical-model");
+});
+
 test("a summary that changed while reading cannot advertise a current decision or completed outcome", async ({
   page,
   app
@@ -980,7 +1082,7 @@ test("linked waiting work can be answered from its original conversation without
   ).toContainText("Linked: Report review");
   await expect(
     page.locator('#conversationList [data-conversation="' + THREAD + '"]')
-  ).toContainText("Idle");
+  ).toContainText("No reply in progress");
   await continueConversationIfPreview(page);
   await expect(page.locator("#conversationDetail .panel-header .sub")).toContainText(
     "Report project"
@@ -1027,6 +1129,202 @@ test("linked waiting work can be answered from its original conversation without
       conversation: THREAD
     })
   ]);
+});
+
+test("Continue waits for the existing workspace controller instead of losing a click during refresh", async ({
+  page,
+  app
+}) => {
+  const { seen } = await homeData(page);
+  await app.pair(page);
+  await page.locator("#conversationsTab").click();
+  await expect(page.locator("#continueConversation")).toBeVisible();
+  await expect(page.locator("#workspaceNewConversation")).toBeEnabled();
+  let release!: () => void;
+  const blockedRead = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/workspace/tools/get_workspace", async (route) => {
+    await blockedRead;
+    await route.fallback();
+  });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("workspace-work-changed")));
+  await expect(page.locator("#workspaceNewConversation")).toBeDisabled();
+  await page.locator("#continueConversation").click();
+  release();
+  await expect(page.locator("#conversationDetail .chat-shell")).toBeVisible();
+  await expect(page.locator("#conversationId")).toHaveValue(THREAD);
+  expect(
+    seen.some((entry) =>
+      ["create_conversation", "create_plan", "run_plan", "submit_step_result"].includes(entry.name)
+    )
+  ).toBe(false);
+  expect(app.pending.size).toBe(0);
+});
+
+test("linked work prioritizes decisions, preserves its disclosure, and leaves the composer reachable", async ({
+  page,
+  app
+}) => {
+  const { state, currentDigest, seen, conversations } = await homeData(page);
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await app.pair(page);
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workspaceActionClose").click();
+  const base = currentDigest();
+  const declined = {
+    ...base,
+    id: randomUUID(),
+    name: "Prior declined decision",
+    state: "needs_attention" as const,
+    stateText: "Not approved. The run ended at the recorded decision.",
+    decision: null,
+    run: {
+      ...base.run!,
+      id: randomUUID(),
+      status: "failed" as const,
+      current: false,
+      updatedAt: "2026-10-10T23:00:00Z"
+    }
+  };
+  state.extraWork = [
+    {
+      ...base,
+      id: randomUUID(),
+      name: "Older completed work",
+      state: "completed",
+      next: null,
+      decision: null,
+      run: {
+        ...base.run!,
+        id: randomUUID(),
+        status: "completed",
+        updatedAt: "2026-10-10T21:00:00Z"
+      }
+    },
+    {
+      ...base,
+      id: randomUUID(),
+      name: "Newer completed work",
+      state: "completed",
+      next: null,
+      decision: null,
+      run: {
+        ...base.run!,
+        id: randomUUID(),
+        status: "completed",
+        updatedAt: "2026-10-10T22:00:00Z"
+      }
+    },
+    declined
+  ];
+  state.extraWork.forEach((item) => {
+    state.extraLinks[item.id] = THREAD;
+  });
+  await page.locator("#refresh").click();
+  await page.locator("#conversationsTab").click();
+  await continueConversationIfPreview(page);
+  const primary = page.locator("#conversationLinkedPrimary"),
+    more = page.locator("#conversationLinkedMore");
+  await expect(primary.locator(".plan-chip")).toHaveCount(1);
+  await expect(primary).toContainText("Report review");
+  await expect(primary.getByRole("button", { name: "Respond", exact: true })).toHaveClass(
+    /primary/
+  );
+  await expect(more).toHaveJSProperty("open", false);
+  await expect(more.locator("summary")).toContainText("3 more");
+  await expect(page.locator("#conversationDetail .panel-header .sub")).toContainText(
+    "Currently open"
+  );
+  await expect(page.locator("#conversationDetail .panel-header .sub")).not.toContainText(
+    "Active conversation"
+  );
+  const prompt = page.locator("#prompt"),
+    send = page.locator("#sendButton");
+  await expect(prompt).toBeEnabled();
+  await prompt.fill("An unsent local question for this conversation.");
+  await expect(send).toBeEnabled();
+  const composerFits = () =>
+    page.locator("#conversationDetail .chat-shell").evaluate((shell) => {
+      const box = shell.getBoundingClientRect();
+      return ["prompt", "sendButton"].every((id) => {
+        const field = document.getElementById(id)!.getBoundingClientRect();
+        return (
+          field.top >= Math.max(0, box.top) &&
+          field.bottom <= Math.min(innerHeight, box.bottom) &&
+          field.left >= box.left &&
+          field.right <= box.right
+        );
+      });
+    });
+  await expect.poll(composerFits).toBe(true);
+  await more.locator("summary").click();
+  await expect(more).toHaveJSProperty("open", true);
+  await expect(more.locator("summary")).toContainText("3 other");
+  await expect(page.locator("#conversationLinkedRemaining .plan-chip strong")).toHaveText([
+    "Prior declined decision",
+    "Newer completed work",
+    "Older completed work"
+  ]);
+  await expect(more.getByRole("button", { name: "Respond", exact: true })).toHaveCount(0);
+  await expect(
+    more.getByRole("button", { name: "Review recorded result", exact: true })
+  ).toBeVisible();
+  await expect(more.getByRole("button", { name: "Open plan", exact: true })).toHaveCount(2);
+  await page.clock.install();
+  await page.clock.fastForward(60000);
+  const reads = seen.filter((entry) => entry.name === "get_workspace").length;
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("workspace-work-changed")));
+  await expect
+    .poll(() => seen.filter((entry) => entry.name === "get_workspace").length)
+    .toBeGreaterThan(reads);
+  await expect(page.locator("#refresh")).toBeEnabled();
+  await expect(more).toHaveJSProperty("open", true);
+  await expect(more.locator("summary")).toBeFocused();
+  await prompt.scrollIntoViewIfNeeded();
+  await expect.poll(composerFits).toBe(true);
+  await expect(prompt).toHaveValue("An unsent local question for this conversation.");
+  await expect(send).toBeEnabled();
+  await prompt.fill("");
+  conversations[0].status = "running";
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("workspace-work-changed")));
+  await expect(page.locator("#conversationList .conversation-row > span")).toContainText(
+    "Reply in progress"
+  );
+  expect(seen.filter((entry) => entry.name === "run_plan")).toHaveLength(1);
+  expect(seen.filter((entry) => entry.name === "submit_step_result")).toHaveLength(0);
+  expect(state.run?.status).toBe("waiting_input");
+  expect(app.pending.size).toBe(0);
+});
+
+test("an unchanged linked-work refresh preserves keyboard focus after resizing", async ({
+  page,
+  app
+}) => {
+  const { seen } = await homeData(page);
+  await app.pair(page);
+  await page.locator("#runCurrent").click();
+  await expect(page.locator("#workflowHumanForm")).toBeVisible();
+  await page.locator("#workspaceActionClose").click();
+  await page.locator("#conversationsTab").click();
+  await continueConversationIfPreview(page);
+  const respond = page
+    .getByRole("region", { name: "Linked work" })
+    .getByRole("button", { name: "Respond", exact: true });
+  await respond.focus();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(respond).toBeFocused();
+  const reads = seen.filter((call) => call.name === "get_workspace").length;
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("workspace-work-changed")));
+  await expect
+    .poll(() => seen.filter((call) => call.name === "get_workspace").length)
+    .toBeGreaterThan(reads);
+  await expect(page.locator("#refresh")).toBeEnabled();
+  await expect(page.locator("#workspaceActionStatus")).not.toContainText("failed");
+  await expect(respond).toBeFocused();
+  expect(seen.filter((call) => call.name === "run_plan")).toHaveLength(1);
+  expect(seen.filter((call) => call.name === "submit_step_result")).toHaveLength(0);
 });
 
 test("linked response actions fail closed for missing, historical, unreadable and stale summaries", async ({

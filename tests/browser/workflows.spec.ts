@@ -81,6 +81,16 @@ async function tools(page: Page, plans = [stored()]) {
             { name: "archive_report", description: "Save a report", inputSchema: {} }
           ],
           modelAvailable: true,
+          model: { mode: "unknown" },
+          taskTools: [
+            { name: "fetch_json", description: "Retrieve JSON", inputSchema: {}, readOnly: true },
+            {
+              name: "archive_report",
+              description: "Save a report",
+              inputSchema: {},
+              readOnly: false
+            }
+          ],
           executors: ["claude", "ollama"]
         };
         break;
@@ -337,6 +347,16 @@ test.describe("workflow controls", () => {
       await page
         .getByLabel("Reference content", { exact: true })
         .fill("The report describes shared workflow tools.");
+      await expect(
+        page
+          .locator("#workflowAgentTools")
+          .getByRole("heading", { name: "Reads only", exact: true })
+      ).toBeVisible();
+      await expect(
+        page
+          .locator("#workflowAgentTools")
+          .getByRole("heading", { name: "Can create or change plans and workspace", exact: true })
+      ).toBeVisible();
       await page.getByRole("checkbox", { name: "fetch_json — Retrieve JSON" }).check();
       await page
         .getByLabel("Completion criteria (one per line)")
@@ -504,6 +524,73 @@ test.describe("workflow controls", () => {
 
 test.describe("step creation", () => {
   test.use({ workflows: true });
+  for (const policy of [
+    { mode: "fixed", provider: "ollama", model: "workflow-fast" },
+    { mode: "catalog" },
+    { mode: "unknown" },
+    { mode: "unconfigured" }
+  ] as const) {
+    test(
+      "model creation reports " + policy.mode + " policy without changing the saved action",
+      async ({ page, app }) => {
+        const stub = await tools(page, []);
+        await page.route("**/workflows/tools/list_actions", (route) =>
+          route.fulfill({
+            json: {
+              actions: [{ name: "fetch_json", description: "Retrieve JSON", inputSchema: {} }],
+              taskTools: [],
+              executors: ["claude"],
+              modelAvailable: policy.mode !== "unconfigured",
+              model: policy
+            }
+          })
+        );
+        if (policy.mode === "fixed") await page.setViewportSize({ width: 390, height: 844 });
+        await app.pair(page);
+        await page.locator("#workflowNew").click();
+        const row = page.locator(".workflow-builder-step");
+        const actor = row.getByLabel("Who does it", { exact: true });
+        const option = actor.locator('option[value="model"]');
+        await expect(row.locator('[data-field="modelNote"]')).toBeHidden();
+        await expect(actor.locator('optgroup option[value="tool:fetch_json"]')).toHaveCount(1);
+        if (policy.mode === "unconfigured") {
+          await expect(option).toBeDisabled();
+          expect(stub.seen.some((call) => call.name === "create_plan")).toBe(false);
+          return;
+        }
+        await expect(option).toBeEnabled();
+        await actor.selectOption("model");
+        await expect(row.locator('[data-field="modelNote"]')).toBeVisible();
+        await expect(row.locator('[data-field="agentDetails"]')).toBeHidden();
+        if (policy.mode === "fixed") {
+          await expect(option).toContainText(policy.model);
+          await expect(option).toContainText(policy.provider);
+        } else if (policy.mode === "catalog") {
+          await expect(option).toContainText("catalog");
+          await expect(option).not.toContainText("workflow-fast");
+        } else await expect(option).toContainText("identity not reported");
+        await page.locator("#workflowBuilderName").fill("Summarize recorded results");
+        await row.getByLabel("Step name", { exact: true }).fill("Summarize");
+        await row.getByLabel("Prompt", { exact: true }).fill("Summarize the supplied inputs.");
+        await actor.selectOption("human");
+        await expect(row.locator('[data-field="modelNote"]')).toBeHidden();
+        await actor.selectOption("model");
+        await expect(row.getByLabel("Prompt", { exact: true })).toHaveValue(
+          "Summarize the supplied inputs."
+        );
+        await page.locator("#workflowBuilderSave").click();
+        await expect(page.locator("#workflowSavedState")).toContainText("Saved revision");
+        const definition = stub.seen.find((call) => call.name === "create_plan")!.input
+          .definition as WorkflowDefinition;
+        expect(definition.steps[0].action).toEqual({
+          type: "model",
+          prompt: "Summarize the supplied inputs."
+        });
+        expect(stub.seen.some((call) => call.name === "run_plan")).toBe(false);
+      }
+    );
+  }
+
   test("agent assignment and reordering retain task choices while deriving unique bounded step ids", async ({
     page,
     app
@@ -525,7 +612,16 @@ test.describe("step creation", () => {
       .nth(0)
       .getByLabel("Completion criteria (one per line)", { exact: true })
       .fill("Describe the source\nState the limits");
+    await expect(
+      rows.nth(0).getByRole("heading", { name: "Reads only", exact: true })
+    ).toBeVisible();
+    await expect(
+      rows
+        .nth(0)
+        .getByRole("heading", { name: "Can create or change plans and workspace", exact: true })
+    ).toBeVisible();
     await rows.nth(0).getByLabel("fetch_json — Retrieve JSON", { exact: true }).check();
+    await rows.nth(0).getByLabel("archive_report — Save a report", { exact: true }).check();
     await page.locator("#workflowBuilderAdd").click();
     await rows.nth(1).getByLabel("Step name", { exact: true }).fill(longName);
     await rows.nth(1).getByLabel("Instructions", { exact: true }).fill("Review the source.");
@@ -554,7 +650,7 @@ test.describe("step creation", () => {
       type: "agent",
       executor: "claude",
       task: {
-        tools: ["fetch_json"],
+        tools: ["fetch_json", "archive_report"],
         completionCriteria: ["Describe the source", "State the limits"],
         limits: { maxTurns: 12 }
       }
