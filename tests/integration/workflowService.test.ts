@@ -208,6 +208,23 @@ describe("WorkflowService", () => {
     (await service.call("get_run", { id }, ctx())) as WorkflowRun;
   const start = async (service: WorkflowService, p: StoredWorkflowPlan) =>
     (await service.call("run_plan", { id: p.id, revision: p.revision }, ctx())) as WorkflowRun;
+  const waitForRunHandoff = async (id: string) => {
+    const runs = new WorkflowRunStore(dir);
+    await until(
+      async () => {
+        let claim;
+        try {
+          claim = await runs.claim(id);
+        } catch (error) {
+          if (error instanceof WorkflowError && error.code === "run_busy") return false;
+          throw error;
+        }
+        await claim.release();
+        return true;
+      },
+      (released) => released
+    );
+  };
 
   const agentStep = (executor = "native", tools: string[] = []) => ({
     id: "task",
@@ -285,6 +302,8 @@ describe("WorkflowService", () => {
       (run) => run.status === "waiting_input" && run.steps[0]?.agent?.requests.length === 2
     );
     const toolRequest = toolWait.steps[0]!.agent!.requests[1]!;
+    // A saved waiting state can be read before the executor releases its exclusive claim.
+    await waitForRunHandoff(started.id);
     await expect(
       second.call(
         "respond_to_task_request",
@@ -318,6 +337,7 @@ describe("WorkflowService", () => {
       expect.objectContaining({ principal: expect.objectContaining({ principalId: "local:A" }) })
     );
     expect(review.steps[0]?.agent?.events.map((event) => event.type)).toContain("tool_finished");
+    await waitForRunHandoff(started.id);
     await second.call(
       "submit_step_result",
       { id: started.id, stepId: "review", output: { accepted: true } },
@@ -355,6 +375,7 @@ describe("WorkflowService", () => {
       () => getRun(service, started.id),
       (run) => run.status === "waiting_input"
     );
+    await waitForRunHandoff(started.id);
     await service.call(
       "respond_to_task_request",
       {
@@ -508,6 +529,7 @@ describe("WorkflowService", () => {
     expect(next).not.toHaveBeenCalled();
     const request = parked.steps[0]!.agent!.requests[0]!;
     expect(request).toMatchObject({ kind: "context", origin: "runtime", status: "pending" });
+    await waitForRunHandoff(started.id);
     await service.call(
       "respond_to_task_request",
       {
@@ -609,6 +631,7 @@ describe("WorkflowService", () => {
     expect(record).not.toHaveBeenCalled();
     expect(store.plans.get(p.id)?.work).toBe("in_progress");
 
+    await waitForRunHandoff(started.id);
     await service.call(
       "submit_step_result",
       { id: started.id, stepId: "approve", output: { decision: "yes" } },
@@ -950,6 +973,7 @@ describe("WorkflowService", () => {
         () => getRun(first, started.id),
         (run) => run.status === "waiting_input"
       );
+      await waitForRunHandoff(started.id);
       const output = { approved: false, ...(note === undefined ? {} : { note }) };
       const declined = await first.call(
         "submit_step_result",
@@ -985,6 +1009,7 @@ describe("WorkflowService", () => {
       );
       expect(before).toHaveBeenCalledTimes(2);
       expect(after).not.toHaveBeenCalled();
+      await waitForRunHandoff(fresh.id);
       await reopened.call(
         "submit_step_result",
         { id: fresh.id, stepId: "review", output: { approved: true } },
@@ -1011,6 +1036,7 @@ describe("WorkflowService", () => {
       () => getRun(service, run.id),
       (run) => run.status === "waiting_input"
     );
+    await waitForRunHandoff(run.id);
     await service.call(
       "submit_step_result",
       { id: run.id, stepId: "review", output: { approved: false, note: "An ordinary response" } },
@@ -1035,6 +1061,7 @@ describe("WorkflowService", () => {
       () => getRun(service, waiting.id),
       (run) => run.status === "waiting_input"
     );
+    await waitForRunHandoff(waiting.id);
     await expect(
       service.call(
         "submit_step_result",
@@ -1065,6 +1092,7 @@ describe("WorkflowService", () => {
         () => getRun(service, run.id),
         (run) => run.status === "waiting_input"
       );
+      await waitForRunHandoff(run.id);
       const write = WorkflowRunStore.prototype.write;
       const spy =
         failure === "write"
@@ -1116,6 +1144,7 @@ describe("WorkflowService", () => {
       () => getRun(service, run.id),
       (run) => run.status === "waiting_input"
     );
+    await waitForRunHandoff(run.id);
     store.plans.set(p.id, { ...store.plans.get(p.id)!, attemptId: randomUUID() });
     await expect(
       service.call(

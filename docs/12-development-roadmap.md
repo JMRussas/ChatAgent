@@ -82,6 +82,16 @@ browser mocks establish UI behavior, not backend semantics, provider quality or
 human comprehension. The actual declined-decision boundary is already proven;
 no additional live-provider replay is justified by this review.
 
+Hosted monitoring validation exposed a pre-existing test race: a saved waiting
+record can precede the executor's claim release. Agent-response and human-decision
+checks now wait for the public claim handoff before testing response validation
+or changing the fence. Exact errors and no-replay assertions are retained; runtime
+behavior is unchanged. `agent-claim-handoff-proof` deterministically holds the
+release, observes `run_busy`, then observes `request_not_pending` after handoff.
+The coherent audit passes all 37 workflow-service checks. Earlier failed checks,
+including a separate local pre-launch Windows rename `EPERM` whose cause remains
+unknown, are retained rather than overwritten as successes.
+
 **Implemented contracts:** the directory and live linked cards use the same factual
 digest. Current error-free workflow decisions offer Respond; historical, missing,
 unreadable and stale summaries lead to inspection. The home distinguishes
@@ -143,6 +153,13 @@ model quality or user acceptance; All projects was not visually graded. Fable's
 optional idle-status wording and raw-error presentation suggestions remain
 follow-ups. A direct home Stop action is also deferred. Reuse existing tools and
 guards for each increment; add no execution engine.
+
+**Next design recommendation:** `fable-next-workspace-design-v2` proposes a short
+“since the last read” line with at most three net work-state changes, reusing the
+existing snapshots and reads. It includes the monitor wording corrections and
+defers home Stop until a human walkthrough demonstrates the need. Benefits for a
+returning human or AI reader remain hypotheses. This is a proposed next increment,
+not implemented behavior; a human walkthrough and user acceptance remain separate.
 
 **Implemented workflow builder:** New workflow uses a create-only form for a name, goal and ordered steps.
 Each step chooses a human, model, configured agent or registered tool. The form
